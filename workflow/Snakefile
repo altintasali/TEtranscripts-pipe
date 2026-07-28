@@ -1,0 +1,34 @@
+from snakemake.utils import min_version
+
+min_version("8.0")
+
+
+configfile: "config/config.yaml"
+
+
+include: "rules/common.smk"
+include: "rules/ref.smk"
+include: "rules/align.smk"
+include: "rules/strandedness.smk"
+include: "rules/tetranscripts.smk"
+include: "rules/qc.smk"
+
+
+rule all:
+    input:
+        all_tecount_tables(),
+        all_diffexp_outputs(),
+        "results/qc/multiqc_report.html",
+
+
+rule star_index_only:
+    # Convenience target: just (re)build the STAR genome index.
+    input:
+        config["star"]["index"],
+
+
+rule strandedness_only:
+    # Convenience target: run just alignment + strandedness auto-detection,
+    # useful for sanity-checking a new sample sheet before quantification.
+    input:
+        expand("results/rseqc/{sample}/strandedness.txt", sample=SAMPLES),

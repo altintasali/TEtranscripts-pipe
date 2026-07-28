@@ -1,0 +1,71 @@
+$schema: "http://json-schema.org/draft-07/schema#"
+description: config.yaml properties
+type: object
+
+properties:
+  samples:
+    type: string
+  versions:
+    type: object
+    properties:
+      star: {type: string}
+      samtools: {type: string}
+      rseqc: {type: string}
+      multiqc: {type: string}
+      tetranscripts: {type: string}
+      deseq2: {type: string}
+      ucsc_gtftogenepred: {type: string}
+      ucsc_genepredtobed: {type: string}
+    required:
+      - star
+      - samtools
+      - rseqc
+      - multiqc
+      - tetranscripts
+      - deseq2
+      - ucsc_gtftogenepred
+      - ucsc_genepredtobed
+  ref:
+    type: object
+    properties:
+      fasta: {type: string}
+      gtf: {type: string}
+      te_gtf: {type: string}
+      sjdb_overhang: {type: integer}
+    required: [fasta, gtf, te_gtf, sjdb_overhang]
+  star:
+    type: object
+    properties:
+      index: {type: string}
+      extra: {type: string}
+    required: [index]
+  strandedness:
+    type: object
+    properties:
+      mode:
+        type: string
+        enum: ["auto", "no", "forward", "reverse"]
+      min_fraction:
+        type: number
+        minimum: 0
+        maximum: 1
+    required: [mode]
+  tetranscripts:
+    type: object
+    properties:
+      mode:
+        type: string
+        enum: ["multi", "uniq"]
+      padj: {type: number}
+      foldchange: {type: number}
+      minread: {type: integer}
+      extra: {type: string}
+    required: [mode]
+
+required:
+  - samples
+  - versions
+  - ref
+  - star
+  - strandedness
+  - tetranscripts

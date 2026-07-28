@@ -1,0 +1,93 @@
+# =============================================================================
+# Configuration for the STAR + RSeQC + TEtranscripts Snakemake workflow
+# =============================================================================
+
+# Path to the sample sheet (design file). See config/samples.csv for the
+# expected format and workflow/schemas/samples.schema.yaml for validation rules.
+samples: config/samples.csv
+
+# -----------------------------------------------------------------------------
+# Tool versions -- every tool is pinned independently, as an exact bioconda
+# package version string. Editing a version here and re-running is all
+# that's needed -- Snakemake/conda resolves and downloads the matching build
+# automatically (via `--sdm conda` / `--use-conda`), no manual install
+# required. At workflow parse time, common.smk renders each of these into
+# its own env file under workflow/envs/generated/.
+#
+# To match a specific external pipeline's tool versions (e.g. a particular
+# nf-core/rnaseq release), pull the exact numbers from that run's
+# pipeline_info/software_versions.yml (or the "Software Versions" section of
+# its MultiQC report) and paste them in below -- that file is the
+# authoritative source, since modern nf-core modules can resolve versions
+# dynamically from their containers rather than a single grep-able pin.
+# -----------------------------------------------------------------------------
+versions:
+  star: "2.7.11b"
+  samtools: "1.23.1"
+  rseqc: "5.0.4"
+  multiqc: "1.33"
+  tetranscripts: "2.2.4"
+  deseq2: "1.46.0"
+  ucsc_gtftogenepred: "487"
+  ucsc_genepredtobed: "487"
+
+ref:
+  # Genomic FASTA sequence (uncompressed or .gz), e.g. GRCh38 primary assembly
+  fasta: resources/genome.fa
+  # Gene annotation GTF (Ensembl/GENCODE), used for the STAR index, RSeQC BED12
+  # generation, and as the "--GTF" gene annotation for TEtranscripts/TEcount
+  gtf: resources/genome.gtf
+  # Curated TE GTF file from the TEtranscripts authors, REQUIRED.
+  # Download from https://www.mghlab.org/software/tetranscripts (choose the
+  # file matching your genome build), do NOT use a generic RepeatMasker GTF.
+  te_gtf: resources/te_annotation.gtf
+  # sjdbOverhang for STAR genome index = (read length - 1). 100 is a safe
+  # default for 2x101bp/2x100bp data; adjust to your actual read length.
+  sjdb_overhang: 100
+
+star:
+  # Directory that will hold (or already holds) the STAR genome index.
+  # If the index is missing, the workflow builds it automatically.
+  index: resources/star_index
+  # Extra STAR alignment parameters. The multi-mapper settings below follow
+  # the TEtranscripts authors' recommendations (winAnchorMultimapNmax should
+  # be >= outFilterMultimapNmax, and at least 50):
+  # https://github.com/mhammell-laboratory/TEtranscripts#recommendations-for-tetranscripts-input-files
+  extra: >-
+    --outFilterMultimapNmax 100
+    --winAnchorMultimapNmax 100
+    --outFilterType BySJout
+    --outFilterMultimapScoreRange 1
+    --sjdbScore 1
+
+strandedness:
+  # "auto" (recommended): infer strandedness per-sample from a subsample of
+  # reads using RSeQC infer_experiment.py, mapped to TEtranscripts/TEcount's
+  # --stranded {no,forward,reverse} options.
+  # Set to "no", "forward", or "reverse" to force the same value for every
+  # sample instead of auto-detecting (skips the RSeQC step).
+  mode: auto
+  # If the fraction of reads supporting the called strandedness is below this
+  # value, the library is called "no" (unstranded) rather than guessing.
+  min_fraction: 0.6
+
+tetranscripts:
+  # TE counting mode: "multi" distributes multi-mapping reads across all their
+  # alignments (recommended, and the TEtranscripts default), "uniq" only uses
+  # uniquely-mapping reads.
+  mode: multi
+  # FDR cutoff for differential-expression significance (TEtranscripts --padj)
+  padj: 0.05
+  # Absolute log2 fold-change cutoff (TEtranscripts --foldchange)
+  foldchange: 1
+  # Minimum read count cutoff (TEtranscripts --minread)
+  minread: 1
+  # Extra command-line arguments passed verbatim to TEtranscripts/TEcount
+  extra: ""
+
+# Differential gene/TE enrichment (TEtranscripts + DESeq2) is fully automatic:
+# if config/samples.csv has a "condition" column, the workflow generates one
+# TEtranscripts run for every pairwise combination of distinct condition
+# values (e.g. control/treatment/knockout -> 3 contrasts). If the "condition"
+# column is absent, differential analysis is skipped and the workflow stops
+# after per-sample TEcount quantification. Nothing to configure here.
