@@ -4,6 +4,8 @@ min_version("8.0")
 
 
 configfile: "config/config.yaml"
+configfile: "config/versions.yaml"
+configfile: "config/resources.yaml"
 
 
 include: "rules/common.smk"
@@ -28,7 +30,8 @@ rule star_index_only:
 
 
 rule strandedness_only:
-    # Convenience target: run just alignment + strandedness auto-detection,
-    # useful for sanity-checking a new sample sheet before quantification.
+    # Convenience target: run just alignment + strandedness auto-detection
+    # for samples that need it (effective mode "auto"), useful for
+    # sanity-checking a new sample sheet before quantification.
     input:
-        expand("results/rseqc/{sample}/strandedness.txt", sample=SAMPLES),
+        expand("results/rseqc/{sample}/strandedness.txt", sample=AUTO_SAMPLES),

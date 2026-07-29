@@ -1,0 +1,24 @@
+# =============================================================================
+# Snakemake workflow profile for SLURM clusters.
+# Usage:
+#   pip install snakemake-executor-plugin-slurm
+#   snakemake --workflow-profile profiles/slurm --sdm conda
+#
+# Per-rule threads/mem_mb/runtime come from config/resources.yaml (loaded by
+# workflow/Snakefile) and are what actually size each SLURM job; the
+# defaults below only apply to anything resources.yaml doesn't cover.
+# Adjust slurm_partition/slurm_account for your cluster before running.
+# =============================================================================
+executor: slurm
+jobs: 50
+software-deployment-method: conda
+default-resources:
+  slurm_partition: "normal"
+  slurm_account: "your_account"
+  mem_mb: 4000
+  runtime: 60
+restart-times: 2
+max-jobs-per-second: 1
+max-status-checks-per-second: 1
+latency-wait: 60
+local-cores: 4

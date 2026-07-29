@@ -1,5 +1,8 @@
 $schema: "http://json-schema.org/draft-07/schema#"
-description: config.yaml properties
+description: >-
+  Properties of the merged config dict (config/config.yaml +
+  config/versions.yaml, deep-merged by Snakemake's multiple `configfile:`
+  directives -- see workflow/Snakefile).
 type: object
 
 properties:
@@ -31,7 +34,8 @@ properties:
       fasta: {type: string}
       gtf: {type: string}
       te_gtf: {type: string}
-      sjdb_overhang: {type: integer}
+      sjdb_overhang:
+        type: [string, integer]
     required: [fasta, gtf, te_gtf, sjdb_overhang]
   star:
     type: object
@@ -41,15 +45,16 @@ properties:
     required: [index]
   strandedness:
     type: object
+    description: >-
+      Which mode each sample uses is set per-sample in samples.csv (see
+      samples.schema.yaml); this section only holds the shared
+      auto-detection confidence threshold.
     properties:
-      mode:
-        type: string
-        enum: ["auto", "no", "forward", "reverse"]
       min_fraction:
         type: number
         minimum: 0
         maximum: 1
-    required: [mode]
+    required: [min_fraction]
   tetranscripts:
     type: object
     properties:
@@ -61,6 +66,18 @@ properties:
       minread: {type: integer}
       extra: {type: string}
     required: [mode]
+
+  resources:
+    type: object
+    description: >-
+      Per-rule threads/mem_mb/runtime, loaded from config/resources.yaml.
+      Missing rules/keys fall back to conservative defaults in common.smk.
+    additionalProperties:
+      type: object
+      properties:
+        threads: {type: integer}
+        mem_mb: {type: integer}
+        runtime: {type: integer}
 
 required:
   - samples

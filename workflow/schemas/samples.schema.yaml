@@ -15,6 +15,14 @@ properties:
       path to read 2 fastq(.gz) file. Optional per-sample: leave empty for a
       single-end sample. A sample sheet can freely mix paired-end and
       single-end samples.
+  strandedness:
+    type: [string, "null"]
+    description: >-
+      Optional per-sample library strandedness override, using nf-core/
+      rnaseq's vocabulary so an nf-core samplesheet can be used directly:
+      "auto" (RSeQC auto-detection), "forward", "reverse", or "unstranded"
+      (TEtranscripts' "no" is also accepted). Leave empty to fall back to
+      strandedness.mode in config.yaml for that sample.
   condition:
     type: [string, "null"]
     description: >-

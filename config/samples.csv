@@ -1,5 +1,5 @@
-sample,fastq_1,fastq_2,condition
-sampleA_rep1,reads/sampleA_rep1_R1.fastq.gz,reads/sampleA_rep1_R2.fastq.gz,treatment
-sampleA_rep2,reads/sampleA_rep2_R1.fastq.gz,reads/sampleA_rep2_R2.fastq.gz,treatment
-sampleB_rep1,reads/sampleB_rep1_R1.fastq.gz,reads/sampleB_rep1_R2.fastq.gz,control
-sampleB_rep2,reads/sampleB_rep2_R1.fastq.gz,reads/sampleB_rep2_R2.fastq.gz,control
+sample,fastq_1,fastq_2,strandedness,condition
+sampleA_rep1,reads/sampleA_rep1_R1.fastq.gz,reads/sampleA_rep1_R2.fastq.gz,auto,treatment
+sampleA_rep2,reads/sampleA_rep2_R1.fastq.gz,reads/sampleA_rep2_R2.fastq.gz,auto,treatment
+sampleB_rep1,reads/sampleB_rep1_R1.fastq.gz,reads/sampleB_rep1_R2.fastq.gz,auto,control
+sampleB_rep2,reads/sampleB_rep2_R1.fastq.gz,reads/sampleB_rep2_R2.fastq.gz,auto,control

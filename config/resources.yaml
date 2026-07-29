@@ -1,0 +1,80 @@
+# =============================================================================
+# Per-rule compute resources -- threads (CPUs), memory (MB), and runtime
+# (minutes). Kept separate from config.yaml/versions.yaml so cluster/HPC
+# tuning (e.g. for SLURM, see the "HPC / SLURM" section of the README) is
+# one file to edit without touching analysis settings or tool versions.
+#
+# Every rule reads its entry here via get_resources("<rule_name>") in
+# common.smk; a rule missing from this file (or a missing key within an
+# entry) falls back to a small conservative default rather than failing.
+# Values below are reasonable starting points for a human genome / typical
+# bulk RNA-seq run -- adjust to your organism, read depth, and cluster.
+# =============================================================================
+resources:
+  gunzip_reference:
+    threads: 1
+    mem_mb: 2000
+    runtime: 30
+
+  star_index:
+    # Peak memory for STAR genome index generation scales with genome size;
+    # ~32-40GB is typical for a human/mouse-sized genome (SA index).
+    threads: 8
+    mem_mb: 40000
+    runtime: 180
+
+  gtf_to_genepred:
+    threads: 1
+    mem_mb: 2000
+    runtime: 30
+
+  genepred_to_bed12:
+    threads: 1
+    mem_mb: 2000
+    runtime: 30
+
+  star_align:
+    # STAR keeps the whole genome index in memory per job; ~4x the index's
+    # on-disk size is a safe estimate for human/mouse.
+    threads: 12
+    mem_mb: 48000
+    runtime: 240
+
+  samtools_sort:
+    threads: 8
+    mem_mb: 16000
+    runtime: 120
+
+  samtools_index:
+    threads: 4
+    mem_mb: 4000
+    runtime: 30
+
+  rseqc_infer_experiment:
+    threads: 1
+    mem_mb: 4000
+    runtime: 60
+
+  determine_strandedness:
+    threads: 1
+    mem_mb: 1000
+    runtime: 10
+
+  tecount:
+    # TEcount/TEtranscripts load the full TE + gene annotation into memory;
+    # ~20-30GB is typical for human at 20-30M mapped reads.
+    threads: 4
+    mem_mb: 32000
+    runtime: 240
+
+  tetranscripts_diffexp:
+    # Pools every treatment/control BAM in a contrast at once, so scales
+    # with both annotation size and total mapped reads across all samples.
+    threads: 4
+    mem_mb: 32000
+    runtime: 360
+
+  multiqc:
+    threads: 1
+    mem_mb: 4000
+    runtime: 30

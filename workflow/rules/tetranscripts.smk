@@ -4,8 +4,8 @@ rule tecount:
     # conda env generated from config["versions"] (see common.smk).
     input:
         bam="results/star/{sample}/Aligned.out.bam",
-        gtf=config["ref"]["gtf"],
-        te_gtf=config["ref"]["te_gtf"],
+        gtf=GTF,
+        te_gtf=TE_GTF,
         strandedness=strandedness_input,
     output:
         "results/tecount/{sample}/{sample}.cntTable",
@@ -14,6 +14,10 @@ rule tecount:
         mode=config["tetranscripts"]["mode"],
         extra=config["tetranscripts"]["extra"],
         outdir=lambda wc: f"results/tecount/{wc.sample}",
+    threads: get_resources("tecount")["threads"]
+    resources:
+        mem_mb=get_resources("tecount")["mem_mb"],
+        runtime=get_resources("tecount")["runtime"],
     log:
         "logs/tecount/{sample}.log",
     conda:
@@ -47,8 +51,8 @@ rule tetranscripts_diffexp:
             sample=CONTRASTS[wc.contrast]["control"],
         ),
         strandedness=contrast_strandedness_input,
-        gtf=config["ref"]["gtf"],
-        te_gtf=config["ref"]["te_gtf"],
+        gtf=GTF,
+        te_gtf=TE_GTF,
     output:
         cnt_table="results/tetranscripts/{contrast}/{contrast}.cntTable",
         deseq_script="results/tetranscripts/{contrast}/{contrast}_DESeq2.R",
@@ -62,6 +66,10 @@ rule tetranscripts_diffexp:
         minread=config["tetranscripts"]["minread"],
         extra=config["tetranscripts"]["extra"],
         outdir=lambda wc: f"results/tetranscripts/{wc.contrast}",
+    threads: get_resources("tetranscripts_diffexp")["threads"]
+    resources:
+        mem_mb=get_resources("tetranscripts_diffexp")["mem_mb"],
+        runtime=get_resources("tetranscripts_diffexp")["runtime"],
     log:
         "logs/tetranscripts/{contrast}.log",
     conda:

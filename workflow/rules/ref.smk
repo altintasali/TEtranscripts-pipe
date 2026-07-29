@@ -1,17 +1,43 @@
+rule gunzip_reference:
+    # Decompresses a gzipped reference file (fasta/gtf/te_gtf) so downstream
+    # tools that expect plain text (STAR's --genomeFastaFiles/--sjdbGTFfile,
+    # TEcount/TEtranscripts' --GTF/--TE) can consume it directly. Only
+    # triggered for whichever of fasta/gtf/te_gtf are actually given as
+    # .gz in config.yaml -- see REFERENCE_GZ_SOURCES in common.smk.
+    input:
+        lambda wc: REFERENCE_GZ_SOURCES[wc.stem],
+    output:
+        "resources/decompressed/{stem}",
+    threads: get_resources("gunzip_reference")["threads"]
+    resources:
+        mem_mb=get_resources("gunzip_reference")["mem_mb"],
+        runtime=get_resources("gunzip_reference")["runtime"],
+    log:
+        "logs/gunzip/{stem}.log",
+    shell:
+        "gunzip -c {input} > {output} 2> {log}"
+
+
 rule star_index:
     # Builds the STAR genome index once; reused by every sample's alignment.
+    # sjdbOverhang defaults to being auto-detected from the sample sheet's
+    # fastq read lengths (see SJDB_OVERHANG in common.smk) unless
+    # ref.sjdb_overhang is set to an explicit integer in config.yaml.
     # Uses the STAR version pinned in config["versions"]["star"] (see the
     # generated env in common.smk) rather than a snakemake-wrapper, so the
     # exact tool version is fully under your control.
     input:
-        fasta=config["ref"]["fasta"],
-        gtf=config["ref"]["gtf"],
+        fasta=FASTA,
+        gtf=GTF,
     output:
         directory(config["star"]["index"]),
     params:
-        sjdb_overhang=config["ref"]["sjdb_overhang"],
+        sjdb_overhang=SJDB_OVERHANG,
         extra="",
-    threads: 8
+    threads: get_resources("star_index")["threads"]
+    resources:
+        mem_mb=get_resources("star_index")["mem_mb"],
+        runtime=get_resources("star_index")["runtime"],
     log:
         "logs/star/index.log",
     conda:
@@ -32,9 +58,13 @@ rule gtf_to_genepred:
     # RSeQC's infer_experiment.py needs a BED12 reference model, not a GTF.
     # UCSC's gtfToGenePred + genePredToBed is the standard conversion route.
     input:
-        gtf=config["ref"]["gtf"],
+        gtf=GTF,
     output:
         genepred=temp("resources/annotation.genePred"),
+    threads: get_resources("gtf_to_genepred")["threads"]
+    resources:
+        mem_mb=get_resources("gtf_to_genepred")["mem_mb"],
+        runtime=get_resources("gtf_to_genepred")["runtime"],
     log:
         "logs/rseqc/gtf_to_genepred.log",
     conda:
@@ -49,6 +79,10 @@ rule genepred_to_bed12:
         genepred="resources/annotation.genePred",
     output:
         bed12="resources/annotation.bed12",
+    threads: get_resources("genepred_to_bed12")["threads"]
+    resources:
+        mem_mb=get_resources("genepred_to_bed12")["mem_mb"],
+        runtime=get_resources("genepred_to_bed12")["runtime"],
     log:
         "logs/rseqc/genepred_to_bed12.log",
     conda:

@@ -16,7 +16,10 @@ rule star_align:
         read_command=star_read_command_param,
         prefix=lambda wc: f"results/star/{wc.sample}/",
         extra=config["star"]["extra"],
-    threads: 12
+    threads: get_resources("star_align")["threads"]
+    resources:
+        mem_mb=get_resources("star_align")["mem_mb"],
+        runtime=get_resources("star_align")["runtime"],
     log:
         "logs/star/align/{sample}.log",
     conda:
@@ -43,7 +46,10 @@ rule samtools_sort:
         "results/star/{sample}/Aligned.sortedByCoord.out.bam",
     params:
         extra="-m 3G",
-    threads: 8
+    threads: get_resources("samtools_sort")["threads"]
+    resources:
+        mem_mb=get_resources("samtools_sort")["mem_mb"],
+        runtime=get_resources("samtools_sort")["runtime"],
     log:
         "logs/samtools/sort/{sample}.log",
     conda:
@@ -60,7 +66,10 @@ rule samtools_index:
         "results/star/{sample}/Aligned.sortedByCoord.out.bam.bai",
     params:
         extra="",
-    threads: 4
+    threads: get_resources("samtools_index")["threads"]
+    resources:
+        mem_mb=get_resources("samtools_index")["mem_mb"],
+        runtime=get_resources("samtools_index")["runtime"],
     log:
         "logs/samtools/index/{sample}.log",
     conda:

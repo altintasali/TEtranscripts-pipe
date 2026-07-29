@@ -1,0 +1,28 @@
+# =============================================================================
+# Tool versions -- kept separate from config.yaml so day-to-day analysis
+# settings stay short, and so you can pin/reuse one versions.yaml across
+# multiple analyses without touching it. Rarely needs editing.
+#
+# Every tool is pinned independently, as an exact bioconda package version
+# string. Editing a version here and re-running is all that's needed --
+# Snakemake/conda resolves and downloads the matching build automatically
+# (via `--sdm conda` / `--use-conda`), no manual install required. At
+# workflow parse time, common.smk renders each of these into its own env
+# file under workflow/envs/generated/.
+#
+# To match a specific external pipeline's tool versions (e.g. a particular
+# nf-core/rnaseq release), pull the exact numbers from that run's
+# pipeline_info/software_versions.yml (or the "Software Versions" section of
+# its MultiQC report) and paste them in below -- that file is the
+# authoritative source, since modern nf-core modules can resolve versions
+# dynamically from their containers rather than a single grep-able pin.
+# =============================================================================
+versions:
+  star: "2.7.11b"
+  samtools: "1.23.1"
+  rseqc: "5.0.4"
+  multiqc: "1.33"
+  tetranscripts: "2.2.4"
+  deseq2: "1.46.0"
+  ucsc_gtftogenepred: "487"
+  ucsc_genepredtobed: "487"
