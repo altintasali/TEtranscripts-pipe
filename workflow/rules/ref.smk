@@ -33,7 +33,7 @@ rule star_index:
         directory(config["star"]["index"]),
     params:
         sjdb_overhang=SJDB_OVERHANG,
-        extra="",
+        extra=config["star"].get("index_extra", ""),
     threads: get_resources("star_index")["threads"]
     resources:
         mem_mb=get_resources("star_index")["mem_mb"],

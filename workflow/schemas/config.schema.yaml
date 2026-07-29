@@ -41,6 +41,7 @@ properties:
     type: object
     properties:
       index: {type: string}
+      index_extra: {type: string}
       extra: {type: string}
     required: [index]
   strandedness:

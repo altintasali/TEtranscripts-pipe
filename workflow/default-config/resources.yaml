@@ -1,8 +1,13 @@
 # =============================================================================
-# Per-rule compute resources -- threads (CPUs), memory (MB), and runtime
-# (minutes). Kept separate from config.yaml/versions.yaml so cluster/HPC
-# tuning (e.g. for SLURM, see the "HPC / SLURM" section of the README) is
-# one file to edit without touching analysis settings or tool versions.
+# BUILT-IN DEFAULT per-rule compute resources -- threads (CPUs), memory
+# (MB), and runtime (minutes). Part of the workflow itself, loaded
+# automatically. You should NOT normally need to edit this file.
+#
+# To override one or more entries for your own cluster/dataset, create
+# config/resources.yaml containing just the rules/keys you want to change
+# (it's deep-merged on top of this file, so a partial override is fine, e.g.
+# just `resources: {star_align: {mem_mb: 64000}}`). See "HPC / SLURM" in the
+# README.
 #
 # Every rule reads its entry here via get_resources("<rule_name>") in
 # common.smk; a rule missing from this file (or a missing key within an

@@ -11,23 +11,96 @@ fastq --> STAR align --> [samtools sort/index --> RSeQC infer_experiment --> str
                                                                              --> MultiQC
 ```
 
-Configuration is split across three files, all loaded and deep-merged by
-`workflow/Snakefile`: `config/config.yaml` for day-to-day analysis settings
-(the one you actually edit per run), `config/versions.yaml` for tool/package
-versions (rarely needs touching), and `config/resources.yaml` for per-rule
-CPU/memory/runtime (only relevant for cluster/HPC tuning -- see "HPC /
-SLURM" below). Every tool version (STAR, samtools, RSeQC, MultiQC,
-TEtranscripts/TEcount, DESeq2, UCSC gtfToGenePred/genePredToBed) is pinned
-independently and rendered into its own conda environment automatically --
-see "Tool versions" below.
+Configuration follows nf-core's "sensible defaults, minimal user-facing
+config" philosophy. `workflow/default-config/{versions,resources}.yaml`
+ship built-in defaults as part of the workflow itself -- you never need to
+open them for a normal run. The only files you touch to run an analysis
+are `config/config.yaml` (ref paths, STAR/TEtranscripts settings) and
+`config/samples.csv` (the design file). If you ever do need to change a
+tool version or a rule's CPU/memory, create `config/versions.yaml` and/or
+`config/resources.yaml` yourself with just the keys you want to change --
+Snakemake deep-merges them on top of the built-in defaults, so partial
+overrides are fine. See "Tool versions" and "HPC / SLURM" below.
+
+Want to see it run before touching any real data? `snakemake --configfile
+config/test.yaml --sdm conda --cores 4` runs the whole thing end-to-end
+against a tiny bundled synthetic dataset in under a couple of minutes --
+see "Test profile" below.
 
 ## Setup
 
-1. Install Snakemake (>=8) via conda/mamba:
+1. Install Snakemake **and its Python dependencies** into one environment.
+   Pick the section below that matches your situation.
+
+   ### Recommended for everyone: conda/mamba
+   This works identically on macOS and Linux, and is what you need anyway
+   for `--sdm conda` to build the per-rule tool environments (STAR,
+   samtools, TEtranscripts, etc.) -- using it for the driving environment
+   too avoids mixing two separate package managers.
+
    ```
-   mamba create -c conda-forge -c bioconda -n snakemake snakemake
-   conda activate snakemake
+   mamba env create -f environment.yaml
+   conda activate tetranscripts-workflow
    ```
+   No conda/mamba yet? Install [Miniforge](https://github.com/conda-forge/miniforge)
+   (conda + mamba in one installer) -- on macOS that's also `brew install
+   miniforge` followed by `conda init "$(basename "${SHELL}")"` and
+   restarting your terminal.
+
+   Already have a Snakemake conda env and just want to add what's missing:
+   `mamba install -c conda-forge pandas pyyaml jsonschema` into it.
+
+   ### macOS via Homebrew (`brew install snakemake`)
+   Homebrew's `snakemake` formula installs into its own isolated
+   environment with a minimal dependency set (currently just `cbc`,
+   `certifi`, `libyaml`, `pydantic`, `python@3.14`, `rpds-py`) -- no
+   `pandas`, no `jsonschema`. That's exactly why you'd see
+   `ModuleNotFoundError: No module named 'pandas'` on
+   `workflow/rules/common.smk`: nothing is wrong with the workflow, brew's
+   install is just missing packages `common.smk` needs at parse time.
+   Two ways to fix it:
+   - **Switch to the conda/mamba setup above** (recommended) -- you need
+     conda/mamba on `PATH` regardless for `--sdm conda` to work at all, so
+     it's simpler to use one tool for everything.
+   - **Or keep Homebrew's snakemake** and add the missing packages directly
+     into its isolated venv:
+     ```
+     $(brew --prefix snakemake)/libexec/bin/pip install pandas pyyaml jsonschema
+     ```
+     This modifies files Homebrew doesn't track, so `brew upgrade
+     snakemake`/`brew reinstall snakemake` will wipe it and you'll need to
+     rerun that command.
+
+   Either way, `--sdm conda` still needs conda or mamba on `PATH` to build
+   the per-rule tool environments -- `brew install miniforge` provides that
+   without needing Miniforge as your primary Python.
+
+   ### HPC clusters / environment modules (e.g. SLURM)
+   Most clusters provide conda/mamba (and sometimes Snakemake itself) via
+   `module load` rather than a system-wide install:
+   ```
+   module avail conda miniconda mamba snakemake   # names vary by cluster
+   module load miniconda3                          # example -- use yours
+   mamba env create -f environment.yaml
+   conda activate tetranscripts-workflow
+   pip install snakemake-executor-plugin-slurm     # for --workflow-profile profiles/slurm
+   ```
+   A few HPC-specific things worth knowing:
+   - If your cluster offers `module load snakemake` directly, prefer
+     creating your own environment from `environment.yaml` instead -- a
+     module-provided Snakemake risks the same missing-`pandas`/`jsonschema`
+     problem as Homebrew's, for the same reason (built for Snakemake's own
+     needs, not this workflow's).
+   - Create the environment, and let `--sdm conda` build the per-rule
+     environments once, on a **login node with internet access** --
+     compute nodes on most clusters can't reach the internet to download
+     packages. The actual `--workflow-profile profiles/slurm` run only
+     needs those environments to already exist.
+   - If your cluster's default conda cache isn't on shared/scratch storage
+     readable by every compute node, point `--conda-prefix
+     /path/to/shared/writable/dir` at one that is, so SLURM jobs reuse the
+     same environments instead of each rebuilding its own copy.
+
 2. Get the workflow (clone this directory, or `snakedeploy` it if you push it
    to your own GitHub repo).
 3. Provide reference files and edit `config/config.yaml` (the minimum you
@@ -49,10 +122,12 @@ see "Tool versions" below.
      `samples.csv`, not here -- see below).
    - `tetranscripts.*`: TEcount/TEtranscripts options (mode, padj, foldchange...).
 
-   `config/versions.yaml` holds tool/package versions and rarely needs
-   editing -- see "Tool versions" below. `config/resources.yaml` holds
-   per-rule CPU/memory/runtime and only matters for cluster/HPC tuning --
-   see "HPC / SLURM" below.
+   `config/versions.yaml` and `config/resources.yaml` don't exist by
+   default and you don't need to create them -- built-in defaults for both
+   already ship in `workflow/default-config/`. Create either file yourself,
+   with just the keys you want to change, only if you need to pin a
+   different tool version ("Tool versions" below) or retune CPU/memory for
+   your cluster ("HPC / SLURM" below).
 4. Fill in `config/samples.csv` (the design file), columns **in this exact
    order** -- this matches the nf-core/rnaseq samplesheet layout, so an
    nf-core samplesheet can be used directly:
@@ -81,15 +156,44 @@ snakemake --sdm conda --cores 8 star_index_only      # just build the STAR index
 snakemake --sdm conda --cores 8 strandedness_only    # align + auto-detect strandedness only
 ```
 
+## Test profile
+
+`config/test.yaml` runs the whole workflow (STAR index/align, RSeQC
+auto-detection, TEcount, TEtranscripts diffexp, MultiQC) end-to-end against
+a tiny bundled synthetic dataset in `.tests/` -- a 10kb single-contig
+genome with one gene and one TE, 4 paired-end samples (2
+treatment/2 control), all generated deterministically by
+`.tests/generate_test_data.py`. No real genome/reads needed; useful for
+confirming your Snakemake/conda setup works, or as a smoke test after
+editing any rule:
+
+```
+snakemake --configfile config/test.yaml --sdm conda --cores 4 -n   # dry-run
+snakemake --configfile config/test.yaml --sdm conda --cores 4      # run
+```
+
+`config/test.yaml` is just another config layer -- passed on the command
+line, it's deep-merged on top of everything else (including your own
+`config/config.yaml`), so it only needs to override the handful of keys
+that differ for the toy dataset: `samples`/`ref.*` point at `.tests/`,
+`star.index_extra` sets `--genomeSAindexNbases 5` (STAR requires shrinking
+this for genomes well under its default ~2^30bp assumption), and
+`resources` shrinks every rule's CPU/memory for a quick laptop/CI run. To
+regenerate or resize the test data, edit and rerun
+`.tests/generate_test_data.py`.
+
 ## HPC / SLURM
 
-Every rule's threads, memory, and runtime come from `config/resources.yaml`
-(one entry per rule; see that file for the current defaults and per-rule
-notes on why they're sized that way), via a small `get_resources()` lookup
-in `common.smk` -- edit that one file to retune CPU/memory for your cluster
-or dataset size, no need to touch the rule files themselves. A rule left
-out of `resources.yaml` (or missing a key) falls back to a conservative
-`{threads: 1, mem_mb: 4000, runtime: 60}` default rather than failing.
+Every rule's threads, memory, and runtime come from
+`workflow/default-config/resources.yaml` (one entry per rule; see that
+file for the current defaults and per-rule notes on why they're sized that
+way), via a small `get_resources()` lookup in `common.smk`. To retune
+CPU/memory for your cluster or dataset size, create `config/resources.yaml`
+with just the rules/keys you want to change (it overrides the built-in
+defaults; see "Configuration" above) -- no need to touch the rule files
+themselves. A rule left out of both files (or missing a key) falls back to
+a conservative `{threads: 1, mem_mb: 4000, runtime: 60}` default rather
+than failing.
 
 To submit to a SLURM cluster, install the executor plugin and use the
 included workflow profile:
@@ -105,9 +209,9 @@ and fallback `default-resources` (partition/account/mem_mb/runtime) for
 anything not covered by `resources.yaml`. Edit `slurm_partition` and
 `slurm_account` in that file for your cluster before running. Each
 Snakemake job becomes one `sbatch` submission sized from its rule's
-`threads`/`mem_mb`/`runtime` (`config/resources.yaml`) -- e.g. `star_align`
-submits as a 12-CPU, 48GB, 4-hour job per sample, `tetranscripts_diffexp`
-as a 4-CPU, 32GB, 6-hour job per contrast, and so on.
+`threads`/`mem_mb`/`runtime` -- e.g. `star_align` submits as a 12-CPU,
+48GB, 4-hour job per sample, `tetranscripts_diffexp` as a 4-CPU, 32GB,
+6-hour job per contrast, and so on.
 
 You can override any of this per-invocation without editing files, e.g. to
 bump memory for one run:
@@ -122,8 +226,9 @@ each rule's `threads`.
 
 ## Tool versions -- specify every tool independently, no manual installs
 
-Every tool version is pinned individually in `config/versions.yaml`,
-separate from the analysis settings in `config/config.yaml`:
+Every tool version is pinned individually, with defaults shipped in
+`workflow/default-config/versions.yaml` (part of the workflow, not meant
+to be edited there):
 
 ```yaml
 versions:
@@ -137,10 +242,18 @@ versions:
   ucsc_genepredtobed: "487"
 ```
 
-`workflow/Snakefile` loads all three files (`configfile: "config/config.yaml"`,
-then `"config/versions.yaml"`, then `"config/resources.yaml"`); Snakemake
-deep-merges them into
-one `config` dict, so the rest of the workflow doesn't need to know they're
+To change one or more, create `config/versions.yaml` with just the keys
+you want to override, e.g.:
+
+```yaml
+versions:
+  star: "2.7.10b"
+```
+
+`workflow/Snakefile` loads `workflow/default-config/versions.yaml` first,
+then `config/config.yaml`, then `config/versions.yaml` only if it exists;
+Snakemake deep-merges all of them into one `config` dict, so a partial
+override is fine and the rest of the workflow doesn't need to know they're
 separate files.
 
 This workflow does **not** use snakemake-wrappers for STAR/samtools/RSeQC/
@@ -161,13 +274,12 @@ and rerun.
 **To match a specific external pipeline's tool versions** (e.g. a particular
 nf-core/rnaseq release), pull the exact numbers from that run's
 `pipeline_info/software_versions.yml`, or the "Software Versions" section of
-its MultiQC report, and paste them into `config/versions.yaml` above -- that
+its MultiQC report, and paste them into `config/versions.yaml` -- that
 file is the authoritative source, since modern nf-core modules can resolve
 tool versions dynamically from their containers rather than a single
-grep-able pin in the module source. The defaults above are already set to
-match a specific nf-core/rnaseq run; adjust them if you're targeting a
+grep-able pin in the module source. The shipped defaults are already set to
+match a specific nf-core/rnaseq run; override them if you're targeting a
 different one.
-
 
 ## How strandedness is resolved
 

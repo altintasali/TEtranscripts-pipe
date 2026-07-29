@@ -1,0 +1,28 @@
+# =============================================================================
+# This is the environment you run `snakemake` FROM -- i.e. what you get with
+# `mamba env create -f environment.yaml && conda activate tetranscripts-workflow`.
+# It is NOT related to the per-rule tool environments (STAR, samtools,
+# TEtranscripts, etc.), which live in workflow/default-config/versions.yaml
+# and are created/managed automatically by `--sdm conda`.
+#
+# Snakemake itself, plus a few Python packages common.smk needs at parse
+# time (before any rule/conda env exists): pandas (sample sheet), pyyaml
+# and jsonschema (config/sample sheet validation via snakemake.utils.validate).
+#
+# macOS/Linux/HPC-specific installation notes (e.g. why Homebrew's
+# `snakemake` formula needs an extra step) are in the "Setup" section of
+# README.md.
+# =============================================================================
+name: tetranscripts-workflow
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - snakemake >=8
+  - pandas
+  - pyyaml
+  - jsonschema
+  # Uncomment to submit to a SLURM cluster (see profiles/slurm/ and the
+  # "HPC / SLURM" section of the README) -- also installable standalone
+  # with `pip install snakemake-executor-plugin-slurm`.
+  # - snakemake-executor-plugin-slurm

@@ -15,7 +15,9 @@ V = config["versions"]
 
 # -----------------------------------------------------------------------------
 # Per-rule compute resources (threads/mem_mb/runtime), loaded from
-# config/resources.yaml. A rule (or a missing key within its entry) not
+# workflow/default-config/resources.yaml (built-in defaults) and optionally
+# overridden by config/resources.yaml if you create one. A rule (or a
+# missing key within its entry) not
 # present there falls back to a small conservative default instead of
 # failing -- see the "HPC / SLURM" section of the README for how these feed
 # into cluster execution.

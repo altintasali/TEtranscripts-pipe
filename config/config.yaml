@@ -36,6 +36,11 @@ star:
   # Directory that will hold (or already holds) the STAR genome index.
   # If the index is missing, the workflow builds it automatically.
   index: resources/star_index
+  # Extra flags for the STAR *index-building* step only. Usually empty --
+  # the main case for setting this is a small/toy genome, where STAR
+  # requires --genomeSAindexNbases min(14, log2(genomeLength)/2 - 1) or
+  # index-building fails (see config/test.yaml for a worked example).
+  index_extra: ""
   # Extra STAR alignment parameters. The multi-mapper settings below follow
   # the TEtranscripts authors' recommendations (winAnchorMultimapNmax should
   # be >= outFilterMultimapNmax, and at least 50):
