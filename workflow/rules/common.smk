@@ -6,6 +6,10 @@ import pandas as pd
 import yaml
 from snakemake.utils import validate
 
+# How many FASTQ records to peek at when auto-detecting read length for
+# STAR's --sjdbOverhang (see _fastq_read_length / _resolve_sjdb_overhang).
+_FASTQ_READ_LENGTH_N_READS = 20
+
 # -----------------------------------------------------------------------------
 # Load & validate config
 # -----------------------------------------------------------------------------
@@ -23,7 +27,7 @@ V = config["versions"]
 # into cluster execution.
 # -----------------------------------------------------------------------------
 RESOURCES = config.get("resources", {})
-_RESOURCE_DEFAULTS = {"threads": 1, "mem_mb": 4000, "runtime": 60}
+_RESOURCE_DEFAULTS = RESOURCES.get("_default", {"threads": 1, "mem_mb": 4000, "runtime": 60})
 
 
 def get_resources(rule_name):
@@ -48,6 +52,22 @@ validate(samples, schema="../schemas/samples.schema.yaml")
 
 SAMPLES = list(samples["sample"])
 HAS_CONDITION = "condition" in samples.columns and samples["condition"].notna().all()
+
+# Check sample-sheet paths exist at parse time so missing files fail fast.
+_missing_paths = []
+for col in ("fastq_1", "fastq_2"):
+    if col in samples.columns:
+        for sample, path in samples[col].items():
+            if pd.notna(path) and str(path).strip():
+                if not os.path.exists(str(path)):
+                    _missing_paths.append((sample, col, path))
+if _missing_paths:
+    raise ValueError(
+        "Sample sheet references files that do not exist:\n"
+        + "\n".join(f"  {s}.{c}: {p}" for s, c, p in _missing_paths)
+        + "\nRun Snakemake from the directory these paths are relative to "
+        "(usually the repo root), or fix the paths in the sample sheet."
+    )
 
 # -----------------------------------------------------------------------------
 # Reference files: transparently support gzipped fasta/gtf/te_gtf.
@@ -93,7 +113,7 @@ def _open_maybe_gz(path):
     return open(path)
 
 
-def _fastq_read_length(path, n_reads=20):
+def _fastq_read_length(path, n_reads=_FASTQ_READ_LENGTH_N_READS):
     """Max read length in the first n_reads of a fastq(.gz) file, or 0 if
     the file doesn't exist / can't be read (e.g. not downloaded yet)."""
     if not path or not os.path.exists(path):
@@ -229,10 +249,18 @@ def star_reads_param(wildcards):
 
 
 def star_read_command_param(wildcards):
-    """--readFilesCommand zcat if the fastq files are gzip-compressed."""
+    """--readFilesCommand zcat if both fastq files are gzipped."""
     d = star_input(wildcards)
-    if str(d["fq1"]).endswith(".gz"):
+    fq1_gz = str(d["fq1"]).endswith(".gz")
+    fq2_gz = "fq2" not in d or str(d["fq2"]).endswith(".gz")
+    if fq1_gz and fq2_gz:
         return "--readFilesCommand zcat"
+    if fq1_gz != fq2_gz:
+        raise ValueError(
+            f"Mixed compression: fastq_1 is gzipped but fastq_2 is not "
+            f"(or vice versa) for sample '{wildcards.sample}'. "
+            "Both files must be either both gzipped or both uncompressed."
+        )
     return ""
 
 
@@ -261,7 +289,14 @@ def get_strandedness_param(wildcards, input):
     mode = SAMPLE_STRANDED_MODE[wildcards.sample]
     if mode == "auto":
         with open(input.strandedness) as fh:
-            return fh.read().strip()
+            value = fh.read().strip()
+        if value not in ("no", "forward", "reverse"):
+            raise ValueError(
+                f"Invalid strandedness value '{value}' in "
+                f"{input.strandedness} for sample '{wildcards.sample}'. "
+                "Expected one of: no, forward, reverse."
+            )
+        return value
     return mode
 
 
@@ -318,7 +353,14 @@ def get_contrast_strandedness_param(wildcards, input):
         mode = SAMPLE_STRANDED_MODE[s]
         if mode == "auto":
             with open(file_map[s]) as fh:
-                values.add(fh.read().strip())
+                value = fh.read().strip()
+            if value not in ("no", "forward", "reverse"):
+                raise ValueError(
+                    f"Invalid strandedness value '{value}' in "
+                    f"{file_map[s]} for sample '{s}'. "
+                    "Expected one of: no, forward, reverse."
+                )
+            values.add(value)
         else:
             values.add(mode)
     if len(values) > 1:
@@ -379,7 +421,7 @@ TETRANSCRIPTS_ENV = _write_env(
     [
         f"tetranscripts={V['tetranscripts']}",
         f"bioconductor-deseq2={V['deseq2']}",
-        "r-base",
+        f"r-base={V['r_base']}",
     ],
 )
 

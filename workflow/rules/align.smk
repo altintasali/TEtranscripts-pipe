@@ -4,6 +4,7 @@ rule star_align:
     # require either unsorted or queryname-sorted input, see
     # https://github.com/mhammell-laboratory/TEtranscripts#recommendations-for-tetranscripts-input-files
     # Runs the STAR version pinned in config["versions"]["star"].
+    # Restarted once on failure (common transient issue on shared clusters).
     input:
         unpack(star_input),
         idx=config["star"]["index"],
@@ -20,6 +21,7 @@ rule star_align:
     resources:
         mem_mb=get_resources("star_align")["mem_mb"],
         runtime=get_resources("star_align")["runtime"],
+        restart=2,
     log:
         "logs/star/align/{sample}.log",
     conda:
@@ -40,12 +42,13 @@ rule samtools_sort:
     # A coordinate-sorted + indexed copy is only needed for RSeQC/QC purposes;
     # TEcount/TEtranscripts always consume the unsorted STAR output above.
     # Runs the samtools version pinned in config["versions"]["samtools"].
+    # The -m value is derived from the rule's mem_mb divided across threads.
     input:
         "results/star/{sample}/Aligned.out.bam",
     output:
         "results/star/{sample}/Aligned.sortedByCoord.out.bam",
     params:
-        extra="-m 3G",
+        extra=lambda wc: f"-m {get_resources('samtools_sort')['mem_mb'] // get_resources('samtools_sort')['threads']}M",
     threads: get_resources("samtools_sort")["threads"]
     resources:
         mem_mb=get_resources("samtools_sort")["mem_mb"],

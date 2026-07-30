@@ -11,11 +11,15 @@
 #
 # Every rule reads its entry here via get_resources("<rule_name>") in
 # common.smk; a rule missing from this file (or a missing key within an
-# entry) falls back to a small conservative default rather than failing.
-# Values below are reasonable starting points for a human genome / typical
-# bulk RNA-seq run -- adjust to your organism, read depth, and cluster.
+# entry) falls back to the _default entry below rather than failing. Values
+# below are reasonable starting points for a human genome / typical bulk
+# RNA-seq run -- adjust to your organism, read depth, and cluster.
 # =============================================================================
 resources:
+  _default:
+    threads: 1
+    mem_mb: 4000
+    runtime: 60
   gunzip_reference:
     threads: 1
     mem_mb: 2000

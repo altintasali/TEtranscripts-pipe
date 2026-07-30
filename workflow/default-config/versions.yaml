@@ -20,5 +20,6 @@ versions:
   multiqc: "1.33"
   tetranscripts: "2.2.4"
   deseq2: "1.46.0"
+  r_base: "4.4"
   ucsc_gtftogenepred: "487"
   ucsc_genepredtobed: "487"
