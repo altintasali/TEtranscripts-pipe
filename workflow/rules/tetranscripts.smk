@@ -20,8 +20,6 @@ rule tecount:
         runtime=get_resources("tecount")["runtime"],
     log:
         "logs/tecount/{sample}.log",
-    conda:
-        TETRANSCRIPTS_ENV
     shell:
         "mkdir -p {params.outdir} && "
         "TEcount --format BAM --mode {params.mode} "
@@ -72,8 +70,6 @@ rule tetranscripts_diffexp:
         runtime=get_resources("tetranscripts_diffexp")["runtime"],
     log:
         "logs/tetranscripts/{contrast}.log",
-    conda:
-        TETRANSCRIPTS_ENV
     shell:
         "mkdir -p {params.outdir} && "
         "TEtranscripts --format BAM --mode {params.mode} "

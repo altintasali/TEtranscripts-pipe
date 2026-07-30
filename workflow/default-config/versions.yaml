@@ -14,12 +14,11 @@
 # its own env file under workflow/envs/generated/.
 # =============================================================================
 versions:
-  star: "2.7.11b=h43eeafb_2"
+  star: "2.7.11b"
   samtools: "1.23.1"
   rseqc: "5.0.4"
   multiqc: "1.33"
   tetranscripts: "2.2.4"
-  deseq2: "1.46.0"
   r_base: "4.4"
-  ucsc_gtftogenepred: "487"
-  ucsc_genepredtobed: "487"
+  ucsc_gtftogenepred: "482"
+  ucsc_genepredtobed: "482"

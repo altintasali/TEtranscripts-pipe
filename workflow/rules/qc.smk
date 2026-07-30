@@ -17,8 +17,6 @@ rule multiqc:
         runtime=get_resources("multiqc")["runtime"],
     log:
         "logs/multiqc.log",
-    conda:
-        MULTIQC_ENV
     shell:
         "multiqc {params.extra} --force "
         "-o results/qc -n multiqc_report "

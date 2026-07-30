@@ -24,8 +24,6 @@ rule star_align:
         restart=2,
     log:
         "logs/star/align/{sample}.log",
-    conda:
-        STAR_ENV
     shell:
         "mkdir -p {params.prefix} && "
         "STAR --runThreadN {threads} "
@@ -55,8 +53,6 @@ rule samtools_sort:
         runtime=get_resources("samtools_sort")["runtime"],
     log:
         "logs/samtools/sort/{sample}.log",
-    conda:
-        SAMTOOLS_ENV
     shell:
         "samtools sort {params.extra} -@ {threads} "
         "-o {output} {input} > {log} 2>&1"
@@ -75,7 +71,5 @@ rule samtools_index:
         runtime=get_resources("samtools_index")["runtime"],
     log:
         "logs/samtools/index/{sample}.log",
-    conda:
-        SAMTOOLS_ENV
     shell:
         "samtools index {params.extra} -@ {threads} {input} {output} > {log} 2>&1"

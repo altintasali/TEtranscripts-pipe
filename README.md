@@ -25,13 +25,17 @@ cd rnaseq-star-tetranscripts
 mamba env create -f environment.yaml
 conda activate rnaseq-star-tetranscripts
 
-# 2. Try it against the bundled tiny synthetic dataset -- no real genome/
-#    reads needed, runs end-to-end in a couple of minutes (see "Test profile")
-snakemake --configfile config/test.yaml --sdm conda --cores 4
+# 2. Build the container image with all bioinformatics tools (STAR, samtools,
+#    TEtranscripts, RSeQC, MultiQC, UCSC tools). Requires Docker installed.
+docker build -t rnaseq-star-tetranscripts .
 
-# 3. Run on your own data: edit config/config.yaml (genome fasta/gtf/te_gtf
+# 3. Try it against the bundled tiny synthetic dataset -- no real genome/
+#    reads needed, runs end-to-end in a couple of minutes (see "Test profile")
+snakemake --configfile config/test.yaml --sdm docker --cores 4
+
+# 4. Run on your own data: edit config/config.yaml (genome fasta/gtf/te_gtf
 #    paths) and config/samples.csv (your samples), then:
-snakemake --sdm conda --cores 16
+snakemake --sdm docker --cores 16
 ```
 
 That's the whole workflow. Everything else in this README is reference
@@ -49,79 +53,79 @@ tool version or a rule's CPU/memory, create `config/versions.yaml` and/or
 Snakemake deep-merges them on top of the built-in defaults, so partial
 overrides are fine. See "Tool versions" and "HPC / SLURM" below.
 
+**This branch replaces per-rule conda environments with a single container
+image (Docker / Singularity).** Every rule runs inside the container
+defined by `Dockerfile` at the repo root. On local machines / CI, use
+`--sdm docker`; on HPC clusters with Singularity/Apptainer, push the
+image to a registry and set `--sdm apptainer` (see "HPC / SLURM" below).
+
 ## Setup
 
 1. Install Snakemake **and its Python dependencies** into one environment.
    Pick the section below that matches your situation.
 
-   ### Recommended for everyone: conda/mamba
-   This works identically on macOS and Linux, and is what you need anyway
-   for `--sdm conda` to build the per-rule tool environments (STAR,
-   samtools, TEtranscripts, etc.) -- using it for the driving environment
-   too avoids mixing two separate package managers.
+   ### All platforms: conda/mamba (for Snakemake + Python deps only)
+   The only purpose of this environment is to provide Snakemake and the
+   Python packages it needs at workflow-parse time (`pandas`, `pyyaml`,
+   `jsonschema`). All bioinformatics tools (STAR, samtools, TEtranscripts,
+   etc.) live in a **container image** (see `Dockerfile`) and are run via
+   `--sdm docker` or `--sdm apptainer` -- conda is no longer used for
+   per-rule tool environments.
 
    ```
    mamba env create -f environment.yaml
    conda activate rnaseq-star-tetranscripts
+   docker build -t rnaseq-star-tetranscripts .
    ```
    No conda/mamba yet? Install [Miniforge](https://github.com/conda-forge/miniforge)
    (conda + mamba in one installer) -- on macOS that's also `brew install
    miniforge` followed by `conda init "$(basename "${SHELL}")"` and
    restarting your terminal.
 
-   Already have a Snakemake conda env and just want to add what's missing:
-   `mamba install -c conda-forge pandas pyyaml jsonschema` into it.
-
    ### macOS via Homebrew (`brew install snakemake`)
    Homebrew's `snakemake` formula installs into its own isolated
-   environment with a minimal dependency set (currently just `cbc`,
-   `certifi`, `libyaml`, `pydantic`, `python@3.14`, `rpds-py`) -- no
-   `pandas`, no `jsonschema`. That's exactly why you'd see
-   `ModuleNotFoundError: No module named 'pandas'` on
-   `workflow/rules/common.smk`: nothing is wrong with the workflow, brew's
-   install is just missing packages `common.smk` needs at parse time.
-   Two ways to fix it:
-   - **Switch to the conda/mamba setup above** (recommended) -- you need
-     conda/mamba on `PATH` regardless for `--sdm conda` to work at all, so
-     it's simpler to use one tool for everything.
-   - **Or keep Homebrew's snakemake** and add the missing packages directly
-     into its isolated venv:
-     ```
-     $(brew --prefix snakemake)/libexec/bin/pip install pandas pyyaml jsonschema
-     ```
-     This modifies files Homebrew doesn't track, so `brew upgrade
-     snakemake`/`brew reinstall snakemake` will wipe it and you'll need to
-     rerun that command.
-
-   Either way, `--sdm conda` still needs conda or mamba on `PATH` to build
-   the per-rule tool environments -- `brew install miniforge` provides that
-   without needing Miniforge as your primary Python.
-
-   ### HPC clusters / environment modules (e.g. SLURM)
-   Most clusters provide conda/mamba (and sometimes Snakemake itself) via
-   `module load` rather than a system-wide install:
+   environment. This works fine -- just add the missing dependencies:
    ```
-   module avail conda miniconda mamba snakemake   # names vary by cluster
-   module load miniconda3                          # example -- use yours
-   mamba env create -f environment.yaml
-   conda activate rnaseq-star-tetranscripts
-   pip install snakemake-executor-plugin-slurm     # for --workflow-profile profiles/slurm
+   $(brew --prefix snakemake)/libexec/bin/pip install pandas pyyaml jsonschema
    ```
+   Then build the container image:
+   ```
+   docker build -t rnaseq-star-tetranscripts .
+   ```
+
+    ### HPC clusters / Singularity + SLURM
+    Most HPC clusters provide Singularity/Apptainer but not Docker. The
+    workflow runs identically under Apptainer:
+    1. On a machine with Docker (your laptop, a login node, CI), build:
+       ```
+       docker build -t rnaseq-star-tetranscripts .
+       ```
+    2. Push the image to a container registry:
+       ```
+       docker tag rnaseq-star-tetranscripts your-user/rnaseq-star-tetranscripts:latest
+       docker push your-user/rnaseq-star-tetranscripts:latest
+       ```
+    3. Update `CONTAINER_IMAGE` in `workflow/rules/common.smk` to point at
+       your pushed image:
+       ```python
+       CONTAINER_IMAGE = "docker://your-user/rnaseq-star-tetranscripts:latest"
+       ```
+       A pre-built image is available on Docker Hub:
+       ```
+       CONTAINER_IMAGE = "docker://altintasali/rnaseq-star-tetranscripts:latest"
+       ```
+    4. Load Snakemake (via `module load` or your own conda env) and run:
+       ```
+       module load miniconda3 apptainer
+       snakemake --workflow-profile profiles/slurm --sdm apptainer --cores 32
+       ```
    A few HPC-specific things worth knowing:
-   - If your cluster offers `module load snakemake` directly, prefer
-     creating your own environment from `environment.yaml` instead -- a
-     module-provided Snakemake risks the same missing-`pandas`/`jsonschema`
-     problem as Homebrew's, for the same reason (built for Snakemake's own
-     needs, not this workflow's).
-   - Create the environment, and let `--sdm conda` build the per-rule
-     environments once, on a **login node with internet access** --
-     compute nodes on most clusters can't reach the internet to download
-     packages. The actual `--workflow-profile profiles/slurm` run only
-     needs those environments to already exist.
-   - If your cluster's default conda cache isn't on shared/scratch storage
-     readable by every compute node, point `--conda-prefix
-     /path/to/shared/writable/dir` at one that is, so SLURM jobs reuse the
-     same environments instead of each rebuilding its own copy.
+   - Compute nodes on most clusters cannot reach the internet to pull
+     container images -- pull the image on a **login node** first so the
+     cached SIF file is available to compute nodes.
+   - If your cluster shares a filesystem across nodes, Apptainer's cache
+     (`~/.apptainer/cache`) is readable from any compute node; otherwise
+     set `APPTAINER_CACHEDIR` to a shared path.
 
 2. Get the workflow:
    ```
@@ -174,17 +178,20 @@ overrides are fine. See "Tool versions" and "HPC / SLURM" below.
 
 ```
 # sanity check
-snakemake -n --sdm conda
+snakemake -n --sdm docker
 
 # full run
-snakemake --sdm conda --cores 16
+snakemake --sdm docker --cores 16
 ```
 
 Useful partial targets:
 ```
-snakemake --sdm conda --cores 8 star_index_only      # just build the STAR index
-snakemake --sdm conda --cores 8 strandedness_only    # align + auto-detect strandedness only
+snakemake --sdm docker --cores 8 star_index_only      # just build the STAR index
+snakemake --sdm docker --cores 8 strandedness_only    # align + auto-detect strandedness only
 ```
+
+On HPC with Singularity/Apptainer, replace `--sdm docker` with `--sdm apptainer`
+(or `--sdm singularity` for older versions).
 
 ## Test profile
 
@@ -194,12 +201,12 @@ a tiny bundled synthetic dataset in `.tests/` -- a 10kb single-contig
 genome with one gene and one TE, 4 paired-end samples (2
 treatment/2 control), all generated deterministically by
 `.tests/generate_test_data.py`. No real genome/reads needed; useful for
-confirming your Snakemake/conda setup works, or as a smoke test after
+confirming your Docker/container setup works, or as a smoke test after
 editing any rule:
 
 ```
-snakemake --configfile config/test.yaml --sdm conda --cores 4 -n   # dry-run
-snakemake --configfile config/test.yaml --sdm conda --cores 4      # run
+snakemake --configfile config/test.yaml --sdm docker --cores 4 -n   # dry-run
+snakemake --configfile config/test.yaml --sdm docker --cores 4      # run
 ```
 
 `config/test.yaml` is just another config layer -- passed on the command
@@ -225,13 +232,15 @@ themselves. A rule left out of both files (or missing a key) falls back to
 a conservative `{threads: 1, mem_mb: 4000, runtime: 60}` default rather
 than failing.
 
-To submit to a SLURM cluster, install the executor plugin and use the
-included workflow profile:
+To submit to a SLURM cluster, install the executor plugin, build/push the
+container image, and update `CONTAINER_IMAGE` in
+`workflow/rules/common.smk` to point at your registry (see "Setup > HPC
+clusters" above), then use the included workflow profile:
 
 ```
 pip install snakemake-executor-plugin-slurm
 
-snakemake --workflow-profile profiles/slurm --sdm conda
+snakemake --workflow-profile profiles/slurm --sdm apptainer
 ```
 
 `profiles/slurm/config.yaml` sets `executor: slurm`, a job cap (`jobs: 50`),
@@ -246,18 +255,13 @@ Snakemake job becomes one `sbatch` submission sized from its rule's
 You can override any of this per-invocation without editing files, e.g. to
 bump memory for one run:
 ```
-snakemake --workflow-profile profiles/slurm --sdm conda \
+snakemake --workflow-profile profiles/slurm --sdm apptainer \
   --set-resources star_align:mem_mb=64000
 ```
 
 Without SLURM, everything above still applies locally -- `--cores N` just
 caps how many rules run in parallel on the machine you're on, respecting
 each rule's `threads`.
-
-If your cluster already provides STAR/samtools/RSeQC/MultiQC/TEtranscripts
-via `module load` and you'd rather not have Snakemake manage conda envs on
-top of that, see "Do you actually need conda?" below -- just drop `--sdm
-conda` from any command above.
 
 ## Tool versions -- specify every tool independently, no manual installs
 
@@ -272,9 +276,8 @@ versions:
   rseqc: "5.0.4"
   multiqc: "1.33"
   tetranscripts: "2.2.4"
-  deseq2: "1.46.0"
-  ucsc_gtftogenepred: "487"
-  ucsc_genepredtobed: "487"
+  ucsc_gtftogenepred: "482"
+  ucsc_genepredtobed: "482"
 ```
 
 To change one or more, create `config/versions.yaml` with just the keys
@@ -291,68 +294,56 @@ Snakemake deep-merges all of them into one `config` dict, so a partial
 override is fine and the rest of the workflow doesn't need to know they're
 separate files.
 
-This workflow does **not** use snakemake-wrappers for STAR/samtools/RSeQC/
-MultiQC (or anything else) -- deliberately. A wrapper's git tag bundles
-*all* of its tools' versions together, so you can't independently ask for
-"STAR 2.7.11b + samtools 1.23.1" if the wrapper tag that has one doesn't
-also have the other. Instead, `common.smk` renders each version string
-above into its own tiny conda env file at parse time
-(`workflow/envs/generated/{star,samtools,rseqc,multiqc,tetranscripts,ucsc_tools}.yaml`),
-and every rule runs the plain command directly (`STAR ...`, `samtools sort
-...`, `infer_experiment.py ...`, `multiqc ...`) in that env.
+The `Dockerfile` at the repo root reads these version strings at build
+time and installs each tool at its pinned version. To change a version,
+edit `config/versions.yaml` (or the defaults in
+`workflow/default-config/versions.yaml`), then rebuild the container
+image:
 
-Running with `--sdm conda` (or the older `--use-conda`) makes Snakemake
-create/download the exact matching environment automatically the first time
-you run -- there's nothing to install by hand. Just edit a version string
-and rerun.
+```
+docker build --no-cache -t rnaseq-star-tetranscripts .
+```
 
 **To match a specific external pipeline's tool versions** (e.g. a particular
 nf-core/rnaseq release), pull the exact numbers from that run's
 `pipeline_info/software_versions.yml`, or the "Software Versions" section of
-its MultiQC report, and paste them into `config/versions.yaml` -- that
-file is the authoritative source, since modern nf-core modules can resolve
-tool versions dynamically from their containers rather than a single
-grep-able pin in the module source. The shipped defaults are already set to
-match a specific nf-core/rnaseq run; override them if you're targeting a
-different one.
+its MultiQC report, and paste them into `config/versions.yaml`. The
+shipped defaults are already set to match a specific nf-core/rnaseq run;
+override them if you're targeting a different one.
 
-## Do you actually need conda?
+## Container-based execution
 
-Short answer: only if you want Snakemake to auto-install/manage each tool
-for you. `--sdm conda` is what makes the `conda:` line on every rule do
-anything -- without it, Snakemake just runs the plain shell command
-(`STAR ...`, `samtools sort ...`, `TEcount ...`, etc.) against whatever's
-already on your `PATH`, and silently ignores the `conda:` directives. So if
-STAR/samtools/RSeQC/MultiQC/TEtranscripts are already available -- e.g. via
-`module load` on an HPC cluster, or a system-wide install -- you can skip
-conda entirely:
+This workflow uses a **single** container image (defined by `Dockerfile`
+at the repo root) that bundles every tool: STAR, samtools, RSeQC,
+MultiQC, TEtranscripts/TEcount, UCSC tools, and R/Bioconductor. Every
+rule's `shell:` command runs inside this image via:
+
+- `--sdm docker` on local machines / CI (Docker available)
+- `--sdm apptainer` on HPC clusters (Apptainer/Singularity available)
+
+The `CONTAINER_IMAGE` variable in `workflow/rules/common.smk` controls
+which image is used. By default it points to `dockerfile://Dockerfile`
+(build from the local Dockerfile). For production/deployment, build the
+image, push it to a container registry, and update `CONTAINER_IMAGE` to
+the registry URI (e.g. `docker://your-user/image:tag`). A pre-built image
+is available on Docker Hub as `altintasali/rnaseq-star-tetranscripts:latest`.
+
+Versions of every tool in the image are pinned in
+`workflow/default-config/versions.yaml`. After changing a version, rebuild
+the image:
 
 ```
-snakemake --cores 16   # no --sdm conda
+docker build --no-cache -t rnaseq-star-tetranscripts .
 ```
 
-The tradeoff: the workflow then has no way to guarantee the tool on your
-`PATH` matches the version in `config/versions.yaml` (or the defaults) --
-that becomes your responsibility, same as it would be for any pipeline run
-this way. `--sdm conda` exists specifically to make that guarantee
-automatic; dropping it trades reproducibility for not needing conda at all.
+### Running without a container manager
 
-(One thing this workflow deliberately does *not* do is fall back to
-snakemake-wrappers as a way to avoid conda -- a wrapper is just a bundled
-`environment.yaml` + script, so `--sdm conda` still creates a conda env
-from it under the hood. Using wrappers wouldn't remove the conda
-dependency, it would only bring back the original problem this design
-solves: one wrapper release tag pins *all* of its tools' versions
-together, so you lose the ability to pin STAR/samtools/RSeQC/MultiQC/
-TEtranscripts independently.)
-
-If you'd rather avoid conda *and* keep per-tool version guarantees, the
-other standard option is containers (Biocontainers/quay.io images tagged
-with the exact tool version, run via `--sdm apptainer` or `--sdm
-singularity` instead of `--sdm conda`) -- this workflow doesn't ship that
-today, but it's a straightforward rule-by-rule addition (swapping each
-rule's `conda:` env for a `container:` image URI) if you want it; let me
-know and I can add it.
+If neither Docker nor Apptainer/Singularity is available (e.g. testing on
+a bare-metal server), drop `--sdm docker`/`--sdm apptainer` and Snakemake
+will run the plain shell commands against whatever is on your `PATH` --
+you are responsible for matching the tool versions to those in
+`versions.yaml`. The `container:` directive in the workflow is silently
+ignored when no `--sdm` flag is passed.
 
 ## How strandedness is resolved
 

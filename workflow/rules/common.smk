@@ -3,7 +3,6 @@ import itertools
 import os
 
 import pandas as pd
-import yaml
 from snakemake.utils import validate
 
 # How many FASTQ records to peek at when auto-detecting read length for
@@ -384,51 +383,15 @@ def all_diffexp_outputs():
 
 
 # -----------------------------------------------------------------------------
-# Conda environments for every tool in the workflow, generated from
-# config["versions"]. Editing a version string there and re-running is all
-# that's needed -- Snakemake/conda resolves and downloads the matching build
-# automatically (via `--sdm conda` / `--use-conda`), no manual install
-# required. This intentionally does NOT rely on snakemake-wrapper-bundled
-# environments, because a wrapper's pinned tag moves all of its tools'
-# versions together -- it can't give you e.g. STAR 2.7.11b + samtools 1.21
-# independently if that particular wrapper tag happens to pin a different
-# samtools. Generating one small env per tool from explicit version strings
-# is the only way to match an arbitrary external reference (e.g. a specific
-# nf-core/rnaseq release's tool versions) exactly.
+# Container image used for every rule (replaces per-rule conda environments).
+# When the workflow is run with --sdm apptainer / --sdm singularity / --sdm
+# docker, Snakemake executes every shell command inside this container.
+#
+# Default / local development: build from the Dockerfile.
+# Production/HPC: pull from a pre-built image on Docker Hub (faster).
+# Switch between them here or override CONTAINER_IMAGE in a rule.
 # -----------------------------------------------------------------------------
-GENERATED_ENV_DIR = os.path.abspath("workflow/envs/generated")
-os.makedirs(GENERATED_ENV_DIR, exist_ok=True)
+CONTAINER_IMAGE = "docker://altintasali/rnaseq-star-tetranscripts:latest"
 
-
-def _write_env(name, dependencies):
-    path = f"{GENERATED_ENV_DIR}/{name}.yaml"
-    with open(path, "w") as fh:
-        yaml.safe_dump(
-            {"channels": ["bioconda", "conda-forge"], "dependencies": dependencies},
-            fh,
-            sort_keys=False,
-        )
-    return path
-
-
-STAR_ENV = _write_env("star", [f"star={V['star']}"])
-SAMTOOLS_ENV = _write_env("samtools", [f"samtools={V['samtools']}"])
-RSEQC_ENV = _write_env("rseqc", [f"rseqc={V['rseqc']}"])
-MULTIQC_ENV = _write_env("multiqc", [f"multiqc={V['multiqc']}"])
-
-TETRANSCRIPTS_ENV = _write_env(
-    "tetranscripts",
-    [
-        f"tetranscripts={V['tetranscripts']}",
-        f"bioconductor-deseq2={V['deseq2']}",
-        f"r-base={V['r_base']}",
-    ],
-)
-
-UCSC_TOOLS_ENV = _write_env(
-    "ucsc_tools",
-    [
-        f"ucsc-gtftogenepred={V['ucsc_gtftogenepred']}",
-        f"ucsc-genepredtobed={V['ucsc_genepredtobed']}",
-    ],
-)
+container:
+    CONTAINER_IMAGE

@@ -18,8 +18,6 @@ rule rseqc_infer_experiment:
         runtime=get_resources("rseqc_infer_experiment")["runtime"],
     log:
         "logs/rseqc/infer_experiment/{sample}.log",
-    conda:
-        RSEQC_ENV
     shell:
         "infer_experiment.py {params.extra} "
         "--input-file {input.aln} "

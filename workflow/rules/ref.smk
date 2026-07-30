@@ -40,8 +40,6 @@ rule star_index:
         runtime=get_resources("star_index")["runtime"],
     log:
         "logs/star/index.log",
-    conda:
-        STAR_ENV
     shell:
         "mkdir -p {output} && "
         "STAR --runMode genomeGenerate "
@@ -67,8 +65,6 @@ rule gtf_to_genepred:
         runtime=get_resources("gtf_to_genepred")["runtime"],
     log:
         "logs/rseqc/gtf_to_genepred.log",
-    conda:
-        UCSC_TOOLS_ENV
     shell:
         "gtfToGenePred -genePredExt -ignoreGroupsWithoutExons "
         "{input.gtf} {output.genepred} > {log} 2>&1"
@@ -85,7 +81,5 @@ rule genepred_to_bed12:
         runtime=get_resources("genepred_to_bed12")["runtime"],
     log:
         "logs/rseqc/genepred_to_bed12.log",
-    conda:
-        UCSC_TOOLS_ENV
     shell:
         "genePredToBed {input.genepred} {output.bed12} > {log} 2>&1"
