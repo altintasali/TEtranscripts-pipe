@@ -72,26 +72,26 @@ image to a registry and set `--sdm apptainer` (see "HPC / SLURM" below).
    `--sdm docker` or `--sdm apptainer` -- conda is no longer used for
    per-rule tool environments.
 
-   ```
-   mamba env create -f environment.yaml
-   conda activate rnaseq-star-tetranscripts
-   docker build -t rnaseq-star-tetranscripts .
-   ```
-   No conda/mamba yet? Install [Miniforge](https://github.com/conda-forge/miniforge)
-   (conda + mamba in one installer) -- on macOS that's also `brew install
-   miniforge` followed by `conda init "$(basename "${SHELL}")"` and
-   restarting your terminal.
+    ```
+    mamba env create -f environment.yaml
+    conda activate rnaseq-star-tetranscripts
+    docker build -t rnaseq-star-tetranscripts .
+    ```
+    No conda/mamba yet? Install [Miniforge](https://github.com/conda-forge/miniforge)
+    (conda + mamba in one installer) -- on macOS that's also `brew install
+    miniforge` followed by `conda init "$(basename "${SHELL}")"` and
+    restarting your terminal.
 
-   ### macOS via Homebrew (`brew install snakemake`)
-   Homebrew's `snakemake` formula installs into its own isolated
-   environment. This works fine -- just add the missing dependencies:
-   ```
-   $(brew --prefix snakemake)/libexec/bin/pip install pandas pyyaml jsonschema
-   ```
-   Then build the container image:
-   ```
-   docker build -t rnaseq-star-tetranscripts .
-   ```
+    ### macOS via Homebrew (`brew install snakemake`)
+    Homebrew's `snakemake` formula installs into its own isolated
+    environment. This works fine -- just add the missing dependencies:
+    ```
+    $(brew --prefix snakemake)/libexec/bin/pip install pandas pyyaml jsonschema snakemake-executor-plugin-docker
+    ```
+    Then build the container image:
+    ```
+    docker build -t rnaseq-star-tetranscripts .
+    ```
 
     ### HPC clusters / Singularity + SLURM
     Most HPC clusters provide Singularity/Apptainer but not Docker. The

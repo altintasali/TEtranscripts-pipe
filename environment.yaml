@@ -23,6 +23,11 @@ dependencies:
   - pandas
   - pyyaml
   - jsonschema
+  # `--sdm docker` requires the docker executor plugin. On macOS (Docker
+  # Desktop / Colima) this is the recommended deployment method for local
+  # development. Also installable standalone with `pip install
+  # snakemake-executor-plugin-docker`.
+  - snakemake-executor-plugin-docker
   # Uncomment to submit to a SLURM cluster (see profiles/slurm/ and the
   # "HPC / SLURM" section of the README) -- also installable standalone
   # with `pip install snakemake-executor-plugin-slurm`.
