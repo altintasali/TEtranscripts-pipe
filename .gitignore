@@ -1,4 +1,7 @@
 .snakemake/
+.nextflow/
+work/
+.nextflow*
 
 # Generated at runtime, not part of the repo
 /resources/
@@ -13,3 +16,4 @@ workflow/envs/generated/
 # Test profile: keep the committed fixtures under .tests/resources/, but
 # not the STAR index it builds there at run time
 .tests/resources/star_index/
+.tests/results/

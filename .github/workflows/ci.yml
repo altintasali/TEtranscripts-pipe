@@ -1,39 +1,25 @@
 name: CI
 on:
   push:
-    branches: [main, singularity-replacement]
+    branches: [main, nextflow-translation]
   pull_request:
     branches: [main]
 
 jobs:
-  dag:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: conda-incubator/setup-miniconda@v3
-        with:
-          activate-environment: rnaseq-star-tetranscripts
-          environment-file: environment.yaml
-          channel-priority: strict
-          cache-environment: true
-      - name: Build container image
-        shell: bash -l {0}
-        run: docker build -t rnaseq-star-tetranscripts .
-      - shell: bash -l {0}
-        run: snakemake --configfile config/test.yaml --sdm docker --cores 2 -n
-
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: conda-incubator/setup-miniconda@v3
+      - uses: mamba-org/setup-micromamba@v2
         with:
-          activate-environment: rnaseq-star-tetranscripts
           environment-file: environment.yaml
-          channel-priority: strict
+          init-shell: bash
           cache-environment: true
-      - name: Build container image
+      - name: Install Nextflow
         shell: bash -l {0}
-        run: docker build -t rnaseq-star-tetranscripts .
-      - shell: bash -l {0}
-        run: snakemake --configfile config/test.yaml --sdm docker --cores 2
+        run: |
+          curl -fsSL https://get.nextflow.io | bash
+          echo "$PWD" >> $GITHUB_PATH
+      - name: Run workflow
+        shell: bash -l {0}
+        run: nextflow run main.nf -profile test
