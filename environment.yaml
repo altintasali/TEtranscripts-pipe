@@ -19,6 +19,7 @@ channels:
   - bioconda
 dependencies:
   - snakemake >=8
+  - conda >=24.7.1
   - pandas
   - pyyaml
   - jsonschema
