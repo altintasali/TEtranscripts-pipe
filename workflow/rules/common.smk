@@ -354,7 +354,7 @@ def all_diffexp_outputs():
 # is the only way to match an arbitrary external reference (e.g. a specific
 # nf-core/rnaseq release's tool versions) exactly.
 # -----------------------------------------------------------------------------
-GENERATED_ENV_DIR = "workflow/envs/generated"
+GENERATED_ENV_DIR = os.path.abspath("workflow/envs/generated")
 os.makedirs(GENERATED_ENV_DIR, exist_ok=True)
 
 

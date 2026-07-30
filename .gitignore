@@ -5,6 +5,7 @@
 /results/
 /logs/
 .conda/
+.DS_Store
 *.pyc
 __pycache__/
 workflow/envs/generated/
