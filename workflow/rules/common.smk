@@ -121,12 +121,21 @@ def _resolve_sjdb_overhang():
             paths.extend([p for p in samples[col].tolist() if p])
     max_len = max((_fastq_read_length(p) for p in paths), default=0)
     if max_len == 0:
+        cwd = os.getcwd()
+        checked = "\n".join(
+            f"  - {p}  (exists: {os.path.exists(p)}, resolves to: "
+            f"{os.path.abspath(p)})"
+            for p in paths
+        ) or "  (no fastq_1/fastq_2 values found in the sample sheet at all)"
         raise ValueError(
             "ref.sjdb_overhang is 'auto' but no readable fastq file was "
-            f"found via {config['samples']} to auto-detect read length from "
-            "(files missing/not yet downloaded?). Either make sure the "
-            "fastq paths in the sample sheet exist, or set ref.sjdb_overhang "
-            "to an explicit integer in config.yaml."
+            f"found to auto-detect read length from. Current working "
+            f"directory (paths are resolved relative to this): {cwd}\n"
+            f"Paths checked from {config['samples']}:\n{checked}\n"
+            "Either run Snakemake from the directory these paths are "
+            "relative to (usually the repo root), fix the paths in the "
+            "sample sheet, or set ref.sjdb_overhang to an explicit integer "
+            "in config.yaml to skip auto-detection entirely."
         )
     return max_len - 1, f"auto-detected (max read length {max_len} - 1)"
 
