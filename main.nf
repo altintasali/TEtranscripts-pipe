@@ -23,25 +23,21 @@ workflow {
   te_gtf_file  = file(params.te_gtf,  checkIfExists: true)
   py_script    = file("${projectDir}/scripts/determine_strandedness.py")
 
-  // Parse samplesheet
   Channel.fromPath(params.samplesheet, checkIfExists: true)
     | splitCsv(header: true, sep: ',')
     | map { parseSampleRow(it) }
     | set { samples_ch }
 
-  // Sample metadata channel
   samples_ch
     | map { id, fq1, fq2, stranded_mode, condition ->
       [id, condition, stranded_mode]
     }
     | set { sample_meta_ch }
 
-  // Gunzip references if needed
   GUNZIP(fasta_file, gtf_file, te_gtf_file)
 
-  // Detect sjdbOverhang
   first_fastq = samples_ch
-    | map { id, fq1, fq2, stranded_mode, condition -> fq1 }
+    | map { it[1] }
     | first()
 
   DETECT_READ_LENGTH(first_fastq)
@@ -53,7 +49,6 @@ workflow {
         : params.sjdb_overhang.toInteger()
     }
 
-  // Build or use pre-built STAR index
   if (params.star_index) {
     star_idx_ch = Channel.fromPath(params.star_index, checkIfExists: true)
   } else {
@@ -61,12 +56,10 @@ workflow {
     star_idx_ch = STAR_INDEX.out.index
   }
 
-  // Annotation conversion for RSeQC
   GTF_TO_GENEPRED(GUNZIP.out.gtf)
   GENEPRED_TO_BED12(GTF_TO_GENEPRED.out.genepred)
   bed12_ch = GENEPRED_TO_BED12.out.bed12
 
-  // Alignment
   align_input = samples_ch
     | map { id, fq1, fq2, stranded_mode, condition ->
       [id, fq1, fq2, stranded_mode, condition]
@@ -75,26 +68,25 @@ workflow {
 
   STAR_ALIGN(align_input)
 
-  // Sort and index BAMs
-  SAMTOOLS_SORT(STAR_ALIGN.out.aligned)
+  STAR_ALIGN.out.aligned.into { aligned_sort; aligned_qc }
+
+  SAMTOOLS_SORT(aligned_sort)
 
   SAMTOOLS_INDEX(SAMTOOLS_SORT.out.sorted)
 
-  // Strandedness detection
   infer_input = SAMTOOLS_INDEX.out.indexed
     | join(sample_meta_ch)
     | combine(bed12_ch)
 
   INFER_STRANDEDNESS(infer_input)
-  infer_ch = INFER_STRANDEDNESS.out.inferred
 
-  // Split auto (needs determination) vs known
-  infer_ch.branch {
+  INFER_STRANDEDNESS.out.inferred.into { infer_branch; infer_qc }
+
+  infer_branch.branch {
     auto:  it[3] == 'auto'
     known: it[3] != 'auto'
   }.set { infer_split }
 
-  // Determine strandedness for auto samples
   DETERMINE_STRANDEDNESS(infer_split.auto, py_script)
 
   det_stranded = DETERMINE_STRANDEDNESS.out.stranded
@@ -102,7 +94,6 @@ workflow {
       [id, bam, stranded_file.text.trim(), condition]
     }
 
-  // Use explicit value for known samples
   known_stranded = infer_split.known
     | map { id, bam, infer_txt, stranded_mode, condition ->
       [id, bam, stranded_mode, condition]
@@ -110,14 +101,12 @@ workflow {
 
   stranded_ch = det_stranded.mix(known_stranded)
 
-  // TEcount
   tecount_input = stranded_ch
     | combine(GUNZIP.out.gtf)
     | combine(GUNZIP.out.te_gtf)
 
   TECOUNT(tecount_input)
 
-  // TEtranscripts differential expression
   stranded_ch
     | map { id, bam, stranded_val, condition ->
       [condition, id, bam, stranded_val]
@@ -128,25 +117,16 @@ workflow {
       def contrasts = []
       for (int i = 0; i < groups.size(); i++) {
         for (int j = i + 1; j < groups.size(); j++) {
-          def (c1_cond, c1_ids, c1_bams, c1_strands) = groups[i]
-          def (c2_cond, c2_ids, c2_bams, c2_strands) = groups[j]
-
-          def (treat_cond, treat_bams, treat_strands) =
-            c1_cond < c2_cond
-              ? [c2_cond, c2_bams, c2_strands]
-              : [c1_cond, c1_bams, c1_strands]
-          def (ctrl_cond, ctrl_bams, ctrl_strands) =
-            c1_cond < c2_cond
-              ? [c1_cond, c1_bams, c1_strands]
-              : [c2_cond, c2_bams, c2_strands]
-
-          def contrast_id = "${treat_cond}_vs_${ctrl_cond}"
-          def all_strands = (treat_strands + ctrl_strands).unique()
+          def c1 = groups[i]
+          def c2 = groups[j]
+          def (treat, ctrl) = c1[0] < c2[0] ? [c2, c1] : [c1, c2]
+          def contrast_id = "${treat[0]}_vs_${ctrl[0]}"
+          def all_strands = (treat[3] + ctrl[3]).unique()
           if (all_strands.size() > 1) {
             error "Inconsistent strandedness in contrast ${contrast_id}: ${all_strands}. " +
               "All samples in a contrast must have the same strandedness value."
           }
-          contrasts << [contrast_id, treat_bams, ctrl_bams, all_strands[0]]
+          contrasts << [contrast_id, treat[2], ctrl[2], all_strands[0]]
         }
       }
       return contrasts
@@ -157,13 +137,12 @@ workflow {
 
   TETRANSCRIPTS(contrast_input_ch)
 
-  // MultiQC
-  star_logs = STAR_ALIGN.out.aligned
-    | map { id, bam, log_final -> log_final }
+  star_logs = aligned_qc
+    | map { it[2] }
     | collect()
 
-  rseqc_inputs = INFER_STRANDEDNESS.out.inferred
-    | map { id, bam, infer_txt, mode, condition -> infer_txt }
+  rseqc_inputs = infer_qc
+    | map { it[2] }
     | collect()
 
   MULTIQC(star_logs, rseqc_inputs)
