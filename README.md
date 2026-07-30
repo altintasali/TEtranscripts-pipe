@@ -1,4 +1,6 @@
-# rna-seq-star-tetranscripts (custom)
+# rnaseq-star-tetranscripts
+
+[github.com/altintasali/rnaseq-star-tetranscripts](https://github.com/altintasali/rnaseq-star-tetranscripts)
 
 A Snakemake workflow that quantifies genes **and** transposable elements from
 RNA-seq data with [TEtranscripts/TEcount](https://github.com/mhammell-laboratory/TEtranscripts),
@@ -11,6 +13,31 @@ fastq --> STAR align --> [samtools sort/index --> RSeQC infer_experiment --> str
                                                                              --> MultiQC
 ```
 
+## Quick start
+
+```
+# 0. Get the workflow
+git clone https://github.com/altintasali/rnaseq-star-tetranscripts.git
+cd rnaseq-star-tetranscripts
+
+# 1. Install Snakemake + this workflow's Python dependencies (see "Setup"
+#    below for macOS/Homebrew/HPC-specific instructions if this doesn't fit)
+mamba env create -f environment.yaml
+conda activate rnaseq-star-tetranscripts
+
+# 2. Try it against the bundled tiny synthetic dataset -- no real genome/
+#    reads needed, runs end-to-end in a couple of minutes (see "Test profile")
+snakemake --configfile config/test.yaml --sdm conda --cores 4
+
+# 3. Run on your own data: edit config/config.yaml (genome fasta/gtf/te_gtf
+#    paths) and config/samples.csv (your samples), then:
+snakemake --sdm conda --cores 16
+```
+
+That's the whole workflow. Everything else in this README is reference
+material for when you need to go beyond the defaults: tool versions,
+per-sample strandedness overrides, differential analysis, HPC/SLURM, etc.
+
 Configuration follows nf-core's "sensible defaults, minimal user-facing
 config" philosophy. `workflow/default-config/{versions,resources}.yaml`
 ship built-in defaults as part of the workflow itself -- you never need to
@@ -21,11 +48,6 @@ tool version or a rule's CPU/memory, create `config/versions.yaml` and/or
 `config/resources.yaml` yourself with just the keys you want to change --
 Snakemake deep-merges them on top of the built-in defaults, so partial
 overrides are fine. See "Tool versions" and "HPC / SLURM" below.
-
-Want to see it run before touching any real data? `snakemake --configfile
-config/test.yaml --sdm conda --cores 4` runs the whole thing end-to-end
-against a tiny bundled synthetic dataset in under a couple of minutes --
-see "Test profile" below.
 
 ## Setup
 
@@ -40,7 +62,7 @@ see "Test profile" below.
 
    ```
    mamba env create -f environment.yaml
-   conda activate tetranscripts-workflow
+   conda activate rnaseq-star-tetranscripts
    ```
    No conda/mamba yet? Install [Miniforge](https://github.com/conda-forge/miniforge)
    (conda + mamba in one installer) -- on macOS that's also `brew install
@@ -82,7 +104,7 @@ see "Test profile" below.
    module avail conda miniconda mamba snakemake   # names vary by cluster
    module load miniconda3                          # example -- use yours
    mamba env create -f environment.yaml
-   conda activate tetranscripts-workflow
+   conda activate rnaseq-star-tetranscripts
    pip install snakemake-executor-plugin-slurm     # for --workflow-profile profiles/slurm
    ```
    A few HPC-specific things worth knowing:
@@ -101,8 +123,16 @@ see "Test profile" below.
      /path/to/shared/writable/dir` at one that is, so SLURM jobs reuse the
      same environments instead of each rebuilding its own copy.
 
-2. Get the workflow (clone this directory, or `snakedeploy` it if you push it
-   to your own GitHub repo).
+2. Get the workflow:
+   ```
+   git clone https://github.com/altintasali/rnaseq-star-tetranscripts.git
+   cd rnaseq-star-tetranscripts
+   ```
+   Or deploy it into an existing project via
+   [`snakedeploy`](https://snakedeploy.readthedocs.io/):
+   ```
+   snakedeploy deploy-workflow https://github.com/altintasali/rnaseq-star-tetranscripts . --tag main
+   ```
 3. Provide reference files and edit `config/config.yaml` (the minimum you
    need to touch to run an analysis):
    - `ref.fasta` / `ref.gtf`: genome FASTA and gene GTF (Ensembl/GENCODE).
@@ -224,6 +254,11 @@ Without SLURM, everything above still applies locally -- `--cores N` just
 caps how many rules run in parallel on the machine you're on, respecting
 each rule's `threads`.
 
+If your cluster already provides STAR/samtools/RSeQC/MultiQC/TEtranscripts
+via `module load` and you'd rather not have Snakemake manage conda envs on
+top of that, see "Do you actually need conda?" below -- just drop `--sdm
+conda` from any command above.
+
 ## Tool versions -- specify every tool independently, no manual installs
 
 Every tool version is pinned individually, with defaults shipped in
@@ -280,6 +315,44 @@ tool versions dynamically from their containers rather than a single
 grep-able pin in the module source. The shipped defaults are already set to
 match a specific nf-core/rnaseq run; override them if you're targeting a
 different one.
+
+## Do you actually need conda?
+
+Short answer: only if you want Snakemake to auto-install/manage each tool
+for you. `--sdm conda` is what makes the `conda:` line on every rule do
+anything -- without it, Snakemake just runs the plain shell command
+(`STAR ...`, `samtools sort ...`, `TEcount ...`, etc.) against whatever's
+already on your `PATH`, and silently ignores the `conda:` directives. So if
+STAR/samtools/RSeQC/MultiQC/TEtranscripts are already available -- e.g. via
+`module load` on an HPC cluster, or a system-wide install -- you can skip
+conda entirely:
+
+```
+snakemake --cores 16   # no --sdm conda
+```
+
+The tradeoff: the workflow then has no way to guarantee the tool on your
+`PATH` matches the version in `config/versions.yaml` (or the defaults) --
+that becomes your responsibility, same as it would be for any pipeline run
+this way. `--sdm conda` exists specifically to make that guarantee
+automatic; dropping it trades reproducibility for not needing conda at all.
+
+(One thing this workflow deliberately does *not* do is fall back to
+snakemake-wrappers as a way to avoid conda -- a wrapper is just a bundled
+`environment.yaml` + script, so `--sdm conda` still creates a conda env
+from it under the hood. Using wrappers wouldn't remove the conda
+dependency, it would only bring back the original problem this design
+solves: one wrapper release tag pins *all* of its tools' versions
+together, so you lose the ability to pin STAR/samtools/RSeQC/MultiQC/
+TEtranscripts independently.)
+
+If you'd rather avoid conda *and* keep per-tool version guarantees, the
+other standard option is containers (Biocontainers/quay.io images tagged
+with the exact tool version, run via `--sdm apptainer` or `--sdm
+singularity` instead of `--sdm conda`) -- this workflow doesn't ship that
+today, but it's a straightforward rule-by-rule addition (swapping each
+rule's `conda:` env for a `container:` image URI) if you want it; let me
+know and I can add it.
 
 ## How strandedness is resolved
 

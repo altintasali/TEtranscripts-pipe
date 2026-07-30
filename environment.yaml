@@ -1,6 +1,6 @@
 # =============================================================================
 # This is the environment you run `snakemake` FROM -- i.e. what you get with
-# `mamba env create -f environment.yaml && conda activate tetranscripts-workflow`.
+# `mamba env create -f environment.yaml && conda activate rnaseq-star-tetranscripts`.
 # It is NOT related to the per-rule tool environments (STAR, samtools,
 # TEtranscripts, etc.), which live in workflow/default-config/versions.yaml
 # and are created/managed automatically by `--sdm conda`.
@@ -13,7 +13,7 @@
 # `snakemake` formula needs an extra step) are in the "Setup" section of
 # README.md.
 # =============================================================================
-name: tetranscripts-workflow
+name: rnaseq-star-tetranscripts
 channels:
   - conda-forge
   - bioconda
