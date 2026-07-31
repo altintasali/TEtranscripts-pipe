@@ -12,13 +12,14 @@ fastq --> STAR align --> [samtools sort/index --> RSeQC infer_experiment --> str
 
 ## Quick start
 
-Requires [Miniforge](https://github.com/conda-forge/miniforge) (conda + mamba; on
-macOS also `brew install miniforge`).
+Requires conda (e.g. [Miniforge](https://github.com/conda-forge/miniforge) or
+Miniconda; conda ≥23.10 already uses the fast libmamba solver, so mamba is
+optional).
 
 ```bash
 git clone https://github.com/altintasali/rnaseq-star-tetranscripts.git
 cd rnaseq-star-tetranscripts
-mamba env create -f environment.yaml        # snakemake + its python deps
+conda env create -f environment.yaml        # snakemake + its python deps
 conda activate rnaseq-star-tetranscripts
 
 # Smoke test on the bundled tiny synthetic dataset (no real genome/reads needed):
