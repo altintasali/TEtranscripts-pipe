@@ -115,6 +115,14 @@ ignored and whatever tools are on your `PATH` get used — see "Without conda"
 below. This workflow does not use snakemake-wrappers, since a wrapper tag
 pins all its tools' versions together.)
 
+One exception to the all-conda scheme: **TEtranscripts is installed from PyPI**
+(`TEtranscripts==2.2.4`), not bioconda. The bioconda recipe's runtime deps pin
+an ancient `bioconductor-deseq` (DESeq v1) that can only coexist with R 4.0-era
+packages, making the conda package unsolvable alongside a modern DESeq2/R on
+any platform. TEtranscripts only uses DESeq2 at runtime, so the workflow
+conda-installs `deseq2`/`r_base` (pins still apply) and pip-installs the
+pure-Python TEtranscripts package.
+
 ## Without conda
 
 If STAR/samtools/RSeQC/MultiQC/TEtranscripts are already on your `PATH` (e.g.

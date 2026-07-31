@@ -400,7 +400,10 @@ GENERATED_ENV_DIR = os.path.abspath("workflow/envs/generated")
 os.makedirs(GENERATED_ENV_DIR, exist_ok=True)
 
 
-def _write_env(name, dependencies):
+def _write_env(name, dependencies, pip_dependencies=None):
+    dependencies = list(dependencies)
+    if pip_dependencies:
+        dependencies.append({"pip": list(pip_dependencies)})
     path = f"{GENERATED_ENV_DIR}/{name}.yaml"
     with open(path, "w") as fh:
         yaml.safe_dump(
@@ -416,13 +419,23 @@ SAMTOOLS_ENV = _write_env("samtools", [f"samtools={V['samtools']}"])
 RSEQC_ENV = _write_env("rseqc", [f"rseqc={V['rseqc']}"])
 MULTIQC_ENV = _write_env("multiqc", [f"multiqc={V['multiqc']}"])
 
+# TEtranscripts is installed from PyPI rather than bioconda: the bioconda
+# recipe's run dependencies pin an ancient bioconductor-deseq (DESeq v1),
+# which is not used at runtime (only DESeq2 is) and can only coexist with
+# R 4.0-era packages -- so the conda package is unsolvable together with a
+# modern bioconductor-deseq2/r-base on any platform (see
+# https://github.com/bioconda/bioconda-recipes/blob/master/recipes/tetranscripts/meta.yaml).
+# The PyPI package is pure Python (depends only on pysam); DESeq2 and R are
+# provided by conda as before, so the deseq2/r_base version pins still apply.
 TETRANSCRIPTS_ENV = _write_env(
     "tetranscripts",
     [
-        f"tetranscripts={V['tetranscripts']}",
         f"bioconductor-deseq2={V['deseq2']}",
         f"r-base={V['r_base']}",
+        "pysam",
+        "pip",
     ],
+    pip_dependencies=[f"TEtranscripts=={V['tetranscripts']}"],
 )
 
 UCSC_TOOLS_ENV = _write_env(
