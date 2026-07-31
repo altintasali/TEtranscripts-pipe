@@ -100,7 +100,7 @@ shared storage if compute nodes can't read the default cache.
 
 Every tool version is pinned independently with defaults shipped in
 `workflow/default-config/versions.yaml` (STAR 2.7.11b, samtools 1.23.1, RSeQC
-5.0.4, MultiQC 1.33, TEtranscripts 2.2.4, DESeq2 1.46.0, UCSC tools 487).
+5.0.4, MultiQC 1.33, TEtranscripts 2.2.4, DESeq2 1.46.0, UCSC tools 482).
 Override any by creating `config/versions.yaml` with just the keys you want to
 change:
 
