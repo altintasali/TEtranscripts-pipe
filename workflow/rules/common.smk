@@ -368,7 +368,14 @@ def all_diffexp_outputs():
 # is the only way to match an arbitrary external reference (e.g. a specific
 # nf-core/rnaseq release's tool versions) exactly.
 # -----------------------------------------------------------------------------
-GENERATED_ENV_DIR = "workflow/envs/generated"
+# Absolute path: rules in this repo are included from workflow/Snakefile, and
+# Snakemake resolves relative paths declared inside an included file against
+# that file's directory (workflow/rules/), not the run directory -- so a
+# relative "workflow/envs/generated" here would make rule env: references point
+# at workflow/rules/workflow/envs/generated/ (which never exists). The env
+# files are written at parse time relative to the process CWD, so an absolute
+# path is the one form both sides agree on.
+GENERATED_ENV_DIR = os.path.abspath("workflow/envs/generated")
 os.makedirs(GENERATED_ENV_DIR, exist_ok=True)
 
 
