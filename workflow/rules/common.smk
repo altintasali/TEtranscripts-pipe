@@ -4,11 +4,8 @@ import os
 
 import pandas as pd
 import yaml
+from snakemake.exceptions import WorkflowError
 from snakemake.utils import validate
-
-# How many FASTQ records to peek at when auto-detecting read length for
-# STAR's --sjdbOverhang (see _fastq_read_length / _resolve_sjdb_overhang).
-_FASTQ_READ_LENGTH_N_READS = 20
 
 # -----------------------------------------------------------------------------
 # Load & validate config
@@ -27,7 +24,7 @@ V = config["versions"]
 # into cluster execution.
 # -----------------------------------------------------------------------------
 RESOURCES = config.get("resources", {})
-_RESOURCE_DEFAULTS = RESOURCES.get("_default", {"threads": 1, "mem_mb": 4000, "runtime": 60})
+_RESOURCE_DEFAULTS = {"threads": 1, "mem_mb": 4000, "runtime": 60}
 
 
 def get_resources(rule_name):
@@ -38,6 +35,19 @@ def get_resources(rule_name):
 # Load & validate sample sheet
 # columns: sample, fastq_1, fastq_2 (optional), condition (optional)
 # -----------------------------------------------------------------------------
+if not os.path.exists(config["samples"]):
+    raise WorkflowError(
+        f"samples: '{config['samples']}' (from config.yaml, or --configfile/"
+        "--config on the command line) does not exist.\n"
+        f"Current working directory (relative paths are resolved against "
+        f"this): {os.getcwd()}\n"
+        f"That path resolves to: {os.path.abspath(config['samples'])}\n"
+        "Snakemake resolves relative paths against the directory you *run "
+        "the command from*, not the directory workflow/Snakefile lives in "
+        "-- cd into the repo root (the directory that directly contains "
+        "workflow/, config/, and .tests/) and try again."
+    )
+
 samples = (
     pd.read_csv(config["samples"], dtype=str, comment="#")
     .set_index("sample", drop=False)
@@ -52,22 +62,6 @@ validate(samples, schema="../schemas/samples.schema.yaml")
 
 SAMPLES = list(samples["sample"])
 HAS_CONDITION = "condition" in samples.columns and samples["condition"].notna().all()
-
-# Check sample-sheet paths exist at parse time so missing files fail fast.
-_missing_paths = []
-for col in ("fastq_1", "fastq_2"):
-    if col in samples.columns:
-        for sample, path in samples[col].items():
-            if pd.notna(path) and str(path).strip():
-                if not os.path.exists(str(path)):
-                    _missing_paths.append((sample, col, path))
-if _missing_paths:
-    raise ValueError(
-        "Sample sheet references files that do not exist:\n"
-        + "\n".join(f"  {s}.{c}: {p}" for s, c, p in _missing_paths)
-        + "\nRun Snakemake from the directory these paths are relative to "
-        "(usually the repo root), or fix the paths in the sample sheet."
-    )
 
 # -----------------------------------------------------------------------------
 # Reference files: transparently support gzipped fasta/gtf/te_gtf.
@@ -113,7 +107,7 @@ def _open_maybe_gz(path):
     return open(path)
 
 
-def _fastq_read_length(path, n_reads=_FASTQ_READ_LENGTH_N_READS):
+def _fastq_read_length(path, n_reads=20):
     """Max read length in the first n_reads of a fastq(.gz) file, or 0 if
     the file doesn't exist / can't be read (e.g. not downloaded yet)."""
     if not path or not os.path.exists(path):
@@ -249,18 +243,10 @@ def star_reads_param(wildcards):
 
 
 def star_read_command_param(wildcards):
-    """--readFilesCommand zcat if both fastq files are gzipped."""
+    """--readFilesCommand zcat if the fastq files are gzip-compressed."""
     d = star_input(wildcards)
-    fq1_gz = str(d["fq1"]).endswith(".gz")
-    fq2_gz = "fq2" not in d or str(d["fq2"]).endswith(".gz")
-    if fq1_gz and fq2_gz:
+    if str(d["fq1"]).endswith(".gz"):
         return "--readFilesCommand zcat"
-    if fq1_gz != fq2_gz:
-        raise ValueError(
-            f"Mixed compression: fastq_1 is gzipped but fastq_2 is not "
-            f"(or vice versa) for sample '{wildcards.sample}'. "
-            "Both files must be either both gzipped or both uncompressed."
-        )
     return ""
 
 
@@ -289,14 +275,7 @@ def get_strandedness_param(wildcards, input):
     mode = SAMPLE_STRANDED_MODE[wildcards.sample]
     if mode == "auto":
         with open(input.strandedness) as fh:
-            value = fh.read().strip()
-        if value not in ("no", "forward", "reverse"):
-            raise ValueError(
-                f"Invalid strandedness value '{value}' in "
-                f"{input.strandedness} for sample '{wildcards.sample}'. "
-                "Expected one of: no, forward, reverse."
-            )
-        return value
+            return fh.read().strip()
     return mode
 
 
@@ -353,14 +332,7 @@ def get_contrast_strandedness_param(wildcards, input):
         mode = SAMPLE_STRANDED_MODE[s]
         if mode == "auto":
             with open(file_map[s]) as fh:
-                value = fh.read().strip()
-            if value not in ("no", "forward", "reverse"):
-                raise ValueError(
-                    f"Invalid strandedness value '{value}' in "
-                    f"{file_map[s]} for sample '{s}'. "
-                    "Expected one of: no, forward, reverse."
-                )
-            values.add(value)
+                values.add(fh.read().strip())
         else:
             values.add(mode)
     if len(values) > 1:
@@ -396,14 +368,11 @@ def all_diffexp_outputs():
 # is the only way to match an arbitrary external reference (e.g. a specific
 # nf-core/rnaseq release's tool versions) exactly.
 # -----------------------------------------------------------------------------
-GENERATED_ENV_DIR = os.path.abspath("workflow/envs/generated")
+GENERATED_ENV_DIR = "workflow/envs/generated"
 os.makedirs(GENERATED_ENV_DIR, exist_ok=True)
 
 
-def _write_env(name, dependencies, pip_dependencies=None):
-    dependencies = list(dependencies)
-    if pip_dependencies:
-        dependencies.append({"pip": list(pip_dependencies)})
+def _write_env(name, dependencies):
     path = f"{GENERATED_ENV_DIR}/{name}.yaml"
     with open(path, "w") as fh:
         yaml.safe_dump(
@@ -416,26 +385,23 @@ def _write_env(name, dependencies, pip_dependencies=None):
 
 STAR_ENV = _write_env("star", [f"star={V['star']}"])
 SAMTOOLS_ENV = _write_env("samtools", [f"samtools={V['samtools']}"])
-RSEQC_ENV = _write_env("rseqc", [f"rseqc={V['rseqc']}"])
-MULTIQC_ENV = _write_env("multiqc", [f"multiqc={V['multiqc']}"])
+# python>=3.9 floor: without it, conda's solver can backtrack all the way to
+# an ancient RSeQC/MultiQC build (seen in practice: Python 3.6, from ~2021)
+# to find something that resolves at all -- and those old builds pull in a
+# pysam/htslib linked against OpenSSL 1.0, which doesn't exist on modern
+# systems (`ImportError: libcrypto.so.1.0.0: cannot open shared object
+# file`). Pinning a modern floor forces the solver toward current,
+# self-consistent builds instead.
+RSEQC_ENV = _write_env("rseqc", [f"rseqc={V['rseqc']}", "python>=3.9"])
+MULTIQC_ENV = _write_env("multiqc", [f"multiqc={V['multiqc']}", "python>=3.9"])
 
-# TEtranscripts is installed from PyPI rather than bioconda: the bioconda
-# recipe's run dependencies pin an ancient bioconductor-deseq (DESeq v1),
-# which is not used at runtime (only DESeq2 is) and can only coexist with
-# R 4.0-era packages -- so the conda package is unsolvable together with a
-# modern bioconductor-deseq2/r-base on any platform (see
-# https://github.com/bioconda/bioconda-recipes/blob/master/recipes/tetranscripts/meta.yaml).
-# The PyPI package is pure Python (depends only on pysam); DESeq2 and R are
-# provided by conda as before, so the deseq2/r_base version pins still apply.
 TETRANSCRIPTS_ENV = _write_env(
     "tetranscripts",
     [
+        f"tetranscripts={V['tetranscripts']}",
         f"bioconductor-deseq2={V['deseq2']}",
-        f"r-base={V['r_base']}",
-        "pysam",
-        "pip",
+        "r-base",
     ],
-    pip_dependencies=[f"TEtranscripts=={V['tetranscripts']}"],
 )
 
 UCSC_TOOLS_ENV = _write_env(
