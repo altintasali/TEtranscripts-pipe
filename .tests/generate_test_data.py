@@ -9,21 +9,29 @@ regenerate/resize the test data:
     python3 .tests/generate_test_data.py
 
 Layout produced:
-    .tests/resources/genome.fa           one 10kb contig "chrT"
-    .tests/resources/genome.gtf          one gene, "chrT" 2001-6000 (+)
-    .tests/resources/te_annotation.gtf   one TE,   "chrT" 7001-8000 (+)
+    .tests/resources/genome.fa           one 50kb contig "chrT"
+    .tests/resources/genome.gtf          one gene, "chrT" 10001-30000 (+)
+    .tests/resources/te_annotation.gtf   one TE,   "chrT" 35001-45000 (+)
     .tests/reads/{sample}_R{1,2}.fastq.gz
     .tests/samples.csv
+
+Genome size note: earlier versions of this script used a 10kb genome, which
+turned out to sit in STAR's known small-genome crash zone (custom
+references under ~10-20kb can trigger "double free or corruption" while
+writing the SAindex, even with --genomeSAindexNbases correctly downscaled --
+see e.g. alexdobin/STAR issues #2158, #965, #1472, #350). 50kb plus an
+explicit --genomeChrBinNbits override (config/test.yaml) avoids that.
 """
 import gzip
+import math
 import random
 from pathlib import Path
 
 HERE = Path(__file__).parent
-GENOME_LEN = 10_000
+GENOME_LEN = 50_000
 CONTIG = "chrT"
-GENE_START, GENE_END = 2001, 6000  # 1-based, inclusive (GTF convention)
-TE_START, TE_END = 7001, 8000
+GENE_START, GENE_END = 10_001, 30_000  # 1-based, inclusive (GTF convention)
+TE_START, TE_END = 35_001, 45_000
 READ_LEN = 50
 FRAGMENT_LEN = 200  # insert size for paired-end reads
 
@@ -165,6 +173,17 @@ def main():
 
     (HERE / "samples.csv").write_text("\n".join(rows) + "\n")
     print("Wrote test data to", HERE)
+
+    # STAR's own formulas (see the STAR manual, section 2.2.5) -- used to
+    # compute config/test.yaml's star.index_extra. Re-run this script and
+    # copy the printed values there if you change GENOME_LEN.
+    sa_index_nbases = min(14, int(math.log2(GENOME_LEN) / 2 - 1))
+    chr_bin_nbits = min(18, int(math.log2(GENOME_LEN)))
+    print(
+        f"Recommended star.index_extra for GENOME_LEN={GENOME_LEN}: "
+        f'"--genomeSAindexNbases {sa_index_nbases} '
+        f'--genomeChrBinNbits {chr_bin_nbits}"'
+    )
 
 
 if __name__ == "__main__":

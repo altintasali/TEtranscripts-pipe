@@ -1,6 +1,6 @@
 # =============================================================================
 # Test profile -- runs the whole workflow end-to-end in a couple of minutes
-# on a laptop, against the tiny synthetic dataset in .tests/ (a 10kb
+# on a laptop, against the tiny synthetic dataset in .tests/ (a 50kb
 # single-contig genome, one gene, one TE, 4 samples). Mirrors nf-core's
 # `-profile test`: no real genome/reads needed, just a sanity check that
 # every step runs and wires together correctly.
@@ -19,18 +19,24 @@ ref:
   fasta: .tests/resources/genome.fa
   gtf: .tests/resources/genome.gtf
   te_gtf: .tests/resources/te_annotation.gtf
-  # 10kb contig -- read length (50bp) - 1 would work too, but "auto" also
+  # 50kb contig -- read length (50bp) - 1 would work too, but "auto" also
   # detects fine here; pinned explicitly just to keep the test deterministic
   # and independent of read-length changes in generate_test_data.py.
   sjdb_overhang: 49
 
 star:
   index: .tests/resources/star_index
-  # REQUIRED for small genomes: STAR errors out with the default
-  # genomeSAindexNbases (14) on anything smaller than ~2^30 bp. STAR's own
-  # recommendation is min(14, log2(genomeLength)/2 - 1) -- for this 10kb
-  # test genome that's 5.
-  index_extra: "--genomeSAindexNbases 5"
+  # REQUIRED for small genomes, or STAR either refuses to start or (worse)
+  # crashes with "double free or corruption" / segfaults while writing the
+  # SAindex -- this is a well-documented STAR limitation on small/custom
+  # references, not specific to this workflow (see e.g. alexdobin/STAR
+  # issues #2158, #965, #1472, #350, #972). Both values follow STAR's own
+  # formulas (manual section 2.2.5): genomeSAindexNbases =
+  # min(14, log2(genomeLength)/2 - 1), genomeChrBinNbits =
+  # min(18, log2(genomeLength)) -- for this 50kb test genome that's 6 and
+  # 15. Re-run .tests/generate_test_data.py to get updated values if you
+  # resize the test genome; it prints the recommended flags.
+  index_extra: "--genomeSAindexNbases 6 --genomeChrBinNbits 15"
 
 # Tiny resource footprint so the test runs comfortably on a laptop or in CI
 # -- overrides the (much larger) built-in defaults in
