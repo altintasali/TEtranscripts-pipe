@@ -4,7 +4,6 @@ rule star_align:
     # require either unsorted or queryname-sorted input, see
     # https://github.com/mhammell-laboratory/TEtranscripts#recommendations-for-tetranscripts-input-files
     # Runs the STAR version pinned in config["versions"]["star"].
-    # Restarted once on failure (common transient issue on shared clusters).
     input:
         unpack(star_input),
         idx=config["star"]["index"],
@@ -21,34 +20,42 @@ rule star_align:
     resources:
         mem_mb=get_resources("star_align")["mem_mb"],
         runtime=get_resources("star_align")["runtime"],
-        restart=2,
     log:
         "logs/star/align/{sample}.log",
     conda:
         STAR_ENV
     shell:
+        # See the star_index rule's comment: STAR has a known benign
+        # crash-on-exit bug (confirmed by its author) that can happen
+        # after alignment has already finished and all output files were
+        # written -- so a non-zero exit is checked against actual output
+        # completeness rather than trusted outright.
         "mkdir -p {params.prefix} && "
-        "STAR --runThreadN {threads} "
+        "(STAR --runThreadN {threads} "
         "--genomeDir {input.idx} "
         "--readFilesIn {params.reads} "
         "{params.read_command} "
         "--outFileNamePrefix {params.prefix} "
         "--outSAMtype BAM Unsorted "
         "{params.extra} "
-        "> {log} 2>&1"
+        "> {log} 2>&1 "
+        "|| (echo 'STAR exited non-zero; checking whether alignment output "
+        "is actually complete anyway (see rule comment re: known benign "
+        "STAR exit-time crash)' >> {log}; "
+        "test -s {output.aln} && test -s {output.log_final} && "
+        "grep -q 'ALL DONE!' {output.log_final}))"
 
 
 rule samtools_sort:
     # A coordinate-sorted + indexed copy is only needed for RSeQC/QC purposes;
     # TEcount/TEtranscripts always consume the unsorted STAR output above.
     # Runs the samtools version pinned in config["versions"]["samtools"].
-    # The -m value is derived from the rule's mem_mb divided across threads.
     input:
         "results/star/{sample}/Aligned.out.bam",
     output:
         "results/star/{sample}/Aligned.sortedByCoord.out.bam",
     params:
-        extra=lambda wc: f"-m {get_resources('samtools_sort')['mem_mb'] // get_resources('samtools_sort')['threads']}M",
+        extra="-m 3G",
     threads: get_resources("samtools_sort")["threads"]
     resources:
         mem_mb=get_resources("samtools_sort")["mem_mb"],

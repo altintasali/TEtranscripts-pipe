@@ -43,15 +43,30 @@ rule star_index:
     conda:
         STAR_ENV
     shell:
+        # STAR has a long-standing, still-unresolved crash-on-exit bug
+        # ("double free or corruption" / segfault while freeing memory
+        # *after* all output has already been written and closed) --
+        # confirmed benign by STAR's own author:
+        # https://groups.google.com/g/rna-star/c/3_ckDieghws
+        # ("this problem is happening after STAR finished all
+        # calculations, so it does not affect the results"). So if STAR
+        # exits non-zero, don't trust that alone -- check whether the core
+        # index files actually landed on disk before treating it as a
+        # real failure.
         "mkdir -p {output} && "
-        "STAR --runMode genomeGenerate "
+        "(STAR --runMode genomeGenerate "
         "--genomeDir {output} "
         "--genomeFastaFiles {input.fasta} "
         "--sjdbGTFfile {input.gtf} "
         "--sjdbOverhang {params.sjdb_overhang} "
         "--runThreadN {threads} "
         "{params.extra} "
-        "> {log} 2>&1"
+        "> {log} 2>&1 "
+        "|| (echo 'STAR exited non-zero; checking whether the index was "
+        "actually written successfully anyway (see rule comment re: known "
+        "benign STAR exit-time crash)' >> {log}; "
+        "test -s {output}/SA && test -s {output}/SAindex && "
+        "test -s {output}/Genome))"
 
 
 rule gtf_to_genepred:
