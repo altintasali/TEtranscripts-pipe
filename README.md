@@ -90,7 +90,6 @@ overrides are deep-merged). Unlisted rules fall back to conservative defaults
 To submit to SLURM:
 
 ```bash
-pip install snakemake-executor-plugin-slurm
 snakemake --workflow-profile profiles/slurm
 ```
 
