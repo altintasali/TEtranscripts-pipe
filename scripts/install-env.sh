@@ -13,8 +13,8 @@
 #   -f          overwrite an existing PREFIX and skip the platform check
 #   -h          show this help
 #
-# Afterwards, either activate the environment:
-#   source "$PREFIX/bin/activate"
+# Afterwards, either activate the environment in your current shell:
+#   source scripts/activate-env.sh [PREFIX]
 # or just prepend its bin directory to your PATH (handy on SLURM compute nodes):
 #   export PATH="$PREFIX/bin:$PATH"
 set -euo pipefail
@@ -125,10 +125,17 @@ tar -xzf "$tarball" -C "$prefix"
 echo "Relocating hard-coded prefixes (conda-unpack) ..."
 "$prefix/bin/conda-unpack"
 
+echo "Sanity check ..."
+"$prefix/bin/python" -c "import snakemake; print('snakemake', snakemake.__version__)"
+
 echo
-echo "Done. Activate it with:"
-echo "  source \"$prefix/bin/activate\""
-echo "or add it to your PATH (e.g. once in ~/.bashrc or on SLURM compute nodes):"
+echo "Done. Activate it in your shell with:"
+echo "  source scripts/activate-env.sh"
+if [[ "$prefix" != "$default_prefix" ]]; then
+    echo "  # or, since you installed with a custom -o prefix:"
+    echo "  source scripts/activate-env.sh \"$prefix\""
+fi
+echo "or add its bin directory to your PATH (e.g. once in ~/.bashrc or on SLURM compute nodes):"
 echo "  export PATH=\"$prefix/bin:\$PATH\""
 echo "Then run the workflow as usual:"
 echo "  snakemake --configfile config/test.yaml --cores 4   # smoke test"

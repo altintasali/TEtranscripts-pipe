@@ -57,12 +57,13 @@ script (needs only `bash`/`curl`/`tar`):
 git clone https://github.com/altintasali/rnaseq-star-tetranscripts.git
 cd rnaseq-star-tetranscripts
 ./scripts/install-env.sh    # downloads the latest release env into $HOME/software/rnaseq-star-tetranscripts-env
-source "$HOME/software/rnaseq-star-tetranscripts-env/bin/activate"
+source scripts/activate-env.sh   # activates it in your current shell
 ```
 
 Pass `-o PREFIX` to install elsewhere (e.g. shared cluster storage) and `-r vX.Y.Z`
-to pin a specific release instead of the latest. Then continue with the setup
-steps below.
+to pin a specific release instead of the latest. If you used a custom `-o`,
+activate it the same way: `source scripts/activate-env.sh /path/to/env`. Then
+continue with the setup steps below.
 
 ### Option B — build it yourself with conda
 
@@ -175,8 +176,9 @@ self-contained; if nodes can't read your home dir, install it on shared
 storage with `conda env create -p /shared/path/env` and adjust your `PATH`).
 The pre-built environment is the quickest way to do this: extract it once on
 shared storage (e.g. `./scripts/install-env.sh -o /shared/software/rnaseq-star-tetranscripts-env`)
-and add its `bin` directory to your `PATH` on the nodes — no conda or
-container runtime needed.
+and either add its `bin` directory to your `PATH` on the nodes or `source
+/shared/software/rnaseq-star-tetranscripts-env/bin/activate` inside each job
+wrapper — no conda or container runtime needed.
 
 ## Tool versions
 
