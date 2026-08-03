@@ -44,6 +44,28 @@ flowchart LR
 
 ## Quick start
 
+There are two ways to get the environment the workflow needs. Pick one:
+
+### Option A — pre-built environment (no conda)
+
+Every GitHub release ships a tarball of the complete environment
+(`...-env.tar.gz`, Linux x86_64), built from `environment.yaml` in CI — so
+there is nothing to install or solve. Fetch and unpack it with the helper
+script (needs only `bash`/`curl`/`tar`):
+
+```bash
+git clone https://github.com/altintasali/rnaseq-star-tetranscripts.git
+cd rnaseq-star-tetranscripts
+./scripts/install-env.sh    # downloads the latest release env into $HOME/software/rnaseq-star-tetranscripts-env
+source "$HOME/software/rnaseq-star-tetranscripts-env/bin/activate"
+```
+
+Pass `-o PREFIX` to install elsewhere (e.g. shared cluster storage) and `-r vX.Y.Z`
+to pin a specific release instead of the latest. Then continue with the setup
+steps below.
+
+### Option B — build it yourself with conda
+
 Requires conda (e.g. [Miniforge](https://github.com/conda-forge/miniforge) or
 Miniconda; conda ≥23.10 already uses the fast libmamba solver, so mamba is
 optional).
@@ -53,7 +75,11 @@ git clone https://github.com/altintasali/rnaseq-star-tetranscripts.git
 cd rnaseq-star-tetranscripts
 conda env create -f environment.yaml        # snakemake + every analysis tool, installed once
 conda activate rnaseq-star-tetranscripts
+```
 
+### Either way, then
+
+```bash
 # Smoke test on the bundled tiny synthetic dataset (no real genome/reads needed):
 snakemake --configfile config/test.yaml --cores 4
 
@@ -69,7 +95,8 @@ snakemake --cores 16
 
 All tools (STAR, samtools, RSeQC, MultiQC, TEtranscripts, DESeq2, UCSC tools)
 live directly in this environment, so no `--sdm conda` is needed — nothing to
-download or solve per run.
+download or solve per run. The pre-built tarball is exactly this environment,
+pre-assembled from the same `environment.yaml`.
 
 ## Configuration
 
@@ -146,6 +173,10 @@ Per-invocation overrides are also possible, e.g.
 conda env, so make sure it's visible from the compute nodes (conda envs are
 self-contained; if nodes can't read your home dir, install it on shared
 storage with `conda env create -p /shared/path/env` and adjust your `PATH`).
+The pre-built environment is the quickest way to do this: extract it once on
+shared storage (e.g. `./scripts/install-env.sh -o /shared/software/rnaseq-star-tetranscripts-env`)
+and add its `bin` directory to your `PATH` on the nodes — no conda or
+container runtime needed.
 
 ## Tool versions
 
@@ -163,6 +194,9 @@ versions:
 The tools are installed into the shared conda env (`environment.yaml`) at env
 creation, with the same pins as `versions.yaml` — keep the two files in sync
 when bumping a version, then `conda env update -f environment.yaml` to apply.
+The pre-built environment tarball on GitHub Releases (see Quick start) is built
+from this same `environment.yaml`, so it carries the identical pins — it's a
+convenience artifact built in CI, not a fork of the version list.
 `samtools` is pinned to 1.22.1 rather than newer: STAR 2.7.11b (the final STAR
 release) links against `htslib <1.23`, which is incompatible with samtools
 1.23+ in a single environment.
