@@ -10,8 +10,8 @@ regenerate/resize the test data:
 
 Layout produced:
     .tests/resources/genome.fa           one 50kb contig "chrT"
-    .tests/resources/genome.gtf          one gene, "chrT" 10001-30000 (+)
-    .tests/resources/te_annotation.gtf   one TE,   "chrT" 35001-45000 (+)
+    .tests/resources/genome.gtf          100 genes, "chrT" 1001-31000 (+)
+    .tests/resources/te_annotation.gtf   one TE,   "chrT" 40001-46000 (+)
     .tests/reads/{sample}_R{1,2}.fastq.gz
     .tests/samples.csv
 
@@ -21,6 +21,16 @@ references under ~10-20kb can trigger "double free or corruption" while
 writing the SAindex, even with --genomeSAindexNbases correctly downscaled --
 see e.g. alexdobin/STAR issues #2158, #965, #1472, #350). 50kb plus an
 explicit --genomeChrBinNbits override (config/test.yaml) avoids that.
+
+DESeq2 sizing note: the count design matters. A contrast with a handful of
+genes whose per-gene dispersions all sit near the minimum makes DESeq2's
+mean-dispersion curve fit throw ("all gene-wise dispersion estimates are
+within 2 orders of magnitude from the minimum value"). So the synthetic data
+uses (a) 100 genes, (b) base expression spread log-uniformly over 2..500
+counts, and (c) within-group (between-replicate) multipliers of 0.5x/1.5x
+(and 1.0x/3.0x for treatment, which is 2x control on average). That spread
+keeps the gene-wise dispersion estimates spanning well over 2 orders of
+magnitude, which is what DESeq2's fit requires -- verified empirically.
 """
 import gzip
 import math
@@ -30,10 +40,35 @@ from pathlib import Path
 HERE = Path(__file__).parent
 GENOME_LEN = 50_000
 CONTIG = "chrT"
-GENE_START, GENE_END = 10_001, 30_000  # 1-based, inclusive (GTF convention)
-TE_START, TE_END = 35_001, 45_000
+N_GENES = 100
+GENE_LEN = 300  # per-gene length; must stay > FRAGMENT_LEN for sampling
+GENE_START = 1_001  # 1-based, inclusive start of the gene block
+GENE_END = GENE_START + N_GENES * GENE_LEN - 1  # 1-based, inclusive
+TE_START, TE_END = 40_001, 46_001
 READ_LEN = 50
 FRAGMENT_LEN = 200  # insert size for paired-end reads
+
+# Log-uniform base read-pair counts across the 100 genes (2 .. 500).
+BASE_MIN, BASE_MAX = 2, 500
+
+# Per-sample multiplier applied to every gene's base count. Treatment is 2x
+# control on average (1.0/3.0 vs 0.5/1.5); the 0.5x/1.5x within-group spread
+# is what keeps DESeq2's dispersion fit from degenerating (see docstring).
+SAMPLE_MULT = {
+    "treatment_rep1": 1.0,
+    "treatment_rep2": 3.0,
+    "control_rep1": 0.5,
+    "control_rep2": 1.5,
+}
+
+# The TE goes the other direction (up in control) so both features aren't
+# perfectly confounded; magnitudes just need to be non-trivial.
+SAMPLE_TE_PAIRS = {
+    "treatment_rep1": 15,
+    "treatment_rep2": 25,
+    "control_rep1": 60,
+    "control_rep2": 90,
+}
 
 COMPLEMENT = str.maketrans("ACGT", "TGCA")
 
@@ -85,6 +120,20 @@ def write_fastq_gz(path, reads, name_prefix):
             fh.write(f"@{name_prefix}_{i}/1\n{seq}\n+\n{qual}\n")
 
 
+def base_counts():
+    """n_genes log-uniform integer base counts in [BASE_MIN, BASE_MAX]."""
+    lo, hi = math.log(BASE_MIN), math.log(BASE_MAX)
+    return [
+        round(math.exp(lo + (hi - lo) * i / (N_GENES - 1))) for i in range(N_GENES)
+    ]
+
+
+def gene_region(i):
+    """0-based half-open sampling region for gene i (see gene_region0 docstring)."""
+    start0 = GENE_START - 1 + i * GENE_LEN
+    return start0, start0 + GENE_LEN
+
+
 def main():
     resources_dir = HERE / "resources"
     reads_dir = HERE / "reads"
@@ -94,22 +143,25 @@ def main():
     genome = make_genome(seed=1)
     write_fasta(resources_dir / "genome.fa", CONTIG, genome)
 
-    write_gtf(
-        resources_dir / "genome.gtf",
-        [
+    gene_rows = []
+    for i in range(N_GENES):
+        gstart = GENE_START + i * GENE_LEN
+        gend = gstart + GENE_LEN - 1
+        name = f"GENE{i + 1}"
+        gene_rows.append(
             (
                 CONTIG,
                 "test",
                 "exon",
-                str(GENE_START),
-                str(GENE_END),
+                str(gstart),
+                str(gend),
                 ".",
                 "+",
                 ".",
-                'gene_id "GENE1"; transcript_id "GENE1"; gene_name "GENE1";',
+                f'gene_id "{name}"; transcript_id "{name}"; gene_name "{name}";',
             )
-        ],
-    )
+        )
+    write_gtf(resources_dir / "genome.gtf", gene_rows)
 
     # TEtranscripts' curated TE GTF format: "exon" feature, gene_id/
     # transcript_id/family_id/class_id attributes (matches the format of
@@ -132,34 +184,27 @@ def main():
         ],
     )
 
-    # 4 samples, 2 conditions x 2 reps, all paired-end. Treatment samples
-    # get more gene-region reads and fewer TE-region reads than control
-    # (and vice versa) purely so DESeq2 sees non-zero variance between
-    # groups -- there's no biological meaning to the direction/magnitude,
-    # this is a connectivity smoke test, not a validation dataset.
-    sample_plan = {
-        "treatment_rep1": {"condition": "treatment", "gene_pairs": 160, "te_pairs": 40, "seed": 101},
-        "treatment_rep2": {"condition": "treatment", "gene_pairs": 150, "te_pairs": 45, "seed": 102},
-        "control_rep1": {"condition": "control", "gene_pairs": 80, "te_pairs": 100, "seed": 201},
-        "control_rep2": {"condition": "control", "gene_pairs": 90, "te_pairs": 95, "seed": 202},
-    }
-
-    # 0-based half-open coordinates for read sampling (GTF above is 1-based
-    # inclusive; convert once here).
-    gene_region = (GENE_START - 1, GENE_END)
-    te_region = (TE_START - 1, TE_END)
+    # 4 samples, 2 conditions x 2 reps, all paired-end. Read depths follow
+    # the design in the module docstring so DESeq2's dispersion fit works
+    # (100 genes, log-uniform counts, 0.5x/1.5x within-group spread).
+    base = base_counts()
+    te_region = (TE_START - 1, TE_END)  # 1-based -> 0-based half-open
 
     rows = ["sample,fastq_1,fastq_2,strandedness,condition"]
-    for sample, plan in sample_plan.items():
-        gene_pairs = sample_read_pairs(
-            genome, *gene_region, plan["gene_pairs"], seed=plan["seed"]
-        )
-        te_pairs = sample_read_pairs(
-            genome, *te_region, plan["te_pairs"], seed=plan["seed"] + 1
-        )
-        all_pairs = gene_pairs + te_pairs
-        r1_reads = [p[0] for p in all_pairs]
-        r2_reads = [p[1] for p in all_pairs]
+    for sidx, (sample, mult) in enumerate(SAMPLE_MULT.items()):
+        r1_reads, r2_reads = [], []
+        for i in range(N_GENES):
+            n_pairs = max(1, round(base[i] * mult))
+            for r1, r2 in sample_read_pairs(
+                genome, *gene_region(i), n_pairs, seed=sidx * 10_000 + i
+            ):
+                r1_reads.append(r1)
+                r2_reads.append(r2)
+        for r1, r2 in sample_read_pairs(
+            genome, *te_region, SAMPLE_TE_PAIRS[sample], seed=sidx * 10_000 + 9_999
+        ):
+            r1_reads.append(r1)
+            r2_reads.append(r2)
 
         fq1 = reads_dir / f"{sample}_R1.fastq.gz"
         fq2 = reads_dir / f"{sample}_R2.fastq.gz"
@@ -168,7 +213,8 @@ def main():
 
         rows.append(
             f"{sample},.tests/reads/{sample}_R1.fastq.gz,"
-            f".tests/reads/{sample}_R2.fastq.gz,auto,{plan['condition']}"
+            f".tests/reads/{sample}_R2.fastq.gz,auto,"
+            f"{'treatment' if 'treatment' in sample else 'control'}"
         )
 
     (HERE / "samples.csv").write_text("\n".join(rows) + "\n")
