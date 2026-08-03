@@ -60,45 +60,41 @@ if [[ $force -eq 0 ]]; then
     fi
 fi
 
-# Resolve the release to fetch.
-# RNASEQ_INSTALL_API_URL overrides the GitHub API endpoint (used by tests and
-# mirrors); the response must look like a GitHub "get a release" payload.
+# Resolve the release to fetch. This deliberately avoids the GitHub API (which
+# rate-limits anonymous requests); it uses the releases Atom feed for the
+# latest tag, and SHA256SUMS for the asset list. RNASEQ_INSTALL_ORIGIN
+# overrides the host for tests and mirrors.
+origin="${RNASEQ_INSTALL_ORIGIN:-https://github.com/$repo}"
 if [[ -z "$version" ]]; then
-    api="${RNASEQ_INSTALL_API_URL:-https://api.github.com/repos/$repo/releases/latest}"
-else
-    api="${RNASEQ_INSTALL_API_URL:-https://api.github.com/repos/$repo/releases/tags/$version}"
+    version=$(curl -fsSL --retry 3 "$origin/releases.atom" 2>/dev/null \
+        | grep -oE 'releases/tag/[^"<]+' \
+        | head -n1 \
+        | sed -E 's#.*/##')
 fi
-json=$(curl -fsSL "$api" 2>/dev/null || {
-    echo "error: could not query $api" >&2
-    exit 1
-})
-version=$(printf '%s' "$json" | grep -oE '"tag_name": *"[^"]*"' | head -n1 | sed -E 's/.*"([^"]+)"[[:space:]]*$/\1/')
 if [[ -z "$version" ]]; then
     echo "error: could not determine a release to download" >&2
     exit 1
 fi
-asset_stem="${stem}-${version}-env.tar.gz"
-asset_urls=$(printf '%s' "$json" \
-    | grep -oE '"browser_download_url": *"[^"]*"' \
-    | sed -E 's/.*"([^"]+)"[[:space:]]*$/\1/' \
-    | grep -E "${asset_stem}(\.part\..*)?$|SHA256SUMS$" \
-    || true)
-if [[ -z "$asset_urls" ]]; then
-    echo "error: release $version has no $asset_stem assets" >&2
-    exit 1
-fi
 
+releases_dl="$origin/releases/download/$version"
 work_dir=$(mktemp -d)
 trap 'rm -rf "$work_dir"' EXIT
 
+# SHA256SUMS is shipped with every env release and lists the exact files to
+# fetch (the single tarball, or the split .part.* chunks), so we read the file
+# list from it instead of querying the API.
 echo "Downloading $stem env assets from release $version ..."
+if ! curl -fsSL --retry 3 -o "$work_dir/SHA256SUMS" "$releases_dl/SHA256SUMS"; then
+    echo "error: release $version has no $stem env assets (no SHA256SUMS)" >&2
+    exit 1
+fi
 (
     cd "$work_dir"
-    while IFS= read -r url; do
-        [[ -n "$url" ]] || continue
-        echo "  $url"
-        curl -fsSL --retry 3 -O "$url"
-    done <<< "$asset_urls"
+    while IFS= read -r fname; do
+        [[ -n "$fname" ]] || continue
+        echo "  $releases_dl/$fname"
+        curl -fsSL --retry 3 -o "$fname" "$releases_dl/$fname"
+    done < <(awk '{print $2}' SHA256SUMS)
 )
 
 # Verify checksums (or at least download SHA256SUMS to confirm they line up).
@@ -113,7 +109,7 @@ fi
 (cd "$work_dir" && $cksum -c SHA256SUMS)
 
 # Recombine split parts, if the release shipped them.
-tarball="$work_dir/${asset_stem}"
+tarball="$work_dir/${stem}-${version}-env.tar.gz"
 if [[ ! -f "$tarball" ]]; then
     if compgen -G "$tarball.part.*" >/dev/null; then
         cat "$tarball".part.* > "$tarball"
