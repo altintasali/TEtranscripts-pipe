@@ -19,15 +19,19 @@ optional).
 ```bash
 git clone https://github.com/altintasali/rnaseq-star-tetranscripts.git
 cd rnaseq-star-tetranscripts
-conda env create -f environment.yaml        # snakemake + its python deps
+conda env create -f environment.yaml        # snakemake + every analysis tool, installed once
 conda activate rnaseq-star-tetranscripts
 
 # Smoke test on the bundled tiny synthetic dataset (no real genome/reads needed):
-snakemake --configfile config/test.yaml --sdm conda --cores 4
+snakemake --configfile config/test.yaml --cores 4
 
 # Run on your own data (edit config/config.yaml + config/samples.csv first):
-snakemake --sdm conda --cores 16
+snakemake --cores 16
 ```
+
+All tools (STAR, samtools, RSeQC, MultiQC, TEtranscripts, DESeq2, UCSC tools)
+live directly in this environment, so no `--sdm conda` is needed — nothing to
+download or solve per run.
 
 ## Configuration
 
@@ -64,15 +68,15 @@ synthetic dataset in `.tests/` (10kb genome, one gene, one TE, 4 paired-end
 samples). Useful for confirming your setup or smoke-testing rule edits:
 
 ```bash
-snakemake --configfile config/test.yaml --sdm conda --cores 4 -n   # dry-run
-snakemake --configfile config/test.yaml --sdm conda --cores 4      # run
+snakemake --configfile config/test.yaml --cores 4 -n   # dry-run
+snakemake --configfile config/test.yaml --cores 4      # run
 ```
 
 ## Useful partial targets
 
 ```bash
-snakemake --sdm conda --cores 8 star_index_only      # just build the STAR index
-snakemake --sdm conda --cores 8 strandedness_only    # align + auto-detect strandedness only
+snakemake --cores 8 star_index_only      # just build the STAR index
+snakemake --cores 8 strandedness_only    # align + auto-detect strandedness only
 ```
 
 ## HPC / SLURM
@@ -87,19 +91,20 @@ To submit to SLURM:
 
 ```bash
 pip install snakemake-executor-plugin-slurm
-snakemake --workflow-profile profiles/slurm --sdm conda
+snakemake --workflow-profile profiles/slurm
 ```
 
 Edit `slurm_partition` / `slurm_account` in `profiles/slurm/config.yaml` for
 your cluster. Per-invocation overrides are also possible, e.g.
-`--set-resources star_align:mem_mb=64000`. Build the per-rule conda envs once
-on a login node with internet access first, and point `--conda-prefix` at
-shared storage if compute nodes can't read the default cache.
+`--set-resources star_align:mem_mb=64000`. Every tool runs from the shared
+conda env, so make sure it's visible from the compute nodes (conda envs are
+self-contained; if nodes can't read your home dir, install it on shared
+storage with `conda env create -p /shared/path/env` and adjust your `PATH`).
 
 ## Tool versions
 
 Every tool version is pinned independently with defaults shipped in
-`workflow/default-config/versions.yaml` (STAR 2.7.11b, samtools 1.23.1, RSeQC
+`workflow/default-config/versions.yaml` (STAR 2.7.11b, samtools 1.22.1, RSeQC
 5.0.4, MultiQC 1.33, TEtranscripts 2.2.4, DESeq2 1.46.0, UCSC tools 482).
 Override any by creating `config/versions.yaml` with just the keys you want to
 change:
@@ -109,26 +114,32 @@ versions:
   star: "2.7.10b"
 ```
 
-`--sdm conda` creates the matching per-tool conda envs automatically on first
-run — nothing to install by hand. (Without `--sdm conda`, the version pins are
-ignored and whatever tools are on your `PATH` get used — see "Without conda"
-below. This workflow does not use snakemake-wrappers, since a wrapper tag
-pins all its tools' versions together.)
+The tools are installed into the shared conda env (`environment.yaml`) at env
+creation, with the same pins as `versions.yaml` — keep the two files in sync
+when bumping a version, then `conda env update -f environment.yaml` to apply.
+`samtools` is pinned to 1.22.1 rather than newer: STAR 2.7.11b (the final STAR
+release) links against `htslib <1.23`, which is incompatible with samtools
+1.23+ in a single environment.
 
-One exception to the all-conda scheme: **TEtranscripts is installed from PyPI**
+As a fallback, `--sdm conda` is still supported: Snakemake then generates one
+small per-tool env per rule from `versions.yaml` at parse time instead of using
+the shared env. This workflow does not use snakemake-wrappers, since a wrapper
+tag pins all its tools' versions together.
+
+One exception to the conda scheme: **TEtranscripts is installed from PyPI**
 (`TEtranscripts==2.2.4`), not bioconda. The bioconda recipe's runtime deps pin
 an ancient `bioconductor-deseq` (DESeq v1) that can only coexist with R 4.0-era
 packages, making the conda package unsolvable alongside a modern DESeq2/R on
-any platform. TEtranscripts only uses DESeq2 at runtime, so the workflow
+any platform. TEtranscripts only uses DESeq2 at runtime, so the environment
 conda-installs `deseq2`/`r_base` (pins still apply) and pip-installs the
 pure-Python TEtranscripts package.
 
 ## Without conda
 
 If STAR/samtools/RSeQC/MultiQC/TEtranscripts are already on your `PATH` (e.g.
-via `module load` on a cluster), drop `--sdm conda` and Snakemake will run the
-plain shell commands. You then own the version matching — `--sdm conda` exists
-to guarantee it automatically.
+via `module load` on a cluster), just run `snakemake` without the shared env
+activated — Snakemake runs the plain shell commands. You then own the version
+matching; the shared conda env exists to guarantee it automatically.
 
 ## How strandedness is resolved
 

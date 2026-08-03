@@ -15,7 +15,10 @@
 # =============================================================================
 versions:
   star: "2.7.11b"
-  samtools: "1.23.1"
+  # 1.22.1, not 1.23.1: STAR 2.7.11b (the final STAR release) pins
+  # htslib <1.23, and samtools 1.23.x needs htslib >=1.23.1 -- so only
+  # samtools up to 1.22.x can share an environment with STAR.
+  samtools: "1.22.1"
   rseqc: "5.0.4"
   multiqc: "1.33"
   tetranscripts: "2.2.4"

@@ -17,7 +17,7 @@ jobs:
           channel-priority: flexible
           cache-environment: true
       - shell: bash -l {0}
-        run: snakemake --configfile config/test.yaml --sdm conda --cores 2 -n
+        run: snakemake --configfile config/test.yaml --cores 2
 
   test:
     runs-on: ubuntu-latest

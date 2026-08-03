@@ -3,8 +3,33 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
+  # Workflow runtime.
   - snakemake >=8
   - conda >=24.7.1
   - pandas
   - pyyaml
   - jsonschema
+
+  # Analysis tools -- installed once at env creation so the workflow can be
+  # run with plain `snakemake` (no --sdm conda needed, no per-run env solves).
+  # Version pins mirror workflow/default-config/versions.yaml; keep the two in
+  # sync when bumping a tool.
+  - star=2.7.11b
+  - samtools=1.22.1
+  - rseqc=5.0.4
+  - multiqc=1.33
+  - bioconductor-deseq2=1.46.0
+  - r-base=4.4
+  - pysam
+  - pip
+  - ucsc-gtftogenepred=482
+  - ucsc-genepredtobed=482
+  # Floor only: keeps the solver from backtracking to an ancient build (seen
+  # with RSeQC/MultiQC), without pinning the exact interpreter version.
+  - python >=3.9
+  # TEtranscripts is pure Python and comes from PyPI: the bioconda recipe's
+  # runtime deps pin an ancient bioconductor-deseq (DESeq v1) that can only
+  # coexist with R 4.0-era packages, making it unsolvable alongside the modern
+  # bioconductor-deseq2/r-base above (see README "Tool versions").
+  - pip:
+    - TEtranscripts==2.2.4
