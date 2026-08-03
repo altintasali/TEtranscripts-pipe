@@ -1,13 +1,45 @@
 # rnaseq-star-tetranscripts
 
+![version](https://img.shields.io/github/v/tag/altintasali/rnaseq-star-tetranscripts?label=version)
+
 A Snakemake workflow that quantifies genes **and** transposable elements (TEs)
 from RNA-seq data with [TEtranscripts/TEcount](https://github.com/mhammell-laboratory/TEtranscripts),
 aligning with STAR and auto-detecting library strandedness via RSeQC.
 
-```
-fastq --> STAR align --> [samtools sort/index --> RSeQC infer_experiment --> strandedness] --> TEcount (per sample)
-                                                                                             --> TEtranscripts (per contrast, only if a "condition" column is present)
-                                                                                             --> MultiQC
+```mermaid
+flowchart LR
+    subgraph refs["Reference (once)"]
+        fasta[genome FASTA] --> staridx[STAR index]
+        gtf[gene annotation GTF] --> staridx
+        gtf --> bed12[genePredToBed -> BED12]
+    end
+
+    subgraph sample["Per sample"]
+        fq[fastq] --> align[STAR align]
+        align --> unsorted[Aligned.out.bam]
+        align --> sorted[Aligned.sortedByCoord.out.bam]
+        sorted --> infer[RSeQC infer_experiment]
+        bed12 --> infer
+        infer --> strand[determine_strandedness]
+    end
+
+    subgraph quant["Quantification + QC"]
+        unsorted --> tecount[TEcount]
+        gtf --> tecount
+        teg[TE annotation GTF] --> tecount
+        strand --> tecount
+        tecount --> cnt["{sample}.cntTable"]
+
+        unsorted --> diffexp[TEtranscripts + DESeq2]
+        gtf --> diffexp
+        teg --> diffexp
+        strand --> diffexp
+        diffexp --> sig["{contrast}_sigdiff_gene_TE.txt"]
+
+        align --> multiqc[MultiQC]
+        infer --> multiqc
+        multiqc --> report[multiqc_report.html]
+    end
 ```
 
 ## Quick start
@@ -200,6 +232,8 @@ reference files were resolved).
 
 ## Notes
 
+- Versioning: the current release is recorded in the `VERSION` file at the repo
+  root and tagged `vX.Y.Z` in git (the badge above tracks the latest tag).
 - Gzipped reference files (`.fa.gz` / `.gtf.gz`) are decompressed automatically;
   gzipped fastq files are read natively by STAR. Mix and match freely.
 - TEtranscripts/DESeq2 needs at least 2 replicates per group in a contrast.
