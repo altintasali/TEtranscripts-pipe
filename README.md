@@ -25,7 +25,13 @@ conda activate rnaseq-star-tetranscripts
 # Smoke test on the bundled tiny synthetic dataset (no real genome/reads needed):
 snakemake --configfile config/test.yaml --cores 4
 
-# Run on your own data (edit config/config.yaml + config/samples.csv first):
+# Set up your own analysis. config/config.yaml and config/samples.csv are
+# gitignored on purpose, so every clone starts as a clean project and `git
+# pull` never conflicts with your analysis settings -- create them from the
+# committed .example templates:
+cp config/config.example.yaml config/config.yaml
+cp config/samples.example.csv config/samples.csv
+# ...edit both (reference paths, sample sheet), then:
 snakemake --cores 16
 ```
 
@@ -35,7 +41,13 @@ download or solve per run.
 
 ## Configuration
 
-You only need to touch two files to run an analysis:
+You only need two files to run an analysis, created from the committed
+`.example` templates (both are gitignored, so each clone is a clean project):
+
+```bash
+cp config/config.example.yaml config/config.yaml
+cp config/samples.example.csv config/samples.csv
+```
 
 **`config/config.yaml`** — reference paths and tool options:
 

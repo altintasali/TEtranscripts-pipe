@@ -1,18 +1,28 @@
 # =============================================================================
-# Analysis configuration for the STAR + RSeQC + TEtranscripts Snakemake
-# workflow. This is the file you edit to run an analysis; tool versions
-# live separately in config/versions.yaml (rarely needs touching).
+# EXAMPLE analysis configuration for the STAR + RSeQC + TEtranscripts
+# Snakemake workflow.
+#
+# This file is a template. To run an analysis, clone the repo, copy it to
+# config/config.yaml and edit:
+#
+#   cp config/config.example.yaml config/config.yaml
+#
+# config/config.yaml and config/samples.csv are gitignored -- they belong to
+# your analysis, not the repo -- so `git pull` will never conflict with them.
+# Tool versions live separately in workflow/default-config/versions.yaml
+# (rarely needs touching; override via config/versions.yaml if ever needed).
 # =============================================================================
 
-# Path to the sample sheet (design file). See config/samples.csv for the
-# expected format and workflow/schemas/samples.schema.yaml for validation
-# rules. Per-sample strandedness overrides also live there (see the
-# "strandedness" column) -- not in this file.
+# Path to the sample sheet (design file). Relative paths resolve against the
+# directory you run snakemake from (the repo root). Absolute paths always
+# work and are recommended for anything outside the repo.
 samples: config/samples.csv
 
 ref:
   # Genomic FASTA sequence, e.g. GRCh38 primary assembly. Plain or gzipped
   # (.fa.gz) both work -- gzipped files are decompressed automatically.
+  # Recommend pointing at shared cluster storage instead of copying, e.g.
+  #   /maps/projects/<group>/shared/refs/GRCh38/genome.fa
   fasta: resources/genome.fa
   # Gene annotation GTF (Ensembl/GENCODE), used for the STAR index, RSeQC BED12
   # generation, and as the "--GTF" gene annotation for TEtranscripts/TEcount.
@@ -35,6 +45,8 @@ ref:
 star:
   # Directory that will hold (or already holds) the STAR genome index.
   # If the index is missing, the workflow builds it automatically.
+  # Tip: prebuilt indexes are reusable -- point multiple projects at one
+  # shared index, or symlink this directory to it, to skip rebuilding.
   index: resources/star_index
   # Extra flags for the STAR *index-building* step only. Usually empty --
   # the main case for setting this is a small/toy genome, where STAR

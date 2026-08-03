@@ -11,8 +11,26 @@ min_version("8.0")
 configfile: "workflow/default-config/versions.yaml"
 configfile: "workflow/default-config/resources.yaml"
 
-# The one file you actually need to edit to run an analysis.
-configfile: "config/config.yaml"
+# Your analysis config. Unlike the defaults above, this one belongs to you:
+# config/config.yaml (and config/samples.csv) are gitignored, so create them
+# from the .example templates shipped in config/ before running:
+#   cp config/config.example.yaml config/config.yaml
+#   cp config/samples.example.csv config/samples.csv
+# If you already provide your own config via --configfile on the command
+# line (workflow.overwrite_configfiles), that is enough and
+# config/config.yaml is optional.
+if os.path.exists("config/config.yaml"):
+
+    configfile: "config/config.yaml"
+
+elif not workflow.overwrite_configfiles:
+    raise RuntimeError(
+        "config/config.yaml is missing and no --configfile was given.\n"
+        "Copy the templates and fill them in:\n"
+        "  cp config/config.example.yaml config/config.yaml\n"
+        "  cp config/samples.example.csv config/samples.csv\n"
+        "then edit the paths/options and re-run."
+    )
 
 # Optional user overrides: only loaded if you create them yourself, and only
 # need to contain the keys you want to change -- deep-merged on top of the
