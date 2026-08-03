@@ -64,7 +64,7 @@ You only need to touch two files to run an analysis:
 ## Test profile
 
 `config/test.yaml` runs the whole workflow end-to-end against a bundled
-synthetic dataset in `.tests/` (10kb genome, one gene, one TE, 4 paired-end
+synthetic dataset in `.tests/` (50kb genome, 100 genes, one TE, 4 paired-end
 samples). Useful for confirming your setup or smoke-testing rule edits:
 
 ```bash
@@ -94,8 +94,10 @@ pip install snakemake-executor-plugin-slurm
 snakemake --workflow-profile profiles/slurm
 ```
 
-Edit `slurm_partition` / `slurm_account` in `profiles/slurm/config.yaml` for
-your cluster. Per-invocation overrides are also possible, e.g.
+`slurm_account` in `profiles/slurm/config.yaml` is pre-set to the ICMM_DM
+group account; replace it (and `slurm_partition` / `qos`) with your cluster's
+values if you're not in that group. Per-invocation overrides are also
+possible, e.g.
 `--set-resources star_align:mem_mb=64000`. Every tool runs from the shared
 conda env, so make sure it's visible from the compute nodes (conda envs are
 self-contained; if nodes can't read your home dir, install it on shared

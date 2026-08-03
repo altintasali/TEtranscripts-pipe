@@ -2,19 +2,27 @@
 # Snakemake workflow profile for SLURM clusters.
 # Usage:
 #   pip install snakemake-executor-plugin-slurm
-#   snakemake --workflow-profile profiles/slurm --sdm conda
+#   snakemake --workflow-profile profiles/slurm
+#
+# All tools run from the shared conda env (environment.yaml, see README), so
+# no --sdm conda here: with it, snakemake would rebuild one per-tool conda env
+# per rule on the login node before submitting anything (slow, and the queue
+# stays empty while envs solve). Make sure the shared env is visible from the
+# compute nodes (see README "HPC / SLURM").
 #
 # Per-rule threads/mem_mb/runtime come from config/resources.yaml (loaded by
 # workflow/Snakefile) and are what actually size each SLURM job; the
 # defaults below only apply to anything resources.yaml doesn't cover.
-# Adjust slurm_partition/slurm_account for your cluster before running.
+# slurm_account is set to the ICMM_DM group account; replace it (and
+# slurm_partition/slurm_qos) with your cluster's values if you are not in
+# that group.
 # =============================================================================
 executor: slurm
 jobs: 50
-software-deployment-method: conda
 default-resources:
   slurm_partition: "normal"
-  slurm_account: "your_account"
+  slurm_account: "icmm_dm"
+  qos: "normal"
   mem_mb: 4000
   runtime: 60
 restart-times: 2

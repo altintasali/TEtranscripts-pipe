@@ -1,13 +1,13 @@
 # =============================================================================
 # Test profile -- runs the whole workflow end-to-end in a couple of minutes
 # on a laptop, against the tiny synthetic dataset in .tests/ (a 50kb
-# single-contig genome, one gene, one TE, 4 samples). Mirrors nf-core's
+# single-contig genome, 100 genes, one TE, 4 samples). Mirrors nf-core's
 # `-profile test`: no real genome/reads needed, just a sanity check that
 # every step runs and wires together correctly.
 #
 # Usage:
-#   snakemake --configfile config/test.yaml --sdm conda --cores 4 -n   # dry-run
-#   snakemake --configfile config/test.yaml --sdm conda --cores 4      # run
+#   snakemake --configfile config/test.yaml --cores 4 -n   # dry-run
+#   snakemake --configfile config/test.yaml --cores 4      # run
 #
 # This is deep-merged on top of config/config.yaml (and the built-in
 # defaults) -- only the keys that need to differ for the test dataset are
