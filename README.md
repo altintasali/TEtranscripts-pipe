@@ -94,9 +94,10 @@ snakemake --workflow-profile profiles/slurm
 ```
 
 `slurm_account` in `profiles/slurm/config.yaml` is pre-set to the ICMM_DM
-group account; replace it (and `slurm_partition` / `qos`) with your cluster's
-values if you're not in that group. Per-invocation overrides are also
-possible, e.g.
+group account; replace it (and `qos`) with your cluster's values if you're
+not in that group. `slurm_partition` is left unset on purpose, so sbatch uses
+the cluster's default partition (if yours has none, add `slurm_partition`).
+Per-invocation overrides are also possible, e.g.
 `--set-resources star_align:mem_mb=64000`. Every tool runs from the shared
 conda env, so make sure it's visible from the compute nodes (conda envs are
 self-contained; if nodes can't read your home dir, install it on shared

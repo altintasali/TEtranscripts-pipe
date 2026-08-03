@@ -10,6 +10,9 @@
 __pycache__/
 workflow/envs/generated/
 
+# Build artifact from README.md (pandoc); keep only the source in the repo
+README.html
+
 # Test profile: keep the committed fixtures under .tests/resources/, but
 # not the STAR index it builds there at run time
 .tests/resources/star_index/
