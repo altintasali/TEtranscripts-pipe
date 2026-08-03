@@ -19,6 +19,9 @@ README.html
 /config/config.yaml
 /config/samples.csv
 
+# Opencode session transcripts
+session-*.md
+
 # Test profile: keep the committed fixtures under .tests/resources/, but
 # not the STAR index it builds there at run time
 .tests/resources/star_index/
