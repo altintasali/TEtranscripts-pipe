@@ -18,7 +18,6 @@ jobs:
           activate-environment: rnaseq-star-tetranscripts
           environment-file: environment.yaml
           channel-priority: flexible
-          cache-environment: true
 
       - name: Determine version
         id: version
@@ -32,13 +31,17 @@ jobs:
       - name: Pack environment with conda-pack
         shell: bash -l {0}
         run: |
-          conda install -n base -y conda-pack
-          conda-pack -p "${CONDA_PREFIX}" \
+          set -euo pipefail
+          echo "CONDA_PREFIX=${CONDA_PREFIX:?not set (env not activated)}"
+          command -v conda && conda --version
+          "${CONDA_PREFIX}/bin/pip" install -q conda-pack
+          "${CONDA_PREFIX}/bin/conda-pack" -p "${CONDA_PREFIX}" \
             -o "rnaseq-star-tetranscripts-${{ steps.version.outputs.version }}-env.tar.gz"
 
       - name: Split or checksum
         shell: bash -l {0}
         run: |
+          set -euo pipefail
           tarball="rnaseq-star-tetranscripts-${{ steps.version.outputs.version }}-env.tar.gz"
           # GitHub Releases caps each asset at 2 GiB; split if we're close.
           if (( $(stat -c %s "$tarball") > 1900000000 )); then

@@ -15,7 +15,6 @@ jobs:
           activate-environment: rnaseq-star-tetranscripts
           environment-file: environment.yaml
           channel-priority: flexible
-          cache-environment: true
       - shell: bash -l {0}
         run: snakemake --configfile config/test.yaml --cores 2
 
@@ -28,6 +27,5 @@ jobs:
           activate-environment: rnaseq-star-tetranscripts
           environment-file: environment.yaml
           channel-priority: flexible
-          cache-environment: true
       - shell: bash -l {0}
         run: snakemake --configfile config/test.yaml --cores 2
