@@ -72,6 +72,12 @@ star:
     --outFilterType BySJout
     --outFilterMultimapScoreRange 1
     --sjdbScore 1
+  # Directory for STAR's per-run scratch files (its _STARtmp directory,
+  # roughly one BAM's worth of data). Defaults to the OS temp dir (/tmp), so
+  # the scratch never clutters results/ and is auto-deleted after each run.
+  # On HPC, if node-local /tmp is small, point this at a scratch filesystem
+  # with enough free space instead, e.g. /scratch/<user>/star_tmp.
+  tmpdir: /tmp
 
 trimming:
   # Optional TrimGalore! adapter/quality trimming before STAR, mirroring the
@@ -118,3 +124,14 @@ tetranscripts:
 # values (e.g. control/treatment/knockout -> 3 contrasts). If the "condition"
 # column is absent, differential analysis is skipped and the workflow stops
 # after per-sample TEcount quantification. Nothing to configure here.
+
+outputs:
+  # Whether intermediate fastq files are kept after the downstream rules that
+  # consume them finish. Setting either to false marks those files as
+  # Snakemake temp() outputs -- deleted automatically once alignment is done
+  # with them -- saving disk on big runs. Both default to true.
+  # Note: keep_merged_fastq: false only makes sense while trimming is enabled
+  # (otherwise STAR reads the merged fastqs directly, so deleting them forces
+  # a full re-alignment on the next run).
+  keep_merged_fastq: true
+  keep_trimmed_fastq: true

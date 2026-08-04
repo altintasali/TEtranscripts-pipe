@@ -125,11 +125,14 @@ cp config/samples.example.csv config/samples.csv
 | `ref.decompressed_dir` | where gzipped references are decompressed to (default: a directory under `/tmp` — ephemeral, but cheap to rebuild). |
 | `star.index` | where to (re)build the STAR index. An existing index is honored as-is; it's only rebuilt when missing (or via `snakemake -R star_index`). |
 | `star.extra` | alignment flags; pre-set to the TEtranscripts authors' multi-mapper recommendations. |
+| `star.tmpdir` | directory for STAR's per-run scratch files (its `_STARtmp` dir, ~a BAM's worth of data). Defaults to the OS temp dir; set to a big scratch filesystem on HPC if node-local `/tmp` is small. |
 | `trimming.enabled` | run TrimGalore! adapter/quality trimming before STAR (default `true`, nf-core/rnaseq-style). |
 | `trimming.trim_nextseq` | `--nextseq=N` for NextSeq/NovaSeq poly-G trimming; `0` (default) disables it. |
 | `trimming.extra` | extra TrimGalore! flags passed verbatim. |
 | `strandedness.min_fraction` | confidence threshold for RSeQC auto-detection. |
 | `tetranscripts.*` | TEcount/TEtranscripts options (mode, padj, foldchange...). |
+| `outputs.keep_merged_fastq` | keep the lane-concatenated fastqs (`results/fastq/`). `false` deletes them (temp()) once alignment is done. |
+| `outputs.keep_trimmed_fastq` | keep the trimmed fastqs (`results/trimming/`). `false` deletes them (temp()) once alignment is done. |
 
 **`config/samples.csv`** — the design file. Columns in this exact order
 (an nf-core/rnaseq samplesheet works as-is):
@@ -165,6 +168,7 @@ snakemake --configfile config/test.yaml --cores 4      # run
 ```bash
 snakemake --cores 8 star_index_only      # just build the STAR index
 snakemake --cores 8 strandedness_only    # align + auto-detect strandedness only
+snakemake --cores 8 trimming_only        # merge lanes + TrimGalore! only (no alignment)
 ```
 
 ## HPC / SLURM
@@ -225,13 +229,16 @@ Every rule records its runtime and peak memory (threads/CPU-seconds) to
   consumed resources:
 
   ```bash
-  ./scripts/run_slurm.sh --report report.html        # on SLURM
-  snakemake --configfile config/test.yaml --report report.html   # locally
+  ./scripts/benchmark-report.sh --configfile config/test.yaml   # -> report.html
+  ./scripts/benchmark-report.sh -o out/report.html              # custom path
+  ./scripts/run_slurm.sh --report report.html                   # on SLURM
   ```
 
-  Because every rule declares `benchmark:`, the "Report" page lists peak
-  CPU/memory per job; the `--report` HTML has a "Benchmarks" section with
-  per-rule CPU/RSS charts.
+  `scripts/benchmark-report.sh` is a thin wrapper around
+  `snakemake --report <out> "$@"` that passes everything else straight
+  through. Because every rule declares `benchmark:`, the "Report" page lists
+  peak CPU/memory per job; the `--report` HTML has a "Benchmarks" section
+  with per-rule CPU/RSS charts.
 
 > Note: `--report` re-evaluates the whole DAG including outputs, so the
 > benchmark files must already exist from a finished run (that's what it
@@ -308,25 +315,24 @@ per-sample TEcount quantification.
 
 ```
 results/
-├── fastq/{sample}/                              # only for lane/run-split samples:
-│   └── {sample}_R{1,2}.fastq.gz                 #   concatenated lanes
-├── trimming/{sample}/                           # only if trimming is enabled:
-│   ├── {sample}_val_{1,2}.fq.gz                 #   trimmed reads (paired)
-│   ├── {sample}_trimmed.fq.gz                   #   trimmed reads (single-end)
-│   ├── {sample}_R{1,2}_fastqc.html/.zip         #   FastQC (run inside TrimGalore!)
-│   └── {sample}_trimming_report.txt             #   TrimGalore! report
-├── star/{sample}/Aligned.out.bam                       # unsorted, fed to TEcount
-├── star/{sample}/Aligned.sortedByCoord.out.bam(.bai)   # for RSeQC/QC
-├── rseqc/{sample}/infer_experiment.txt                 # raw RSeQC report
-├── rseqc/{sample}/strandedness.txt                     # resolved no/forward/reverse
-├── tecount/{sample}/{sample}.cntTable                  # per-sample gene+TE counts
-├── tetranscripts/{contrast}/                           # only if "condition" column present
-│   ├── {contrast}.cntTable
-│   ├── {contrast}_DESeq2.R
-│   ├── {contrast}_gene_TE_analysis.txt                 # full DESeq2 results
-│   └── {contrast}_sigdiff_gene_TE.txt                  # significant hits only
-├── qc/multiqc_report.html                              # STAR + FastQC/TrimGalore! + RSeQC
-└── pipeline_info/benchmarks/<rule>/...                 # per-rule CPU/RSS usage
+├── fastq/{sample}_R{1,2}.fastq.gz                  # only for lane/run-split samples:
+│                                                    #   concatenated lanes
+├── trimming/                                       # only if trimming is enabled:
+│   ├── {sample}_val_{1,2}.fq.gz                    #   trimmed reads (paired)
+│   ├── {sample}_trimmed.fq.gz                      #   trimmed reads (single-end)
+│   ├── {sample}_*_fastqc.html/.zip                 #   FastQC (run inside TrimGalore!)
+│   └── {sample}_*_trimming_report.txt              #   TrimGalore! report
+├── star/{sample}_Aligned.out.bam                   # unsorted, fed to TEcount
+├── star/{sample}_Aligned.sortedByCoord.out.bam(.bai)   # for RSeQC/QC
+├── rseqc/{sample}_infer_experiment.txt             # raw RSeQC report
+├── rseqc/{sample}_strandedness.txt                 # resolved no/forward/reverse
+├── tecount/{sample}.cntTable                       # per-sample gene+TE counts
+├── tetranscripts/{contrast}_*.{txt,R}              # only if "condition" column present
+│                                                    #   ({contrast}.cntTable, _DESeq2.R,
+│                                                    #   _gene_TE_analysis.txt, _sigdiff_gene_TE.txt)
+├── versions/rnaseq_mqc_versions.yml                # pinned tool versions -> MultiQC
+├── qc/multiqc_report.html                          # STAR + FastQC/TrimGalore! + RSeQC
+└── pipeline_info/benchmarks/<rule>/...             # per-rule CPU/RSS usage
 ```
 
 Per-rule logs mirror this structure under `logs/` (plus
@@ -345,6 +351,21 @@ decompressed-reference directory, and gzipped reference files were resolved).
   concatenated into `results/fastq/` before (optional, on by default)
   TrimGalore! trimming in `results/trimming/`. Setting `trimming.enabled: false`
   skips trimming entirely and STAR reads the merged/raw fastqs directly.
+- Intermediate fastq cleanup: by default the merged and trimmed fastqs are
+  kept. Set `outputs.keep_merged_fastq` / `outputs.keep_trimmed_fastq` to
+  `false` and Snakemake deletes them (temp()) once alignment is done — they
+  are then regenerated on the next run, so the FastQC reports (which MultiQC
+  reads) are unaffected. `keep_merged_fastq: false` only makes sense while
+  trimming is enabled, otherwise STAR consumes the merged fastqs directly and
+  deleting them forces a full re-alignment on the next run.
+- STAR's scratch directory (its `_STARtmp`, ~a BAM's worth of per-thread
+  chunks) is written to `star.tmpdir` (default: the OS temp dir) instead of
+  the results tree, and removed after each alignment — even if STAR crashes
+  before its own cleanup.
+- The MultiQC report includes a "Software Versions" section (and tags the
+  STAR/FastQC/... general-stats rows with versions) from the pinned
+  `config["versions"]`, written by the `software_versions` rule to
+  `results/versions/rnaseq_mqc_versions.yml`.
 - STAR index freshness: a prebuilt/reused index directory is honored as-is even
   when the fasta/GTF it was built from is newer — the index is only rebuilt when
   missing, or explicitly with `snakemake -R star_index`. (Snakemake otherwise

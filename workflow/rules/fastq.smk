@@ -11,7 +11,7 @@ rule cat_fastq:
     input:
         lambda wc: sample_fastqs(wc.sample, wc.read),
     output:
-        "results/fastq/{sample}/{sample}_R{read}.fastq.gz",
+        MERGED_FASTQ_OUTPUT
     params:
         gz=lambda wc: all(
             str(f).endswith(".gz") for f in sample_fastqs(wc.sample, wc.read)
@@ -25,6 +25,5 @@ rule cat_fastq:
     log:
         "logs/cat_fastq/{sample}_R{read}.log",
     shell:
-        "mkdir -p results/fastq/{wildcards.sample} && "
         "(if [ {params.gz} = True ]; then cat {input} > {output}; "
         "else cat {input} | gzip -c > {output}; fi) 2> {log}"

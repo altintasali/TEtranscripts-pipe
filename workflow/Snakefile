@@ -52,6 +52,7 @@ include: "rules/trimming.smk"
 include: "rules/align.smk"
 include: "rules/strandedness.smk"
 include: "rules/tetranscripts.smk"
+include: "rules/software_versions.smk"
 include: "rules/qc.smk"
 
 
@@ -73,4 +74,13 @@ rule strandedness_only:
     # for samples that need it (effective mode "auto"), useful for
     # sanity-checking a new sample sheet before quantification.
     input:
-        expand("results/rseqc/{sample}/strandedness.txt", sample=AUTO_SAMPLES),
+        expand("results/rseqc/{sample}_strandedness.txt", sample=AUTO_SAMPLES),
+
+
+rule trimming_only:
+    # Convenience target: run just the fastq merge + TrimGalore! trimming
+    # steps (nothing after that -- no alignment/quantification), useful for
+    # QC-ing the reads before committing to a full run. Automatically pulls
+    # in the lane-merging step for lane-split samples.
+    input:
+        all_trim_outputs(),

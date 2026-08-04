@@ -1,20 +1,30 @@
+import os
+
 rule star_align:
     # Aligns one sample against the shared genome index. Output BAM is left
     # "Unsorted" (STAR's native read order) on purpose: TEtranscripts/TEcount
     # require either unsorted or queryname-sorted input, see
     # https://github.com/mhammell-laboratory/TEtranscripts#recommendations-for-tetranscripts-input-files
     # Runs the STAR version pinned in config["versions"]["star"].
+    #
+    # STAR's scratch directory (default: prefix/_STARtmp) is redirected to
+    # --outTmpDir under config["star"]["tmpdir"] (default: the OS temp dir)
+    # so it never clutters results/ -- it holds ~a BAM's worth of per-thread
+    # chunks that STAR merges and then deletes. A trap removes it even when
+    # STAR crashes before its own cleanup (the known benign exit-time crash,
+    # see below), so nothing lingers in /tmp either.
     input:
         unpack(star_input),
         idx=config["star"]["index"],
     output:
-        aln="results/star/{sample}/Aligned.out.bam",
-        log_final="results/star/{sample}/Log.final.out",
-        sj="results/star/{sample}/SJ.out.tab",
+        aln="results/star/{sample}_Aligned.out.bam",
+        log_final="results/star/{sample}_Log.final.out",
+        sj="results/star/{sample}_SJ.out.tab",
     params:
         reads=star_reads_param,
         read_command=star_read_command_param,
-        prefix=lambda wc: f"results/star/{wc.sample}/",
+        prefix=lambda wc: f"results/star/{wc.sample}_",
+        tmpdir=lambda wc: os.path.join(STAR_TMPDIR, f"star_{wc.sample}"),
         extra=config["star"]["extra"],
     threads: get_resources("star_align")["threads"]
     resources:
@@ -31,13 +41,18 @@ rule star_align:
         # crash-on-exit bug (confirmed by its author) that can happen
         # after alignment has already finished and all output files were
         # written -- so a non-zero exit is checked against actual output
-        # completeness rather than trusted outright.
-        "mkdir -p {params.prefix} && "
+        # completeness rather than trusted outright. outTmpDir must be
+        # empty/absent before STAR starts (stale leftovers from a crashed
+        # job would otherwise abort it), hence the rm -rf/mkdir -p.
+        "mkdir -p results/star && "
+        "rm -rf {params.tmpdir} && mkdir -p {params.tmpdir} && "
+        "trap 'rm -rf {params.tmpdir}' EXIT; "
         "(STAR --runThreadN {threads} "
         "--genomeDir {input.idx} "
         "--readFilesIn {params.reads} "
         "{params.read_command} "
         "--outFileNamePrefix {params.prefix} "
+        "--outTmpDir {params.tmpdir} "
         "--outSAMtype BAM Unsorted "
         "{params.extra} "
         "> {log} 2>&1 "
@@ -66,9 +81,9 @@ rule samtools_sort:
     # TEcount/TEtranscripts always consume the unsorted STAR output above.
     # Runs the samtools version pinned in config["versions"]["samtools"].
     input:
-        "results/star/{sample}/Aligned.out.bam",
+        "results/star/{sample}_Aligned.out.bam",
     output:
-        "results/star/{sample}/Aligned.sortedByCoord.out.bam",
+        "results/star/{sample}_Aligned.sortedByCoord.out.bam",
     params:
         extra=_samtools_sort_mem,
     threads: get_resources("samtools_sort")["threads"]
@@ -88,9 +103,9 @@ rule samtools_sort:
 
 rule samtools_index:
     input:
-        "results/star/{sample}/Aligned.sortedByCoord.out.bam",
+        "results/star/{sample}_Aligned.sortedByCoord.out.bam",
     output:
-        "results/star/{sample}/Aligned.sortedByCoord.out.bam.bai",
+        "results/star/{sample}_Aligned.sortedByCoord.out.bam.bai",
     params:
         extra="",
     threads: get_resources("samtools_index")["threads"]

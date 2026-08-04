@@ -39,6 +39,8 @@ star:
   index_extra: "--genomeSAindexNbases 6 --genomeChrBinNbits 15"
   # Plain alignment is fine for the synthetic test data (only one TE).
   extra: ""
+  # Explicit here just to exercise the config option; the default is /tmp.
+  tmpdir: /tmp
 
 trimming:
   enabled: true
@@ -51,6 +53,13 @@ trimming:
 # been created yet.
 strandedness:
   min_fraction: 0.6
+
+# Exercise the temp() fastq-removal path in CI: the merged + trimmed fastqs
+# are deleted once alignment is done (the FastQC reports persist, so MultiQC
+# still scans results/trimming/).
+outputs:
+  keep_merged_fastq: false
+  keep_trimmed_fastq: false
 
 tetranscripts:
   mode: multi
@@ -76,4 +85,5 @@ resources:
   determine_strandedness: {threads: 1, mem_mb: 1000, runtime: 5}
   tecount: {threads: 1, mem_mb: 1000, runtime: 10}
   tetranscripts_diffexp: {threads: 1, mem_mb: 1000, runtime: 10}
+  software_versions: {threads: 1, mem_mb: 500, runtime: 5}
   multiqc: {threads: 1, mem_mb: 500, runtime: 5}

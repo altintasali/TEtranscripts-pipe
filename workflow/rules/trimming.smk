@@ -34,7 +34,7 @@ def _nextseq_param(wildcards):
 
 
 def _trim_outdir(wildcards):
-    return f"results/trimming/{wildcards.sample}"
+    return "results/trimming"
 
 
 _TRIM_SHELL = (
@@ -52,12 +52,16 @@ rule trim_galore:
     # Paired-end: --basename fixes the output names ({sample}_val_1/2.fq.gz)
     # so they don't depend on the input file's basename -- the merged path
     # (results/fastq/) and a raw single-lane path differ, but both must map
-    # to the same outputs.
+    # to the same outputs. The FastQC reports (run inside TrimGalore! via
+    # --fastqc_args) are declared as outputs too: the multiqc rule depends on
+    # them rather than on the (possibly temp()-deleted) trimmed fastqs.
     input:
         unpack(_trim_inputs),
     output:
-        "results/trimming/{sample}/{sample}_val_1.fq.gz",
-        "results/trimming/{sample}/{sample}_val_2.fq.gz",
+        fq1=_maybe_temp("results/trimming/{sample}_val_1.fq.gz", KEEP_TRIMMED_FASTQ),
+        fq2=_maybe_temp("results/trimming/{sample}_val_2.fq.gz", KEEP_TRIMMED_FASTQ),
+        fq1_fastqc="results/trimming/{sample}_val_1_fastqc.zip",
+        fq2_fastqc="results/trimming/{sample}_val_2_fastqc.zip",
     params:
         paired=_trim_paired_flag,
         reads=_trim_reads_param,
@@ -83,7 +87,8 @@ rule trim_galore_se:
     input:
         unpack(_trim_inputs),
     output:
-        "results/trimming/{sample}/{sample}_trimmed.fq.gz",
+        fq=_maybe_temp("results/trimming/{sample}_trimmed.fq.gz", KEEP_TRIMMED_FASTQ),
+        fastqc="results/trimming/{sample}_trimmed_fastqc.zip",
     params:
         paired=_trim_paired_flag,
         reads=_trim_reads_param,

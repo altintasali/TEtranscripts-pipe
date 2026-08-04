@@ -306,6 +306,35 @@ def _is_paired(sample):
 # -----------------------------------------------------------------------------
 TRIM_ENABLED = bool(config.get("trimming", {}).get("enabled", True))
 
+# Whether the merged (lane-concatenated) and trimmed fastq files are kept
+# after downstream rules (STAR/alignment) are done with them. Set either to
+# false in the `outputs` config section and those files are marked temp() --
+# Snakemake deletes them after the last consumer finishes, saving disk on big
+# runs at the cost of re-running the merge/trim steps if they're needed again.
+KEEP_MERGED_FASTQ = bool(config.get("outputs", {}).get("keep_merged_fastq", True))
+KEEP_TRIMMED_FASTQ = bool(config.get("outputs", {}).get("keep_trimmed_fastq", True))
+
+
+def _maybe_temp(path, keep):
+    """A rule output path, wrapped in temp() unless the user opted to keep
+    it via the `outputs` config section. Snakemake allows temp() on wildcard
+    patterns, so this is applied at parse time (the keep flag is a constant)."""
+    if keep:
+        return path
+    return temp(path)
+
+
+# The cat_fastq rule's output pattern, temp()-wrapped when the merged fastqs
+# are not kept (see the `outputs` config section).
+MERGED_FASTQ_OUTPUT = _maybe_temp(
+    "results/fastq/{sample}_R{read}.fastq.gz", KEEP_MERGED_FASTQ
+)
+
+
+# Directory for STAR's per-run scratch files (the _STARtmp directory), outside
+# the results tree. See the star_align rule in align.smk.
+STAR_TMPDIR = config["star"].get("tmpdir", "/tmp")
+
 
 def merged_fastq_path(sample, read):
     """Path of the concatenated fastq for a sample's read (results/fastq/).
@@ -318,7 +347,7 @@ def merged_fastq_path(sample, read):
     files = sample_fastqs(sample, read)
     if len(files) <= 1:
         return files[0] if files else None
-    return f"results/fastq/{sample}/{sample}_R{read}.fastq.gz"
+    return f"results/fastq/{sample}_R{read}.fastq.gz"
 
 
 def star_fastq(sample, read):
@@ -328,8 +357,8 @@ def star_fastq(sample, read):
         return None
     if TRIM_ENABLED:
         if _is_paired(sample):
-            return f"results/trimming/{sample}/{sample}_val_{read}.fq.gz"
-        return f"results/trimming/{sample}/{sample}_trimmed.fq.gz"
+            return f"results/trimming/{sample}_val_{read}.fq.gz"
+        return f"results/trimming/{sample}_trimmed.fq.gz"
     return base
 
 
@@ -366,7 +395,7 @@ def strandedness_input(wildcards):
     since no RSeQC/auto-detection step is needed in that case.
     """
     if SAMPLE_STRANDED_MODE[wildcards.sample] == "auto":
-        return f"results/rseqc/{wildcards.sample}/strandedness.txt"
+        return f"results/rseqc/{wildcards.sample}_strandedness.txt"
     return []
 
 
@@ -419,7 +448,7 @@ def contrast_strandedness_input(wildcards):
     whose effective strandedness mode is "auto" (others are fixed and need
     no RSeQC run)."""
     auto_samples = [s for s in _contrast_samples(wildcards) if SAMPLE_STRANDED_MODE[s] == "auto"]
-    return expand("results/rseqc/{sample}/strandedness.txt", sample=auto_samples)
+    return expand("results/rseqc/{sample}_strandedness.txt", sample=auto_samples)
 
 
 def get_contrast_strandedness_param(wildcards, input):
@@ -453,21 +482,36 @@ def get_contrast_strandedness_param(wildcards, input):
 
 
 def all_tecount_tables():
-    return expand("results/tecount/{sample}/{sample}.cntTable", sample=SAMPLES)
+    return expand("results/tecount/{sample}.cntTable", sample=SAMPLES)
 
 
 def all_trim_outputs():
     """One trimmed fastq path per sample (only when trimming is enabled),
-    used by the multiqc rule as a representative input so MultiQC scans the
-    results/trimming/{sample}/ directories for FastQC + TrimGalore! reports.
-    """
+    used by the `trimming_only` convenience target (Snakefile)."""
     if not TRIM_ENABLED:
         return []
     return [
         (
-            f"results/trimming/{s}/{s}_val_1.fq.gz"
+            f"results/trimming/{s}_val_1.fq.gz"
             if _is_paired(s)
-            else f"results/trimming/{s}/{s}_trimmed.fq.gz"
+            else f"results/trimming/{s}_trimmed.fq.gz"
+        )
+        for s in SAMPLES
+    ]
+
+
+def all_fastqc_reports():
+    """One FastQC .zip report path per trimmed sample (only when trimming is
+    enabled), used by the multiqc rule so it scans results/trimming/ for the
+    FastQC + TrimGalore! reports without depending on the trimmed fastq files
+    themselves (which may be temp()-deleted after alignment)."""
+    if not TRIM_ENABLED:
+        return []
+    return [
+        (
+            f"results/trimming/{s}_val_1_fastqc.zip"
+            if _is_paired(s)
+            else f"results/trimming/{s}_trimmed_fastqc.zip"
         )
         for s in SAMPLES
     ]
@@ -475,7 +519,7 @@ def all_trim_outputs():
 
 def all_diffexp_outputs():
     return expand(
-        "results/tetranscripts/{contrast}/{contrast}_sigdiff_gene_TE.txt",
+        "results/tetranscripts/{contrast}_sigdiff_gene_TE.txt",
         contrast=list(CONTRASTS.keys()),
     )
 

@@ -5,11 +5,11 @@ rule rseqc_infer_experiment:
     # common.smk). Runs the RSeQC version pinned in
     # config["versions"]["rseqc"].
     input:
-        aln="results/star/{sample}/Aligned.sortedByCoord.out.bam",
-        bai="results/star/{sample}/Aligned.sortedByCoord.out.bam.bai",
+        aln="results/star/{sample}_Aligned.sortedByCoord.out.bam",
+        bai="results/star/{sample}_Aligned.sortedByCoord.out.bam.bai",
         refgene="resources/annotation.bed12",
     output:
-        "results/rseqc/{sample}/infer_experiment.txt",
+        "results/rseqc/{sample}_infer_experiment.txt",
     params:
         extra="",
     threads: get_resources("rseqc_infer_experiment")["threads"]
@@ -33,9 +33,9 @@ rule determine_strandedness:
     # Converts the RSeQC infer_experiment.py report into the TEtranscripts/
     # TEcount --stranded value (no/forward/reverse) for this sample.
     input:
-        txt="results/rseqc/{sample}/infer_experiment.txt",
+        txt="results/rseqc/{sample}_infer_experiment.txt",
     output:
-        txt="results/rseqc/{sample}/strandedness.txt",
+        txt="results/rseqc/{sample}_strandedness.txt",
     params:
         min_fraction=config["strandedness"]["min_fraction"],
     threads: get_resources("determine_strandedness")["threads"]

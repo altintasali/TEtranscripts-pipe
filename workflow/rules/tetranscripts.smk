@@ -3,17 +3,17 @@ rule tecount:
     # exists for TEtranscripts/TEcount, so this runs the tool directly in a
     # conda env generated from config["versions"] (see common.smk).
     input:
-        bam="results/star/{sample}/Aligned.out.bam",
+        bam="results/star/{sample}_Aligned.out.bam",
         gtf=GTF,
         te_gtf=TE_GTF,
         strandedness=strandedness_input,
     output:
-        "results/tecount/{sample}/{sample}.cntTable",
+        "results/tecount/{sample}.cntTable",
     params:
         stranded=get_strandedness_param,
         mode=config["tetranscripts"]["mode"],
         extra=config["tetranscripts"]["extra"],
-        outdir=lambda wc: f"results/tecount/{wc.sample}",
+        outdir="results/tecount",
     threads: get_resources("tecount")["threads"]
     resources:
         mem_mb=get_resources("tecount")["mem_mb"],
@@ -45,21 +45,21 @@ rule tetranscripts_diffexp:
     # re-quantifies all samples together and runs DESeq2.
     input:
         treatment=lambda wc: expand(
-            "results/star/{sample}/Aligned.out.bam",
+            "results/star/{sample}_Aligned.out.bam",
             sample=CONTRASTS[wc.contrast]["treatment"],
         ),
         control=lambda wc: expand(
-            "results/star/{sample}/Aligned.out.bam",
+            "results/star/{sample}_Aligned.out.bam",
             sample=CONTRASTS[wc.contrast]["control"],
         ),
         strandedness=contrast_strandedness_input,
         gtf=GTF,
         te_gtf=TE_GTF,
     output:
-        cnt_table="results/tetranscripts/{contrast}/{contrast}.cntTable",
-        deseq_script="results/tetranscripts/{contrast}/{contrast}_DESeq2.R",
-        full="results/tetranscripts/{contrast}/{contrast}_gene_TE_analysis.txt",
-        sig="results/tetranscripts/{contrast}/{contrast}_sigdiff_gene_TE.txt",
+        cnt_table="results/tetranscripts/{contrast}.cntTable",
+        deseq_script="results/tetranscripts/{contrast}_DESeq2.R",
+        full="results/tetranscripts/{contrast}_gene_TE_analysis.txt",
+        sig="results/tetranscripts/{contrast}_sigdiff_gene_TE.txt",
     params:
         stranded=get_contrast_strandedness_param,
         mode=config["tetranscripts"]["mode"],
@@ -67,7 +67,7 @@ rule tetranscripts_diffexp:
         foldchange=config["tetranscripts"]["foldchange"],
         minread=config["tetranscripts"]["minread"],
         extra=config["tetranscripts"]["extra"],
-        outdir=lambda wc: f"results/tetranscripts/{wc.contrast}",
+        outdir="results/tetranscripts",
     threads: get_resources("tetranscripts_diffexp")["threads"]
     resources:
         mem_mb=get_resources("tetranscripts_diffexp")["mem_mb"],

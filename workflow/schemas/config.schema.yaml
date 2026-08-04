@@ -54,6 +54,13 @@ properties:
       index: {type: string}
       index_extra: {type: string}
       extra: {type: string}
+      tmpdir:
+        type: string
+        description: >-
+          Directory for STAR's per-run scratch files (the _STARtmp directory;
+          roughly one BAM's worth of data). Defaults to the OS temp dir
+          (/tmp) so the scratch never clutters results/. Point it at a big/
+          fast scratch filesystem on HPC if node-local /tmp is small.
     required: [index]
   trimming:
     type: object
@@ -109,6 +116,26 @@ properties:
         threads: {type: integer}
         mem_mb: {type: integer}
         runtime: {type: integer}
+
+  outputs:
+    type: object
+    description: >-
+      Whether intermediate fastq files are kept after the downstream rules
+      that consume them finish. Setting either to false marks those files as
+      Snakemake temp() outputs -- deleted automatically after the last
+      consumer (alignment) runs -- saving disk on big runs. Both default to
+      true.
+    properties:
+      keep_merged_fastq:
+        type: boolean
+        description: >-
+          Keep the lane-concatenated fastqs (results/fastq/). Note: only
+          meaningful while trimming is enabled -- otherwise STAR reads them
+          directly, so deleting them forces a full re-alignment on the next
+          run.
+      keep_trimmed_fastq:
+        type: boolean
+        description: Keep the TrimGalore!-trimmed fastqs (results/trimming/).
 
 required:
   - samples
