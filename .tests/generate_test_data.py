@@ -13,6 +13,7 @@ Layout produced:
     .tests/resources/genome.gtf          100 genes, "chrT" 1001-31000 (+)
     .tests/resources/te_annotation.gtf   one TE,   "chrT" 40001-46000 (+)
     .tests/reads/{sample}_R{1,2}.fastq.gz
+    .tests/reads/treatment_rep1_L{001,002}_R{1,2}.fastq.gz   (lane-split sample)
     .tests/samples.csv
 
 Genome size note: earlier versions of this script used a 10kb genome, which
@@ -69,6 +70,13 @@ SAMPLE_TE_PAIRS = {
     "control_rep1": 60,
     "control_rep2": 90,
 }
+
+# Samples whose reads are written as two lane files (nf-core/rnaseq style)
+# instead of one, exercising the workflow's lane/run merging (cat_fastq).
+# treatment_rep1 is written as *_L001_* and *_L002_* and listed as two rows
+# (same sample name) in .tests/samples.csv.
+LANE_SPLIT_SAMPLES = {"treatment_rep1"}
+LANE_NAMES = ("L001", "L002")
 
 COMPLEMENT = str.maketrans("ACGT", "TGCA")
 
@@ -206,16 +214,35 @@ def main():
             r1_reads.append(r1)
             r2_reads.append(r2)
 
-        fq1 = reads_dir / f"{sample}_R1.fastq.gz"
-        fq2 = reads_dir / f"{sample}_R2.fastq.gz"
-        write_fastq_gz(fq1, r1_reads, sample)
-        write_fastq_gz(fq2, r2_reads, sample)
+        if sample in LANE_SPLIT_SAMPLES:
+            # Write the sample's reads as two lane files (paired-end reads
+            # must stay paired, so split the aligned lists by index). The
+            # deterministic test sample has far more than two reads, so both
+            # lanes end up non-empty.
+            half = len(r1_reads) // 2
+            for lane, lane_r1, lane_r2 in (
+                (LANE_NAMES[0], r1_reads[:half], r2_reads[:half]),
+                (LANE_NAMES[1], r1_reads[half:], r2_reads[half:]),
+            ):
+                fq1 = reads_dir / f"{sample}_{lane}_R1.fastq.gz"
+                fq2 = reads_dir / f"{sample}_{lane}_R2.fastq.gz"
+                write_fastq_gz(fq1, lane_r1, f"{sample}_{lane}")
+                write_fastq_gz(fq2, lane_r2, f"{sample}_{lane}")
+                rows.append(
+                    f"{sample},.tests/reads/{fq1.name},.tests/reads/{fq2.name},auto,"
+                    f"{'treatment' if 'treatment' in sample else 'control'}"
+                )
+        else:
+            fq1 = reads_dir / f"{sample}_R1.fastq.gz"
+            fq2 = reads_dir / f"{sample}_R2.fastq.gz"
+            write_fastq_gz(fq1, r1_reads, sample)
+            write_fastq_gz(fq2, r2_reads, sample)
 
-        rows.append(
-            f"{sample},.tests/reads/{sample}_R1.fastq.gz,"
-            f".tests/reads/{sample}_R2.fastq.gz,auto,"
-            f"{'treatment' if 'treatment' in sample else 'control'}"
-        )
+            rows.append(
+                f"{sample},.tests/reads/{sample}_R1.fastq.gz,"
+                f".tests/reads/{sample}_R2.fastq.gz,auto,"
+                f"{'treatment' if 'treatment' in sample else 'control'}"
+            )
 
     (HERE / "samples.csv").write_text("\n".join(rows) + "\n")
     print("Wrote test data to", HERE)

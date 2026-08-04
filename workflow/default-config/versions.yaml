@@ -19,6 +19,11 @@ versions:
   # htslib <1.23, and samtools 1.23.x needs htslib >=1.23.1 -- so only
   # samtools up to 1.22.x can share an environment with STAR.
   samtools: "1.22.1"
+  # TrimGalore! adapter/quality trimming (nf-core/rnaseq default trimmer).
+  # It depends on cutadapt internally; fastqc is added explicitly for
+  # trim_galore's --fastqc_args (nf-core default) and its MultiQC reports.
+  trim_galore: "0.6.10"
+  fastqc: "0.12.1"
   rseqc: "5.0.4"
   multiqc: "1.33"
   tetranscripts: "2.2.4"

@@ -20,6 +20,8 @@ rule star_align:
     resources:
         mem_mb=get_resources("star_align")["mem_mb"],
         runtime=get_resources("star_align")["runtime"],
+    benchmark:
+        "results/pipeline_info/benchmarks/star_align/{sample}.txt",
     log:
         "logs/star/align/{sample}.log",
     conda:
@@ -46,6 +48,19 @@ rule star_align:
         "grep -q 'ALL DONE!' {output.log_final}))"
 
 
+def _samtools_sort_mem(wildcards):
+    """samtools sort -m flag (max memory *per thread*), derived from this
+    rule's mem_mb/threads resources so it scales with config/resources.yaml
+    instead of being hardcoded. Total = -m x threads, so per-thread is capped
+    at a fraction of the per-thread share to leave headroom for the sort's
+    I/O buffers and keep peak usage inside the job's mem_mb budget.
+    """
+    res = get_resources("samtools_sort")
+    threads = max(res["threads"], 1)
+    per_thread = max(int(res["mem_mb"] * 0.8 // threads), 64)
+    return f"-m {per_thread}M"
+
+
 rule samtools_sort:
     # A coordinate-sorted + indexed copy is only needed for RSeQC/QC purposes;
     # TEcount/TEtranscripts always consume the unsorted STAR output above.
@@ -55,11 +70,13 @@ rule samtools_sort:
     output:
         "results/star/{sample}/Aligned.sortedByCoord.out.bam",
     params:
-        extra="-m 3G",
+        extra=_samtools_sort_mem,
     threads: get_resources("samtools_sort")["threads"]
     resources:
         mem_mb=get_resources("samtools_sort")["mem_mb"],
         runtime=get_resources("samtools_sort")["runtime"],
+    benchmark:
+        "results/pipeline_info/benchmarks/samtools_sort/{sample}.txt",
     log:
         "logs/samtools/sort/{sample}.log",
     conda:
@@ -80,6 +97,8 @@ rule samtools_index:
     resources:
         mem_mb=get_resources("samtools_index")["mem_mb"],
         runtime=get_resources("samtools_index")["runtime"],
+    benchmark:
+        "results/pipeline_info/benchmarks/samtools_index/{sample}.txt",
     log:
         "logs/samtools/index/{sample}.log",
     conda:

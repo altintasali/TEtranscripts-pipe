@@ -16,6 +16,8 @@ rule rseqc_infer_experiment:
     resources:
         mem_mb=get_resources("rseqc_infer_experiment")["mem_mb"],
         runtime=get_resources("rseqc_infer_experiment")["runtime"],
+    benchmark:
+        "results/pipeline_info/benchmarks/rseqc_infer_experiment/{sample}.txt",
     log:
         "logs/rseqc/infer_experiment/{sample}.log",
     conda:
@@ -40,6 +42,8 @@ rule determine_strandedness:
     resources:
         mem_mb=get_resources("determine_strandedness")["mem_mb"],
         runtime=get_resources("determine_strandedness")["runtime"],
+    benchmark:
+        "results/pipeline_info/benchmarks/determine_strandedness/{sample}.txt",
     log:
         "logs/rseqc/determine_strandedness/{sample}.log",
     script:

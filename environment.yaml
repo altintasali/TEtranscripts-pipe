@@ -19,6 +19,8 @@ dependencies:
   # sync when bumping a tool.
   - star=2.7.11b
   - samtools=1.22.1
+  - trim-galore=0.6.10
+  - fastqc=0.12.1
   - rseqc=5.0.4
   - multiqc=1.33
   - bioconductor-deseq2=1.46.0

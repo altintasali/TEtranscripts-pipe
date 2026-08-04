@@ -18,6 +18,8 @@ rule tecount:
     resources:
         mem_mb=get_resources("tecount")["mem_mb"],
         runtime=get_resources("tecount")["runtime"],
+    benchmark:
+        "results/pipeline_info/benchmarks/tecount/{sample}.txt",
     log:
         "logs/tecount/{sample}.log",
     conda:
@@ -70,6 +72,8 @@ rule tetranscripts_diffexp:
     resources:
         mem_mb=get_resources("tetranscripts_diffexp")["mem_mb"],
         runtime=get_resources("tetranscripts_diffexp")["runtime"],
+    benchmark:
+        "results/pipeline_info/benchmarks/tetranscripts_diffexp/{contrast}.txt",
     log:
         "logs/tetranscripts/{contrast}.log",
     conda:

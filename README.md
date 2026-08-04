@@ -15,7 +15,7 @@ flowchart LR
     end
 
     subgraph sample["Per sample"]
-        fq[fastq] --> align[STAR align]
+        lanes[lane fastq files] --> merge[concat lanes] --> trim[Trim Galore!] --> align[STAR align]
         align --> unsorted[Aligned.out.bam]
         align --> sorted[Aligned.sortedByCoord.out.bam]
         sorted --> infer[RSeQC infer_experiment]
@@ -117,8 +117,12 @@ cp config/samples.example.csv config/samples.csv
 | `ref.gtf` | gene annotation GTF. Plain or gzipped. |
 | `ref.te_gtf` | **curated** TE GTF from the TEtranscripts authors (download the file matching your genome build from [mghlab.org/software/tetranscripts](https://www.mghlab.org/software/tetranscripts) — a generic RepeatMasker GTF will *not* work). Plain or gzipped. |
 | `ref.sjdb_overhang` | `auto` (default) detects `max(read length) - 1` from your fastq files; set an integer to pin it. |
-| `star.index` | where to (re)build the STAR index. |
+| `ref.decompressed_dir` | where gzipped references are decompressed to (default: a directory under `/tmp` — ephemeral, but cheap to rebuild). |
+| `star.index` | where to (re)build the STAR index. An existing index is honored as-is; it's only rebuilt when missing (or via `snakemake -R star_index`). |
 | `star.extra` | alignment flags; pre-set to the TEtranscripts authors' multi-mapper recommendations. |
+| `trimming.enabled` | run TrimGalore! adapter/quality trimming before STAR (default `true`, nf-core/rnaseq-style). |
+| `trimming.trim_nextseq` | `--nextseq=N` for NextSeq/NovaSeq poly-G trimming; `0` (default) disables it. |
+| `trimming.extra` | extra TrimGalore! flags passed verbatim. |
 | `strandedness.min_fraction` | confidence threshold for RSeQC auto-detection. |
 | `tetranscripts.*` | TEcount/TEtranscripts options (mode, padj, foldchange...). |
 
@@ -127,17 +131,24 @@ cp config/samples.example.csv config/samples.csv
 
 | column | required? | meaning |
 |--------|-----------|---------|
-| `sample` | yes | unique sample name. |
+| `sample` | yes | sample name (no spaces). **Repeated rows with the same `sample` name mean that sample's reads are split across lanes/runs (nf-core style) — they're concatenated into one fastq per read before trimming/alignment.** |
 | `fastq_1` | yes | read 1 / single-end fastq(.gz). |
 | `fastq_2` | no | read 2 fastq(.gz); leave empty for single-end. Paired and single-end samples can be mixed. |
 | `strandedness` | no | per-sample override: `auto`, `forward`, `reverse`, `unstranded`, or TEtranscripts' `no`. Blank = `auto`. |
 | `condition` | no | biological group label. If present, TEtranscripts differential analysis runs automatically; if absent, it's skipped. |
 
+All rows of a lane-split sample must agree on `strandedness` and `condition`,
+and every row must include both `fastq_1` and `fastq_2` (single-end lanes
+can't be mixed with paired-end lanes for the same sample). See
+`config/samples.example.csv` for a worked example.
+
 ## Test profile
 
 `config/test.yaml` runs the whole workflow end-to-end against a bundled
 synthetic dataset in `.tests/` (50kb genome, 100 genes, one TE, 4 paired-end
-samples). Useful for confirming your setup or smoke-testing rule edits:
+samples — with `treatment_rep1` deliberately split across two lanes to
+exercise the lane-merging step). Useful for confirming your setup or
+smoke-testing rule edits:
 
 ```bash
 snakemake --configfile config/test.yaml --cores 4 -n   # dry-run
@@ -162,6 +173,16 @@ overrides are deep-merged). Unlisted rules fall back to conservative defaults
 To submit to SLURM:
 
 ```bash
+./scripts/run_slurm.sh                  # snakemake --workflow-profile profiles/slurm
+./scripts/run_slurm.sh --configfile config/test.yaml   # smoke test on SLURM
+```
+
+`scripts/run_slurm.sh` is a thin wrapper that runs snakemake with the SLURM
+profile (`profiles/slurm/config.yaml`) from the repo root and passes any
+extra arguments straight through (so `-n` dry-runs, `--cores`, `-R` etc. all
+work). Under the hood it's just:
+
+```bash
 snakemake --workflow-profile profiles/slurm
 ```
 
@@ -180,11 +201,43 @@ and either add its `bin` directory to your `PATH` on the nodes or `source
 /shared/software/rnaseq-star-tetranscripts-env/bin/activate` inside each job
 wrapper — no conda or container runtime needed.
 
+## Resource usage & reports
+
+Every rule records its runtime and peak memory (threads/CPU-seconds) to
+`results/pipeline_info/benchmarks/<rule>/...`. Two ways to use them:
+
+- **Per-rule cost tracking.** After a run, each benchmark file is a short
+  table of `s, cpu_percent, max_rss, ...`. A quick way to see which rules are
+  the big hitters:
+
+  ```bash
+  ls results/pipeline_info/benchmarks/*/*
+  ```
+
+- **Full execution report.** Snakemake's own `--report` flag bundles the
+  benchmark data plus the DAG, rules, and (with `--report --sdm conda`)
+  environment details into a single HTML file — handy for sharing how a run
+  consumed resources:
+
+  ```bash
+  ./scripts/run_slurm.sh --report report.html        # on SLURM
+  snakemake --configfile config/test.yaml --report report.html   # locally
+  ```
+
+  Because every rule declares `benchmark:`, the "Report" page lists peak
+  CPU/memory per job; the `--report` HTML has a "Benchmarks" section with
+  per-rule CPU/RSS charts.
+
+> Note: `--report` re-evaluates the whole DAG including outputs, so the
+> benchmark files must already exist from a finished run (that's what it
+> aggregates). Run the workflow once, then `--report`.
+
 ## Tool versions
 
 Every tool version is pinned independently with defaults shipped in
-`workflow/default-config/versions.yaml` (STAR 2.7.11b, samtools 1.22.1, RSeQC
-5.0.4, MultiQC 1.33, TEtranscripts 2.2.4, DESeq2 1.46.0, UCSC tools 482).
+`workflow/default-config/versions.yaml` (STAR 2.7.11b, samtools 1.22.1,
+TrimGalore! 0.6.10, FastQC 0.12.1, RSeQC 5.0.4, MultiQC 1.33, TEtranscripts
+2.2.4, DESeq2 1.46.0, UCSC tools 482).
 Override any by creating `config/versions.yaml` with just the keys you want to
 change:
 
@@ -218,10 +271,11 @@ pure-Python TEtranscripts package.
 
 ## Without conda
 
-If STAR/samtools/RSeQC/MultiQC/TEtranscripts are already on your `PATH` (e.g.
-via `module load` on a cluster), just run `snakemake` without the shared env
-activated — Snakemake runs the plain shell commands. You then own the version
-matching; the shared conda env exists to guarantee it automatically.
+If STAR/samtools/TrimGalore!/FastQC/RSeQC/MultiQC/TEtranscripts are already
+on your `PATH` (e.g. via `module load` on a cluster), just run `snakemake`
+without the shared env activated — Snakemake runs the plain shell commands.
+You then own the version matching; the shared conda env exists to guarantee
+it automatically.
 
 ## How strandedness is resolved
 
@@ -249,6 +303,13 @@ per-sample TEcount quantification.
 
 ```
 results/
+├── fastq/{sample}/                              # only for lane/run-split samples:
+│   └── {sample}_R{1,2}.fastq.gz                 #   concatenated lanes
+├── trimming/{sample}/                           # only if trimming is enabled:
+│   ├── {sample}_val_{1,2}.fq.gz                 #   trimmed reads (paired)
+│   ├── {sample}_trimmed.fq.gz                   #   trimmed reads (single-end)
+│   ├── {sample}_R{1,2}_fastqc.html/.zip         #   FastQC (run inside TrimGalore!)
+│   └── {sample}_trimming_report.txt             #   TrimGalore! report
 ├── star/{sample}/Aligned.out.bam                       # unsorted, fed to TEcount
 ├── star/{sample}/Aligned.sortedByCoord.out.bam(.bai)   # for RSeQC/QC
 ├── rseqc/{sample}/infer_experiment.txt                 # raw RSeQC report
@@ -259,19 +320,30 @@ results/
 │   ├── {contrast}_DESeq2.R
 │   ├── {contrast}_gene_TE_analysis.txt                 # full DESeq2 results
 │   └── {contrast}_sigdiff_gene_TE.txt                  # significant hits only
-└── qc/multiqc_report.html
+├── qc/multiqc_report.html                              # STAR + FastQC/TrimGalore! + RSeQC
+└── pipeline_info/benchmarks/<rule>/...                 # per-rule CPU/RSS usage
 ```
 
 Per-rule logs mirror this structure under `logs/` (plus
-`logs/config_resolution.log`, which records how `sjdb_overhang` and gzipped
-reference files were resolved).
+`logs/config_resolution.log`, which records how `sjdb_overhang`, the
+decompressed-reference directory, and gzipped reference files were resolved).
 
 ## Notes
 
 - Versioning: the current release is recorded in the `VERSION` file at the repo
   root and tagged `vX.Y.Z` in git (the badge above tracks the latest tag).
-- Gzipped reference files (`.fa.gz` / `.gtf.gz`) are decompressed automatically;
-  gzipped fastq files are read natively by STAR. Mix and match freely.
+- Gzipped reference files (`.fa.gz` / `.gtf.gz`) are decompressed automatically
+  into `ref.decompressed_dir` (default: a directory under `/tmp` — ephemeral,
+  but cheap to rebuild); gzipped fastq files are read natively by STAR, so the
+  merged/trimmed intermediates stay gzipped throughout. Mix and match freely.
+- Lane/run merging and trimming: repeated `sample` rows in the sample sheet are
+  concatenated into `results/fastq/` before (optional, on by default)
+  TrimGalore! trimming in `results/trimming/`. Setting `trimming.enabled: false`
+  skips trimming entirely and STAR reads the merged/raw fastqs directly.
+- STAR index freshness: a prebuilt/reused index directory is honored as-is even
+  when the fasta/GTF it was built from is newer — the index is only rebuilt when
+  missing, or explicitly with `snakemake -R star_index`. (Snakemake otherwise
+  compares mtimes and would rebuild a shared index every run.)
 - TEtranscripts/DESeq2 needs at least 2 replicates per group in a contrast.
 - STAR indexing and TEtranscripts are memory-hungry (TEtranscripts: ~20-30 GB
   recommended for human data).

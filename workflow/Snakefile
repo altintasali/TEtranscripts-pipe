@@ -47,6 +47,8 @@ if os.path.exists("config/resources.yaml"):
 
 include: "rules/common.smk"
 include: "rules/ref.smk"
+include: "rules/fastq.smk"
+include: "rules/trimming.smk"
 include: "rules/align.smk"
 include: "rules/strandedness.smk"
 include: "rules/tetranscripts.smk"

@@ -40,6 +40,11 @@ star:
   # Plain alignment is fine for the synthetic test data (only one TE).
   extra: ""
 
+trimming:
+  enabled: true
+  trim_nextseq: 0
+  extra: ""
+
 # Analysis-wide settings. Normally these come from config/config.yaml (see
 # config/config.example.yaml); they're repeated here so the test profile is
 # self-sufficient on a fresh clone / in CI, where config/config.yaml has not
@@ -58,6 +63,8 @@ tetranscripts:
 # -- overrides the (much larger) built-in defaults in
 # workflow/default-config/resources.yaml for every rule used by this test.
 resources:
+  cat_fastq: {threads: 1, mem_mb: 500, runtime: 5}
+  trim_galore: {threads: 2, mem_mb: 1000, runtime: 10}
   gunzip_reference: {threads: 1, mem_mb: 500, runtime: 5}
   star_index: {threads: 2, mem_mb: 1000, runtime: 10}
   gtf_to_genepred: {threads: 1, mem_mb: 500, runtime: 5}

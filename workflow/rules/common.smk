@@ -33,7 +33,12 @@ def get_resources(rule_name):
 
 # -----------------------------------------------------------------------------
 # Load & validate sample sheet
-# columns: sample, fastq_1, fastq_2 (optional), condition (optional)
+# columns: sample, fastq_1, fastq_2 (optional), strandedness (optional),
+#          condition (optional).
+#
+# Repeated rows with the same `sample` name are allowed (nf-core/rnaseq
+# style): they mean that sample's reads are split across lanes/runs and will
+# be concatenated into one file per read before alignment (rules/fastq.smk).
 # -----------------------------------------------------------------------------
 if not os.path.exists(config["samples"]):
     raise WorkflowError(
@@ -48,20 +53,77 @@ if not os.path.exists(config["samples"]):
         "workflow/, config/, and .tests/) and try again."
     )
 
-samples = (
-    pd.read_csv(config["samples"], dtype=str, comment="#")
-    .set_index("sample", drop=False)
-    .sort_index()
-)
+
+def _nonempty(value):
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+raw_samples = pd.read_csv(config["samples"], dtype=str, comment="#")
 # jsonschema's "null" type only matches Python None, not pandas/NumPy NaN, so
 # empty optional cells (fastq_2, strandedness, condition) need to be
 # converted explicitly. astype(object) first is required on pandas>=2's
 # str-backed columns, which otherwise silently keep NaN instead of None.
-samples = samples.astype(object).where(pd.notnull(samples), None)
-validate(samples, schema="../schemas/samples.schema.yaml")
+raw_samples = raw_samples.astype(object).where(pd.notnull(raw_samples), None)
+validate(raw_samples, schema="../schemas/samples.schema.yaml")
+
+# Group repeated rows for the same sample into one per-sample entry holding a
+# list of fastq paths per read. Consistency is enforced eagerly at parse time
+# so a typo in a lane-split sample fails fast instead of mid-run.
+_rows = {}
+for _, row in raw_samples.iterrows():
+    sample = _nonempty(row["sample"])
+    if sample is None:
+        raise WorkflowError(f"{config['samples']}: a row has no sample name.")
+    entry = _rows.setdefault(
+        sample,
+        {"fastq_1": [], "fastq_2": [], "strandedness": None, "condition": None},
+    )
+    fq1 = _nonempty(row["fastq_1"])
+    if fq1 is None:
+        raise WorkflowError(f"sample '{sample}' has a row with no fastq_1.")
+    entry["fastq_1"].append(fq1)
+    fq2 = _nonempty(row["fastq_2"])
+    if fq2 is not None:
+        entry["fastq_2"].append(fq2)
+    for col in ("strandedness", "condition"):
+        value = _nonempty(row.get(col))
+        if value is None:
+            continue
+        if entry[col] is not None and entry[col] != value:
+            raise WorkflowError(
+                f"sample '{sample}' has inconsistent '{col}' values across "
+                f"rows ({entry[col]!r} vs {value!r}) in {config['samples']}."
+            )
+        entry[col] = value
+
+for sample, entry in _rows.items():
+    n_r1, n_r2 = len(entry["fastq_1"]), len(entry["fastq_2"])
+    if n_r2 and n_r2 != n_r1:
+        raise WorkflowError(
+            f"sample '{sample}' has {n_r1} fastq_1 files but {n_r2} fastq_2 "
+            f"files in {config['samples']} -- every lane/run must provide "
+            "both reads (or the sample must be single-end throughout)."
+        )
+
+samples = (
+    pd.DataFrame([{"sample": s, **e} for s, e in _rows.items()])
+    .set_index("sample", drop=False)
+    .sort_index()
+)
 
 SAMPLES = list(samples["sample"])
 HAS_CONDITION = "condition" in samples.columns and samples["condition"].notna().all()
+
+
+def sample_fastqs(sample, read):
+    """Raw fastq paths for a sample's read 1/2, across all lanes/runs."""
+    files = samples.loc[sample, f"fastq_{read}"]
+    if isinstance(files, list):
+        return [f for f in files if f]
+    return [files] if files else []
 
 # -----------------------------------------------------------------------------
 # Reference files: transparently support gzipped fasta/gtf/te_gtf.
@@ -70,7 +132,17 @@ HAS_CONDITION = "condition" in samples.columns and samples["condition"].notna().
 # decompressed once via the gunzip_reference rule (ref.smk); everything else
 # in the workflow refers to the resolved (always-uncompressed) path below,
 # never to config["ref"][...] directly.
+#
+# Decompressed files land in ref.decompressed_dir, which defaults to a
+# directory under /tmp: they are cheap to rebuild, so there is no need to
+# clutter the workspace or shared storage with them. Point it somewhere
+# persistent in config.yaml if you would rather not re-decompress after a
+# reboot.
 # -----------------------------------------------------------------------------
+DECOMPRESS_DIR = config["ref"].get(
+    "decompressed_dir", "/tmp/rnaseq-star-tetranscripts-decompressed"
+)
+
 REFERENCE_GZ_SOURCES = {}  # decompressed stem -> original .gz path, for gunzip_reference
 
 
@@ -78,11 +150,11 @@ def _resolve_ref_path(key):
     path = config["ref"][key]
     if str(path).endswith(".gz"):
         stem = os.path.basename(str(path))[:-3]  # strip trailing ".gz"
-        decompressed = f"resources/decompressed/{stem}"
+        decompressed = f"{DECOMPRESS_DIR}/{stem}"
         if stem in REFERENCE_GZ_SOURCES and REFERENCE_GZ_SOURCES[stem] != path:
             raise ValueError(
                 f"Two different ref.* .gz files decompress to the same "
-                f"filename '{stem}' (resources/decompressed/{stem}) -- "
+                f"filename '{stem}' ({decompressed}) -- "
                 "rename one of them so their basenames are unique."
             )
         REFERENCE_GZ_SOURCES[stem] = path
@@ -130,9 +202,9 @@ def _resolve_sjdb_overhang():
     if str(configured).strip().lower() != "auto":
         return int(configured), "config.yaml (explicit)"
     paths = []
-    for col in ("fastq_1", "fastq_2"):
-        if col in samples.columns:
-            paths.extend([p for p in samples[col].tolist() if p])
+    for s in SAMPLES:
+        for read in (1, 2):
+            paths.extend(sample_fastqs(s, read))
     max_len = max((_fastq_read_length(p) for p in paths), default=0)
     if max_len == 0:
         cwd = os.getcwd()
@@ -161,10 +233,11 @@ SJDB_OVERHANG, _SJDB_OVERHANG_SOURCE = _resolve_sjdb_overhang()
 os.makedirs("logs", exist_ok=True)
 with open("logs/config_resolution.log", "w") as fh:
     fh.write(f"sjdb_overhang = {SJDB_OVERHANG} ({_SJDB_OVERHANG_SOURCE})\n")
+    fh.write(f"decompressed reference directory = {DECOMPRESS_DIR}\n")
     if REFERENCE_GZ_SOURCES:
         fh.write("gzipped reference files to be decompressed:\n")
         for stem, gz_path in REFERENCE_GZ_SOURCES.items():
-            fh.write(f"  {gz_path} -> resources/decompressed/{stem}\n")
+            fh.write(f"  {gz_path} -> {DECOMPRESS_DIR}/{stem}\n")
     else:
         fh.write("no gzipped reference files (fasta/gtf/te_gtf) detected\n")
 
@@ -214,22 +287,57 @@ AUTO_SAMPLES = [s for s in SAMPLES if SAMPLE_STRANDED_MODE[s] == "auto"]
 
 
 def _is_paired(sample):
-    """A sample is paired-end if it has a non-empty fastq_2 value.
+    """A sample is paired-end if it has at least one non-empty fastq_2 value.
 
     This is resolved per-sample (not globally), so a single sample sheet can
-    freely mix paired-end and single-end samples.
+    freely mix paired-end and single-end samples. Every lane/run of one
+    sample must agree (enforced while loading the sample sheet above).
     """
-    if "fastq_2" not in samples.columns:
-        return False
-    val = samples.loc[sample, "fastq_2"]
-    return pd.notna(val) and str(val).strip() != ""
+    return len(sample_fastqs(sample, 2)) > 0
+
+
+# -----------------------------------------------------------------------------
+# Fastq preparation pipeline: raw lanes -> (merge) -> (trim) -> STAR.
+# Samples sequenced across multiple lanes/runs are concatenated by
+# rules/fastq.smk (cat_fastq) into results/fastq/. If trimming is enabled,
+# rules/trimming.smk (trim_galore, nf-core/rnaseq defaults) then runs on the
+# merged files and STAR consumes the trimmed output; otherwise STAR reads the
+# merged (or raw, for single-lane) files directly.
+# -----------------------------------------------------------------------------
+TRIM_ENABLED = bool(config.get("trimming", {}).get("enabled", True))
+
+
+def merged_fastq_path(sample, read):
+    """Path of the concatenated fastq for a sample's read (results/fastq/).
+
+    Samples with a single lane/run have no merge step: their raw path is
+    returned directly so no unnecessary copy is made. Multi-lane samples are
+    always merged to a .gz file (plain-text lanes are gzipped on the fly by
+    the cat_fastq rule), so STAR's --readFilesCommand zcat applies uniformly.
+    """
+    files = sample_fastqs(sample, read)
+    if len(files) <= 1:
+        return files[0] if files else None
+    return f"results/fastq/{sample}/{sample}_R{read}.fastq.gz"
+
+
+def star_fastq(sample, read):
+    """The fastq path STAR aligns for a sample's read (after merge/trim)."""
+    base = merged_fastq_path(sample, read)
+    if base is None:
+        return None
+    if TRIM_ENABLED:
+        if _is_paired(sample):
+            return f"results/trimming/{sample}/{sample}_val_{read}.fq.gz"
+        return f"results/trimming/{sample}/{sample}_trimmed.fq.gz"
+    return base
 
 
 def star_input(wildcards):
     """Return {fq1: ..., [fq2: ...]} paths for a sample."""
-    d = {"fq1": samples.loc[wildcards.sample, "fastq_1"]}
+    d = {"fq1": star_fastq(wildcards.sample, 1)}
     if _is_paired(wildcards.sample):
-        d["fq2"] = samples.loc[wildcards.sample, "fastq_2"]
+        d["fq2"] = star_fastq(wildcards.sample, 2)
     return d
 
 
@@ -287,7 +395,7 @@ def get_strandedness_param(wildcards, input):
 def _build_contrasts():
     if not HAS_CONDITION:
         return {}
-    conditions = sorted(samples["condition"].unique())
+    conditions = sorted(samples["condition"].dropna().unique())
     contrasts = {}
     for control, treatment in itertools.combinations(conditions, 2):
         name = f"{treatment}_vs_{control}"
@@ -348,6 +456,23 @@ def all_tecount_tables():
     return expand("results/tecount/{sample}/{sample}.cntTable", sample=SAMPLES)
 
 
+def all_trim_outputs():
+    """One trimmed fastq path per sample (only when trimming is enabled),
+    used by the multiqc rule as a representative input so MultiQC scans the
+    results/trimming/{sample}/ directories for FastQC + TrimGalore! reports.
+    """
+    if not TRIM_ENABLED:
+        return []
+    return [
+        (
+            f"results/trimming/{s}/{s}_val_1.fq.gz"
+            if _is_paired(s)
+            else f"results/trimming/{s}/{s}_trimmed.fq.gz"
+        )
+        for s in SAMPLES
+    ]
+
+
 def all_diffexp_outputs():
     return expand(
         "results/tetranscripts/{contrast}/{contrast}_sigdiff_gene_TE.txt",
@@ -395,6 +520,12 @@ def _write_env(name, dependencies, pip_dependencies=None):
 
 STAR_ENV = _write_env("star", [f"star={V['star']}"])
 SAMTOOLS_ENV = _write_env("samtools", [f"samtools={V['samtools']}"])
+# trim-galore brings cutadapt (its core dependency) along automatically;
+# fastqc is added explicitly because trim_galore's --fastqc_args (nf-core/
+# rnaseq default) shells out to it, and its reports feed the MultiQC report.
+TRIM_GALORE_ENV = _write_env(
+    "trim_galore", [f"trim-galore={V['trim_galore']}", f"fastqc={V['fastqc']}"]
+)
 # python>=3.9 floor: without it, conda's solver can backtrack all the way to
 # an ancient RSeQC/MultiQC build (seen in practice: Python 3.6, from ~2021)
 # to find something that resolves at all -- and those old builds pull in a

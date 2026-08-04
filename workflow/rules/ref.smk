@@ -3,18 +3,23 @@ rule gunzip_reference:
     # tools that expect plain text (STAR's --genomeFastaFiles/--sjdbGTFfile,
     # TEcount/TEtranscripts' --GTF/--TE) can consume it directly. Only
     # triggered for whichever of fasta/gtf/te_gtf are actually given as
-    # .gz in config.yaml -- see REFERENCE_GZ_SOURCES in common.smk.
+    # .gz in config.yaml -- see REFERENCE_GZ_SOURCES in common.smk. Outputs
+    # go to ref.decompressed_dir (default: a directory under /tmp; cheap to
+    # rebuild, see the comment in common.smk).
     input:
         lambda wc: REFERENCE_GZ_SOURCES[wc.stem],
     output:
-        "resources/decompressed/{stem}",
+        f"{DECOMPRESS_DIR}/{{stem}}",
     threads: get_resources("gunzip_reference")["threads"]
     resources:
         mem_mb=get_resources("gunzip_reference")["mem_mb"],
         runtime=get_resources("gunzip_reference")["runtime"],
+    benchmark:
+        "results/pipeline_info/benchmarks/gunzip_reference/{stem}.txt",
     log:
         "logs/gunzip/{stem}.log",
     shell:
+        "mkdir -p {DECOMPRESS_DIR} && "
         "gunzip -c {input} > {output} 2> {log}"
 
 
@@ -26,9 +31,17 @@ rule star_index:
     # Uses the STAR version pinned in config["versions"]["star"] (see the
     # generated env in common.smk) rather than a snakemake-wrapper, so the
     # exact tool version is fully under your control.
+    #
+    # The fasta/gtf inputs are marked ancient(): an existing index directory
+    # is honored as-is instead of being rebuilt whenever the reference files
+    # happen to be *newer* than the index (Snakemake's up-to-date check
+    # compares mtimes, which would otherwise re-trigger the index build every
+    # run for a shared/prebuilt index -- see the "STAR index" README note).
+    # The index is rebuilt only when the output directory is missing, or
+    # explicitly via `snakemake -R star_index` / deleting the directory.
     input:
-        fasta=FASTA,
-        gtf=GTF,
+        fasta=ancient(FASTA),
+        gtf=ancient(GTF),
     output:
         directory(config["star"]["index"]),
     params:
@@ -38,6 +51,8 @@ rule star_index:
     resources:
         mem_mb=get_resources("star_index")["mem_mb"],
         runtime=get_resources("star_index")["runtime"],
+    benchmark:
+        "results/pipeline_info/benchmarks/star_index.txt",
     log:
         "logs/star/index.log",
     conda:
@@ -80,6 +95,8 @@ rule gtf_to_genepred:
     resources:
         mem_mb=get_resources("gtf_to_genepred")["mem_mb"],
         runtime=get_resources("gtf_to_genepred")["runtime"],
+    benchmark:
+        "results/pipeline_info/benchmarks/gtf_to_genepred.txt",
     log:
         "logs/rseqc/gtf_to_genepred.log",
     conda:
@@ -98,6 +115,8 @@ rule genepred_to_bed12:
     resources:
         mem_mb=get_resources("genepred_to_bed12")["mem_mb"],
         runtime=get_resources("genepred_to_bed12")["runtime"],
+    benchmark:
+        "results/pipeline_info/benchmarks/genepred_to_bed12.txt",
     log:
         "logs/rseqc/genepred_to_bed12.log",
     conda:

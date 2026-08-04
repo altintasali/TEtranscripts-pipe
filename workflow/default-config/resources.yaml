@@ -25,6 +25,18 @@ resources:
     mem_mb: 2000
     runtime: 30
 
+  # Lane/run merging (cat): single-threaded, streaming I/O.
+  cat_fastq:
+    threads: 1
+    mem_mb: 4000
+    runtime: 120
+
+  # TrimGalore! + FastQC: modest CPU/memory; I/O bound.
+  trim_galore:
+    threads: 4
+    mem_mb: 8000
+    runtime: 180
+
   star_index:
     # Peak memory for STAR genome index generation scales with genome size;
     # ~32-40GB is typical for a human/mouse-sized genome (SA index).

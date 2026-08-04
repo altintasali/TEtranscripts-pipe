@@ -13,6 +13,8 @@ properties:
     properties:
       star: {type: string}
       samtools: {type: string}
+      trim_galore: {type: string}
+      fastqc: {type: string}
       rseqc: {type: string}
       multiqc: {type: string}
       tetranscripts: {type: string}
@@ -22,6 +24,8 @@ properties:
     required:
       - star
       - samtools
+      - trim_galore
+      - fastqc
       - rseqc
       - multiqc
       - tetranscripts
@@ -36,6 +40,13 @@ properties:
       te_gtf: {type: string}
       sjdb_overhang:
         type: [string, integer]
+      decompressed_dir:
+        type: string
+        description: >-
+          Directory where gzipped reference files are decompressed before
+          use. Defaults to a directory under /tmp (ephemeral, cheap to
+          rebuild); set to a persistent location to avoid re-decompressing
+          after every reboot.
     required: [fasta, gtf, te_gtf, sjdb_overhang]
   star:
     type: object
@@ -44,6 +55,25 @@ properties:
       index_extra: {type: string}
       extra: {type: string}
     required: [index]
+  trimming:
+    type: object
+    description: >-
+      Optional TrimGalore! adapter/quality trimming before STAR, mirroring
+      the nf-core/rnaseq defaults. Set enabled to false to skip trimming
+      entirely (STAR then reads the merged/raw fastqs directly).
+    properties:
+      enabled:
+        type: boolean
+      trim_nextseq:
+        type: integer
+        minimum: 0
+        description: >-
+          --nextseq=N for Trim Galore!: trim based on quality after removing
+          poly-G tails. Use for NextSeq/NovaSeq data; set 0 to disable.
+      extra:
+        type: string
+        description: Extra command-line arguments passed verbatim to Trim Galore!.
+    required: [enabled]
   strandedness:
     type: object
     description: >-
@@ -85,5 +115,6 @@ required:
   - versions
   - ref
   - star
+  - trimming
   - strandedness
   - tetranscripts

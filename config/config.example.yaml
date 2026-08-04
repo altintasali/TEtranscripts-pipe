@@ -41,12 +41,21 @@ ref:
   # here instead to pin it (e.g. if your fastq files aren't downloaded yet
   # when you first run the workflow).
   sjdb_overhang: auto
+  # Where gzipped references (fasta/gtf/te_gtf .gz) are decompressed to.
+  # Defaults to a directory under /tmp: decompressed refs are cheap to
+  # rebuild, so there is no need to clutter the workspace or shared storage
+  # with them. Set a persistent path only if you'd rather not re-decompress
+  # after every reboot (e.g. /scratch/<user>/rnaseq-refs-decompressed).
+  decompressed_dir: /tmp/rnaseq-star-tetranscripts-decompressed
 
 star:
   # Directory that will hold (or already holds) the STAR genome index.
   # If the index is missing, the workflow builds it automatically.
   # Tip: prebuilt indexes are reusable -- point multiple projects at one
   # shared index, or symlink this directory to it, to skip rebuilding.
+  # (An existing index is honored as-is even if the fasta/GTF files it was
+  # built from are newer -- the index is only rebuilt when it's missing, or
+  # via `snakemake -R star_index`.)
   index: resources/star_index
   # Extra flags for the STAR *index-building* step only. Usually empty --
   # the main case for setting this is a small/toy genome, where STAR
@@ -63,6 +72,22 @@ star:
     --outFilterType BySJout
     --outFilterMultimapScoreRange 1
     --sjdbScore 1
+
+trimming:
+  # Optional TrimGalore! adapter/quality trimming before STAR, mirroring the
+  # nf-core/rnaseq defaults (Trim Galore! is nf-core's default trimmer, run
+  # with --paired/--gzip and FastQC executed inside via --fastqc_args). Set
+  # enabled: false to skip trimming entirely -- STAR then reads the merged/
+  # raw fastqs directly, and MultiQC just won't show any trimming/FastQC
+  # sections.
+  enabled: true
+  # --nextseq=N: trim from the 3' end after removing poly-G tails, the
+  # recommended setting for NextSeq/NovaSeq data. Leave at 0 for standard
+  # Illumina (HiSeq/MiSeq) libraries.
+  trim_nextseq: 0
+  # Extra command-line arguments passed verbatim to Trim Galore!. E.g. to
+  # additionally clip 3' bases: --clip_r1 1 --clip_r2 1
+  extra: ""
 
 strandedness:
   # Whether/which samples get RSeQC auto-detection is controlled per-sample
