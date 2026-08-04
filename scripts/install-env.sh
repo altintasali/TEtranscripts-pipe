@@ -10,8 +10,12 @@
 # Options:
 #   -o PREFIX   install into PREFIX (default: $HOME/software/rnaseq-star-tetranscripts-env)
 #   -r VERSION  release tag to fetch, e.g. v0.1.0 (default: latest release)
-#   -f          overwrite an existing PREFIX and skip the platform check
+#   -f          overwrite even if PREFIX doesn't look like a previous env
+#               install, and skip the platform check
 #   -h          show this help
+#
+# An existing environment at PREFIX is replaced automatically with a warning
+# message; -f is only needed when PREFIX holds unrelated files.
 #
 # Afterwards, either activate the environment in your current shell:
 #   source scripts/activate-env.sh [PREFIX]
@@ -24,7 +28,7 @@ stem="rnaseq-star-tetranscripts"
 default_prefix="$HOME/software/${stem}-env"
 
 usage() {
-    sed -n '2,19p' "$0"
+    sed -n '2,23p' "$0"
     exit "${1:-0}"
 }
 
@@ -45,11 +49,9 @@ done
 if [[ ! -e "$prefix" ]]; then
     mkdir -p "$prefix"
 fi
-if [[ -n "$(ls -A "$prefix")" && $force -eq 0 ]]; then
-    echo "error: $prefix is not empty; pick another prefix with -o or re-run with -f" >&2
-    exit 1
-fi
 
+# Platform check first: never touch a prefix on an OS/arch the tarball can't
+# support -- wiping an existing env and then aborting would leave nothing.
 if [[ $force -eq 0 ]]; then
     os=$(uname -s)
     arch=$(uname -m)
@@ -58,6 +60,21 @@ if [[ $force -eq 0 ]]; then
         echo "       create the env locally instead with: conda env create -f environment.yaml" >&2
         exit 1
     fi
+fi
+
+# Overwriting an existing install. A prefix that looks like a previous
+# environment (conda-pack ships bin/conda-unpack, conda ships bin/activate) is
+# replaced automatically with a warning; a prefix holding unrelated files is
+# left alone unless -f is given, so a stray -o can't destroy data by accident.
+if [[ -n "$(ls -A "$prefix")" ]]; then
+    if [[ $force -eq 0 && ! -f "$prefix/bin/conda-unpack" && ! -f "$prefix/bin/activate" ]]; then
+        echo "error: $prefix is not empty and does not look like a previously-installed" >&2
+        echo "       rnaseq-star-tetranscripts environment; pick another prefix with -o," >&2
+        echo "       or re-run with -f to overwrite it anyway." >&2
+        exit 1
+    fi
+    echo "Warning: replacing the existing environment at $prefix." >&2
+    rm -rf "$prefix"/* "$prefix"/.[!.]*
 fi
 
 # Resolve the release to fetch. This deliberately avoids the GitHub API (which

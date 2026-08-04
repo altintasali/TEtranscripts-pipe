@@ -65,6 +65,11 @@ to pin a specific release instead of the latest. If you used a custom `-o`,
 activate it the same way: `source scripts/activate-env.sh /path/to/env`. Then
 continue with the setup steps below.
 
+Re-running `install-env.sh` replaces an existing install automatically (it
+prints a warning); `-f` is only needed if the target directory holds unrelated
+files. `activate-env.sh` prints a one-line confirmation on activation and
+errors out with a reinstall hint if the environment looks incomplete.
+
 ### Option B — build it yourself with conda
 
 Requires conda (e.g. [Miniforge](https://github.com/conda-forge/miniforge) or
