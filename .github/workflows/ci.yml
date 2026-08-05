@@ -13,7 +13,7 @@ jobs:
       - uses: conda-incubator/setup-miniconda@v3
         with:
           activate-environment: rnaseq-star-tetranscripts
-          environment-file: environment.yaml
+          environment-file: workflow/environment.yaml
           channel-priority: flexible
       - shell: bash -l {0}
         run: snakemake --configfile config/test.yaml --cores 2
@@ -25,7 +25,7 @@ jobs:
       - uses: conda-incubator/setup-miniconda@v3
         with:
           activate-environment: rnaseq-star-tetranscripts
-          environment-file: environment.yaml
+          environment-file: workflow/environment.yaml
           channel-priority: flexible
       - shell: bash -l {0}
         run: snakemake --configfile config/test.yaml --cores 2

@@ -48,7 +48,7 @@ _TRIM_SHELL = (
 )
 
 
-rule trim_galore:
+rule trim_galore_pe:
     # Paired-end: --basename fixes the output names ({sample}_val_1/2.fq.gz)
     # so they don't depend on the input file's basename -- the merged path
     # (results/fastq/) and a raw single-lane path differ, but both must map
@@ -68,12 +68,12 @@ rule trim_galore:
         nextseq=_nextseq_param,
         extra=config["trimming"].get("extra", ""),
         outdir=_trim_outdir,
-    threads: get_resources("trim_galore")["threads"]
+    threads: get_resources("trim_galore_pe")["threads"]
     resources:
-        mem_mb=get_resources("trim_galore")["mem_mb"],
-        runtime=get_resources("trim_galore")["runtime"],
+        mem_mb=get_resources("trim_galore_pe")["mem_mb"],
+        runtime=get_resources("trim_galore_pe")["runtime"],
     benchmark:
-        "results/pipeline_info/benchmarks/trim_galore/{sample}.txt",
+        "results/pipeline_info/benchmarks/trim_galore_pe/{sample}.txt",
     log:
         "logs/trimming/{sample}.log",
     conda:
@@ -95,10 +95,10 @@ rule trim_galore_se:
         nextseq=_nextseq_param,
         extra=config["trimming"].get("extra", ""),
         outdir=_trim_outdir,
-    threads: get_resources("trim_galore")["threads"]
+    threads: get_resources("trim_galore_pe")["threads"]
     resources:
-        mem_mb=get_resources("trim_galore")["mem_mb"],
-        runtime=get_resources("trim_galore")["runtime"],
+        mem_mb=get_resources("trim_galore_pe")["mem_mb"],
+        runtime=get_resources("trim_galore_pe")["runtime"],
     benchmark:
         "results/pipeline_info/benchmarks/trim_galore_se/{sample}.txt",
     log:

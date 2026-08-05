@@ -3,11 +3,11 @@
 # environment. SOURCE this file (it sets environment variables in your current
 # shell and must run in it):
 #
-#   source scripts/activate-env.sh [PREFIX]
+#   source workflow/scripts/activate-env.sh [PREFIX]
 #
 # PREFIX defaults to $HOME/software/rnaseq-star-tetranscripts-env, matching the
 # default install location used by install-env.sh. Pass a different PREFIX when
-# you installed elsewhere with `./scripts/install-env.sh -o PREFIX`.
+# you installed elsewhere with `./workflow/scripts/install-env.sh -o PREFIX`.
 #
 # On activation it prints a one-line confirmation (only when interactive) and
 # verifies the environment looks complete; a missing or broken install is
@@ -20,19 +20,19 @@ elif [[ "$0" == *"activate-env.sh" ]]; then
 fi
 if [[ $_is_exec -eq 1 ]]; then
     echo "error: source this file instead of running it:" >&2
-    echo "  source scripts/activate-env.sh [PREFIX]" >&2
+    echo "  source workflow/scripts/activate-env.sh [PREFIX]" >&2
     exit 1
 fi
 
 prefix="${1:-$HOME/software/rnaseq-star-tetranscripts-env}"
 if [[ ! -f "$prefix/bin/activate" ]]; then
     echo "error: no environment found at $prefix" >&2
-    echo "       install it first with: ./scripts/install-env.sh [-o $prefix]" >&2
+    echo "       install it first with: ./workflow/scripts/install-env.sh [-o $prefix]" >&2
     return 1
 fi
 if [[ ! -x "$prefix/bin/python" || ! -x "$prefix/bin/snakemake" ]]; then
     echo "error: environment at $prefix looks incomplete (missing bin/python or bin/snakemake)." >&2
-    echo "       Reinstall it with: ./scripts/install-env.sh -o $prefix" >&2
+    echo "       Reinstall it with: ./workflow/scripts/install-env.sh -o $prefix" >&2
     return 1
 fi
 source "$prefix/bin/activate"

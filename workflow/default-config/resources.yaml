@@ -32,7 +32,7 @@ resources:
     runtime: 120
 
   # TrimGalore! + FastQC: modest CPU/memory; I/O bound.
-  trim_galore:
+  trim_galore_pe:
     threads: 4
     mem_mb: 8000
     runtime: 180

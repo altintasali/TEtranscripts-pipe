@@ -73,7 +73,7 @@ tetranscripts:
 # workflow/default-config/resources.yaml for every rule used by this test.
 resources:
   cat_fastq: {threads: 1, mem_mb: 500, runtime: 5}
-  trim_galore: {threads: 2, mem_mb: 1000, runtime: 10}
+  trim_galore_pe: {threads: 2, mem_mb: 1000, runtime: 10}
   gunzip_reference: {threads: 1, mem_mb: 500, runtime: 5}
   star_index: {threads: 2, mem_mb: 1000, runtime: 10}
   gtf_to_genepred: {threads: 1, mem_mb: 500, runtime: 5}

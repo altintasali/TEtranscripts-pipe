@@ -5,9 +5,9 @@
 # all bundled into one shareable HTML file.
 #
 # Usage (run from the repo root):
-#   ./scripts/benchmark-report.sh                        # -> report.html
-#   ./scripts/benchmark-report.sh -o out/report.html     # custom output path
-#   ./scripts/benchmark-report.sh --configfile config/test.yaml
+#   ./workflow/scripts/benchmark-report.sh                        # -> report.html
+#   ./workflow/scripts/benchmark-report.sh -o out/report.html     # custom output path
+#   ./workflow/scripts/benchmark-report.sh --configfile config/test.yaml
 #
 # All extra arguments are passed straight through to snakemake, so
 # --configfile / --cores / etc. all work. `-o/--output` is consumed here.

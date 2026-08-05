@@ -49,20 +49,20 @@ There are two ways to get the environment the workflow needs. Pick one:
 ### Option A — pre-built environment (no conda)
 
 Every GitHub release ships a tarball of the complete environment
-(`...-env.tar.gz`, Linux x86_64), built from `environment.yaml` in CI — so
-there is nothing to install or solve. Fetch and unpack it with the helper
+(`...-env.tar.gz`, Linux x86_64), built from `workflow/environment.yaml` in CI —
+so there is nothing to install or solve. Fetch and unpack it with the helper
 script (needs only `bash`/`curl`/`tar`):
 
 ```bash
 git clone https://github.com/altintasali/rnaseq-star-tetranscripts.git
 cd rnaseq-star-tetranscripts
-./scripts/install-env.sh    # downloads the latest release env into $HOME/software/rnaseq-star-tetranscripts-env
-source scripts/activate-env.sh   # activates it in your current shell
+./workflow/scripts/install-env.sh   # downloads the latest release env into $HOME/software/rnaseq-star-tetranscripts-env
+source workflow/scripts/activate-env.sh   # activates it in your current shell
 ```
 
 Pass `-o PREFIX` to install elsewhere (e.g. shared cluster storage) and `-r vX.Y.Z`
 to pin a specific release instead of the latest. If you used a custom `-o`,
-activate it the same way: `source scripts/activate-env.sh /path/to/env`. Then
+activate it the same way: `source workflow/scripts/activate-env.sh /path/to/env`. Then
 continue with the setup steps below.
 
 Re-running `install-env.sh` replaces an existing install automatically (it
@@ -79,7 +79,7 @@ optional).
 ```bash
 git clone https://github.com/altintasali/rnaseq-star-tetranscripts.git
 cd rnaseq-star-tetranscripts
-conda env create -f environment.yaml        # snakemake + every analysis tool, installed once
+conda env create -f workflow/environment.yaml   # snakemake + every analysis tool, installed once
 conda activate rnaseq-star-tetranscripts
 ```
 
@@ -102,7 +102,7 @@ snakemake --cores 16
 All tools (STAR, samtools, RSeQC, MultiQC, TEtranscripts, DESeq2, UCSC tools)
 live directly in this environment, so no `--sdm conda` is needed — nothing to
 download or solve per run. The pre-built tarball is exactly this environment,
-pre-assembled from the same `environment.yaml`.
+pre-assembled from the same `workflow/environment.yaml`.
 
 ## Configuration
 
@@ -159,7 +159,7 @@ x 3 replicates). The first two replicates of each condition are paired-end
 lane-merging step); the third replicates (`control_rep3`, `treatment_rep3`)
 are single-end. The single-end samples deliberately sit in the same two
 conditions as the paired-end samples so the test run exercises the
-workflow's per-sample single/paired-end branching -- trimming (trim_galore
+workflow's per-sample single/paired-end branching -- trimming (trim_galore_pe
 vs trim_galore_se), STAR --readFilesIn, RSeQC strandedness auto-detection
 (which supports single-end BAMs), TEcount, and a DESeq2 contrast that mixes
 both library formats. Useful for confirming your setup or smoke-testing
@@ -189,30 +189,30 @@ overrides are deep-merged). Unlisted rules fall back to conservative defaults
 To submit to SLURM:
 
 ```bash
-./scripts/run_slurm.sh                  # snakemake --workflow-profile profiles/slurm
-./scripts/run_slurm.sh --configfile config/test.yaml   # smoke test on SLURM
+./workflow/scripts/run_slurm.sh                # snakemake --workflow-profile workflow/profiles/slurm
+./workflow/scripts/run_slurm.sh --configfile config/test.yaml   # smoke test on SLURM
 ```
 
-`scripts/run_slurm.sh` is a thin wrapper that runs snakemake with the SLURM
-profile (`profiles/slurm/config.yaml`) from the repo root and passes any
-extra arguments straight through (so `-n` dry-runs, `--cores`, `-R` etc. all
-work). Under the hood it's just:
+`workflow/scripts/run_slurm.sh` is a thin wrapper that runs snakemake with the
+SLURM profile (`workflow/profiles/slurm/config.yaml`) from the repo root and
+passes any extra arguments straight through (so `-n` dry-runs, `--cores`, `-R`
+etc. all work). Under the hood it's just:
 
 ```bash
-snakemake --workflow-profile profiles/slurm
+snakemake --workflow-profile workflow/profiles/slurm
 ```
 
-`slurm_account` in `profiles/slurm/config.yaml` is pre-set to the ICMM_DM
-group account; replace it (and `qos`) with your cluster's values if you're
-not in that group. `slurm_partition` is left unset on purpose, so sbatch uses
-the cluster's default partition (if yours has none, add `slurm_partition`).
-Per-invocation overrides are also possible, e.g.
+`slurm_account` in `workflow/profiles/slurm/config.yaml` is pre-set to the
+ICMM_DM group account; replace it (and `qos`) with your cluster's values if
+you're not in that group. `slurm_partition` is left unset on purpose, so
+sbatch uses the cluster's default partition (if yours has none, add
+`slurm_partition`). Per-invocation overrides are also possible, e.g.
 `--set-resources star_align:mem_mb=64000`. Every tool runs from the shared
 conda env, so make sure it's visible from the compute nodes (conda envs are
 self-contained; if nodes can't read your home dir, install it on shared
 storage with `conda env create -p /shared/path/env` and adjust your `PATH`).
 The pre-built environment is the quickest way to do this: extract it once on
-shared storage (e.g. `./scripts/install-env.sh -o /shared/software/rnaseq-star-tetranscripts-env`)
+shared storage (e.g. `./workflow/scripts/install-env.sh -o /shared/software/rnaseq-star-tetranscripts-env`)
 and either add its `bin` directory to your `PATH` on the nodes or `source
 /shared/software/rnaseq-star-tetranscripts-env/bin/activate` inside each job
 wrapper — no conda or container runtime needed.
@@ -236,12 +236,12 @@ Every rule records its runtime and peak memory (threads/CPU-seconds) to
   consumed resources:
 
   ```bash
-  ./scripts/benchmark-report.sh --configfile config/test.yaml   # -> report.html
-  ./scripts/benchmark-report.sh -o out/report.html              # custom path
-  ./scripts/run_slurm.sh --report report.html                   # on SLURM
+  ./workflow/scripts/benchmark-report.sh --configfile config/test.yaml   # -> report.html
+  ./workflow/scripts/benchmark-report.sh -o out/report.html              # custom path
+  ./workflow/scripts/run_slurm.sh --report report.html                   # on SLURM
   ```
 
-  `scripts/benchmark-report.sh` is a thin wrapper around
+  `workflow/scripts/benchmark-report.sh` is a thin wrapper around
   `snakemake --report <out> "$@"` that passes everything else straight
   through. Because every rule declares `benchmark:`, the "Report" page lists
   peak CPU/memory per job; the `--report` HTML has a "Benchmarks" section
@@ -265,11 +265,12 @@ versions:
   star: "2.7.10b"
 ```
 
-The tools are installed into the shared conda env (`environment.yaml`) at env
-creation, with the same pins as `versions.yaml` — keep the two files in sync
-when bumping a version, then `conda env update -f environment.yaml` to apply.
-The pre-built environment tarball on GitHub Releases (see Quick start) is built
-from this same `environment.yaml`, so it carries the identical pins — it's a
+The tools are installed into the shared conda env
+(`workflow/environment.yaml`) at env creation, with the same pins as
+`versions.yaml` — keep the two files in sync when bumping a version, then
+`conda env update -f workflow/environment.yaml` to apply. The pre-built
+environment tarball on GitHub Releases (see Quick start) is built from this
+same `workflow/environment.yaml`, so it carries the identical pins — it's a
 convenience artifact built in CI, not a fork of the version list.
 `samtools` is pinned to 1.22.1 rather than newer: STAR 2.7.11b (the final STAR
 release) links against `htslib <1.23`, which is incompatible with samtools

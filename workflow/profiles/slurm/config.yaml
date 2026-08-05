@@ -1,9 +1,10 @@
 # =============================================================================
 # Snakemake workflow profile for SLURM clusters.
 # Usage:
-#   snakemake --workflow-profile profiles/slurm
+#   snakemake --workflow-profile workflow/profiles/slurm
 #
-# All tools run from the shared conda env (environment.yaml, see README), so
+# All tools run from the shared conda env (workflow/environment.yaml, see
+# README), so
 # no --sdm conda here: with it, snakemake would rebuild one per-tool conda env
 # per rule on the login node before submitting anything (slow, and the queue
 # stays empty while envs solve). Make sure the shared env is visible from the

@@ -16,7 +16,7 @@ jobs:
       - uses: conda-incubator/setup-miniconda@v3
         with:
           activate-environment: rnaseq-star-tetranscripts
-          environment-file: environment.yaml
+          environment-file: workflow/environment.yaml
           channel-priority: flexible
 
       - name: Determine version
@@ -66,7 +66,7 @@ jobs:
           else
             gh release create "$version" "${assets[@]}" \
               --title "Release $version" \
-              --notes "Release $version of rnaseq-star-tetranscripts, including the pre-built Linux x86_64 conda environment (\`...-env.tar.gz\`). Install it with \`./scripts/install-env.sh\` -- see the README \"Pre-built environment\" section." \
+              --notes "Release $version of rnaseq-star-tetranscripts, including the pre-built Linux x86_64 conda environment (\`...-env.tar.gz\`). Install it with \`./workflow/scripts/install-env.sh\` -- see the README \"Pre-built environment\" section." \
               --verify-tag \
               --target "${{ github.sha }}"
           fi

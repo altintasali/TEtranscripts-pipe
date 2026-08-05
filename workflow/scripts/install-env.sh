@@ -5,7 +5,7 @@
 # .github/workflows/release-env.yml); there is no need to install conda.
 #
 # Usage:
-#   ./scripts/install-env.sh [-o PREFIX] [-r VERSION] [-f]
+#   ./workflow/scripts/install-env.sh [-o PREFIX] [-r VERSION] [-f]
 #
 # Options:
 #   -o PREFIX   install into PREFIX (default: $HOME/software/rnaseq-star-tetranscripts-env)
@@ -18,7 +18,7 @@
 # message; -f is only needed when PREFIX holds unrelated files.
 #
 # Afterwards, either activate the environment in your current shell:
-#   source scripts/activate-env.sh [PREFIX]
+#   source workflow/scripts/activate-env.sh [PREFIX]
 # or just prepend its bin directory to your PATH (handy on SLURM compute nodes):
 #   export PATH="$PREFIX/bin:$PATH"
 set -euo pipefail
@@ -57,7 +57,7 @@ if [[ $force -eq 0 ]]; then
     arch=$(uname -m)
     if [[ "$os" != "Linux" || "$arch" != "x86_64" ]]; then
         echo "error: the pre-built environment is Linux x86_64 only (got $os/$arch);" >&2
-        echo "       create the env locally instead with: conda env create -f environment.yaml" >&2
+        echo "       create the env locally instead with: conda env create -f workflow/environment.yaml" >&2
         exit 1
     fi
 fi
@@ -147,10 +147,10 @@ echo "Sanity check ..."
 
 echo
 echo "Done. Activate it in your shell with:"
-echo "  source scripts/activate-env.sh"
+echo "  source workflow/scripts/activate-env.sh"
 if [[ "$prefix" != "$default_prefix" ]]; then
     echo "  # or, since you installed with a custom -o prefix:"
-    echo "  source scripts/activate-env.sh \"$prefix\""
+    echo "  source workflow/scripts/activate-env.sh \"$prefix\""
 fi
 echo "or add its bin directory to your PATH (e.g. once in ~/.bashrc or on SLURM compute nodes):"
 echo "  export PATH=\"$prefix/bin:\$PATH\""
