@@ -41,11 +41,12 @@ rule star_align:
         # crash-on-exit bug (confirmed by its author) that can happen
         # after alignment has already finished and all output files were
         # written -- so a non-zero exit is checked against actual output
-        # completeness rather than trusted outright. outTmpDir must be
-        # empty/absent before STAR starts (stale leftovers from a crashed
-        # job would otherwise abort it), hence the rm -rf/mkdir -p.
+        # completeness rather than trusted outright. --outTmpDir must be
+        # ABSENT before STAR starts: STAR creates it itself and aborts with
+        # "could not make temporary directory" if it already exists, so it is
+        # rm -rf'd beforehand to clear stale leftovers from a crashed job.
         "mkdir -p results/star && "
-        "rm -rf {params.tmpdir} && mkdir -p {params.tmpdir} && "
+        "rm -rf {params.tmpdir} && "
         "trap 'rm -rf {params.tmpdir}' EXIT; "
         "(STAR --runThreadN {threads} "
         "--genomeDir {input.idx} "
