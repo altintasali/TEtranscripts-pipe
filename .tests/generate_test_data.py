@@ -12,9 +12,18 @@ Layout produced:
     .tests/resources/genome.fa           one 50kb contig "chrT"
     .tests/resources/genome.gtf          100 genes, "chrT" 1001-31000 (+)
     .tests/resources/te_annotation.gtf   one TE,   "chrT" 40001-46000 (+)
-    .tests/reads/{sample}_R{1,2}.fastq.gz
-    .tests/reads/treatment_rep1_L{001,002}_R{1,2}.fastq.gz   (lane-split sample)
+    .tests/reads/{sample}_R{1,2}.fastq.gz            paired-end samples
+    .tests/reads/{sample}_R1.fastq.gz                single-end samples
+    .tests/reads/treatment_rep1_L{001,002}_R{1,2}.fastq.gz   (paired-end, lane-split)
+    .tests/reads/control_rep3_L{001,002}_R1.fastq.gz         (single-end, lane-split)
     .tests/samples.csv
+
+Single-end samples (control_rep3, treatment_rep3) deliberately sit in the
+same two conditions as the paired-end samples so the test run exercises the
+workflow's per-sample single/paired-end branching -- trimming (trim_galore
+vs trim_galore_se), STAR --readFilesIn, RSeQC strandedness auto-detection
+(which supports single-end BAMs), TEcount, and a DESeq2 contrast that mixes
+both library formats.
 
 Genome size note: earlier versions of this script used a 10kb genome, which
 turned out to sit in STAR's known small-genome crash zone (custom
@@ -34,6 +43,7 @@ keeps the gene-wise dispersion estimates spanning well over 2 orders of
 magnitude, which is what DESeq2's fit requires -- verified empirically.
 """
 import gzip
+import io
 import math
 import random
 from pathlib import Path
@@ -53,13 +63,16 @@ FRAGMENT_LEN = 200  # insert size for paired-end reads
 BASE_MIN, BASE_MAX = 2, 500
 
 # Per-sample multiplier applied to every gene's base count. Treatment is 2x
-# control on average (1.0/3.0 vs 0.5/1.5); the 0.5x/1.5x within-group spread
-# is what keeps DESeq2's dispersion fit from degenerating (see docstring).
+# control on average (1.0/2.0/3.0 vs 0.5/1.0/1.5); the 0.5x/1.5x within-group
+# spread is what keeps DESeq2's dispersion fit from degenerating (see
+# docstring). The *_rep3 samples are single-end (see SINGLE_END_SAMPLES).
 SAMPLE_MULT = {
     "treatment_rep1": 1.0,
     "treatment_rep2": 3.0,
     "control_rep1": 0.5,
     "control_rep2": 1.5,
+    "treatment_rep3": 2.0,
+    "control_rep3": 1.0,
 }
 
 # The TE goes the other direction (up in control) so both features aren't
@@ -67,15 +80,23 @@ SAMPLE_MULT = {
 SAMPLE_TE_PAIRS = {
     "treatment_rep1": 15,
     "treatment_rep2": 25,
+    "treatment_rep3": 20,
     "control_rep1": 60,
     "control_rep2": 90,
+    "control_rep3": 75,
 }
 
+# Samples sequenced single-end: one read per fragment (the 5' read) instead
+# of a read pair, and only fastq_1 entries in samples.csv. Mixed into the
+# same conditions as the paired-end samples so one test run covers both.
+SINGLE_END_SAMPLES = {"control_rep3", "treatment_rep3"}
+
 # Samples whose reads are written as two lane files (nf-core/rnaseq style)
-# instead of one, exercising the workflow's lane/run merging (cat_fastq).
+# instead of one, exercising the workflow's lane/run merging (cat_fastq):
 # treatment_rep1 is written as *_L001_* and *_L002_* and listed as two rows
-# (same sample name) in .tests/samples.csv.
-LANE_SPLIT_SAMPLES = {"treatment_rep1"}
+# (same sample name) in .tests/samples.csv -- and control_rep3 exercises the
+# same merge for a single-end sample (R1 only).
+LANE_SPLIT_SAMPLES = {"treatment_rep1", "control_rep3"}
 LANE_NAMES = ("L001", "L002")
 
 COMPLEMENT = str.maketrans("ACGT", "TGCA")
@@ -121,11 +142,33 @@ def sample_read_pairs(genome, region_start, region_end, n_pairs, seed):
     return pairs
 
 
-def write_fastq_gz(path, reads, name_prefix):
-    with gzip.open(path, "wt") as fh:
-        for i, seq in enumerate(reads):
-            qual = "I" * len(seq)
-            fh.write(f"@{name_prefix}_{i}/1\n{seq}\n+\n{qual}\n")
+def sample_single_reads(genome, region_start, region_end, n_reads, seed):
+    """Simulate n_reads single-end reads (the 5' read of a fragment, exact
+    substrings, no errors) from within [region_start, region_end) of the +
+    strand of `genome` (0-based half-open). Same fragment sampling as
+    sample_read_pairs so single-end counts stay comparable to paired-end
+    (one read per fragment in both cases)."""
+    rng = random.Random(seed)
+    reads = []
+    max_start = region_end - FRAGMENT_LEN
+    if max_start <= region_start:
+        raise ValueError("region too small for the requested fragment length")
+    for _ in range(n_reads):
+        frag_start = rng.randint(region_start, max_start)
+        reads.append(genome[frag_start : frag_start + READ_LEN])
+    return reads
+
+
+def write_fastq_gz(path, reads, name_prefix, mate=1):
+    # mtime=0 keeps the gzip header stable so regeneration is byte-identical.
+    with gzip.GzipFile(path, "wb", mtime=0) as gz:
+        with io.TextIOWrapper(gz, encoding="ascii") as fh:
+            for i, seq in enumerate(reads):
+                qual = "I" * len(seq)
+                name = f"{name_prefix}_{i}"
+                if mate is not None:
+                    name += f"/{mate}"
+                fh.write(f"@{name}\n{seq}\n+\n{qual}\n")
 
 
 def base_counts():
@@ -192,57 +235,87 @@ def main():
         ],
     )
 
-    # 4 samples, 2 conditions x 2 reps, all paired-end. Read depths follow
-    # the design in the module docstring so DESeq2's dispersion fit works
-    # (100 genes, log-uniform counts, 0.5x/1.5x within-group spread).
+    # 6 samples, 2 conditions x 3 reps: control_rep1/2 + treatment_rep1/2 are
+    # paired-end, control_rep3/treatment_rep3 are single-end. Read depths
+    # follow the design in the module docstring so DESeq2's dispersion fit
+    # works (100 genes, log-uniform counts, within-group spread).
     base = base_counts()
     te_region = (TE_START - 1, TE_END)  # 1-based -> 0-based half-open
 
     rows = ["sample,fastq_1,fastq_2,strandedness,condition"]
     for sidx, (sample, mult) in enumerate(SAMPLE_MULT.items()):
+        is_se = sample in SINGLE_END_SAMPLES
         r1_reads, r2_reads = [], []
         for i in range(N_GENES):
-            n_pairs = max(1, round(base[i] * mult))
+            n_reads = max(1, round(base[i] * mult))
+            if is_se:
+                r1_reads.extend(
+                    sample_single_reads(
+                        genome, *gene_region(i), n_reads, seed=sidx * 10_000 + i
+                    )
+                )
+            else:
+                for r1, r2 in sample_read_pairs(
+                    genome, *gene_region(i), n_reads, seed=sidx * 10_000 + i
+                ):
+                    r1_reads.append(r1)
+                    r2_reads.append(r2)
+        if is_se:
+            r1_reads.extend(
+                sample_single_reads(
+                    genome, *te_region, SAMPLE_TE_PAIRS[sample],
+                    seed=sidx * 10_000 + 9_999,
+                )
+            )
+        else:
             for r1, r2 in sample_read_pairs(
-                genome, *gene_region(i), n_pairs, seed=sidx * 10_000 + i
+                genome, *te_region, SAMPLE_TE_PAIRS[sample],
+                seed=sidx * 10_000 + 9_999,
             ):
                 r1_reads.append(r1)
                 r2_reads.append(r2)
-        for r1, r2 in sample_read_pairs(
-            genome, *te_region, SAMPLE_TE_PAIRS[sample], seed=sidx * 10_000 + 9_999
-        ):
-            r1_reads.append(r1)
-            r2_reads.append(r2)
 
         if sample in LANE_SPLIT_SAMPLES:
             # Write the sample's reads as two lane files (paired-end reads
-            # must stay paired, so split the aligned lists by index). The
-            # deterministic test sample has far more than two reads, so both
-            # lanes end up non-empty.
+            # must stay paired, so split the aligned lists by index; the
+            # single-end control_rep3 writes R1-only lanes). The deterministic
+            # test sample has far more than two reads, so both lanes end up
+            # non-empty.
             half = len(r1_reads) // 2
-            for lane, lane_r1, lane_r2 in (
-                (LANE_NAMES[0], r1_reads[:half], r2_reads[:half]),
-                (LANE_NAMES[1], r1_reads[half:], r2_reads[half:]),
+            for lane, lane_r1 in (
+                (LANE_NAMES[0], r1_reads[:half]),
+                (LANE_NAMES[1], r1_reads[half:]),
             ):
                 fq1 = reads_dir / f"{sample}_{lane}_R1.fastq.gz"
-                fq2 = reads_dir / f"{sample}_{lane}_R2.fastq.gz"
-                write_fastq_gz(fq1, lane_r1, f"{sample}_{lane}")
-                write_fastq_gz(fq2, lane_r2, f"{sample}_{lane}")
-                rows.append(
-                    f"{sample},.tests/reads/{fq1.name},.tests/reads/{fq2.name},auto,"
-                    f"{'treatment' if 'treatment' in sample else 'control'}"
-                )
+                write_fastq_gz(fq1, lane_r1, f"{sample}_{lane}", mate=None if is_se else 1)
+                if is_se:
+                    rows.append(
+                        f"{sample},.tests/reads/{fq1.name},,auto,"
+                        f"{'treatment' if 'treatment' in sample else 'control'}"
+                    )
+                else:
+                    fq2 = reads_dir / f"{sample}_{lane}_R2.fastq.gz"
+                    write_fastq_gz(fq2, r2_reads[:half] if lane == LANE_NAMES[0] else r2_reads[half:], f"{sample}_{lane}")
+                    rows.append(
+                        f"{sample},.tests/reads/{fq1.name},.tests/reads/{fq2.name},auto,"
+                        f"{'treatment' if 'treatment' in sample else 'control'}"
+                    )
         else:
             fq1 = reads_dir / f"{sample}_R1.fastq.gz"
-            fq2 = reads_dir / f"{sample}_R2.fastq.gz"
-            write_fastq_gz(fq1, r1_reads, sample)
-            write_fastq_gz(fq2, r2_reads, sample)
-
-            rows.append(
-                f"{sample},.tests/reads/{sample}_R1.fastq.gz,"
-                f".tests/reads/{sample}_R2.fastq.gz,auto,"
-                f"{'treatment' if 'treatment' in sample else 'control'}"
-            )
+            write_fastq_gz(fq1, r1_reads, sample, mate=None if is_se else 1)
+            if is_se:
+                rows.append(
+                    f"{sample},.tests/reads/{sample}_R1.fastq.gz,,auto,"
+                    f"{'treatment' if 'treatment' in sample else 'control'}"
+                )
+            else:
+                fq2 = reads_dir / f"{sample}_R2.fastq.gz"
+                write_fastq_gz(fq2, r2_reads, sample)
+                rows.append(
+                    f"{sample},.tests/reads/{sample}_R1.fastq.gz,"
+                    f".tests/reads/{sample}_R2.fastq.gz,auto,"
+                    f"{'treatment' if 'treatment' in sample else 'control'}"
+                )
 
     (HERE / "samples.csv").write_text("\n".join(rows) + "\n")
     print("Wrote test data to", HERE)

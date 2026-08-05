@@ -153,10 +153,17 @@ can't be mixed with paired-end lanes for the same sample). See
 ## Test profile
 
 `config/test.yaml` runs the whole workflow end-to-end against a bundled
-synthetic dataset in `.tests/` (50kb genome, 100 genes, one TE, 4 paired-end
-samples — with `treatment_rep1` deliberately split across two lanes to
-exercise the lane-merging step). Useful for confirming your setup or
-smoke-testing rule edits:
+synthetic dataset in `.tests/` (50kb genome, 100 genes, one TE, 2 conditions
+x 3 replicates). The first two replicates of each condition are paired-end
+(`treatment_rep1` deliberately split across two lanes to exercise the
+lane-merging step); the third replicates (`control_rep3`, `treatment_rep3`)
+are single-end. The single-end samples deliberately sit in the same two
+conditions as the paired-end samples so the test run exercises the
+workflow's per-sample single/paired-end branching -- trimming (trim_galore
+vs trim_galore_se), STAR --readFilesIn, RSeQC strandedness auto-detection
+(which supports single-end BAMs), TEcount, and a DESeq2 contrast that mixes
+both library formats. Useful for confirming your setup or smoke-testing
+rule edits:
 
 ```bash
 snakemake --configfile config/test.yaml --cores 4 -n   # dry-run

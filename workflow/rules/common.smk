@@ -57,6 +57,11 @@ if not os.path.exists(config["samples"]):
 def _nonempty(value):
     if value is None:
         return None
+    try:
+        if pd.isna(value):
+            return None
+    except (TypeError, ValueError):
+        pass
     text = str(value).strip()
     return text or None
 
@@ -66,6 +71,8 @@ raw_samples = pd.read_csv(config["samples"], dtype=str, comment="#")
 # empty optional cells (fastq_2, strandedness, condition) need to be
 # converted explicitly. astype(object) first is required on pandas>=2's
 # str-backed columns, which otherwise silently keep NaN instead of None.
+# Note: validate() below re-introduces NaN for empty cells (observed with
+# snakemake 9.x), so _nonempty() also treats NaN/NA as empty defensively.
 raw_samples = raw_samples.astype(object).where(pd.notnull(raw_samples), None)
 validate(raw_samples, schema="../schemas/samples.schema.yaml")
 
