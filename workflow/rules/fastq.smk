@@ -23,7 +23,7 @@ rule cat_fastq:
     benchmark:
         "results/pipeline_info/benchmarks/cat_fastq/{sample}_R{read}.txt",
     log:
-        "logs/cat_fastq/{sample}_R{read}.log",
+        "results/pipeline_info/logs/cat_fastq/{sample}_R{read}.log",
     shell:
         "(if [ {params.gz} = True ]; then cat {input} > {output}; "
         "else cat {input} | gzip -c > {output}; fi) 2> {log}"

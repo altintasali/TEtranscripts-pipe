@@ -4,7 +4,7 @@
 # automatically. You should NOT normally need to edit this file.
 #
 # To override one or more entries for your own cluster/dataset, create
-# config/resources.yaml containing just the rules/keys you want to change
+# input/resources.yaml containing just the rules/keys you want to change
 # (it's deep-merged on top of this file, so a partial override is fine, e.g.
 # just `resources: {star_align: {mem_mb: 64000}}`). See "HPC / SLURM" in the
 # README.
@@ -36,6 +36,12 @@ resources:
     threads: 4
     mem_mb: 8000
     runtime: 180
+
+  # Always-on raw FastQC (per sample/read): modest CPU/memory; I/O bound.
+  fastqc_raw:
+    threads: 2
+    mem_mb: 2000
+    runtime: 30
 
   star_index:
     # Peak memory for STAR genome index generation scales with genome size;
@@ -99,3 +105,8 @@ resources:
     threads: 1
     mem_mb: 4000
     runtime: 30
+
+  benchmark_summary:
+    threads: 1
+    mem_mb: 2000
+    runtime: 10

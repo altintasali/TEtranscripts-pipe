@@ -7,7 +7,7 @@ rule rseqc_infer_experiment:
     input:
         aln="results/star/{sample}_Aligned.sortedByCoord.out.bam",
         bai="results/star/{sample}_Aligned.sortedByCoord.out.bam.bai",
-        refgene="resources/annotation.bed12",
+        refgene="results/reference/annotation.bed12",
     output:
         "results/rseqc/{sample}_infer_experiment.txt",
     params:
@@ -19,7 +19,7 @@ rule rseqc_infer_experiment:
     benchmark:
         "results/pipeline_info/benchmarks/rseqc_infer_experiment/{sample}.txt",
     log:
-        "logs/rseqc/infer_experiment/{sample}.log",
+        "results/pipeline_info/logs/rseqc/infer_experiment/{sample}.log",
     conda:
         RSEQC_ENV
     shell:
@@ -45,6 +45,6 @@ rule determine_strandedness:
     benchmark:
         "results/pipeline_info/benchmarks/determine_strandedness/{sample}.txt",
     log:
-        "logs/rseqc/determine_strandedness/{sample}.log",
+        "results/pipeline_info/logs/rseqc/determine_strandedness/{sample}.log",
     script:
         "../scripts/determine_strandedness.py"

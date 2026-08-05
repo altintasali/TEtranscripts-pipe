@@ -14,14 +14,14 @@
 #   ./workflow/scripts/run_slurm.sh -n                             # dry-run
 #
 # The SLURM profile (workflow/profiles/slurm/config.yaml) submits every job
-# with sbatch and sizes each job from config/resources.yaml; see the README
+# with sbatch and sizes each job from input/resources.yaml; see the README
 # "HPC / SLURM" section for overriding resources and the account/partition.
 # =============================================================================
 set -euo pipefail
 
 # Always run from the repo root, wherever this script is invoked from, so
-# that the relative paths in the Snakefile (config/, input/, results/, logs/)
-# and in the SLURM profile resolve the same way as a local run.
+# that the relative paths in the Snakefile (config/, input/, results/) and in
+# the SLURM profile resolve the same way as a local run.
 cd "$(dirname "$0")/../.."
 
 exec snakemake --workflow-profile workflow/profiles/slurm "$@"

@@ -89,12 +89,12 @@ conda activate rnaseq-star-tetranscripts
 # Smoke test on the bundled tiny synthetic dataset (no real genome/reads needed):
 snakemake --configfile config/test.yaml --cores 4
 
-# Set up your own analysis. config/config.yaml and config/samples.csv are
+# Set up your own analysis. input/config.yaml and input/samples.csv are
 # gitignored on purpose, so every clone starts as a clean project and `git
 # pull` never conflicts with your analysis settings -- create them from the
 # committed .example templates:
-cp config/config.example.yaml config/config.yaml
-cp config/samples.example.csv config/samples.csv
+cp config/config.example.yaml input/config.yaml
+cp config/samples.example.csv input/samples.csv
 # ...edit both (reference paths, sample sheet), then:
 snakemake --cores 16
 ```
@@ -110,23 +110,23 @@ You only need two files to run an analysis, created from the committed
 `.example` templates (both are gitignored, so each clone is a clean project):
 
 ```bash
-cp config/config.example.yaml config/config.yaml
-cp config/samples.example.csv config/samples.csv
+cp config/config.example.yaml input/config.yaml
+cp config/samples.example.csv input/samples.csv
 ```
 
-**`config/config.yaml`** — reference paths and tool options:
+**`input/config.yaml`** — reference paths and tool options:
 
 | key | meaning |
 |-----|---------|
-| `ref.fasta` | genome FASTA (Ensembl/GENCODE). Plain or gzipped. |
-| `ref.gtf` | gene annotation GTF. Plain or gzipped. |
-| `ref.te_gtf` | **curated** TE GTF from the TEtranscripts authors (download the file matching your genome build from [mghlab.org/software/tetranscripts](https://www.mghlab.org/software/tetranscripts) — a generic RepeatMasker GTF will *not* work). Plain or gzipped. |
+| `ref.fasta` | genome FASTA (Ensembl/GENCODE), user-supplied in `input/`. Plain or gzipped. |
+| `ref.gtf` | gene annotation GTF, user-supplied in `input/`. Plain or gzipped. |
+| `ref.te_gtf` | **curated** TE GTF from the TEtranscripts authors (download the file matching your genome build from [mghlab.org/software/tetranscripts](https://www.mghlab.org/software/tetranscripts) — a generic RepeatMasker GTF will *not* work), user-supplied in `input/`. Plain or gzipped. |
 | `ref.sjdb_overhang` | `auto` (default) detects `max(read length) - 1` from your fastq files; set an integer to pin it. |
 | `ref.decompressed_dir` | where gzipped references are decompressed to (default: a directory under `/tmp` — ephemeral, but cheap to rebuild). |
-| `star.index` | where to (re)build the STAR index. An existing index is honored as-is; it's only rebuilt when missing (or via `snakemake -R star_index`). |
+| `star.index` | where to (re)build the STAR index — **generated** by the workflow under `results/`, not user-supplied. An existing index is honored as-is; it's only rebuilt when missing (or via `snakemake -R star_index`). |
 | `star.extra` | alignment flags; pre-set to the TEtranscripts authors' multi-mapper recommendations. |
 | `star.tmpdir` | directory for STAR's per-run scratch files (its `_STARtmp` dir, ~a BAM's worth of data). Defaults to the OS temp dir; set to a big scratch filesystem on HPC if node-local `/tmp` is small. |
-| `trimming.enabled` | run TrimGalore! adapter/quality trimming before STAR (default `true`, nf-core/rnaseq-style). |
+| `trimming.enabled` | run TrimGalore! adapter/quality trimming before STAR (default `true`, nf-core/rnaseq-style). `false` skips trimming entirely — STAR reads the merged/raw fastqs directly, and the MultiQC report keeps the raw-input FastQC section but drops the trimming/trimmed-FastQC ones. |
 | `trimming.trim_nextseq` | `--nextseq=N` for NextSeq/NovaSeq poly-G trimming; `0` (default) disables it. |
 | `trimming.extra` | extra TrimGalore! flags passed verbatim. |
 | `strandedness.min_fraction` | confidence threshold for RSeQC auto-detection. |
@@ -134,7 +134,7 @@ cp config/samples.example.csv config/samples.csv
 | `outputs.keep_merged_fastq` | keep the lane-concatenated fastqs (`results/fastq/`). `false` deletes them (temp()) once alignment is done. |
 | `outputs.keep_trimmed_fastq` | keep the trimmed fastqs (`results/trimming/`). `false` deletes them (temp()) once alignment is done. |
 
-**`config/samples.csv`** — the design file. Columns in this exact order
+**`input/samples.csv`** — the design file. Columns in this exact order
 (an nf-core/rnaseq samplesheet works as-is):
 
 | column | required? | meaning |
@@ -182,7 +182,7 @@ snakemake --cores 8 trimming_only        # merge lanes + TrimGalore! only (no al
 
 Rule-level threads/memory/runtime defaults live in
 `workflow/default-config/resources.yaml`. Override any of them by creating
-`config/resources.yaml` with just the keys you want to change (partial
+`input/resources.yaml` with just the keys you want to change (partial
 overrides are deep-merged). Unlisted rules fall back to conservative defaults
 (1 thread / 4 GB / 60 min).
 
@@ -220,11 +220,16 @@ wrapper — no conda or container runtime needed.
 ## Resource usage & reports
 
 Every rule records its runtime and peak memory (threads/CPU-seconds) to
-`results/pipeline_info/benchmarks/<rule>/...`. Two ways to use them:
+`results/pipeline_info/benchmarks/<rule>/...`. Three ways to use them:
 
-- **Per-rule cost tracking.** After a run, each benchmark file is a short
-  table of `s, cpu_percent, max_rss, ...`. A quick way to see which rules are
-  the big hitters:
+- **Inside the MultiQC report.** Every run's `qc/multiqc_report.html` ends
+  with a "Resource usage" section (aggregated from the benchmark files by the
+  `benchmark_summary` rule) — a per-rule table of job count, mean/max wall
+  time, mean/max peak RSS, and mean CPU load. The quickest way to see which
+  rules are the big hitters and how to size your cluster resources.
+
+- **Per-rule cost tracking.** Each benchmark file is a short table of
+  `s, cpu_percent, max_rss, ...`. A quick way to list them:
 
   ```bash
   ls results/pipeline_info/benchmarks/*/*
@@ -257,7 +262,7 @@ Every tool version is pinned independently with defaults shipped in
 `workflow/default-config/versions.yaml` (STAR 2.7.11b, samtools 1.22.1,
 TrimGalore! 0.6.10, FastQC 0.12.1, RSeQC 5.0.4, MultiQC 1.33, TEtranscripts
 2.2.4, DESeq2 1.46.0, UCSC tools 482).
-Override any by creating `config/versions.yaml` with just the keys you want to
+Override any by creating `input/versions.yaml` with just the keys you want to
 change:
 
 ```yaml
@@ -325,11 +330,14 @@ per-sample TEcount quantification.
 results/
 ├── fastq/{sample}_R{1,2}.fastq.gz                  # only for lane/run-split samples:
 │                                                    #   concatenated lanes
+├── fastqc/raw/{sample}_R{1,2}_fastqc.zip           # always-on FastQC of the raw input
 ├── trimming/                                       # only if trimming is enabled:
 │   ├── {sample}_val_{1,2}.fq.gz                    #   trimmed reads (paired)
 │   ├── {sample}_trimmed.fq.gz                      #   trimmed reads (single-end)
 │   ├── {sample}_*_fastqc.html/.zip                 #   FastQC (run inside TrimGalore!)
 │   └── {sample}_*_trimming_report.txt              #   TrimGalore! report
+├── star_index/                                     # generated STAR genome index
+├── reference/annotation.{genePred,bed12}           # generated RSeQC gene model (BED12)
 ├── star/{sample}_Aligned.out.bam                   # unsorted, fed to TEcount
 ├── star/{sample}_Aligned.sortedByCoord.out.bam(.bai)   # for RSeQC/QC
 ├── rseqc/{sample}_infer_experiment.txt             # raw RSeQC report
@@ -339,13 +347,21 @@ results/
 │                                                    #   ({contrast}.cntTable, _DESeq2.R,
 │                                                    #   _gene_TE_analysis.txt, _sigdiff_gene_TE.txt)
 ├── versions/rnaseq_mqc_versions.yml                # pinned tool versions -> MultiQC
-├── qc/multiqc_report.html                          # STAR + FastQC/TrimGalore! + RSeQC
-└── pipeline_info/benchmarks/<rule>/...             # per-rule CPU/RSS usage
+├── qc/multiqc_report.html                          # FastQC + STAR + RSeQC + resource usage
+└── pipeline_info/
+    ├── benchmarks/<rule>/...                       # per-rule CPU/RSS usage (-> MultiQC)
+    ├── benchmark_summary_mqc.json                  # "Resource usage" table (see below)
+    └── logs/<rule>/...                             # per-rule stdout/stderr
 ```
 
-Per-rule logs mirror this structure under `logs/` (plus
-`logs/config_resolution.log`, which records how `sjdb_overhang`, the
-decompressed-reference directory, and gzipped reference files were resolved).
+Everything under `input/` (your sample sheet, config, and reference fasta/GTF
+files) is supplied by you; everything under `results/` (the index, gene model,
+alignments, counts, report, benchmarks, and logs) is generated by the
+workflow. Per-rule logs mirror the results layout under
+`results/pipeline_info/logs/` (plus
+`results/pipeline_info/logs/config_resolution.log`, which records how
+`sjdb_overhang`, the decompressed-reference directory, and gzipped reference
+files were resolved).
 
 ## Notes
 

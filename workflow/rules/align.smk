@@ -33,7 +33,7 @@ rule star_align:
     benchmark:
         "results/pipeline_info/benchmarks/star_align/{sample}.txt",
     log:
-        "logs/star/align/{sample}.log",
+        "results/pipeline_info/logs/star/align/{sample}.log",
     conda:
         STAR_ENV
     shell:
@@ -68,7 +68,7 @@ rule star_align:
 
 def _samtools_sort_mem(wildcards):
     """samtools sort -m flag (max memory *per thread*), derived from this
-    rule's mem_mb/threads resources so it scales with config/resources.yaml
+    rule's mem_mb/threads resources so it scales with input/resources.yaml
     instead of being hardcoded. Total = -m x threads, so per-thread is capped
     at a fraction of the per-thread share to leave headroom for the sort's
     I/O buffers and keep peak usage inside the job's mem_mb budget.
@@ -96,7 +96,7 @@ rule samtools_sort:
     benchmark:
         "results/pipeline_info/benchmarks/samtools_sort/{sample}.txt",
     log:
-        "logs/samtools/sort/{sample}.log",
+        "results/pipeline_info/logs/samtools/sort/{sample}.log",
     conda:
         SAMTOOLS_ENV
     shell:
@@ -118,7 +118,7 @@ rule samtools_index:
     benchmark:
         "results/pipeline_info/benchmarks/samtools_index/{sample}.txt",
     log:
-        "logs/samtools/index/{sample}.log",
+        "results/pipeline_info/logs/samtools/index/{sample}.log",
     conda:
         SAMTOOLS_ENV
     shell:

@@ -1,7 +1,7 @@
 $schema: "http://json-schema.org/draft-07/schema#"
 description: >-
-  Properties of the merged config dict (config/config.yaml +
-  config/versions.yaml, deep-merged by Snakemake's multiple `configfile:`
+  Properties of the merged config dict (input/config.yaml +
+  input/versions.yaml, deep-merged by Snakemake's multiple `configfile:`
   directives -- see workflow/Snakefile).
 type: object
 
@@ -108,7 +108,7 @@ properties:
   resources:
     type: object
     description: >-
-      Per-rule threads/mem_mb/runtime, loaded from config/resources.yaml.
+      Per-rule threads/mem_mb/runtime, loaded from input/resources.yaml.
       Missing rules/keys fall back to conservative defaults in common.smk.
     additionalProperties:
       type: object

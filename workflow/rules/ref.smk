@@ -17,7 +17,7 @@ rule gunzip_reference:
     benchmark:
         "results/pipeline_info/benchmarks/gunzip_reference/{stem}.txt",
     log:
-        "logs/gunzip/{stem}.log",
+        "results/pipeline_info/logs/gunzip/{stem}.log",
     shell:
         "mkdir -p {DECOMPRESS_DIR} && "
         "gunzip -c {input} > {output} 2> {log}"
@@ -54,7 +54,7 @@ rule star_index:
     benchmark:
         "results/pipeline_info/benchmarks/star_index.txt",
     log:
-        "logs/star/index.log",
+        "results/pipeline_info/logs/star/index.log",
     conda:
         STAR_ENV
     shell:
@@ -90,7 +90,7 @@ rule gtf_to_genepred:
     input:
         gtf=GTF,
     output:
-        genepred=temp("resources/annotation.genePred"),
+        genepred=temp("results/reference/annotation.genePred"),
     threads: get_resources("gtf_to_genepred")["threads"]
     resources:
         mem_mb=get_resources("gtf_to_genepred")["mem_mb"],
@@ -98,7 +98,7 @@ rule gtf_to_genepred:
     benchmark:
         "results/pipeline_info/benchmarks/gtf_to_genepred.txt",
     log:
-        "logs/rseqc/gtf_to_genepred.log",
+        "results/pipeline_info/logs/rseqc/gtf_to_genepred.log",
     conda:
         UCSC_TOOLS_ENV
     shell:
@@ -108,9 +108,9 @@ rule gtf_to_genepred:
 
 rule genepred_to_bed12:
     input:
-        genepred="resources/annotation.genePred",
+        genepred="results/reference/annotation.genePred",
     output:
-        bed12="resources/annotation.bed12",
+        bed12="results/reference/annotation.bed12",
     threads: get_resources("genepred_to_bed12")["threads"]
     resources:
         mem_mb=get_resources("genepred_to_bed12")["mem_mb"],
@@ -118,7 +118,7 @@ rule genepred_to_bed12:
     benchmark:
         "results/pipeline_info/benchmarks/genepred_to_bed12.txt",
     log:
-        "logs/rseqc/genepred_to_bed12.log",
+        "results/pipeline_info/logs/rseqc/genepred_to_bed12.log",
     conda:
         UCSC_TOOLS_ENV
     shell:

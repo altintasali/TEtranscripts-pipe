@@ -75,7 +75,7 @@ rule trim_galore_pe:
     benchmark:
         "results/pipeline_info/benchmarks/trim_galore_pe/{sample}.txt",
     log:
-        "logs/trimming/{sample}.log",
+        "results/pipeline_info/logs/trimming/{sample}.log",
     conda:
         TRIM_GALORE_ENV
     shell:
@@ -102,7 +102,7 @@ rule trim_galore_se:
     benchmark:
         "results/pipeline_info/benchmarks/trim_galore_se/{sample}.txt",
     log:
-        "logs/trimming/{sample}.se.log",
+        "results/pipeline_info/logs/trimming/{sample}.se.log",
     conda:
         TRIM_GALORE_ENV
     shell:

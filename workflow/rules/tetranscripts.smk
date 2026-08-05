@@ -21,7 +21,7 @@ rule tecount:
     benchmark:
         "results/pipeline_info/benchmarks/tecount/{sample}.txt",
     log:
-        "logs/tecount/{sample}.log",
+        "results/pipeline_info/logs/tecount/{sample}.log",
     conda:
         TETRANSCRIPTS_ENV
     shell:
@@ -75,7 +75,7 @@ rule tetranscripts_diffexp:
     benchmark:
         "results/pipeline_info/benchmarks/tetranscripts_diffexp/{contrast}.txt",
     log:
-        "logs/tetranscripts/{contrast}.log",
+        "results/pipeline_info/logs/tetranscripts/{contrast}.log",
     conda:
         TETRANSCRIPTS_ENV
     shell:

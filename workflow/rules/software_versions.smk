@@ -19,7 +19,7 @@ rule software_versions:
     benchmark:
         "results/pipeline_info/benchmarks/software_versions.txt",
     log:
-        "logs/software_versions.log",
+        "results/pipeline_info/logs/software_versions.log",
     run:
         import yaml
 

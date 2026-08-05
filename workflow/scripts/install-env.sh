@@ -101,7 +101,7 @@ trap 'rm -rf "$work_dir"' EXIT
 # fetch (the single tarball, or the split .part.* chunks), so we read the file
 # list from it instead of querying the API.
 echo "Downloading $stem env assets from release $version ..."
-if ! curl -fsSL --retry 3 -o "$work_dir/SHA256SUMS" "$releases_dl/SHA256SUMS"; then
+if ! curl -fsSL --progress-bar --retry 3 -o "$work_dir/SHA256SUMS" "$releases_dl/SHA256SUMS"; then
     echo "error: release $version has no $stem env assets (no SHA256SUMS)" >&2
     exit 1
 fi
@@ -110,7 +110,7 @@ fi
     while IFS= read -r fname; do
         [[ -n "$fname" ]] || continue
         echo "  $releases_dl/$fname"
-        curl -fsSL --retry 3 -o "$fname" "$releases_dl/$fname"
+        curl -fsSL --progress-bar --retry 3 -o "$fname" "$releases_dl/$fname"
     done < <(awk '{print $2}' SHA256SUMS)
 )
 

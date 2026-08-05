@@ -1,11 +1,11 @@
 # =============================================================================
 # EXAMPLE sample sheet for the STAR + RSeQC + TEtranscripts workflow.
 #
-# To run an analysis, copy this to config/samples.csv and fill in your rows:
+# To run an analysis, copy this to input/samples.csv and fill in your rows:
 #
-#   cp config/samples.example.csv config/samples.csv
+#   cp config/samples.example.csv input/samples.csv
 #
-# config/samples.csv is gitignored (it belongs to your analysis, not the
+# input/samples.csv is gitignored (it belongs to your analysis, not the
 # repo). Rows starting with '#' are ignored.
 #
 # Columns (order matters):

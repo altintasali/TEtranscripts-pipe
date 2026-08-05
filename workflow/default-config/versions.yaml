@@ -3,7 +3,7 @@
 # automatically. You should NOT normally need to edit this file.
 #
 # To override one or more versions for your own analysis, create
-# config/versions.yaml containing just the keys you want to change (it's
+# input/versions.yaml containing just the keys you want to change (it's
 # deep-merged on top of this file, so a partial override is fine, e.g.
 # just `versions: {star: "2.7.10b"}`). See "Tool versions" in the README.
 #

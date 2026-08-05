@@ -10,7 +10,7 @@
 # stays empty while envs solve). Make sure the shared env is visible from the
 # compute nodes (see README "HPC / SLURM").
 #
-# Per-rule threads/mem_mb/runtime come from config/resources.yaml (loaded by
+# Per-rule threads/mem_mb/runtime come from input/resources.yaml (loaded by
 # workflow/Snakefile) and are what actually size each SLURM job; the
 # defaults below only apply to anything resources.yaml doesn't cover.
 # slurm_account is set to the ICMM_DM group account; replace it (and qos)

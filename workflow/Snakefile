@@ -12,37 +12,37 @@ configfile: "workflow/default-config/versions.yaml"
 configfile: "workflow/default-config/resources.yaml"
 
 # Your analysis config. Unlike the defaults above, this one belongs to you:
-# config/config.yaml (and config/samples.csv) are gitignored, so create them
+# input/config.yaml (and input/samples.csv) are gitignored, so create them
 # from the .example templates shipped in config/ before running:
-#   cp config/config.example.yaml config/config.yaml
-#   cp config/samples.example.csv config/samples.csv
+#   cp config/config.example.yaml input/config.yaml
+#   cp config/samples.example.csv input/samples.csv
 # If you already provide your own config via --configfile on the command
 # line (workflow.overwrite_configfiles), that is enough and
-# config/config.yaml is optional.
-if os.path.exists("config/config.yaml"):
+# input/config.yaml is optional.
+if os.path.exists("input/config.yaml"):
 
-    configfile: "config/config.yaml"
+    configfile: "input/config.yaml"
 
 elif not workflow.overwrite_configfiles:
     raise RuntimeError(
-        "config/config.yaml is missing and no --configfile was given.\n"
+        "input/config.yaml is missing and no --configfile was given.\n"
         "Copy the templates and fill them in:\n"
-        "  cp config/config.example.yaml config/config.yaml\n"
-        "  cp config/samples.example.csv config/samples.csv\n"
+        "  cp config/config.example.yaml input/config.yaml\n"
+        "  cp config/samples.example.csv input/samples.csv\n"
         "then edit the paths/options and re-run."
     )
 
 # Optional user overrides: only loaded if you create them yourself, and only
 # need to contain the keys you want to change -- deep-merged on top of the
 # built-in defaults above. See "Tool versions" / "HPC / SLURM" in the README.
-if os.path.exists("config/versions.yaml"):
+if os.path.exists("input/versions.yaml"):
 
-    configfile: "config/versions.yaml"
+    configfile: "input/versions.yaml"
 
 
-if os.path.exists("config/resources.yaml"):
+if os.path.exists("input/resources.yaml"):
 
-    configfile: "config/resources.yaml"
+    configfile: "input/resources.yaml"
 
 
 include: "rules/common.smk"

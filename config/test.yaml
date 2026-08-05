@@ -9,7 +9,7 @@
 #   snakemake --configfile config/test.yaml --cores 4 -n   # dry-run
 #   snakemake --configfile config/test.yaml --cores 4      # run
 #
-# This is deep-merged on top of config/config.yaml (and the built-in
+# This is deep-merged on top of input/config.yaml (and the built-in
 # defaults) -- only the keys that need to differ for the test dataset are
 # listed below.
 # =============================================================================
@@ -47,9 +47,9 @@ trimming:
   trim_nextseq: 0
   extra: ""
 
-# Analysis-wide settings. Normally these come from config/config.yaml (see
+# Analysis-wide settings. Normally these come from input/config.yaml (see
 # config/config.example.yaml); they're repeated here so the test profile is
-# self-sufficient on a fresh clone / in CI, where config/config.yaml has not
+# self-sufficient on a fresh clone / in CI, where input/config.yaml has not
 # been created yet.
 strandedness:
   min_fraction: 0.6

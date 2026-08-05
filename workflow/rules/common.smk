@@ -17,7 +17,7 @@ V = config["versions"]
 # -----------------------------------------------------------------------------
 # Per-rule compute resources (threads/mem_mb/runtime), loaded from
 # workflow/default-config/resources.yaml (built-in defaults) and optionally
-# overridden by config/resources.yaml if you create one. A rule (or a
+# overridden by input/resources.yaml if you create one. A rule (or a
 # missing key within its entry) not
 # present there falls back to a small conservative default instead of
 # failing -- see the "HPC / SLURM" section of the README for how these feed
@@ -236,9 +236,10 @@ def _resolve_sjdb_overhang():
 SJDB_OVERHANG, _SJDB_OVERHANG_SOURCE = _resolve_sjdb_overhang()
 
 # Record how key values were resolved -- a lightweight, always-current log of
-# workflow parse-time decisions, separate from the per-rule logs in logs/.
-os.makedirs("logs", exist_ok=True)
-with open("logs/config_resolution.log", "w") as fh:
+# workflow parse-time decisions, separate from the per-rule logs in
+# results/pipeline_info/logs/.
+os.makedirs("results/pipeline_info/logs", exist_ok=True)
+with open("results/pipeline_info/logs/config_resolution.log", "w") as fh:
     fh.write(f"sjdb_overhang = {SJDB_OVERHANG} ({_SJDB_OVERHANG_SOURCE})\n")
     fh.write(f"decompressed reference directory = {DECOMPRESS_DIR}\n")
     if REFERENCE_GZ_SOURCES:
@@ -524,11 +525,78 @@ def all_fastqc_reports():
     ]
 
 
+def all_raw_fastqc_reports():
+    """FastQC .zip report paths for the raw (merged) input fastqs, one per
+    sample/read. Run unconditionally so the MultiQC report always covers the
+    untrimmed input, regardless of the optional `trimming` step."""
+    return [
+        f"results/fastqc/raw/{s}_R{read}_fastqc.zip"
+        for s in SAMPLES
+        for read in (1, 2)
+        if read == 1 or _is_paired(s)
+    ]
+
+
 def all_diffexp_outputs():
     return expand(
         "results/tetranscripts/{contrast}_sigdiff_gene_TE.txt",
         contrast=list(CONTRASTS.keys()),
     )
+
+
+def all_benchmark_files():
+    """Every benchmark file this configuration will produce, so the
+    benchmark_summary rule (qc.smk) aggregates exactly the rules that ran
+    into the MultiQC resource-usage section. Kept in lockstep with the
+    `benchmark:` declarations in the rules -- only the conditional ones
+    (merging, trimming, gunzip, RSeQC bed12 conversion, strandedness
+    auto-detection, contrasts) need to be gated here. The multiqc and
+    benchmark_summary rules' own benchmarks are deliberately excluded to
+    avoid a cyclic dependency (their resource use is negligible)."""
+    files = [
+        "results/pipeline_info/benchmarks/software_versions.txt",
+        "results/pipeline_info/benchmarks/star_index.txt",
+    ]
+    # BED12 gene-model conversion only runs when RSeQC strandedness
+    # auto-detection actually needs it.
+    if AUTO_SAMPLES:
+        files += [
+            "results/pipeline_info/benchmarks/gtf_to_genepred.txt",
+            "results/pipeline_info/benchmarks/genepred_to_bed12.txt",
+        ]
+    for stem in REFERENCE_GZ_SOURCES:
+        files.append(f"results/pipeline_info/benchmarks/gunzip_reference/{stem}.txt")
+    for s in SAMPLES:
+        files += [
+            f"results/pipeline_info/benchmarks/star_align/{s}.txt",
+            f"results/pipeline_info/benchmarks/samtools_sort/{s}.txt",
+            f"results/pipeline_info/benchmarks/samtools_index/{s}.txt",
+            f"results/pipeline_info/benchmarks/tecount/{s}.txt",
+            f"results/pipeline_info/benchmarks/fastqc_raw/{s}_R1.txt",
+        ]
+        if _is_paired(s):
+            files.append(f"results/pipeline_info/benchmarks/fastqc_raw/{s}_R2.txt")
+        # Lane-merging (cat_fastq) only for samples with multiple lanes/runs.
+        for read in (1, 2):
+            if (read == 1 or _is_paired(s)) and len(sample_fastqs(s, read)) > 1:
+                files.append(
+                    f"results/pipeline_info/benchmarks/cat_fastq/{s}_R{read}.txt"
+                )
+        if TRIM_ENABLED:
+            files.append(
+                f"results/pipeline_info/benchmarks/"
+                f"{'trim_galore_pe' if _is_paired(s) else 'trim_galore_se'}/{s}.txt"
+            )
+    for s in AUTO_SAMPLES:
+        files += [
+            f"results/pipeline_info/benchmarks/rseqc_infer_experiment/{s}.txt",
+            f"results/pipeline_info/benchmarks/determine_strandedness/{s}.txt",
+        ]
+    for contrast in CONTRASTS:
+        files.append(
+            f"results/pipeline_info/benchmarks/tetranscripts_diffexp/{contrast}.txt"
+        )
+    return sorted(set(files))
 
 
 # -----------------------------------------------------------------------------
@@ -577,6 +645,9 @@ SAMTOOLS_ENV = _write_env("samtools", [f"samtools={V['samtools']}"])
 TRIM_GALORE_ENV = _write_env(
     "trim_galore", [f"trim-galore={V['trim_galore']}", f"fastqc={V['fastqc']}"]
 )
+# Standalone FastQC env for the always-on raw FastQC (qc.smk), independent of
+# the optional trimming step.
+FASTQC_ENV = _write_env("fastqc", [f"fastqc={V['fastqc']}"])
 # python>=3.9 floor: without it, conda's solver can backtrack all the way to
 # an ancient RSeQC/MultiQC build (seen in practice: Python 3.6, from ~2021)
 # to find something that resolves at all -- and those old builds pull in a

@@ -1,9 +1,7 @@
 .snakemake/
 
 # Generated at runtime, not part of the repo
-/resources/
 /results/
-/logs/
 .conda/
 .DS_Store
 *.pyc
@@ -14,10 +12,11 @@ workflow/envs/generated/
 README.html
 
 # Per-project user files -- create from the .example templates (see README).
-# Keeping them untracked means each clone is a clean project and `git pull`
+# input/ holds everything that belongs to your analysis (config.yaml,
+# samples.csv, version/resource overrides, reference fasta/gtf/te_gtf), so
+# keeping it untracked means each clone is a clean project and `git pull`
 # never conflicts with your analysis settings.
-/config/config.yaml
-/config/samples.csv
+/input/
 
 # Opencode session transcripts
 session-*.md
