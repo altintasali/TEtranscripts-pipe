@@ -72,7 +72,11 @@ def main():
         rows_by_rule[rule].extend(_parse_benchmark(path))
 
     data = {}
-    for rule in sorted(rows_by_rule):
+    # Snakemake's own rule order (params.allocated is built from the
+    # workflow.rules OrderedDict); any rule missing there falls back to the
+    # input file order.
+    order = {name: i for i, name in enumerate(allocated)}
+    for rule in sorted(rows_by_rule, key=lambda r: order.get(r, len(order))):
         rows = rows_by_rule[rule]
         walltimes = [_as_float(r.get("s")) for r in rows]
         # snakemake >=8 writes mean_load (%; 100 == one core); the legacy

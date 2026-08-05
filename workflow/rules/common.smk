@@ -603,11 +603,16 @@ def allocated_resources_by_rule():
     """{rule: {"threads", "mem_mb"}} for every rule that has benchmark files
     (the benchmark_summary rule's input), read from resources.yaml -- the
     per-job allocation against which the benchmark_summary script computes
-    CPU/RAM efficiency. Keys mirror the benchmark subdirectory names."""
+    CPU/RAM efficiency. Iterated in Snakemake's own rule order (workflow.rules,
+    an OrderedDict) so the resource-usage table lists rules in the order they
+    appear in the workflow, not alphabetically."""
+    benchmark_rules = {
+        os.path.basename(os.path.dirname(path)) for path in all_benchmark_files()
+    }
     out = {}
-    for path in all_benchmark_files():
-        rname = os.path.basename(os.path.dirname(path))
-        out.setdefault(rname, get_resources(rname))
+    for r in workflow.rules:
+        if r.name in benchmark_rules:
+            out[r.name] = get_resources(r.name)
     return out
 
 
