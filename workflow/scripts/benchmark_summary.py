@@ -71,39 +71,40 @@ def main():
         "pconfig": {
             "id": "resource_usage_table",
             "title": "Resource usage",
+            "col1_header": "Rule",
             "sort_rows": False,
         },
         "headers": {
             "n": {
                 "title": "N",
                 "description": "Number of jobs (samples or files)",
-                "format": "0d",
+                "format": "{:,d}",
                 "min": 0,
             },
             "walltime_mean_h": {
                 "title": "Wall time mean (h)",
-                "format": "0.2f",
+                "format": "{:.3f}",
                 "min": 0,
             },
             "walltime_max_h": {
                 "title": "Wall time max (h)",
-                "format": "0.2f",
+                "format": "{:.3f}",
                 "min": 0,
             },
             "rss_mean_gb": {
                 "title": "Peak RSS mean (GB)",
-                "format": "0.2f",
+                "format": "{:.3f}",
                 "min": 0,
             },
             "rss_max_gb": {
                 "title": "Peak RSS max (GB)",
-                "format": "0.2f",
+                "format": "{:.3f}",
                 "min": 0,
             },
             "mean_load": {
                 "title": "Mean CPU load",
                 "description": "Mean cpu_percent / 100 across jobs",
-                "format": "0.2f",
+                "format": "{:.3f}",
                 "min": 0,
             },
         },

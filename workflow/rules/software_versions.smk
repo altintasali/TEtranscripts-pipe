@@ -17,7 +17,7 @@ rule software_versions:
         mem_mb=get_resources("software_versions")["mem_mb"],
         runtime=get_resources("software_versions")["runtime"],
     benchmark:
-        "results/pipeline_info/benchmarks/software_versions.txt",
+        "results/pipeline_info/benchmarks/software_versions/software_versions.txt",
     log:
         "results/pipeline_info/logs/software_versions.log",
     run:

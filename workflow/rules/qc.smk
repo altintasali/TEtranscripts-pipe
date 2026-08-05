@@ -61,7 +61,7 @@ rule benchmark_summary:
         mem_mb=get_resources("benchmark_summary")["mem_mb"],
         runtime=get_resources("benchmark_summary")["runtime"],
     benchmark:
-        "results/pipeline_info/benchmarks/benchmark_summary.txt",
+        "results/pipeline_info/benchmarks/benchmark_summary/benchmark_summary.txt",
     log:
         "results/pipeline_info/logs/multiqc/benchmark_summary.log",
     conda:
@@ -97,7 +97,7 @@ rule multiqc:
         mem_mb=get_resources("multiqc")["mem_mb"],
         runtime=get_resources("multiqc")["runtime"],
     benchmark:
-        "results/pipeline_info/benchmarks/multiqc.txt",
+        "results/pipeline_info/benchmarks/multiqc/multiqc.txt",
     log:
         "results/pipeline_info/logs/multiqc/multiqc.log",
     conda:

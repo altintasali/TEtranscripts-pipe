@@ -554,15 +554,15 @@ def all_benchmark_files():
     benchmark_summary rules' own benchmarks are deliberately excluded to
     avoid a cyclic dependency (their resource use is negligible)."""
     files = [
-        "results/pipeline_info/benchmarks/software_versions.txt",
-        "results/pipeline_info/benchmarks/star_index.txt",
+        "results/pipeline_info/benchmarks/software_versions/software_versions.txt",
+        "results/pipeline_info/benchmarks/star_index/star_index.txt",
     ]
     # BED12 gene-model conversion only runs when RSeQC strandedness
     # auto-detection actually needs it.
     if AUTO_SAMPLES:
         files += [
-            "results/pipeline_info/benchmarks/gtf_to_genepred.txt",
-            "results/pipeline_info/benchmarks/genepred_to_bed12.txt",
+            "results/pipeline_info/benchmarks/gtf_to_genepred/gtf_to_genepred.txt",
+            "results/pipeline_info/benchmarks/genepred_to_bed12/genepred_to_bed12.txt",
         ]
     for stem in REFERENCE_GZ_SOURCES:
         files.append(f"results/pipeline_info/benchmarks/gunzip_reference/{stem}.txt")

@@ -52,7 +52,7 @@ rule star_index:
         mem_mb=get_resources("star_index")["mem_mb"],
         runtime=get_resources("star_index")["runtime"],
     benchmark:
-        "results/pipeline_info/benchmarks/star_index.txt",
+        "results/pipeline_info/benchmarks/star_index/star_index.txt",
     log:
         "results/pipeline_info/logs/star/index.log",
     conda:
@@ -96,7 +96,7 @@ rule gtf_to_genepred:
         mem_mb=get_resources("gtf_to_genepred")["mem_mb"],
         runtime=get_resources("gtf_to_genepred")["runtime"],
     benchmark:
-        "results/pipeline_info/benchmarks/gtf_to_genepred.txt",
+        "results/pipeline_info/benchmarks/gtf_to_genepred/gtf_to_genepred.txt",
     log:
         "results/pipeline_info/logs/rseqc/gtf_to_genepred.log",
     conda:
@@ -116,7 +116,7 @@ rule genepred_to_bed12:
         mem_mb=get_resources("genepred_to_bed12")["mem_mb"],
         runtime=get_resources("genepred_to_bed12")["runtime"],
     benchmark:
-        "results/pipeline_info/benchmarks/genepred_to_bed12.txt",
+        "results/pipeline_info/benchmarks/genepred_to_bed12/genepred_to_bed12.txt",
     log:
         "results/pipeline_info/logs/rseqc/genepred_to_bed12.log",
     conda:
