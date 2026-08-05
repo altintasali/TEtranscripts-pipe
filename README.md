@@ -225,11 +225,15 @@ Every rule records its runtime and peak memory (threads/CPU-seconds) to
 - **Inside the MultiQC report.** Every run's `qc/multiqc_report.html` ends
   with a "Resource usage" section (aggregated from the benchmark files by the
   `benchmark_summary` rule) — a per-rule table of job count, mean/max wall
-  time, mean/max peak RSS, and mean CPU load. The quickest way to see which
-  rules are the big hitters and how to size your cluster resources.
+  time, and for both CPU and RAM: the allocated amount (`resources.yaml`),
+  the mean/max actually used, and the efficiency (mean used / allocated).
+  The quickest way to see which rules are the big hitters, how well you've
+  sized their threads/memory, and where you can reclaim resources.
 
-- **Per-rule cost tracking.** Each benchmark file is a short table of
-  `s, cpu_percent, max_rss, ...`. A quick way to list them:
+- **Per-rule cost tracking.** Each benchmark file is Snakemake's own short
+  table (written by Snakemake >=8): `s, h:m:s, max_rss [MB], max_vms,
+  max_uss, max_pss, io_in, io_out, mean_load [%], cpu_time`. A quick way to
+  list them:
 
   ```bash
   ls results/pipeline_info/benchmarks/*/*

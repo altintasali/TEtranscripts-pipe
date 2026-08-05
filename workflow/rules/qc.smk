@@ -56,6 +56,8 @@ rule benchmark_summary:
         all_benchmark_files(),
     output:
         "results/pipeline_info/benchmark_summary_mqc.json",
+    params:
+        allocated=allocated_resources_by_rule(),
     threads: get_resources("benchmark_summary")["threads"]
     resources:
         mem_mb=get_resources("benchmark_summary")["mem_mb"],

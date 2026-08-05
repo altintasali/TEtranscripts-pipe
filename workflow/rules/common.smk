@@ -599,6 +599,18 @@ def all_benchmark_files():
     return sorted(set(files))
 
 
+def allocated_resources_by_rule():
+    """{rule: {"threads", "mem_mb"}} for every rule that has benchmark files
+    (the benchmark_summary rule's input), read from resources.yaml -- the
+    per-job allocation against which the benchmark_summary script computes
+    CPU/RAM efficiency. Keys mirror the benchmark subdirectory names."""
+    out = {}
+    for path in all_benchmark_files():
+        rname = os.path.basename(os.path.dirname(path))
+        out.setdefault(rname, get_resources(rname))
+    return out
+
+
 # -----------------------------------------------------------------------------
 # Conda environments for every tool in the workflow, generated from
 # config["versions"]. Editing a version string there and re-running is all
