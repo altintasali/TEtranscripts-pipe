@@ -59,8 +59,10 @@ rule star_align:
         "|| (echo 'STAR exited non-zero; checking whether alignment output "
         "is actually complete anyway (see rule comment re: known benign "
         "STAR exit-time crash)' >> {log}; "
-        "test -s {output.aln} && test -s {output.log_final} && "
-        "grep -q 'ALL DONE!' {output.log_final}))"
+        "if test -s {output.aln} && test -s {output.log_final} && "
+        "grep -q 'ALL DONE!' {output.log_final}; then :; else "
+        "echo '-- STAR failed for real; log tail --' >&2; "
+        "tail -n 60 {log} >&2; exit 1; fi))"
 
 
 def _samtools_sort_mem(wildcards):
