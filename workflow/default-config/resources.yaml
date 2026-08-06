@@ -28,18 +28,27 @@ resources:
   # Lane/run merging (cat): single-threaded, streaming I/O.
   cat_fastq:
     threads: 1
-    mem_mb: 4000
+    mem_mb: 1000
     runtime: 120
 
-  # TrimGalore! + FastQC: modest CPU/memory; I/O bound.
+  # TrimGalore! + FastQC: TrimGalore! passes --cores {threads} through to
+  # cutadapt and runs FastQC inside, so both single-end (trim_galore_se) and
+  # paired-end (trim_galore_pe) rules are sized from 4 threads. Modest CPU;
+  # I/O bound.
   trim_galore_pe:
     threads: 4
     mem_mb: 8000
     runtime: 180
 
+  trim_galore_se:
+    threads: 4
+    mem_mb: 8000
+    runtime: 180
+
   # Always-on raw FastQC (per sample/read): modest CPU/memory; I/O bound.
+  # FastQC -t 1 is enough; a second core is wasted.
   fastqc_raw:
-    threads: 2
+    threads: 1
     mem_mb: 2000
     runtime: 30
 
@@ -61,19 +70,22 @@ resources:
     runtime: 30
 
   star_align:
-    # STAR keeps the whole genome index in memory per job; ~4x the index's
+    # STAR keeps the whole genome index in memory per job; ~2.5x the index's
     # on-disk size is a safe estimate for human/mouse.
     threads: 12
-    mem_mb: 48000
+    mem_mb: 32000
     runtime: 240
 
   samtools_sort:
-    threads: 8
+    # Coordinate sorting is I/O-bound in practice; measured runs used <=3
+    # cores regardless of allocation, so 4 threads suffice. -m per-thread
+    # memory scales with threads (see align.smk), keeping total under mem_mb.
+    threads: 4
     mem_mb: 16000
     runtime: 120
 
   samtools_index:
-    threads: 4
+    threads: 2
     mem_mb: 4000
     runtime: 30
 
@@ -88,10 +100,11 @@ resources:
     runtime: 10
 
   tecount:
-    # TEcount/TEtranscripts load the full TE + gene annotation into memory;
-    # ~20-30GB is typical for human at 20-30M mapped reads.
-    threads: 4
-    mem_mb: 32000
+    # TEcount/TEtranscripts is single-threaded (no --threads flag), so a
+    # single core is the right allocation. Memory is dominated by loading the
+    # TE + gene annotation; ~8-12GB covers a human/mouse dataset.
+    threads: 1
+    mem_mb: 12000
     runtime: 240
 
   tetranscripts_diffexp:

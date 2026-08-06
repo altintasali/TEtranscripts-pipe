@@ -95,10 +95,10 @@ rule trim_galore_se:
         nextseq=_nextseq_param,
         extra=config["trimming"].get("extra", ""),
         outdir=_trim_outdir,
-    threads: get_resources("trim_galore_pe")["threads"]
+    threads: get_resources("trim_galore_se")["threads"]
     resources:
-        mem_mb=get_resources("trim_galore_pe")["mem_mb"],
-        runtime=get_resources("trim_galore_pe")["runtime"],
+        mem_mb=get_resources("trim_galore_se")["mem_mb"],
+        runtime=get_resources("trim_galore_se")["runtime"],
     benchmark:
         "results/pipeline_info/benchmarks/trim_galore_se/{sample}.txt",
     log:
