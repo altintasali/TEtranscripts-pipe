@@ -80,8 +80,13 @@ jobs:
           channel-priority: flexible
       - shell: bash -l {0}
         run: |
-          set -euo pipefail
-          trap 'echo ">>> guards died unexpectedly at line ${LINENO}: ${BASH_COMMAND}" >&2' ERR
+          # Note: deliberately no `set -e` here. GitHub Actions injects
+          # `/usr/bin/clear_console -q` statements into every run block, and
+          # that helper exits non-zero on non-TTY runners; under `set -e` it
+          # silently kills the whole job even after all 8 checks pass (seen
+          # as a zero-output exit 1 on main). The script owns its own
+          # failure reporting via $FAIL / explicit exit, so -e adds nothing.
+          set -uo pipefail
           T=$(mktemp -d)
           FAIL=0
           echo "[guards] 1/8 missing reference"
