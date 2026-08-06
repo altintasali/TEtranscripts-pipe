@@ -64,7 +64,7 @@ outputs:
 tetranscripts:
   mode: multi
   padj: 0.05
-  foldchange: 1
+  foldchange: 0
   minread: 1
   extra: ""
 

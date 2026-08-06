@@ -45,7 +45,7 @@ rule star_index:
         fasta=ancient(FASTA),
         gtf=ancient(GTF),
     output:
-        directory(config["star"]["index"]),
+        directory(STAR_INDEX_DIR),
     params:
         sjdb_overhang=SJDB_OVERHANG,
         extra=config["star"].get("index_extra", ""),

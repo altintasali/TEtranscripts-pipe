@@ -66,7 +66,7 @@ rule all:
 rule star_index_only:
     # Convenience target: just (re)build the STAR genome index.
     input:
-        config["star"]["index"],
+        STAR_INDEX_DIR,
 
 
 rule strandedness_only:

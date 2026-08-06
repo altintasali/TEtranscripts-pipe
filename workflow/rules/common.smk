@@ -336,6 +336,14 @@ with open("results/pipeline_info/logs/config_resolution.log", "w") as fh:
         fh.write("no gzipped reference files (fasta/gtf/te_gtf) detected\n")
 
 # -----------------------------------------------------------------------------
+# Where the STAR index lives. Defaults to a generated directory under results/
+# when star.index is not set (or empty) in config.yaml; an existing index
+# directory is honored as-is (rebuilt only when missing or via
+# `snakemake -R star_index`).
+# -----------------------------------------------------------------------------
+STAR_INDEX_DIR = (config["star"].get("index") or "").strip() or "results/star_index"
+
+# -----------------------------------------------------------------------------
 # STAR index freshness. star_index (ref.smk) marks its fasta/gtf inputs
 # ancient() so a shared/prebuilt index is honored as-is regardless of file
 # mtimes -- but that also means a changed reference is silently *not* rebuilt.
@@ -366,9 +374,8 @@ def star_index_stamp():
     return "\n".join(lines) + "\n"
 
 
-_STAR_INDEX_DIR = config["star"]["index"]
-_STAR_INDEX_MANIFEST = os.path.join(_STAR_INDEX_DIR, ".refs_used.txt")
-if os.path.isdir(_STAR_INDEX_DIR) and os.path.isfile(_STAR_INDEX_MANIFEST):
+_STAR_INDEX_MANIFEST = os.path.join(STAR_INDEX_DIR, ".refs_used.txt")
+if os.path.isdir(STAR_INDEX_DIR) and os.path.isfile(_STAR_INDEX_MANIFEST):
     try:
         with open(_STAR_INDEX_MANIFEST) as fh:
             _recorded = fh.read()
@@ -376,7 +383,7 @@ if os.path.isdir(_STAR_INDEX_DIR) and os.path.isfile(_STAR_INDEX_MANIFEST):
         _recorded = ""
     if _recorded != star_index_stamp():
         logger.warning(
-            f"The STAR index at {_STAR_INDEX_DIR} was built for a different "
+            f"The STAR index at {STAR_INDEX_DIR} was built for a different "
             "reference setup than config.yaml now specifies (its "
             ".refs_used.txt stamp no longer matches). If you changed the "
             "reference fasta/GTF, sjdb_overhang, or STAR version since, "

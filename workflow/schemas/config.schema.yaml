@@ -55,7 +55,14 @@ properties:
   star:
     type: object
     properties:
-      index: {type: string}
+      index:
+        type: string
+        description: >-
+          Directory that holds (or will hold) the STAR genome index.
+          Optional -- when absent (or empty), the workflow generates one at
+          results/star_index. An existing directory is honored as-is and only
+          rebuilt when missing (or via `snakemake -R star_index`); point this
+          at a shared/prebuilt index to reuse it.
       index_extra: {type: string}
       extra: {type: string}
       tmpdir:
@@ -65,7 +72,6 @@ properties:
           roughly one BAM's worth of data). Defaults to the OS temp dir
           (/tmp) so the scratch never clutters results/. Point it at a big/
           fast scratch filesystem on HPC if node-local /tmp is small.
-    required: [index]
   trimming:
     type: object
     description: >-

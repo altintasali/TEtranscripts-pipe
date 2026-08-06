@@ -15,7 +15,7 @@ rule star_align:
     # see below), so nothing lingers in /tmp either.
     input:
         unpack(star_input),
-        idx=config["star"]["index"],
+        idx=STAR_INDEX_DIR,
     output:
         aln="results/star/{sample}_Aligned.out.bam",
         log_final="results/star/{sample}_Log.final.out",

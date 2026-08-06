@@ -171,7 +171,7 @@ reference):
 | `ref.te_gtf` | **curated** TE GTF from the TEtranscripts authors — a generic RepeatMasker GTF will *not* work (download link in `config/config.example.yaml`). Plain or gzipped. |
 | `ref.sjdb_overhang` | `auto` (default) detects `max(read length) - 1` from your fastq files; set an integer to pin it. |
 | `ref.decompressed_dir` | where gzipped references are decompressed to (default: `results/pipeline_info/ref_decompressed` — shared storage, `temp()`-cleaned once downstream rules finish). A node-local `/tmp` (or empty) value is **rejected at startup** while gzipped refs are in use. |
-| `star.index` | where the STAR index is built — **generated** under `results/`; an existing index is honored as-is and only rebuilt when missing (or `snakemake -R star_index`). |
+| `star.index` | where the STAR index is built — **optional**, defaults to `results/star_index` (**generated**); an existing index is honored as-is and only rebuilt when missing (or `snakemake -R star_index`). Point it at a shared/prebuilt index to reuse one. |
 | `star.extra` | alignment flags; pre-set to the TEtranscripts authors' multi-mapper recommendations. |
 | `star.tmpdir` | STAR's per-run scratch dir (default: OS temp dir); set to big scratch on HPC. |
 | `trimming.enabled` | run TrimGalore! before STAR (default `true`). `false` skips trimming — STAR reads merged/raw fastqs directly. While on, fastq names that already look trimmed (`*_trimmed*`, `*_val_[12]*`) are rejected at startup. |
