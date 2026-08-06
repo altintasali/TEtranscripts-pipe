@@ -80,12 +80,41 @@ jobs:
             echo "ERROR: wrong failure message for already-trimmed fastqs"; FAIL=1
           fi
 
-          # --- a node-local ref.decompressed_dir warns but still dry-runs -----
-          sed 's|  sjdb_overhang: 49|  sjdb_overhang: 49\n  decompressed_dir: /tmp/rnaseq-decompressed|' config/test.yaml > "$T/tmpdir.yaml"
-          if ! snakemake --configfile "$T/tmpdir.yaml" -n --cores 1 >"$T/tmpdir.log" 2>&1; then
-            echo "ERROR: node-local decompressed_dir must only warn, not fail"; FAIL=1
-          elif ! grep -q "node-local temp directory" "$T/tmpdir.log"; then
-            echo "ERROR: missing node-local decompressed_dir warning"; FAIL=1
+          # --- node-local decompressed_dir is fine with plain refs ------------
+          # (no gunzip_reference jobs run, so the setting is dead config)
+          sed 's|  sjdb_overhang: 49|  sjdb_overhang: 49\n  decompressed_dir: /tmp/rnaseq-decompressed|' config/test.yaml > "$T/tmpdir_plain.yaml"
+          if ! snakemake --configfile "$T/tmpdir_plain.yaml" -n --cores 1 >"$T/tmpdir_plain.log" 2>&1; then
+            echo "ERROR: node-local decompressed_dir with plain refs must still dry-run"; FAIL=1
+          fi
+
+          # --- gzipped references: make .gz copies of the test refs ------------
+          gzip -c .tests/resources/genome.fa > "$T/genome.fa.gz"
+          gzip -c .tests/resources/genome.gtf > "$T/genome.gtf.gz"
+          gzip -c .tests/resources/te_annotation.gtf > "$T/te_annotation.gtf.gz"
+          sed -e "s|  fasta: .*|  fasta: $T/genome.fa.gz|" \
+              -e "s|  gtf: .*|  gtf: $T/genome.gtf.gz|" \
+              -e "s|  te_gtf: .*|  te_gtf: $T/te_annotation.gtf.gz|" \
+              config/test.yaml > "$T/gz.yaml"
+
+          # --- gz refs + default decompressed_dir: dry-run must succeed --------
+          if ! snakemake --configfile "$T/gz.yaml" -n --cores 1 >"$T/gz.log" 2>&1; then
+            echo "ERROR: gzipped refs with default decompressed_dir must dry-run"; FAIL=1
+          fi
+
+          # --- gz refs + node-local /tmp decompressed_dir: hard parse error ----
+          sed 's|  sjdb_overhang: 49|  sjdb_overhang: 49\n  decompressed_dir: /tmp/rnaseq-decompressed|' "$T/gz.yaml" > "$T/gz_tmpdir.yaml"
+          if snakemake --configfile "$T/gz_tmpdir.yaml" -n --cores 1 >"$T/gz_tmpdir.log" 2>&1; then
+            echo "ERROR: gz refs + node-local decompressed_dir did not fail the run"; FAIL=1
+          elif ! grep -q "node-local temp directory" "$T/gz_tmpdir.log"; then
+            echo "ERROR: wrong failure message for gz refs + node-local decompressed_dir"; FAIL=1
+          fi
+
+          # --- gz refs + empty decompressed_dir: hard parse error ---------------
+          sed 's|  sjdb_overhang: 49|  sjdb_overhang: 49\n  decompressed_dir: ""|' "$T/gz.yaml" > "$T/gz_empty.yaml"
+          if snakemake --configfile "$T/gz_empty.yaml" -n --cores 1 >"$T/gz_empty.log" 2>&1; then
+            echo "ERROR: gz refs + empty decompressed_dir did not fail the run"; FAIL=1
+          elif ! grep -q "(empty)" "$T/gz_empty.log"; then
+            echo "ERROR: wrong failure message for gz refs + empty decompressed_dir"; FAIL=1
           fi
 
           exit $FAIL

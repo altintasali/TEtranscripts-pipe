@@ -170,7 +170,7 @@ reference):
 | `ref.gtf` | gene annotation GTF, user-supplied in `input/`. Plain or gzipped. |
 | `ref.te_gtf` | **curated** TE GTF from the TEtranscripts authors — a generic RepeatMasker GTF will *not* work (download link in `config/config.example.yaml`). Plain or gzipped. |
 | `ref.sjdb_overhang` | `auto` (default) detects `max(read length) - 1` from your fastq files; set an integer to pin it. |
-| `ref.decompressed_dir` | where gzipped references are decompressed to (default: `results/pipeline_info/ref_decompressed` — shared storage, `temp()`-cleaned once downstream rules finish). Keep off node-local `/tmp` on clusters — see Resuming & troubleshooting. |
+| `ref.decompressed_dir` | where gzipped references are decompressed to (default: `results/pipeline_info/ref_decompressed` — shared storage, `temp()`-cleaned once downstream rules finish). A node-local `/tmp` (or empty) value is **rejected at startup** while gzipped refs are in use. |
 | `star.index` | where the STAR index is built — **generated** under `results/`; an existing index is honored as-is and only rebuilt when missing (or `snakemake -R star_index`). |
 | `star.extra` | alignment flags; pre-set to the TEtranscripts authors' multi-mapper recommendations. |
 | `star.tmpdir` | STAR's per-run scratch dir (default: OS temp dir); set to big scratch on HPC. |
@@ -265,7 +265,8 @@ and put its `bin` directory on the nodes' `PATH`.
 - **"output … missing locally, parent dir not present":** the job wrote to a
   node-local path (typically `/tmp`) the scheduler can't see from the
   submission node. Keep `ref.decompressed_dir` on shared storage (see the
-  config table); a `/tmp` value is flagged with a warning at startup.
+  config table); a node-local or empty value is rejected at startup while
+  gzipped references are in use.
 - **An input change isn't picked up:** rules with `ancient()` inputs (the
   STAR index) are only rebuilt when missing or via `-R`. The workflow warns
   at startup if the index was built for a different reference setup than the

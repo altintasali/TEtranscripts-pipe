@@ -174,12 +174,23 @@ if _missing_fastqs:
 # node). The files are temp()-wrapped (see the gunzip_reference rule) so they
 # are deleted after downstream rules consume them. Set ref.decompressed_dir
 # to a scratch dir on shared storage if you would rather keep them.
+#
+# Because a node-local dir (or an empty value, which would resolve to
+# "/<stem>" at the filesystem root) can only break runs that actually
+# decompress something, we hard-fail at parse time when gzipped references
+# are present -- before any job is submitted -- instead of letting the first
+# gunzip_reference job die hours into a queue. Configs with plain refs never
+# reach gunzip_reference, so an explicit decompressed_dir is dead config
+# there and left alone.
 # -----------------------------------------------------------------------------
 DECOMPRESS_DIR = config["ref"].get(
     "decompressed_dir", "results/pipeline_info/ref_decompressed"
 )
 
-if "decompressed_dir" in config.get("ref", {}):
+_HAS_GZ_REFS = any(
+    str(config["ref"][k]).endswith(".gz") for k in ("fasta", "gtf", "te_gtf")
+)
+if "decompressed_dir" in config.get("ref", {}) and _HAS_GZ_REFS:
     _local_tmp = tempfile.gettempdir().rstrip(os.sep)
     _node_local = (
         DECOMPRESS_DIR == "/tmp"
@@ -189,15 +200,18 @@ if "decompressed_dir" in config.get("ref", {}):
         or "$TMPDIR" in DECOMPRESS_DIR
         or (_local_tmp and DECOMPRESS_DIR.startswith(_local_tmp))
     )
-    if _node_local:
-        logger.warning(
-            f"ref.decompressed_dir points at a node-local temp directory "
-            f"({DECOMPRESS_DIR!r}). On a multi-node cluster each job runs on "
-            f"a compute node with its own /tmp, so the snakemake scheduler "
-            f"cannot see gunzip_reference's output and you'll get "
-            f"'MissingOutputException ... (missing locally, parent dir not "
-            f"present)'. Point it at shared storage instead (e.g. under "
-            f"results/ or a project scratch directory)."
+    if _node_local or not DECOMPRESS_DIR.strip():
+        raise WorkflowError(
+            f"Gzipped reference files are used, but ref.decompressed_dir is "
+            f"{DECOMPRESS_DIR!r}{' (empty)' if not DECOMPRESS_DIR.strip() else ''} "
+            f"-- a node-local temp directory. gunzip_reference writes its "
+            f"output there, and on a multi-node cluster each job runs on a "
+            f"compute node with its own /tmp that the snakemake scheduler "
+            f"cannot see ('MissingOutputException ... (missing locally, parent "
+            f"dir not present)'). Delete the ref.decompressed_dir line to use "
+            f"the default results/pipeline_info/ref_decompressed (shared "
+            f"storage, temp()-cleaned), or point it at a scratch directory on "
+            f"shared storage."
         )
 
 REFERENCE_GZ_SOURCES = {}  # decompressed stem -> original .gz path, for gunzip_reference

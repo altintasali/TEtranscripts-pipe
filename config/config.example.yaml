@@ -50,6 +50,8 @@ ref:
   # Do NOT point it at node-local /tmp on a cluster: each job runs on a
   # compute node with its own /tmp, so the snakemake scheduler can't see the
   # gunzip output ("output ... missing locally, parent dir not present").
+  # While gzipped references are in use, a node-local or empty value is
+  # rejected at startup.
 
 star:
   # Directory that will hold (or already holds) the STAR genome index.

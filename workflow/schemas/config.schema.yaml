@@ -46,9 +46,11 @@ properties:
           Directory where gzipped reference files are decompressed before
           use. Defaults to results/pipeline_info/ref_decompressed (shared
           storage; the files are temp()-cleaned after downstream rules
-          finish). Should point at shared storage on clusters -- a node-local
+          finish). Must point at shared storage on clusters -- a node-local
           path like /tmp breaks multi-node runs because the snakemake
-          scheduler cannot see the compute node's output.
+          scheduler cannot see the compute node's output. When gzipped
+          references are present, a node-local or empty value is rejected at
+          parse time with a WorkflowError.
     required: [fasta, gtf, te_gtf, sjdb_overhang]
   star:
     type: object
