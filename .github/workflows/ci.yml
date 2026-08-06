@@ -90,6 +90,8 @@ jobs:
           set -x
           T=$(mktemp -d)
           FAIL=0
+          echo "[guards] SCRIPT=$0 has $(wc -l < "$0") lines; clear_console/exit/trap refs:"
+          grep -n "clear_console\|^exit\|trap" "$0" || true
           echo "[guards] 1/8 missing reference"
 
           # --- a missing/typo'd reference is a hard parse-time error ---------
