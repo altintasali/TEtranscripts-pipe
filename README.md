@@ -6,45 +6,87 @@ A Snakemake workflow that quantifies genes **and** transposable elements (TEs)
 from RNA-seq data with [TEtranscripts/TEcount](https://github.com/mhammell-laboratory/TEtranscripts),
 aligning with STAR and auto-detecting library strandedness via RSeQC.
 
+<!-- flowchart:start -->
 ```mermaid
 flowchart LR
-    subgraph refs["Reference (once)"]
-        fasta[genome FASTA] --> staridx[STAR index]
-        gtf[gene annotation GTF] --> staridx
-        gtf --> bed12[genePredToBed -> BED12]
+    subgraph reference_once["Reference (once)"]
+        star_index["STAR index"]
+        gtf_to_genepred["GTF -> genePred"]
+        genepred_to_bed12["genePred -> BED12"]
     end
-
-    subgraph sample["Per sample"]
-        lanes[lane fastq files] --> merge[concat lanes] --> trim[Trim Galore!] --> align[STAR align]
-        align --> unsorted[Aligned.out.bam]
-        align --> sorted[Aligned.sortedByCoord.out.bam]
-        sorted --> infer[RSeQC infer_experiment]
-        bed12 --> infer
-        infer --> strand[determine_strandedness]
+    subgraph per_sample["Per sample"]
+        cat_fastq["concat lanes"]
+        trim_galore_pe["Trim Galore! (paired)"]
+        trim_galore_se["Trim Galore! (single-end)"]
+        star_align["STAR align"]
+        samtools_sort["samtools sort"]
+        samtools_index["samtools index"]
+        fastqc_raw["FastQC (raw)"]
+        rseqc_infer_experiment["RSeQC infer_experiment"]
+        determine_strandedness["determine strandedness"]
     end
-
-    subgraph quant["Quantification + QC"]
-        unsorted --> tecount[TEcount]
-        gtf --> tecount
-        teg[TE annotation GTF] --> tecount
-        strand --> tecount
-        tecount --> cnt["{sample}.cntTable"]
-
-        unsorted --> diffexp[TEtranscripts + DESeq2]
-        gtf --> diffexp
-        teg --> diffexp
-        strand --> diffexp
-        diffexp --> sig["{contrast}_sigdiff_gene_TE.txt"]
-
-        align --> multiqc[MultiQC]
-        infer --> multiqc
-        multiqc --> report[multiqc_report.html]
+    subgraph quantification_qc["Quantification + QC"]
+        tecount["TEcount"]
+        tetranscripts_diffexp["TEtranscripts + DESeq2"]
+        software_versions["software versions"]
+        benchmark_summary["resource-usage summary"]
+        multiqc["MultiQC"]
     end
+    benchmark_summary --> multiqc
+    cat_fastq --> fastqc_raw
+    cat_fastq --> trim_galore_pe
+    cat_fastq --> trim_galore_se
+    determine_strandedness --> tecount
+    determine_strandedness --> tetranscripts_diffexp
+    genepred_to_bed12 --> rseqc_infer_experiment
+    gtf_to_genepred --> genepred_to_bed12
+    rseqc_infer_experiment --> determine_strandedness
+    samtools_index --> rseqc_infer_experiment
+    samtools_sort --> rseqc_infer_experiment
+    samtools_sort --> samtools_index
+    software_versions --> multiqc
+    star_align --> samtools_sort
+    star_align --> tecount
+    star_align --> tetranscripts_diffexp
+    star_index --> star_align
+    trim_galore_pe --> star_align
+    trim_galore_se --> star_align
 ```
+<!-- flowchart:end -->
+
+## Pipeline at a glance
+
+The workflow builds a STAR index and an RSeQC gene model (BED12) **once**, then
+for every sample concatenates split lanes, optionally trims with TrimGalore!,
+aligns with STAR, and auto-detects library strandedness from the sorted BAM.
+TEcount quantifies genes + TEs per sample; if your sample sheet has a
+`condition` column, TEtranscripts + DESeq2 also runs every pairwise contrast.
+A single MultiQC report pulls together FastQC, TrimGalore!, STAR, RSeQC, tool
+versions, and a per-rule resource-usage table.
+
+## Table of contents
+
+- [Quick start](#quick-start)
+- [Configuration](#configuration)
+- [Test profile](#test-profile)
+- [Useful partial targets](#useful-partial-targets)
+- [HPC / SLURM](#hpc--slurm)
+- [Resource usage & reports](#resource-usage--reports)
+- [Tool versions](#tool-versions)
+- [Without conda](#without-conda)
+- [How strandedness is resolved](#how-strandedness-is-resolved)
+- [Automatic differential analysis](#automatic-differential-analysis)
+- [Output layout](#output-layout)
+- [Notes](#notes)
 
 ## Quick start
 
-There are two ways to get the environment the workflow needs. Pick one:
+There are two ways to get the environment the workflow needs. Both give you
+the same `snakemake` plus every analysis tool — pick one:
+
+- **Option A** (recommended): a pre-built environment tarball — no conda, no
+  solver; needs only `bash`/`curl`/`tar`.
+- **Option B**: build it yourself with conda (needs conda ≥23.10).
 
 ### Option A — pre-built environment (no conda)
 
@@ -86,6 +128,9 @@ conda activate rnaseq-star-tetranscripts
 ### Either way, then
 
 ```bash
+# Verify the install (dry-run: parses the config, prints the plan, runs nothing):
+snakemake --configfile config/test.yaml -n
+
 # Smoke test on the bundled tiny synthetic dataset (no real genome/reads needed):
 snakemake --configfile config/test.yaml --cores 4
 
@@ -186,27 +231,22 @@ Rule-level threads/memory/runtime defaults live in
 overrides are deep-merged). Unlisted rules fall back to conservative defaults
 (1 thread / 4 GB / 60 min).
 
-To submit to SLURM:
+To submit to SLURM, run snakemake with the bundled workflow profile (from the
+repo root, like any snakemake invocation):
 
 ```bash
-./workflow/scripts/run_slurm.sh                # snakemake --workflow-profile workflow/profiles/slurm
-./workflow/scripts/run_slurm.sh --configfile config/test.yaml   # smoke test on SLURM
+snakemake --workflow-profile workflow/profiles/slurm --configfile config/test.yaml   # smoke test on SLURM
+snakemake --workflow-profile workflow/profiles/slurm --cores 64                     # limit total cores
+snakemake --workflow-profile workflow/profiles/slurm -n                             # dry-run
 ```
 
-`workflow/scripts/run_slurm.sh` is a thin wrapper that runs snakemake with the
-SLURM profile (`workflow/profiles/slurm/config.yaml`) from the repo root and
-passes any extra arguments straight through (so `-n` dry-runs, `--cores`, `-R`
-etc. all work). Under the hood it's just:
-
-```bash
-snakemake --workflow-profile workflow/profiles/slurm
-```
-
-`slurm_account` in `workflow/profiles/slurm/config.yaml` is pre-set to the
-ICMM_DM group account; replace it (and `qos`) with your cluster's values if
-you're not in that group. `slurm_partition` is left unset on purpose, so
-sbatch uses the cluster's default partition (if yours has none, add
-`slurm_partition`). Per-invocation overrides are also possible, e.g.
+The profile (`workflow/profiles/slurm/config.yaml`) submits every job with
+`sbatch` and sizes each one from `input/resources.yaml`.
+`slurm_account` in the profile is pre-set to the ICMM_DM group account; replace
+it (and `qos`) with your cluster's values if you're not in that group.
+`slurm_partition` is left unset on purpose, so sbatch uses the cluster's
+default partition (if yours has none, add `slurm_partition`). Per-invocation
+overrides are also possible, e.g.
 `--set-resources star_align:mem_mb=64000`. Every tool runs from the shared
 conda env, so make sure it's visible from the compute nodes (conda envs are
 self-contained; if nodes can't read your home dir, install it on shared
@@ -247,7 +287,7 @@ Every rule records its runtime and peak memory (threads/CPU-seconds) to
   ```bash
   ./workflow/scripts/benchmark-report.sh --configfile config/test.yaml   # -> report.html
   ./workflow/scripts/benchmark-report.sh -o out/report.html              # custom path
-  ./workflow/scripts/run_slurm.sh --report report.html                   # on SLURM
+  snakemake --workflow-profile workflow/profiles/slurm --report report.html   # on SLURM
   ```
 
   `workflow/scripts/benchmark-report.sh` is a thin wrapper around

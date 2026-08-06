@@ -6,7 +6,10 @@ on:
     branches: [main]
 
 jobs:
-  dag:
+  flowchart:
+    # Keeps the README's Mermaid flowchart in sync with the actual rules: the
+    # generator is deterministic (rulegraph of the bundled test config), so a
+    # diff means the committed diagram is stale.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -16,7 +19,9 @@ jobs:
           environment-file: workflow/environment.yaml
           channel-priority: flexible
       - shell: bash -l {0}
-        run: snakemake --configfile config/test.yaml --cores 2
+        run: |
+          snakemake --configfile config/test.yaml --rulegraph | python workflow/scripts/flowchart.py --update-readme
+          git diff --exit-code -- README.md
 
   test:
     runs-on: ubuntu-latest
