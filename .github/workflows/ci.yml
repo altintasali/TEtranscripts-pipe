@@ -60,8 +60,10 @@ jobs:
       - shell: bash -l {0}
         run: |
           set -euo pipefail
+          trap 'echo ">>> guards died unexpectedly at line ${LINENO}: ${BASH_COMMAND}" >&2' ERR
           T=$(mktemp -d)
           FAIL=0
+          echo "[guards] 1/8 missing reference"
 
           # --- a missing/typo'd reference is a hard parse-time error ---------
           sed 's|  fasta: .*|  fasta: /nonexistent/ref.fa|' config/test.yaml > "$T/missing_ref.yaml"
@@ -70,6 +72,8 @@ jobs:
           elif ! grep -q "Missing reference file(s)" "$T/missing_ref.log"; then
             echo "ERROR: wrong failure message for missing reference"; FAIL=1
           fi
+
+          echo "[guards] 2/8 already-trimmed fastqs"
 
           # --- already-trimmed-looking fastqs are rejected while trimming on --
           printf 'sample,fastq_1,fastq_2,strandedness,condition\nzyg_wt_01,zyg_wt_01_trimmed.fq.gz,,auto,wt\n' > "$T/trimmed.csv"
@@ -80,12 +84,16 @@ jobs:
             echo "ERROR: wrong failure message for already-trimmed fastqs"; FAIL=1
           fi
 
+          echo "[guards] 3/8 node-local decompressed_dir, plain refs"
+
           # --- node-local decompressed_dir is fine with plain refs ------------
           # (no gunzip_reference jobs run, so the setting is dead config)
           sed 's|  sjdb_overhang: 49|  sjdb_overhang: 49\n  decompressed_dir: /tmp/rnaseq-decompressed|' config/test.yaml > "$T/tmpdir_plain.yaml"
           if ! snakemake --configfile "$T/tmpdir_plain.yaml" -n --cores 1 >"$T/tmpdir_plain.log" 2>&1; then
             echo "ERROR: node-local decompressed_dir with plain refs must still dry-run"; FAIL=1
           fi
+
+          echo "[guards] 4/8 gzipped refs, default decompressed_dir"
 
           # --- gzipped references: make .gz copies of the test refs ------------
           gzip -c .tests/resources/genome.fa > "$T/genome.fa.gz"
@@ -101,6 +109,8 @@ jobs:
             echo "ERROR: gzipped refs with default decompressed_dir must dry-run"; FAIL=1
           fi
 
+          echo "[guards] 5/8 gz refs + node-local decompressed_dir"
+
           # --- gz refs + node-local /tmp decompressed_dir: hard parse error ----
           sed 's|  sjdb_overhang: 49|  sjdb_overhang: 49\n  decompressed_dir: /tmp/rnaseq-decompressed|' "$T/gz.yaml" > "$T/gz_tmpdir.yaml"
           if snakemake --configfile "$T/gz_tmpdir.yaml" -n --cores 1 >"$T/gz_tmpdir.log" 2>&1; then
@@ -108,6 +118,8 @@ jobs:
           elif ! grep -q "node-local temp directory" "$T/gz_tmpdir.log"; then
             echo "ERROR: wrong failure message for gz refs + node-local decompressed_dir"; FAIL=1
           fi
+
+          echo "[guards] 6/8 gz refs + empty decompressed_dir"
 
           # --- gz refs + empty decompressed_dir: hard parse error ---------------
           sed 's|  sjdb_overhang: 49|  sjdb_overhang: 49\n  decompressed_dir: ""|' "$T/gz.yaml" > "$T/gz_empty.yaml"
@@ -117,6 +129,8 @@ jobs:
             echo "ERROR: wrong failure message for gz refs + empty decompressed_dir"; FAIL=1
           fi
 
+          echo "[guards] 7/8 star.index omitted"
+
           # --- star.index omitted: defaults to generated results/star_index -----
           sed '/^  index: .*star_index$/d' config/test.yaml > "$T/no_index.yaml"
           if ! snakemake --configfile "$T/no_index.yaml" -n --cores 1 >"$T/no_index.log" 2>&1; then
@@ -125,10 +139,13 @@ jobs:
             echo "ERROR: default star index path results/star_index not used"; FAIL=1
           fi
 
+          echo "[guards] 8/8 star.index empty"
+
           # --- star.index empty string: same default applies --------------------
           sed 's|^  index: .*|  index: ""|' config/test.yaml > "$T/empty_index.yaml"
           if ! snakemake --configfile "$T/empty_index.yaml" -n --cores 1 >"$T/empty_index.log" 2>&1; then
             echo "ERROR: empty star.index must dry-run (default results/star_index)"; FAIL=1
           fi
 
+          echo "[guards] done, FAIL=$FAIL"
           exit $FAIL

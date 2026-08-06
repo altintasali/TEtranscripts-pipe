@@ -116,9 +116,11 @@ tetranscripts:
   mode: multi
   # FDR cutoff for differential-expression significance (TEtranscripts --padj)
   padj: 0.05
-  # Absolute log2 fold-change cutoff (TEtranscripts --foldchange); 0 disables
-  # the filter (only the padj cutoff applies)
-  foldchange: 0
+  # Absolute log2 fold-change cutoff (TEtranscripts --foldchange). The value
+  # must be > 0; 1 is the effective "no filter" setting, because it maps to
+  # log2(1)=0 (TEtranscripts computes the cutoff as math.log(foldchange, 2),
+  # so 0 crashes the run).
+  foldchange: 1
   # Minimum read count cutoff (TEtranscripts --minread)
   minread: 1
   # Extra command-line arguments passed verbatim to TEtranscripts/TEcount
