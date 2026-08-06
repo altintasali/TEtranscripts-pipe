@@ -71,6 +71,7 @@ versions, and a per-rule resource-usage table.
 - [Test profile](#test-profile)
 - [Useful partial targets](#useful-partial-targets)
 - [HPC / SLURM](#hpc--slurm)
+- [Resuming & troubleshooting](#resuming--troubleshooting)
 - [Resource usage & reports](#resource-usage--reports)
 - [Tool versions](#tool-versions)
 - [Without conda](#without-conda)
@@ -159,19 +160,21 @@ cp config/config.example.yaml input/config.yaml
 cp config/samples.example.csv input/samples.csv
 ```
 
-**`input/config.yaml`** — reference paths and tool options:
+**`input/config.yaml`** — reference paths and tool options (detailed comments
+and examples live in `config/config.example.yaml`; this table is the quick
+reference):
 
 | key | meaning |
 |-----|---------|
 | `ref.fasta` | genome FASTA (Ensembl/GENCODE), user-supplied in `input/`. Plain or gzipped. |
 | `ref.gtf` | gene annotation GTF, user-supplied in `input/`. Plain or gzipped. |
-| `ref.te_gtf` | **curated** TE GTF from the TEtranscripts authors (download the file matching your genome build from [mghlab.org/software/tetranscripts](https://www.mghlab.org/software/tetranscripts) — a generic RepeatMasker GTF will *not* work), user-supplied in `input/`. Plain or gzipped. |
+| `ref.te_gtf` | **curated** TE GTF from the TEtranscripts authors — a generic RepeatMasker GTF will *not* work (download link in `config/config.example.yaml`). Plain or gzipped. |
 | `ref.sjdb_overhang` | `auto` (default) detects `max(read length) - 1` from your fastq files; set an integer to pin it. |
-| `ref.decompressed_dir` | where gzipped references are decompressed to (default: `results/pipeline_info/ref_decompressed` — shared storage, and `temp()`-cleaned once downstream rules are done). On a cluster, do **not** point this at a node-local path like `/tmp` — the snakemake scheduler can't see a compute node's output and the run fails with "output … missing locally, parent dir not present". |
-| `star.index` | where to (re)build the STAR index — **generated** by the workflow under `results/`, not user-supplied. An existing index is honored as-is; it's only rebuilt when missing (or via `snakemake -R star_index`). |
+| `ref.decompressed_dir` | where gzipped references are decompressed to (default: `results/pipeline_info/ref_decompressed` — shared storage, `temp()`-cleaned once downstream rules finish). Keep off node-local `/tmp` on clusters — see Resuming & troubleshooting. |
+| `star.index` | where the STAR index is built — **generated** under `results/`; an existing index is honored as-is and only rebuilt when missing (or `snakemake -R star_index`). |
 | `star.extra` | alignment flags; pre-set to the TEtranscripts authors' multi-mapper recommendations. |
-| `star.tmpdir` | directory for STAR's per-run scratch files (its `_STARtmp` dir, ~a BAM's worth of data). Defaults to the OS temp dir; set to a big scratch filesystem on HPC if node-local `/tmp` is small. |
-| `trimming.enabled` | run TrimGalore! adapter/quality trimming before STAR (default `true`, nf-core/rnaseq-style). `false` skips trimming entirely — STAR reads the merged/raw fastqs directly, and the MultiQC report keeps the raw-input FastQC section but drops the trimming/trimmed-FastQC ones. While `true`, sample-sheet fastqs whose names already look trimmed (`*_trimmed*`, `*_val_[12]*`) are rejected at startup. |
+| `star.tmpdir` | STAR's per-run scratch dir (default: OS temp dir); set to big scratch on HPC. |
+| `trimming.enabled` | run TrimGalore! before STAR (default `true`). `false` skips trimming — STAR reads merged/raw fastqs directly. While on, fastq names that already look trimmed (`*_trimmed*`, `*_val_[12]*`) are rejected at startup. |
 | `trimming.trim_nextseq` | `--nextseq=N` for NextSeq/NovaSeq poly-G trimming; `0` (default) disables it. |
 | `trimming.extra` | extra TrimGalore! flags passed verbatim. |
 | `strandedness.min_fraction` | confidence threshold for RSeQC auto-detection. |
@@ -199,16 +202,10 @@ can't be mixed with paired-end lanes for the same sample). See
 
 `config/test.yaml` runs the whole workflow end-to-end against a bundled
 synthetic dataset in `.tests/` (50kb genome, 100 genes, one TE, 2 conditions
-x 3 replicates). The first two replicates of each condition are paired-end
-(`treatment_rep1` deliberately split across two lanes to exercise the
-lane-merging step); the third replicates (`control_rep3`, `treatment_rep3`)
-are single-end. The single-end samples deliberately sit in the same two
-conditions as the paired-end samples so the test run exercises the
-workflow's per-sample single/paired-end branching -- trimming (trim_galore_pe
-vs trim_galore_se), STAR --readFilesIn, RSeQC strandedness auto-detection
-(which supports single-end BAMs), TEcount, and a DESeq2 contrast that mixes
-both library formats. Useful for confirming your setup or smoke-testing
-rule edits:
+x 3 replicates): lane-split paired-end samples exercise the lane-merging
+step, single-end samples exercise that branch too, and a DESeq2 contrast
+mixes both library formats. Useful for confirming your setup or
+smoke-testing rule edits:
 
 ```bash
 snakemake --configfile config/test.yaml --cores 4 -n   # dry-run
@@ -248,14 +245,34 @@ it (and `qos`) with your cluster's values if you're not in that group.
 default partition (if yours has none, add `slurm_partition`). Per-invocation
 overrides are also possible, e.g.
 `--set-resources star_align:mem_mb=64000`. Every tool runs from the shared
-conda env, so make sure it's visible from the compute nodes (conda envs are
-self-contained; if nodes can't read your home dir, install it on shared
-storage with `conda env create -p /shared/path/env` and adjust your `PATH`).
-The pre-built environment is the quickest way to do this: extract it once on
-shared storage (e.g. `./workflow/scripts/install-env.sh -o /shared/software/rnaseq-star-tetranscripts-env`)
-and either add its `bin` directory to your `PATH` on the nodes or `source
-/shared/software/rnaseq-star-tetranscripts-env/bin/activate` inside each job
-wrapper — no conda or container runtime needed.
+conda env, so make sure it's visible from the compute nodes — if nodes can't
+read your home dir, install on shared storage
+(`conda env create -p /shared/path/env`, or
+`./workflow/scripts/install-env.sh -o /shared/software/rnaseq-star-tetranscripts-env`)
+and put its `bin` directory on the nodes' `PATH`.
+
+## Resuming & troubleshooting
+
+- **Re-run after a failure:** just run the same command again — Snakemake
+  skips jobs it already finished. Add `--rerun-incomplete` if the failed job
+  may have left a partial output file behind.
+- **Force a specific step:** `snakemake -R <rule>` re-runs a rule and its
+  downstream (e.g. `-R star_index` to rebuild the index).
+- **Where to look first:** per-rule stdout/stderr lives in
+  `results/pipeline_info/logs/<rule>/...`; scheduler-level errors in
+  `.snakemake/log/`. For a failed SLURM job, `sacct -j <jobid>` shows the
+  node and exit code.
+- **"output … missing locally, parent dir not present":** the job wrote to a
+  node-local path (typically `/tmp`) the scheduler can't see from the
+  submission node. Keep `ref.decompressed_dir` on shared storage (see the
+  config table); a `/tmp` value is flagged with a warning at startup.
+- **An input change isn't picked up:** rules with `ancient()` inputs (the
+  STAR index) are only rebuilt when missing or via `-R`. The workflow warns
+  at startup if the index was built for a different reference setup than the
+  current config.
+- **Multiple `--configfile`:** Snakemake keeps only the *last* one — they are
+  not merged. Merge settings by editing `input/config.yaml`, or pass single
+  overrides with `--config key=value`.
 
 ## Resource usage & reports
 
@@ -305,9 +322,8 @@ Every rule records its runtime and peak memory (threads/CPU-seconds) to
 Every tool version is pinned independently with defaults shipped in
 `workflow/default-config/versions.yaml` (STAR 2.7.11b, samtools 1.22.1,
 TrimGalore! 0.6.10, FastQC 0.12.1, RSeQC 5.0.4, MultiQC 1.33, TEtranscripts
-2.2.4, DESeq2 1.46.0, UCSC tools 482).
-Override any by creating `input/versions.yaml` with just the keys you want to
-change:
+2.2.4, DESeq2 1.46.0, UCSC tools 482). Override any by creating
+`input/versions.yaml` with just the keys you want to change:
 
 ```yaml
 versions:
@@ -318,25 +334,16 @@ The tools are installed into the shared conda env
 (`workflow/environment.yaml`) at env creation, with the same pins as
 `versions.yaml` — keep the two files in sync when bumping a version, then
 `conda env update -f workflow/environment.yaml` to apply. The pre-built
-environment tarball on GitHub Releases (see Quick start) is built from this
-same `workflow/environment.yaml`, so it carries the identical pins — it's a
-convenience artifact built in CI, not a fork of the version list.
-`samtools` is pinned to 1.22.1 rather than newer: STAR 2.7.11b (the final STAR
-release) links against `htslib <1.23`, which is incompatible with samtools
-1.23+ in a single environment.
-
-As a fallback, `--sdm conda` is still supported: Snakemake then generates one
-small per-tool env per rule from `versions.yaml` at parse time instead of using
-the shared env. This workflow does not use snakemake-wrappers, since a wrapper
-tag pins all its tools' versions together.
-
-One exception to the conda scheme: **TEtranscripts is installed from PyPI**
-(`TEtranscripts==2.2.4`), not bioconda. The bioconda recipe's runtime deps pin
-an ancient `bioconductor-deseq` (DESeq v1) that can only coexist with R 4.0-era
-packages, making the conda package unsolvable alongside a modern DESeq2/R on
-any platform. TEtranscripts only uses DESeq2 at runtime, so the environment
-conda-installs `deseq2`/`r_base` (pins still apply) and pip-installs the
-pure-Python TEtranscripts package.
+environment tarball on GitHub Releases is built from this same file in CI, so
+it carries the identical pins. Two deliberate exceptions: `samtools` is pinned
+to 1.22.1 because STAR 2.7.11b links `htslib <1.23`, incompatible with
+samtools 1.23+ in one environment; and **TEtranscripts is pip-installed**
+(`TEtranscripts==2.2.4`) because the bioconda recipe pins an ancient
+`bioconductor-deseq` (DESeq v1) that can only coexist with R 4.0-era packages,
+making it unsolvable alongside a modern DESeq2 (details in
+`workflow/environment.yaml`). As a fallback, `--sdm conda` is still supported:
+Snakemake then generates one small per-tool env per rule from `versions.yaml`
+at parse time instead of using the shared env.
 
 ## Without conda
 
@@ -411,39 +418,16 @@ files were resolved).
 
 - Versioning: the current release is recorded in the `VERSION` file at the repo
   root and tagged `vX.Y.Z` in git (the badge above tracks the latest tag).
-- Gzipped reference files (`.fa.gz` / `.gtf.gz`) are decompressed automatically
-  into `ref.decompressed_dir` (default: `results/pipeline_info/ref_decompressed`,
-  on shared storage and `temp()`-cleaned once star_index/gtf_to_genepred/tecount
-  are done). Plain, already-unzipped references skip the decompression step
-  entirely. Gzipped fastq files are read natively by STAR, so the merged/trimmed
-  intermediates stay gzipped throughout. Mix and match freely.
-- Lane/run merging and trimming: repeated `sample` rows in the sample sheet are
-  concatenated into `results/fastq/` before (optional, on by default)
-  TrimGalore! trimming in `results/trimming/`. Setting `trimming.enabled: false`
-  skips trimming entirely and STAR reads the merged/raw fastqs directly.
-  Pointing the sample sheet at already-trimmed fastqs (`*_trimmed*`,
-  `*_val_[12]*`) while trimming is enabled is rejected at startup with a clear
-  error — TrimGalore! would otherwise no-op-rename them to
-  `*_trimmed_trimmed_trimmed.fq.gz` and break the pipeline.
-- Intermediate fastq cleanup: by default the merged and trimmed fastqs are
-  kept. Set `outputs.keep_merged_fastq` / `outputs.keep_trimmed_fastq` to
-  `false` and Snakemake deletes them (temp()) once alignment is done — they
-  are then regenerated on the next run, so the FastQC reports (which MultiQC
-  reads) are unaffected. `keep_merged_fastq: false` only makes sense while
-  trimming is enabled, otherwise STAR consumes the merged fastqs directly and
-  deleting them forces a full re-alignment on the next run.
-- STAR's scratch directory (its `_STARtmp`, ~a BAM's worth of per-thread
-  chunks) is written to `star.tmpdir` (default: the OS temp dir) instead of
-  the results tree, and removed after each alignment — even if STAR crashes
-  before its own cleanup.
-- The MultiQC report includes a "Software Versions" section (and tags the
-  STAR/FastQC/... general-stats rows with versions) from the pinned
-  `config["versions"]`, written by the `software_versions` rule to
-  `results/versions/rnaseq_mqc_versions.yml`.
-- STAR index freshness: a prebuilt/reused index directory is honored as-is even
-  when the fasta/GTF it was built from is newer — the index is only rebuilt when
-  missing, or explicitly with `snakemake -R star_index`. (Snakemake otherwise
-  compares mtimes and would rebuild a shared index every run.)
+- Gzipped fastqs are read natively by STAR, so merged/trimmed intermediates stay
+  gzipped; gzipped references (`.fa.gz`/`.gtf.gz`) decompress once into
+  `ref.decompressed_dir`. Mix and match freely.
+- Already-trimmed-looking fastqs (`*_trimmed*`, `*_val_[12]*`) are rejected at
+  startup while trimming is enabled — TrimGalore! would otherwise no-op-rename
+  them to `*_trimmed_trimmed_trimmed.fq.gz` and break the pipeline.
+- STAR index freshness: a prebuilt index is honored as-is even when the
+  fasta/GTF it was built from is newer — rebuilt only when missing or via
+  `snakemake -R star_index`. The workflow warns at startup if the index was
+  built for a different reference setup.
 - TEtranscripts/DESeq2 needs at least 2 replicates per group in a contrast.
 - STAR indexing and TEtranscripts are memory-hungry (TEtranscripts: ~20-30 GB
   recommended for human data).

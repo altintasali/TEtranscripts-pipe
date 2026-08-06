@@ -33,4 +33,59 @@ jobs:
           environment-file: workflow/environment.yaml
           channel-priority: flexible
       - shell: bash -l {0}
-        run: snakemake --configfile config/test.yaml --cores 2
+        run: |
+          snakemake --configfile config/test.yaml --cores 2
+          test -f .tests/resources/star_index/.refs_used.txt
+          # index was built for sjdb_overhang=49; a different value must warn
+          sed 's/  sjdb_overhang: 49/  sjdb_overhang: 48/' config/test.yaml > /tmp/stale_index.yaml
+          if snakemake --configfile /tmp/stale_index.yaml -n 2>&1 | grep -q "built for a different"; then
+            echo "OK: stale-index warning fired"
+          else
+            echo "ERROR: stale-index warning did not fire"
+            exit 1
+          fi
+
+  guards:
+    # Negative tests for the parse-time startup checks in common.smk: each
+    # step asserts the documented behavior, including the ones that must FAIL
+    # (missing reference / already-trimmed fastqs).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          activate-environment: rnaseq-star-tetranscripts
+          environment-file: workflow/environment.yaml
+          channel-priority: flexible
+      - shell: bash -l {0}
+        run: |
+          set -euo pipefail
+          T=$(mktemp -d)
+          FAIL=0
+
+          # --- a missing/typo'd reference is a hard parse-time error ---------
+          sed 's|  fasta: .*|  fasta: /nonexistent/ref.fa|' config/test.yaml > "$T/missing_ref.yaml"
+          if snakemake --configfile "$T/missing_ref.yaml" -n --cores 1 >"$T/missing_ref.log" 2>&1; then
+            echo "ERROR: missing reference did not fail the run"; FAIL=1
+          elif ! grep -q "Missing reference file(s)" "$T/missing_ref.log"; then
+            echo "ERROR: wrong failure message for missing reference"; FAIL=1
+          fi
+
+          # --- already-trimmed-looking fastqs are rejected while trimming on --
+          printf 'sample,fastq_1,fastq_2,strandedness,condition\nzyg_wt_01,zyg_wt_01_trimmed.fq.gz,,auto,wt\n' > "$T/trimmed.csv"
+          sed "s|samples: .*|samples: $T/trimmed.csv|" config/test.yaml > "$T/trimmed.yaml"
+          if snakemake --configfile "$T/trimmed.yaml" -n --cores 1 >"$T/trimmed.log" 2>&1; then
+            echo "ERROR: already-trimmed fastqs did not fail the run"; FAIL=1
+          elif ! grep -q "already look trimmed" "$T/trimmed.log"; then
+            echo "ERROR: wrong failure message for already-trimmed fastqs"; FAIL=1
+          fi
+
+          # --- a node-local ref.decompressed_dir warns but still dry-runs -----
+          sed 's|  sjdb_overhang: 49|  sjdb_overhang: 49\n  decompressed_dir: /tmp/rnaseq-decompressed|' config/test.yaml > "$T/tmpdir.yaml"
+          if ! snakemake --configfile "$T/tmpdir.yaml" -n --cores 1 >"$T/tmpdir.log" 2>&1; then
+            echo "ERROR: node-local decompressed_dir must only warn, not fail"; FAIL=1
+          elif ! grep -q "node-local temp directory" "$T/tmpdir.log"; then
+            echo "ERROR: missing node-local decompressed_dir warning"; FAIL=1
+          fi
+
+          exit $FAIL

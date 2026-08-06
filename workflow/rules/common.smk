@@ -135,6 +135,27 @@ def sample_fastqs(sample, read):
         return [f for f in files if f]
     return [files] if files else []
 
+# Warn (not fail) about sample-sheet fastq paths that don't exist yet: a typo
+# would otherwise only surface when that rule's job runs -- potentially hours
+# into a SLURM queue. Warning keeps pre-download dry-runs and laptops running
+# against cluster-only paths working (the sjdb_overhang "auto" check above
+# similarly tolerates missing files if an explicit value is given).
+_missing_fastqs = [
+    f"{sample}: {path}"
+    for sample in SAMPLES
+    for read in (1, 2)
+    for path in sample_fastqs(sample, read)
+    if path and not os.path.exists(path)
+]
+if _missing_fastqs:
+    logger.warning(
+        f"{len(_missing_fastqs)} fastq file(s) referenced by the sample sheet "
+        "do not exist yet:\n  "
+        + "\n  ".join(_missing_fastqs)
+        + "\nThey must be present before the workflow can run; check the "
+        "paths (and that you're in the directory they're relative to)."
+    )
+
 # -----------------------------------------------------------------------------
 # Reference files: transparently support gzipped fasta/gtf/te_gtf.
 # STAR's --genomeFastaFiles/--sjdbGTFfile and TEcount/TEtranscripts'
@@ -201,6 +222,28 @@ def _resolve_ref_path(key):
 FASTA = _resolve_ref_path("fasta")
 GTF = _resolve_ref_path("gtf")
 TE_GTF = _resolve_ref_path("te_gtf")
+
+# References are required for everything downstream (index, gene model,
+# TEcount), so fail fast at parse time on a missing/typo'd path instead of
+# letting the first rule that touches it die hours into a queue. For .gz refs
+# we check the .gz source: the decompressed target is a temp() rule output
+# that legitimately doesn't exist until gunzip_reference runs.
+_missing_refs = []
+for _key, _resolved in (("fasta", FASTA), ("gtf", GTF), ("te_gtf", TE_GTF)):
+    _source = config["ref"][_key]
+    _check = _source if str(_source).endswith(".gz") else _resolved
+    if not os.path.exists(_check):
+        _missing_refs.append(
+            f"ref.{_key}: {_check} (exists: False, resolves to: "
+            f"{os.path.abspath(_check)})"
+        )
+if _missing_refs:
+    raise WorkflowError(
+        "Missing reference file(s) from config.yaml:\n  "
+        + "\n  ".join(_missing_refs)
+        + "\nFix the paths in config.yaml (they're resolved relative to the "
+        "directory you run snakemake from, usually the repo root)."
+    )
 
 # -----------------------------------------------------------------------------
 # STAR sjdbOverhang: auto-detected from the sample sheet's fastq files
@@ -277,6 +320,57 @@ with open("results/pipeline_info/logs/config_resolution.log", "w") as fh:
             fh.write(f"  {gz_path} -> {DECOMPRESS_DIR}/{stem}\n")
     else:
         fh.write("no gzipped reference files (fasta/gtf/te_gtf) detected\n")
+
+# -----------------------------------------------------------------------------
+# STAR index freshness. star_index (ref.smk) marks its fasta/gtf inputs
+# ancient() so a shared/prebuilt index is honored as-is regardless of file
+# mtimes -- but that also means a changed reference is silently *not* rebuilt.
+# So star_index records a small stamp of everything the index was built with
+# (ref paths + size + mtime, sjdb_overhang, STAR version, index_extra) into
+# {index}/.refs_used.txt, and we compare it at parse time: a mismatch warns
+# that the current config expects a different index and -R star_index is
+# needed. An index without a stamp (pre-existing/shared) is left alone.
+# -----------------------------------------------------------------------------
+def _stat_line(prefix, path):
+    try:
+        st = os.stat(path)
+        return [f"{prefix}_size={st.st_size}", f"{prefix}_mtime={st.st_mtime}"]
+    except OSError:
+        return [f"{prefix}_size=missing", f"{prefix}_mtime=missing"]
+
+
+def star_index_stamp():
+    """One key=value line per input that determines the STAR index content."""
+    lines = []
+    for key in ("fasta", "gtf"):
+        src = str(config["ref"][key])
+        lines.append(f"{key}={src}")
+        lines.extend(_stat_line(key, src))
+    lines.append(f"sjdb_overhang={SJDB_OVERHANG}")
+    lines.append(f"star={config['versions']['star']}")
+    lines.append(f"index_extra={config['star'].get('index_extra', '')}")
+    return "\n".join(lines) + "\n"
+
+
+_STAR_INDEX_DIR = config["star"]["index"]
+_STAR_INDEX_MANIFEST = os.path.join(_STAR_INDEX_DIR, ".refs_used.txt")
+if os.path.isdir(_STAR_INDEX_DIR) and os.path.isfile(_STAR_INDEX_MANIFEST):
+    try:
+        with open(_STAR_INDEX_MANIFEST) as fh:
+            _recorded = fh.read()
+    except OSError:
+        _recorded = ""
+    if _recorded != star_index_stamp():
+        logger.warning(
+            f"The STAR index at {_STAR_INDEX_DIR} was built for a different "
+            "reference setup than config.yaml now specifies (its "
+            ".refs_used.txt stamp no longer matches). If you changed the "
+            "reference fasta/GTF, sjdb_overhang, or STAR version since, "
+            "rebuild it with `snakemake -R star_index` -- otherwise the old "
+            "index is silently reused. If the index is deliberately shared, "
+            "run `snakemake -R star_index` once to re-record the current "
+            "reference into it and silence this warning."
+        )
 
 # -----------------------------------------------------------------------------
 # Per-sample strandedness resolution.

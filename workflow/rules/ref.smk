@@ -49,6 +49,7 @@ rule star_index:
     params:
         sjdb_overhang=SJDB_OVERHANG,
         extra=config["star"].get("index_extra", ""),
+        ref_stamp=star_index_stamp(),
     threads: get_resources("star_index")["threads"]
     resources:
         mem_mb=get_resources("star_index")["mem_mb"],
@@ -83,7 +84,8 @@ rule star_index:
         "actually written successfully anyway (see rule comment re: known "
         "benign STAR exit-time crash)' >> {log}; "
         "test -s {output}/SA && test -s {output}/SAindex && "
-        "test -s {output}/Genome))"
+        "test -s {output}/Genome)) && "
+        "printf '%s' \"{params.ref_stamp}\" > {output}/.refs_used.txt"
 
 
 rule gtf_to_genepred:
