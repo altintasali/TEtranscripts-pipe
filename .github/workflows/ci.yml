@@ -87,6 +87,7 @@ jobs:
           # as a zero-output exit 1 on main). The script owns its own
           # failure reporting via $FAIL / explicit exit, so -e adds nothing.
           set -uo pipefail
+          set -x
           T=$(mktemp -d)
           FAIL=0
           echo "[guards] 1/8 missing reference"
@@ -174,4 +175,5 @@ jobs:
           fi
 
           echo "[guards] done, FAIL=$FAIL"
+          trap 'echo "[guards] script exiting with rc=$?"' EXIT
           exit $FAIL
