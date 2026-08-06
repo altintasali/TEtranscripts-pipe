@@ -44,9 +44,11 @@ properties:
         type: string
         description: >-
           Directory where gzipped reference files are decompressed before
-          use. Defaults to a directory under /tmp (ephemeral, cheap to
-          rebuild); set to a persistent location to avoid re-decompressing
-          after every reboot.
+          use. Defaults to results/pipeline_info/ref_decompressed (shared
+          storage; the files are temp()-cleaned after downstream rules
+          finish). Should point at shared storage on clusters -- a node-local
+          path like /tmp breaks multi-node runs because the snakemake
+          scheduler cannot see the compute node's output.
     required: [fasta, gtf, te_gtf, sjdb_overhang]
   star:
     type: object

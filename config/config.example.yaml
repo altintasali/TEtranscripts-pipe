@@ -42,11 +42,14 @@ ref:
   # when you first run the workflow).
   sjdb_overhang: auto
   # Where gzipped references (fasta/gtf/te_gtf .gz) are decompressed to.
-  # Defaults to a directory under /tmp: decompressed refs are cheap to
-  # rebuild, so there is no need to clutter the workspace or shared storage
-  # with them. Set a persistent path only if you'd rather not re-decompress
-  # after every reboot (e.g. /scratch/<user>/rnaseq-refs-decompressed).
-  decompressed_dir: /tmp/rnaseq-star-tetranscripts-decompressed
+  # Defaults to results/pipeline_info/ref_decompressed (shared storage, and
+  # temp()-cleaned once downstream rules are done). Plain, already-unzipped
+  # references skip decompression entirely. Only set this if you want a
+  # different scratch location on shared storage, e.g.
+  #   # decompressed_dir: /scratch/<user>/rnaseq-refs-decompressed
+  # Do NOT point it at node-local /tmp on a cluster: each job runs on a
+  # compute node with its own /tmp, so the snakemake scheduler can't see the
+  # gunzip output ("output ... missing locally, parent dir not present").
 
 star:
   # Directory that will hold (or already holds) the STAR genome index.

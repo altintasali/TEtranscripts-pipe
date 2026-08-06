@@ -1,10 +1,13 @@
 import gzip
 import itertools
 import os
+import re
+import tempfile
 
 import pandas as pd
 import yaml
 from snakemake.exceptions import WorkflowError
+from snakemake.logging import logger
 from snakemake.utils import validate
 
 # -----------------------------------------------------------------------------
@@ -140,15 +143,41 @@ def sample_fastqs(sample, read):
 # in the workflow refers to the resolved (always-uncompressed) path below,
 # never to config["ref"][...] directly.
 #
-# Decompressed files land in ref.decompressed_dir, which defaults to a
-# directory under /tmp: they are cheap to rebuild, so there is no need to
-# clutter the workspace or shared storage with them. Point it somewhere
-# persistent in config.yaml if you would rather not re-decompress after a
-# reboot.
+# Decompressed files land in ref.decompressed_dir. The default is a
+# directory under the results tree (results/pipeline_info/ref_decompressed):
+# unlike /tmp, that lives on the same shared filesystem the snakemake
+# scheduler and every cluster job can see, so gunzip_reference's output is
+# always visible -- a node-local /tmp path silently breaks cluster runs with
+# "output ... missing locally, parent dir not present" (the file is written
+# on the compute node, but the scheduler checks for it on the submission
+# node). The files are temp()-wrapped (see the gunzip_reference rule) so they
+# are deleted after downstream rules consume them. Set ref.decompressed_dir
+# to a scratch dir on shared storage if you would rather keep them.
 # -----------------------------------------------------------------------------
 DECOMPRESS_DIR = config["ref"].get(
-    "decompressed_dir", "/tmp/rnaseq-star-tetranscripts-decompressed"
+    "decompressed_dir", "results/pipeline_info/ref_decompressed"
 )
+
+if "decompressed_dir" in config.get("ref", {}):
+    _local_tmp = tempfile.gettempdir().rstrip(os.sep)
+    _node_local = (
+        DECOMPRESS_DIR == "/tmp"
+        or DECOMPRESS_DIR.startswith("/tmp/")
+        or DECOMPRESS_DIR == "/var/tmp"
+        or DECOMPRESS_DIR.startswith("/var/tmp/")
+        or "$TMPDIR" in DECOMPRESS_DIR
+        or (_local_tmp and DECOMPRESS_DIR.startswith(_local_tmp))
+    )
+    if _node_local:
+        logger.warning(
+            f"ref.decompressed_dir points at a node-local temp directory "
+            f"({DECOMPRESS_DIR!r}). On a multi-node cluster each job runs on "
+            f"a compute node with its own /tmp, so the snakemake scheduler "
+            f"cannot see gunzip_reference's output and you'll get "
+            f"'MissingOutputException ... (missing locally, parent dir not "
+            f"present)'. Point it at shared storage instead (e.g. under "
+            f"results/ or a project scratch directory)."
+        )
 
 REFERENCE_GZ_SOURCES = {}  # decompressed stem -> original .gz path, for gunzip_reference
 
@@ -313,6 +342,35 @@ def _is_paired(sample):
 # merged (or raw, for single-lane) files directly.
 # -----------------------------------------------------------------------------
 TRIM_ENABLED = bool(config.get("trimming", {}).get("enabled", True))
+
+# TrimGalore! always appends _trimmed (single-end) or _val_1/_val_2 (paired)
+# to the *input* basename, and its --basename normalization only strips a
+# single "_trimmed"/"_val_1" suffix. Feeding it an already-trimmed fastq
+# therefore produces a no-op rename like foo_trimmed_trimmed_trimmed.fq.gz
+# while the declared results/trimming/<sample>_trimmed.fq.gz output is never
+# created (or a stale file is silently reused). Fail fast at parse time
+# instead of surfacing a confusing MissingOutputException mid-run.
+if TRIM_ENABLED:
+    _TRIMMED_FASTQ_RE = re.compile(
+        r"(_trimmed|_val_[12]|\.trimmed)(\.fq|\.fastq)(\.gz)?$", re.IGNORECASE
+    )
+    _offenders = [
+        f"{sample}: {path}"
+        for sample in SAMPLES
+        for read in (1, 2)
+        for path in sample_fastqs(sample, read)
+        if _TRIMMED_FASTQ_RE.search(os.path.basename(str(path)))
+    ]
+    if _offenders:
+        raise WorkflowError(
+            "Trimming is enabled (trimming.enabled), but the sample sheet "
+            "points at fastqs that already look trimmed:\n  "
+            + "\n  ".join(_offenders)
+            + "\nFeeding already-trimmed reads to TrimGalore! produces a "
+            "no-op rename and breaks the pipeline. Point the sample sheet at "
+            "untrimmed reads, or set `trimming.enabled: false` in config.yaml "
+            "to use these files as-is."
+        )
 
 # Whether the merged (lane-concatenated) and trimmed fastq files are kept
 # after downstream rules (STAR/alignment) are done with them. Set either to

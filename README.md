@@ -167,11 +167,11 @@ cp config/samples.example.csv input/samples.csv
 | `ref.gtf` | gene annotation GTF, user-supplied in `input/`. Plain or gzipped. |
 | `ref.te_gtf` | **curated** TE GTF from the TEtranscripts authors (download the file matching your genome build from [mghlab.org/software/tetranscripts](https://www.mghlab.org/software/tetranscripts) — a generic RepeatMasker GTF will *not* work), user-supplied in `input/`. Plain or gzipped. |
 | `ref.sjdb_overhang` | `auto` (default) detects `max(read length) - 1` from your fastq files; set an integer to pin it. |
-| `ref.decompressed_dir` | where gzipped references are decompressed to (default: a directory under `/tmp` — ephemeral, but cheap to rebuild). |
+| `ref.decompressed_dir` | where gzipped references are decompressed to (default: `results/pipeline_info/ref_decompressed` — shared storage, and `temp()`-cleaned once downstream rules are done). On a cluster, do **not** point this at a node-local path like `/tmp` — the snakemake scheduler can't see a compute node's output and the run fails with "output … missing locally, parent dir not present". |
 | `star.index` | where to (re)build the STAR index — **generated** by the workflow under `results/`, not user-supplied. An existing index is honored as-is; it's only rebuilt when missing (or via `snakemake -R star_index`). |
 | `star.extra` | alignment flags; pre-set to the TEtranscripts authors' multi-mapper recommendations. |
 | `star.tmpdir` | directory for STAR's per-run scratch files (its `_STARtmp` dir, ~a BAM's worth of data). Defaults to the OS temp dir; set to a big scratch filesystem on HPC if node-local `/tmp` is small. |
-| `trimming.enabled` | run TrimGalore! adapter/quality trimming before STAR (default `true`, nf-core/rnaseq-style). `false` skips trimming entirely — STAR reads the merged/raw fastqs directly, and the MultiQC report keeps the raw-input FastQC section but drops the trimming/trimmed-FastQC ones. |
+| `trimming.enabled` | run TrimGalore! adapter/quality trimming before STAR (default `true`, nf-core/rnaseq-style). `false` skips trimming entirely — STAR reads the merged/raw fastqs directly, and the MultiQC report keeps the raw-input FastQC section but drops the trimming/trimmed-FastQC ones. While `true`, sample-sheet fastqs whose names already look trimmed (`*_trimmed*`, `*_val_[12]*`) are rejected at startup. |
 | `trimming.trim_nextseq` | `--nextseq=N` for NextSeq/NovaSeq poly-G trimming; `0` (default) disables it. |
 | `trimming.extra` | extra TrimGalore! flags passed verbatim. |
 | `strandedness.min_fraction` | confidence threshold for RSeQC auto-detection. |
@@ -412,13 +412,19 @@ files were resolved).
 - Versioning: the current release is recorded in the `VERSION` file at the repo
   root and tagged `vX.Y.Z` in git (the badge above tracks the latest tag).
 - Gzipped reference files (`.fa.gz` / `.gtf.gz`) are decompressed automatically
-  into `ref.decompressed_dir` (default: a directory under `/tmp` — ephemeral,
-  but cheap to rebuild); gzipped fastq files are read natively by STAR, so the
-  merged/trimmed intermediates stay gzipped throughout. Mix and match freely.
+  into `ref.decompressed_dir` (default: `results/pipeline_info/ref_decompressed`,
+  on shared storage and `temp()`-cleaned once star_index/gtf_to_genepred/tecount
+  are done). Plain, already-unzipped references skip the decompression step
+  entirely. Gzipped fastq files are read natively by STAR, so the merged/trimmed
+  intermediates stay gzipped throughout. Mix and match freely.
 - Lane/run merging and trimming: repeated `sample` rows in the sample sheet are
   concatenated into `results/fastq/` before (optional, on by default)
   TrimGalore! trimming in `results/trimming/`. Setting `trimming.enabled: false`
   skips trimming entirely and STAR reads the merged/raw fastqs directly.
+  Pointing the sample sheet at already-trimmed fastqs (`*_trimmed*`,
+  `*_val_[12]*`) while trimming is enabled is rejected at startup with a clear
+  error — TrimGalore! would otherwise no-op-rename them to
+  `*_trimmed_trimmed_trimmed.fq.gz` and break the pipeline.
 - Intermediate fastq cleanup: by default the merged and trimmed fastqs are
   kept. Set `outputs.keep_merged_fastq` / `outputs.keep_trimmed_fastq` to
   `false` and Snakemake deletes them (temp()) once alignment is done — they

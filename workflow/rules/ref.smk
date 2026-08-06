@@ -4,12 +4,14 @@ rule gunzip_reference:
     # TEcount/TEtranscripts' --GTF/--TE) can consume it directly. Only
     # triggered for whichever of fasta/gtf/te_gtf are actually given as
     # .gz in config.yaml -- see REFERENCE_GZ_SOURCES in common.smk. Outputs
-    # go to ref.decompressed_dir (default: a directory under /tmp; cheap to
-    # rebuild, see the comment in common.smk).
+    # go to ref.decompressed_dir (default: results/pipeline_info/
+    # ref_decompressed -- shared storage, unlike a node-local /tmp which
+    # breaks cluster runs) and are temp()-wrapped so they are deleted once
+    # star_index/gtf_to_genepred/tecount are done with them.
     input:
         lambda wc: REFERENCE_GZ_SOURCES[wc.stem],
     output:
-        f"{DECOMPRESS_DIR}/{{stem}}",
+        temp(f"{DECOMPRESS_DIR}/{{stem}}"),
     threads: get_resources("gunzip_reference")["threads"]
     resources:
         mem_mb=get_resources("gunzip_reference")["mem_mb"],
