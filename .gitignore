@@ -18,9 +18,6 @@ README.html
 # never conflicts with your analysis settings.
 /input/
 
-# Opencode session transcripts
-session-*.md
-
 # Test profile: keep the committed fixtures under .tests/resources/, but
 # not the STAR index it builds there at run time
 .tests/resources/star_index/
