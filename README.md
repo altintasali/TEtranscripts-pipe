@@ -1,6 +1,6 @@
-# rnaseq-star-tetranscripts
+# TEtranscripts-pipe
 
-![version](https://img.shields.io/github/v/tag/altintasali/rnaseq-star-tetranscripts?label=version)
+![version](https://img.shields.io/github/v/tag/altintasali/TEtranscripts-pipe?label=version)
 
 A Snakemake workflow that quantifies genes **and** transposable elements (TEs)
 from RNA-seq data with [TEtranscripts/TEcount](https://github.com/mhammell-laboratory/TEtranscripts),
@@ -97,9 +97,9 @@ so there is nothing to install or solve. Fetch and unpack it with the helper
 script (needs only `bash`/`curl`/`tar`):
 
 ```bash
-git clone https://github.com/altintasali/rnaseq-star-tetranscripts.git
-cd rnaseq-star-tetranscripts
-./workflow/scripts/install-env.sh   # downloads the latest release env into $HOME/software/rnaseq-star-tetranscripts-env
+git clone https://github.com/altintasali/TEtranscripts-pipe.git
+cd TEtranscripts-pipe
+./workflow/scripts/install-env.sh   # downloads the latest release env into $HOME/software/tetranscripts-pipe-env
 source workflow/scripts/activate-env.sh   # activates it in your current shell
 ```
 
@@ -120,10 +120,10 @@ Miniconda; conda ≥23.10 already uses the fast libmamba solver, so mamba is
 optional).
 
 ```bash
-git clone https://github.com/altintasali/rnaseq-star-tetranscripts.git
-cd rnaseq-star-tetranscripts
+git clone https://github.com/altintasali/TEtranscripts-pipe.git
+cd TEtranscripts-pipe
 conda env create -f workflow/environment.yaml   # snakemake + every analysis tool, installed once
-conda activate rnaseq-star-tetranscripts
+conda activate tetranscripts-pipe
 ```
 
 ### Either way, then
@@ -248,7 +248,7 @@ overrides are also possible, e.g.
 conda env, so make sure it's visible from the compute nodes — if nodes can't
 read your home dir, install on shared storage
 (`conda env create -p /shared/path/env`, or
-`./workflow/scripts/install-env.sh -o /shared/software/rnaseq-star-tetranscripts-env`)
+`./workflow/scripts/install-env.sh -o /shared/software/tetranscripts-pipe-env`)
 and put its `bin` directory on the nodes' `PATH`.
 
 ## Resuming & troubleshooting

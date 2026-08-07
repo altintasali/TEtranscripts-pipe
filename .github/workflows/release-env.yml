@@ -15,7 +15,7 @@ jobs:
 
       - uses: conda-incubator/setup-miniconda@v3
         with:
-          activate-environment: rnaseq-star-tetranscripts
+          activate-environment: tetranscripts-pipe
           environment-file: workflow/environment.yaml
           channel-priority: flexible
 
@@ -36,13 +36,13 @@ jobs:
           command -v conda && conda --version
           "${CONDA_PREFIX}/bin/pip" install -q conda-pack
           "${CONDA_PREFIX}/bin/conda-pack" -p "${CONDA_PREFIX}" \
-            -o "rnaseq-star-tetranscripts-${{ steps.version.outputs.version }}-env.tar.gz"
+            -o "tetranscripts-pipe-${{ steps.version.outputs.version }}-env.tar.gz"
 
       - name: Split or checksum
         shell: bash -l {0}
         run: |
           set -euo pipefail
-          tarball="rnaseq-star-tetranscripts-${{ steps.version.outputs.version }}-env.tar.gz"
+          tarball="tetranscripts-pipe-${{ steps.version.outputs.version }}-env.tar.gz"
           # GitHub Releases caps each asset at 2 GiB; split if we're close.
           if (( $(stat -c %s "$tarball") > 1900000000 )); then
             split -b 1500M "$tarball" "$tarball.part."
@@ -56,7 +56,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           version="${{ steps.version.outputs.version }}"
-          stem="rnaseq-star-tetranscripts-${version}-env.tar.gz"
+          stem="tetranscripts-pipe-${version}-env.tar.gz"
           assets=()
           for a in "$stem"* SHA256SUMS; do
             [[ -e "$a" ]] && assets+=("$a")
@@ -66,7 +66,7 @@ jobs:
           else
             gh release create "$version" "${assets[@]}" \
               --title "Release $version" \
-              --notes "Release $version of rnaseq-star-tetranscripts, including the pre-built Linux x86_64 conda environment (\`...-env.tar.gz\`). Install it with \`./workflow/scripts/install-env.sh\` -- see the README \"Pre-built environment\" section." \
+              --notes "Release $version of tetranscripts-pipe, including the pre-built Linux x86_64 conda environment (\`...-env.tar.gz\`). Install it with \`./workflow/scripts/install-env.sh\` -- see the README \"Pre-built environment\" section." \
               --verify-tag \
               --target "${{ github.sha }}"
           fi

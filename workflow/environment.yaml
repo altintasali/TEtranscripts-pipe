@@ -1,4 +1,4 @@
-name: rnaseq-star-tetranscripts
+name: tetranscripts-pipe
 channels:
   - conda-forge
   - bioconda

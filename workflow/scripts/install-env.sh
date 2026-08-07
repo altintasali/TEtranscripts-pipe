@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # install-env.sh -- download and install the pre-built conda environment for
-# rnaseq-star-tetranscripts, published as a GitHub Release asset alongside each
+# tetranscripts-pipe, published as a GitHub Release asset alongside each
 # version tag. The tarball is built for Linux x86_64 (see
 # .github/workflows/release-env.yml); there is no need to install conda.
 #
@@ -8,7 +8,7 @@
 #   ./workflow/scripts/install-env.sh [-o PREFIX] [-r VERSION] [-f]
 #
 # Options:
-#   -o PREFIX   install into PREFIX (default: $HOME/software/rnaseq-star-tetranscripts-env)
+#   -o PREFIX   install into PREFIX (default: $HOME/software/tetranscripts-pipe-env)
 #   -r VERSION  release tag to fetch, e.g. v0.1.0 (default: latest release)
 #   -f          overwrite even if PREFIX doesn't look like a previous env
 #               install, and skip the platform check
@@ -23,8 +23,8 @@
 #   export PATH="$PREFIX/bin:$PATH"
 set -euo pipefail
 
-repo="altintasali/rnaseq-star-tetranscripts"
-stem="rnaseq-star-tetranscripts"
+repo="altintasali/TEtranscripts-pipe"
+stem="tetranscripts-pipe"
 default_prefix="$HOME/software/${stem}-env"
 
 usage() {
@@ -69,7 +69,7 @@ fi
 if [[ -n "$(ls -A "$prefix")" ]]; then
     if [[ $force -eq 0 && ! -f "$prefix/bin/conda-unpack" && ! -f "$prefix/bin/activate" ]]; then
         echo "error: $prefix is not empty and does not look like a previously-installed" >&2
-        echo "       rnaseq-star-tetranscripts environment; pick another prefix with -o," >&2
+        echo "       tetranscripts-pipe environment; pick another prefix with -o," >&2
         echo "       or re-run with -f to overwrite it anyway." >&2
         exit 1
     fi
