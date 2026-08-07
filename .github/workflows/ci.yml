@@ -80,18 +80,17 @@ jobs:
           channel-priority: flexible
       - shell: bash -l {0}
         run: |
-          # Note: deliberately no `set -e` here. GitHub Actions injects
-          # `/usr/bin/clear_console -q` statements into every run block, and
-          # that helper exits non-zero on non-TTY runners; under `set -e` it
-          # silently kills the whole job even after all 8 checks pass (seen
-          # as a zero-output exit 1 on main). The script owns its own
-          # failure reporting via $FAIL / explicit exit, so -e adds nothing.
-          set -uo pipefail
-          set -x
+          # GitHub Actions' runner executes this block under `set -e` and
+          # injects a `/usr/bin/clear_console -q` call into the exit path.
+          # That helper exits non-zero on non-TTY runners, so under `set -e`
+          # it flipped an otherwise fully-passing run (all 8 checks done,
+          # FAIL=0) into a zero-output "Process completed with exit code 1"
+          # -- the unexplained guards failure on main. This script reports
+          # its own failures via $FAIL and `exit $FAIL`, so -e is explicitly
+          # disabled here; -u and pipefail are kept.
+          set +e -uo pipefail
           T=$(mktemp -d)
           FAIL=0
-          echo "[guards] SCRIPT=$0 has $(wc -l < "$0") lines; clear_console/exit/trap refs:"
-          grep -n "clear_console\|^exit\|trap" "$0" || true
           echo "[guards] 1/8 missing reference"
 
           # --- a missing/typo'd reference is a hard parse-time error ---------
@@ -177,5 +176,4 @@ jobs:
           fi
 
           echo "[guards] done, FAIL=$FAIL"
-          trap 'echo "[guards] script exiting with rc=$?"' EXIT
           exit $FAIL
