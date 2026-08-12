@@ -115,6 +115,79 @@ properties:
       extra: {type: string}
     required: [mode]
 
+  chimera:
+    type: object
+    description: >-
+      Optional gene-TE chimera screen (STAR --chimOutType Junctions WithinBAM
+      SoftClip), per-junction annotation, count matrix, and the chimera
+      sample-QC (PCA / sample clustering). Disabled by default; set enabled
+      to true to add the chimera stage to the same alignment run that feeds
+      quantification. EXPERIMENTAL: classification and QC-view behavior may
+      still change between releases.
+    properties:
+      enabled:
+        type: boolean
+        description: >-
+          When false (default), the chimera STAR flags, rules and outputs are
+          absent and the workflow behaves exactly like the plain
+          quantification pipeline. When true, the chimera screen runs on the
+          same alignment as TEcount.
+      star:
+        type: object
+        description: STAR chimeric-junction detection parameters.
+        properties:
+          segment_min: {type: integer}
+          overhang_min: {type: integer}
+          score_drop_max: {type: integer}
+          extra:
+            type: string
+            description: Extra verbatim STAR chimeric-alignment flags.
+        required: [segment_min, overhang_min, score_drop_max]
+      breakpoint_tolerance:
+        type: integer
+        minimum: 0
+        description: >-
+          Slack (bp) allowed when matching a STAR chimeric breakpoint to an
+          exon/TE feature edge (annotation coordinate conventions can shift
+          breakpoints by a base or two).
+      require_canonical_junction:
+        type: boolean
+        description: >-
+          Whether to require STAR junction type 1 (GT/AG) for a junction to be
+          classified as gene-TE. TE-involved splicing is often non-canonical,
+          so the default (false) keeps everything and records the type.
+      qc:
+        type: object
+        description: >-
+          Filters applied to the chimera count matrix *for the PCA/clustering
+          view only* -- they never remove events from all_events.tsv or the
+          counts matrix.
+        properties:
+          min_samples_present:
+            type: integer
+            minimum: 1
+          min_total_counts:
+            type: integer
+            minimum: 1
+          min_events:
+            type: integer
+            minimum: 1
+          pca_transform:
+            type: string
+            enum: ["vst", "rlog", "log2"]
+        required: [min_samples_present, min_total_counts, min_events, pca_transform]
+      outputs:
+        type: object
+        description: Which chimera artifacts to write.
+        properties:
+          write_igv_bed:
+            type: boolean
+          write_counts_matrix:
+            type: boolean
+        required: [write_igv_bed, write_counts_matrix]
+    required: [enabled, star, breakpoint_tolerance, require_canonical_junction,
+               qc, outputs]
+
   resources:
     type: object
     description: >-

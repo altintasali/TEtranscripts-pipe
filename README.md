@@ -32,19 +32,36 @@ flowchart LR
         benchmark_summary["resource-usage summary"]
         multiqc["MultiQC"]
     end
+    subgraph chimera_screen["Chimera screen"]
+        annotation_to_bed["annotation -> BED tracks"]
+        parse_chimeric_junctions["parse chimeric junctions"]
+        junction_qc["junction QC"]
+        chimera_igv_bed["IGV BED track"]
+        chimera_counts["chimera counts matrix"]
+        sample_qc_transform["sample-QC transform"]
+        sample_qc["sample-QC plots"]
+    end
+    annotation_to_bed --> parse_chimeric_junctions
     benchmark_summary --> multiqc
     cat_fastq --> fastqc_raw
     cat_fastq --> trim_galore_pe
     cat_fastq --> trim_galore_se
+    chimera_counts --> sample_qc_transform
+    determine_strandedness --> parse_chimeric_junctions
     determine_strandedness --> tecount
     determine_strandedness --> tetranscripts_diffexp
     genepred_to_bed12 --> rseqc_infer_experiment
     gtf_to_genepred --> genepred_to_bed12
+    parse_chimeric_junctions --> chimera_counts
+    parse_chimeric_junctions --> chimera_igv_bed
+    parse_chimeric_junctions --> junction_qc
     rseqc_infer_experiment --> determine_strandedness
+    sample_qc_transform --> sample_qc
     samtools_index --> rseqc_infer_experiment
     samtools_sort --> rseqc_infer_experiment
     samtools_sort --> samtools_index
     software_versions --> multiqc
+    star_align --> parse_chimeric_junctions
     star_align --> samtools_sort
     star_align --> tecount
     star_align --> tetranscripts_diffexp
@@ -61,8 +78,11 @@ for every sample concatenates split lanes, optionally trims with TrimGalore!,
 aligns with STAR, and auto-detects library strandedness from the sorted BAM.
 TEcount quantifies genes + TEs per sample; if your sample sheet has a
 `condition` column, TEtranscripts + DESeq2 also runs every pairwise contrast.
-A single MultiQC report pulls together FastQC, TrimGalore!, STAR, RSeQC, tool
-versions, and a per-rule resource-usage table.
+Optionally (`chimera.enabled: true`) the **same** alignment also drives a
+gene-TE chimera screen that annotates chimeric junction reads and produces a
+counts matrix plus an interactive sample-QC view. A single MultiQC report pulls
+together FastQC, TrimGalore!, STAR, RSeQC, the chimera QC plots (when
+enabled), tool versions, and a per-rule resource-usage table.
 
 ## Table of contents
 
@@ -77,6 +97,7 @@ versions, and a per-rule resource-usage table.
 - [Without conda](#without-conda)
 - [How strandedness is resolved](#how-strandedness-is-resolved)
 - [Automatic differential analysis](#automatic-differential-analysis)
+- [The chimera screen](#the-chimera-screen)
 - [Output layout](#output-layout)
 - [Notes](#notes)
 
@@ -145,10 +166,10 @@ cp config/samples.example.csv input/samples.csv
 snakemake --cores 16
 ```
 
-All tools (STAR, samtools, RSeQC, MultiQC, TEtranscripts, DESeq2, UCSC tools)
-live directly in this environment, so no `--sdm conda` is needed — nothing to
-download or solve per run. The pre-built tarball is exactly this environment,
-pre-assembled from the same `workflow/environment.yaml`.
+All tools (STAR, samtools, RSeQC, MultiQC, TEtranscripts, DESeq2, pheatmap,
+UCSC tools) live directly in this environment, so no `--sdm conda` is needed —
+nothing to download or solve per run. The pre-built tarball is exactly this
+environment, pre-assembled from the same `workflow/environment.yaml`.
 
 ## Configuration
 
@@ -179,6 +200,13 @@ reference):
 | `trimming.extra` | extra TrimGalore! flags passed verbatim. |
 | `strandedness.min_fraction` | confidence threshold for RSeQC auto-detection. |
 | `tetranscripts.*` | TEcount/TEtranscripts options (mode, padj, foldchange...). |
+| `chimera.enabled` | run the gene-TE chimera screen (default `false`; see [The chimera screen](#the-chimera-screen)). |
+| `chimera.star` | STAR chimeric-alignment detection params (`segment_min`, `overhang_min`, `score_drop_max`, `extra`) — defaults follow the TEtranscripts authors' recommendations for the gene-TE chimera context. |
+| `chimera.breakpoint_tolerance` | slack (bp) allowed when matching a STAR chimeric breakpoint to an exon/TE feature edge (default `0`). |
+| `chimera.require_canonical_junction` | require STAR junction type 1 (GT/AG) for a junction to count as gene-TE (default `false` — TE-involved splicing is often non-canonical). |
+| `chimera.qc.*` | sample-QC **view-only** filters: `min_samples_present`, `min_total_counts`, `min_events` and `pca_transform` (`vst`/`rlog`/`log2`). They never remove events from the catalog or counts matrix. |
+| `chimera.outputs.write_igv_bed` | also write a per-sample IGV BED track (`results/chimera/igv/`, default `false`). |
+| `chimera.outputs.write_counts_matrix` | write the chimera counts matrix + sample-QC view (`results/chimera/`, default `true`). |
 | `outputs.keep_merged_fastq` | keep the lane-concatenated fastqs (`results/fastq/`). `false` deletes them (temp()) once alignment is done. |
 | `outputs.keep_trimmed_fastq` | keep the trimmed fastqs (`results/trimming/`). `false` deletes them (temp()) once alignment is done. |
 
@@ -323,7 +351,7 @@ Every rule records its runtime and peak memory (threads/CPU-seconds) to
 Every tool version is pinned independently with defaults shipped in
 `workflow/default-config/versions.yaml` (STAR 2.7.11b, samtools 1.22.1,
 TrimGalore! 0.6.10, FastQC 0.12.1, RSeQC 5.0.4, MultiQC 1.33, TEtranscripts
-2.2.4, DESeq2 1.46.0, UCSC tools 482). Override any by creating
+2.2.4, DESeq2 1.46.0, pheatmap 1.0.12, UCSC tools 482). Override any by creating
 `input/versions.yaml` with just the keys you want to change:
 
 ```yaml
@@ -376,6 +404,68 @@ values, named `{later}_vs_{earlier}` alphabetically (e.g. `control`/`treatment`
 -> `treatment_vs_control`). If the column is absent, the workflow stops after
 per-sample TEcount quantification.
 
+## The chimera screen
+
+> **Experimental.** This stage is a newer addition to the pipeline — the
+> junction classification and the sample-QC view may still change between
+> releases. Use it for exploration and validate the output before relying on
+> it for published results.
+
+Optional, off by default (`chimera.enabled: false`); turn it on and the
+**same** STAR alignment that feeds TEcount also detects gene-TE chimeric
+junctions (no separate alignment step). Per sample, STAR's chimeric junction
+records (`Chimeric.out.junction`, from `--chimOutType Junctions WithinBAM
+SoftClip`) are annotated against the gene (exon) and TE BED tracks and
+collapsed into an event table (`results/chimera/{sample}_junctions.tsv`). Each
+row is one junction, classified by what its two breakpoint loci overlap:
+
+| direction | meaning |
+|-----------|---------|
+| `gene_to_te` / `te_to_gene` | a gene exon joined to a TE — the event of interest |
+| `gene_to_gene`, `te_to_te` | both loci in the same feature class (still recorded) |
+| `gene_to_other`, `other_to_gene`, `te_to_other` | one annotated locus, one unannotated |
+| `other` | neither breakpoint overlaps an exon or TE |
+
+Columns include the breakpoint coordinates/strands, STAR junction type and
+whether it is canonical (GT/AG), the number of supporting reads, the donor/
+acceptor overlap hits, the gene and TE ids (+ family/class), a `chimera_type`
+label for gene-TE events (`te_initiated` / `te_terminated` / `te_exonized`,
+from the gene's strand and the TE's position relative to it), an antisense
+flag, and the strandedness-derived `gene_strand_match` above.
+
+The per-sample tables then merge into:
+
+- `results/chimera/all_events.tsv` — every event across samples (with the
+  per-sample supporting read counts and a total).
+- `results/chimera/counts_matrix.tsv` — events x samples read counts.
+- `results/chimera/qc/{sample}_junction_qc.tsv` — per-sample summary
+  (total junctions, gene-TE vs other, canonical/non-canonical split,
+  repeat-flagged count, top families/classes).
+
+If `chimera.outputs.write_counts_matrix` is on (default), a **sample-QC view**
+is produced with DESeq2 (nf-core/rnaseq style): the counts matrix is
+transformed (`vst`/`rlog`/`log2`, `chimera.qc.pca_transform`), and the
+transformed matrix drives a PCA scatter and a sample-to-sample distance
+heatmap, written as MultiQC custom-content JSON and rendered interactively
+inside `multiqc_report.html` (points colored by the sample sheet's
+`condition` column). The `chimera.qc` filters (`min_samples_present`,
+`min_total_counts`, `min_events`) apply **only to this QC view** — the event
+catalog and counts matrix are never reduced. If too few events pass the
+filters, the plot rule ships empty custom-content JSON (the report documents
+the skip) and a log message instead of failing.
+
+With `chimera.outputs.write_igv_bed: true`, each sample also gets a BED track
+of its gene-TE junctions (`results/chimera/igv/{sample}_junctions.bed`) for
+direct loading in IGV (optionally colored by direction).
+
+`chimera.require_canonical_junction: true` restricts the gene-TE classification
+to canonical (GT/AG) junctions; the default keeps everything and records the
+canonical flag in the table. The `chimera.star` parameters are passed through
+to STAR's chimeric-alignment detection; the shipped defaults follow the
+TEtranscripts authors' recommendations for gene-TE chimeras. The screen calls
+for at least 2 samples (the PCA/heatmap view needs replicates); the QC-view
+`min_events` floor controls when the plots are drawn.
+
 ## Output layout
 
 ```
@@ -398,8 +488,16 @@ results/
 ├── tetranscripts/{contrast}_*.{txt,R}              # only if "condition" column present
 │                                                    #   ({contrast}.cntTable, _DESeq2.R,
 │                                                    #   _gene_TE_analysis.txt, _sigdiff_gene_TE.txt)
+├── chimera/                                        # only if chimera.enabled:
+│   ├── {sample}_junctions.tsv                      #   per-sample annotated junctions
+│   ├── all_events.tsv                              #   merged event catalog
+│   ├── counts_matrix.tsv                           #   events x samples (if write_counts_matrix)
+│   ├── qc/{sample}_junction_qc.tsv                 #   per-sample junction summary
+│   ├── qc/{pca_transform}_mqc.json                 #   sample-QC PCA (custom content)
+│   ├── qc/heatmap_{pca_transform}_mqc.json         #   sample-QC distance heatmap
+│   └── igv/{sample}_junctions.bed                  #   IGV track (if write_igv_bed)
 ├── versions/rnaseq_mqc_versions.yml                # pinned tool versions -> MultiQC
-├── qc/multiqc_report.html                          # FastQC + STAR + RSeQC + resource usage
+├── qc/multiqc_report.html                          # FastQC + STAR + RSeQC (+ chimera QC) + resource usage
 └── pipeline_info/
     ├── benchmarks/<rule>/...                       # per-rule CPU/RSS usage (-> MultiQC)
     ├── benchmark_summary_mqc.json                  # "Resource usage" table (see below)

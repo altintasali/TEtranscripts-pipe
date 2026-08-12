@@ -458,6 +458,12 @@ def _is_paired(sample):
 # -----------------------------------------------------------------------------
 TRIM_ENABLED = bool(config.get("trimming", {}).get("enabled", True))
 
+# Optional chimera screen (rules/chimera.smk + sample_qc.smk). When disabled
+# (the default), no chimera STAR flags are passed, the chimera rules are not
+# included, and the workflow behaves exactly like the plain quantification
+# pipeline.
+CHIMERA_ENABLED = bool(config.get("chimera", {}).get("enabled", False))
+
 # TrimGalore! always appends _trimmed (single-end) or _val_1/_val_2 (paired)
 # to the *input* basename, and its --basename normalization only strips a
 # single "_trimmed"/"_val_1" suffix. Feeding it an already-trimmed fastq
@@ -769,6 +775,28 @@ def all_benchmark_files():
         files.append(
             f"results/pipeline_info/benchmarks/tetranscripts_diffexp/{contrast}.txt"
         )
+    # Chimera-screen rules only run when the chimera stage is enabled.
+    if CHIMERA_ENABLED:
+        files += [
+            "results/pipeline_info/benchmarks/annotation_to_bed/annotation_to_bed.txt",
+            "results/pipeline_info/benchmarks/chimera_counts/chimera_counts.txt",
+        ]
+        for s in SAMPLES:
+            files += [
+                f"results/pipeline_info/benchmarks/parse_chimeric_junctions/{s}.txt",
+                f"results/pipeline_info/benchmarks/junction_qc/{s}.txt",
+            ]
+            if config["chimera"]["outputs"]["write_igv_bed"]:
+                files.append(
+                    f"results/pipeline_info/benchmarks/chimera_igv_bed/{s}.txt"
+                )
+        if config["chimera"]["outputs"]["write_counts_matrix"]:
+            transform = config["chimera"]["qc"]["pca_transform"]
+            files += [
+                f"results/pipeline_info/benchmarks/"
+                f"sample_qc_transform/{transform}.txt",
+                f"results/pipeline_info/benchmarks/sample_qc/{transform}.txt",
+            ]
     return sorted(set(files))
 
 
@@ -847,6 +875,25 @@ FASTQC_ENV = _write_env("fastqc", [f"fastqc={V['fastqc']}"])
 # self-consistent builds instead.
 RSEQC_ENV = _write_env("rseqc", [f"rseqc={V['rseqc']}", "python>=3.9"])
 MULTIQC_ENV = _write_env("multiqc", [f"multiqc={V['multiqc']}", "python>=3.9"])
+
+# Absolute path to workflow/scripts: shell directives that run the workflow's
+# own python/R scripts need a path that resolves the same way from the run
+# directory (the repo root) as the included rules file is parsed from.
+SCRIPTS_DIR = os.path.abspath("workflow/scripts")
+
+# Chimera sample-QC (PCA / sample clustering) runs in R with DESeq2
+# (nf-core/rnaseq style); deseq2 + r-base come from conda. A python>=3.9
+# floor guards the solver against ancient, mutually-incompatible builds.
+# Only referenced when the chimera stage is enabled.
+CHIMERA_QC_ENV = _write_env(
+    "chimera_qc",
+    [
+        f"bioconductor-deseq2={V['deseq2']}",
+        f"r-base={V['r_base']}",
+        "r-pheatmap",
+        "python>=3.9",
+    ],
+)
 
 # TEtranscripts is installed from PyPI rather than bioconda: the bioconda
 # recipe's run dependencies pin an ancient bioconductor-deseq (DESeq v1),

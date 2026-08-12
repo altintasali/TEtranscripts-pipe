@@ -1,11 +1,36 @@
 import os
 
+
+def _chim_star_args(wildcards):
+    """STAR chimeric-alignment parameters from config["chimera"]["star"], or
+    nothing when the chimera screen is disabled (the default). --chimOutType
+    stays fixed (Junctions + WithinBAM SoftClip): the junction file feeds the
+    chimera screen and the SA tags embedded in the BAM let the same alignment
+    be re-inspected in IGV."""
+    if not CHIMERA_ENABLED:
+        return ""
+    c = config["chimera"]["star"]
+    return " ".join(
+        [
+            f"--chimSegmentMin {c['segment_min']}",
+            f"--chimJunctionOverhangMin {c['overhang_min']}",
+            f"--chimScoreDropMax {c['score_drop_max']}",
+            str(c.get("extra", "")),
+        ]
+    ).strip()
+
+
 rule star_align:
     # Aligns one sample against the shared genome index. Output BAM is left
     # "Unsorted" (STAR's native read order) on purpose: TEtranscripts/TEcount
     # require either unsorted or queryname-sorted input, see
     # https://github.com/mhammell-laboratory/TEtranscripts#recommendations-for-tetranscripts-input-files
     # Runs the STAR version pinned in config["versions"]["star"].
+    # When the chimera stage is enabled (config["chimera"]["enabled"]), the
+    # same run also detects chimeric junctions (--chimOutType Junctions
+    # WithinBAM SoftClip) -- the {sample}_Chimeric.out.junction file that the
+    # chimera screen consumes is a side output of this same alignment, no
+    # separate alignment step.
     #
     # STAR's scratch directory (default: prefix/_STARtmp) is redirected to
     # --outTmpDir under config["star"]["tmpdir"] (default: the OS temp dir)
@@ -20,11 +45,20 @@ rule star_align:
         aln="results/star/{sample}_Aligned.out.bam",
         log_final="results/star/{sample}_Log.final.out",
         sj="results/star/{sample}_SJ.out.tab",
+        # The {sample}_Chimeric.out.junction file (the chimera screen's
+        # input) is only declared when the chimera stage is enabled;
+        # otherwise it is not produced and not required.
+        **({"chim": "results/star/{sample}_Chimeric.out.junction"}
+           if CHIMERA_ENABLED else {}),
     params:
         reads=star_reads_param,
         read_command=star_read_command_param,
         prefix=lambda wc: f"results/star/{wc.sample}_",
         tmpdir=lambda wc: os.path.join(STAR_TMPDIR, f"star_{wc.sample}"),
+        chim=_chim_star_args,
+        chim_out_type=(
+            "--chimOutType Junctions WithinBAM SoftClip " if CHIMERA_ENABLED else ""
+        ),
         extra=config["star"]["extra"],
     threads: get_resources("star_align")["threads"]
     resources:
@@ -55,6 +89,8 @@ rule star_align:
         "--outFileNamePrefix {params.prefix} "
         "--outTmpDir {params.tmpdir} "
         "--outSAMtype BAM Unsorted "
+        "{params.chim_out_type}"
+        "{params.chim} "
         "{params.extra} "
         "> {log} 2>&1 "
         "|| (echo 'STAR exited non-zero; checking whether alignment output "

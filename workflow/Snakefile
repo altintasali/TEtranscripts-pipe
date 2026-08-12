@@ -10,6 +10,7 @@ min_version("8.0")
 # the README to override any of these instead.
 configfile: "workflow/default-config/versions.yaml"
 configfile: "workflow/default-config/resources.yaml"
+configfile: "workflow/default-config/chimera.yaml"
 
 # Your analysis config. Unlike the defaults above, this one belongs to you:
 # input/config.yaml (and input/samples.csv) are gitignored, so create them
@@ -52,6 +53,9 @@ include: "rules/trimming.smk"
 include: "rules/align.smk"
 include: "rules/strandedness.smk"
 include: "rules/tetranscripts.smk"
+if CHIMERA_ENABLED:
+    include: "rules/chimera.smk"
+    include: "rules/sample_qc.smk"
 include: "rules/software_versions.smk"
 include: "rules/qc.smk"
 
@@ -61,6 +65,10 @@ rule all:
         all_tecount_tables(),
         all_diffexp_outputs(),
         "results/qc/multiqc_report.html",
+        # The chimera helper functions live in rules/chimera.smk, only
+        # included when the chimera stage is enabled.
+        **({"chimera": all_chimera_outputs(),
+            "sample_qc": all_sample_qc_outputs()} if CHIMERA_ENABLED else {}),
 
 
 rule star_index_only:

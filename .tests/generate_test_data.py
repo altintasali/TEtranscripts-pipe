@@ -22,8 +22,12 @@ Single-end samples (control_rep3, treatment_rep3) deliberately sit in the
 same two conditions as the paired-end samples so the test run exercises the
 workflow's per-sample single/paired-end branching -- trimming (trim_galore
 vs trim_galore_se), STAR --readFilesIn, RSeQC strandedness auto-detection
-(which supports single-end BAMs), TEcount, and a DESeq2 contrast that mixes
-both library formats.
+(which supports single-end BAMs), and the chimera screen's per-sample
+junction parsing. Every sample also carries a small number of SPLIT READS
+(gene segment + TE segment in one read, see CHIMERA_READS) so STAR emits
+real gene-TE chimeric junctions and the chimera annotation / counts /
+sample-QC stages run on non-empty data instead of silently passing on
+zero-event inputs.
 
 Genome size note: earlier versions of this script used a 10kb genome, which
 turned out to sit in STAR's known small-genome crash zone (custom
@@ -98,6 +102,39 @@ SINGLE_END_SAMPLES = {"control_rep3", "treatment_rep3"}
 # same merge for a single-end sample (R1 only).
 LANE_SPLIT_SAMPLES = {"treatment_rep1", "control_rep3"}
 LANE_NAMES = ("L001", "L002")
+
+# Chimeric reads. The samples above only ever sample reads from within a
+# single locus, so STAR finds no gene-TE chimeric junctions and the chimera
+# screen/QC stages run on empty inputs. To exercise them, every sample gets a
+# handful of SPLIT READS (one read carrying a gene segment + a TE segment),
+# which STAR's chimeric-alignment detection reports as junctions.
+#
+# Breakpoints are FIXED (not sampled per sample): a junction only appears in
+# the merged counts matrix when the same event_id (chrom:donor:strand:
+# acceptor:strand:direction) occurs in >= 2 samples, and random per-sample
+# breakpoints would make every event sample-unique and get filtered out by
+# the QC-view filters. Each split read is TE 25bp + gene 25bp (STAR reports
+# the 5' segment as the junction donor, so this yields a te_to_gene event at
+# a donor inside the TE and an acceptor inside gene GENE50). Both segments
+# are 25bp >= the test config's --chimSegmentMin 12 / overhang 12, and the
+# breakpoints sit well inside the TE/gene features (breakpoint_tolerance=0).
+CHIMERA_GENE_INDEX = 49  # GENE50, mid-block
+CHIMERA_JUNCTIONS = [
+    (1_200, 120),  # TE offset / GENE50 offset for the 5'->3' split point
+    (2_400, 150),
+    (3_600, 90),
+]
+# (reads for junction 0, junction 1, junction 2) per sample. All non-zero so
+# every event is present in all six samples and the DESeq2 QC view draws.
+CHIMERA_READS = {
+    "treatment_rep1": (5, 7, 3),
+    "treatment_rep2": (8, 4, 6),
+    "treatment_rep3": (6, 5, 4),
+    "control_rep1": (3, 6, 5),
+    "control_rep2": (7, 3, 8),
+    "control_rep3": (4, 8, 6),
+}
+CHIMERA_SEGMENT = 25
 
 COMPLEMENT = str.maketrans("ACGT", "TGCA")
 
@@ -183,6 +220,28 @@ def gene_region(i):
     """0-based half-open sampling region for gene i (see gene_region0 docstring)."""
     start0 = GENE_START - 1 + i * GENE_LEN
     return start0, start0 + GENE_LEN
+
+
+def chimera_reads(genome, counts, seed):
+    """Split reads for the chimera fixture: for each fixed junction in
+    CHIMERA_JUNCTIONS, `counts[i]` copies of the same TE+gene 50bp read, so
+    the same event_id shows up in every sample (see the CHIMERA_JUNCTIONS
+    comment). The donor lies in the inner half of the TE and the acceptor in
+    the inner half of gene CHIMERA_GENE, so the breakpoints sit comfortably
+    inside the GTF features (breakpoint_tolerance=0 in the test config)."""
+    g_start = GENE_START - 1 + CHIMERA_GENE_INDEX * GENE_LEN
+    te_start = TE_START - 1
+    rng = random.Random(seed)
+    reads = []
+    for (te_off, g_off), n in zip(CHIMERA_JUNCTIONS, counts):
+        for _ in range(n):
+            # Identical reads; jitter is pointless because the junction
+            # coordinates are what must match across samples.
+            reads.append(
+                genome[te_start + te_off : te_start + te_off + CHIMERA_SEGMENT]
+                + genome[g_start + g_off : g_start + g_off + CHIMERA_SEGMENT]
+            )
+    return reads
 
 
 def main():
@@ -274,6 +333,23 @@ def main():
             ):
                 r1_reads.append(r1)
                 r2_reads.append(r2)
+
+        # Chimeric split reads (see the CHIMERA_JUNCTIONS comment). For
+        # paired-end samples the split reads go in R1 and a 50bp mate is
+        # sampled from the same gene so R1/R2 stay paired; STAR still splits
+        # R1 across loci.
+        chim = chimera_reads(genome, CHIMERA_READS[sample], seed=sidx * 10_000 + 5_000)
+        if is_se:
+            r1_reads.extend(chim)
+        else:
+            chim_rng = random.Random(sidx * 10_000 + 5_001)
+            g0 = GENE_START - 1 + CHIMERA_GENE_INDEX * GENE_LEN
+            for split in chim:
+                r1_reads.append(split)
+                g = chim_rng.randint(g0 + GENE_LEN // 4, g0 + 3 * GENE_LEN // 4)
+                r2_reads.append(
+                    revcomp(genome[g : g + READ_LEN])
+                )
 
         if sample in LANE_SPLIT_SAMPLES:
             # Write the sample's reads as two lane files (paired-end reads

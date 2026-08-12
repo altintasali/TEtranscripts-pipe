@@ -1,0 +1,33 @@
+# =============================================================================
+# BUILT-IN DEFAULT chimera-screen settings -- part of the workflow itself,
+# loaded automatically (see workflow/Snakefile). You should NOT normally need
+# to edit this file; copy the `chimera:` section from config/config.example.yaml
+# into input/config.yaml and change what you need there instead.
+#
+# The chimera screen is opt-in: `chimera.enabled: false` (the default) keeps
+# the workflow byte-identical to the plain quantification pipeline -- no extra
+# STAR flags, no chimera rules, no chimera outputs. Set it to true to also
+# screen gene-TE chimeric junctions from the same STAR alignment.
+#
+# EXPERIMENTAL: this stage is a newer addition to the pipeline -- its junction
+# classification and QC-view behavior may still change between releases. Use
+# for exploration, and validate the output before relying on it for published
+# results.
+# =============================================================================
+chimera:
+  enabled: false
+  star:
+    segment_min: 12
+    overhang_min: 12
+    score_drop_max: 20
+    extra: ""
+  breakpoint_tolerance: 0
+  require_canonical_junction: false
+  qc:
+    min_samples_present: 2
+    min_total_counts: 5
+    min_events: 10
+    pca_transform: vst
+  outputs:
+    write_igv_bed: false
+    write_counts_matrix: true

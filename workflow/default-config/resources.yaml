@@ -114,6 +114,50 @@ resources:
     mem_mb: 32000
     runtime: 360
 
+  # ---- Chimera gene-TE junction screen (only when enabled) ----------------
+  # These rules only run when chimera.enabled is true (see common.smk); the
+  # entries are inert otherwise.
+
+  annotation_to_bed:
+    # Pure-python GTF->BED conversion; single-threaded, small.
+    threads: 1
+    mem_mb: 2000
+    runtime: 30
+
+  parse_chimeric_junctions:
+    # Annotating a junction file against the gene/TE tracks; single-threaded.
+    threads: 1
+    mem_mb: 8000
+    runtime: 120
+
+  chimera_counts:
+    # Merging per-sample junction tables; single-threaded, streaming I/O.
+    threads: 1
+    mem_mb: 4000
+    runtime: 30
+
+  junction_qc:
+    threads: 1
+    mem_mb: 2000
+    runtime: 15
+
+  chimera_igv_bed:
+    threads: 1
+    mem_mb: 2000
+    runtime: 15
+
+  sample_qc_transform:
+    # DESeq2 vst/rlog on the chimera counts matrix; R is single-threaded.
+    threads: 1
+    mem_mb: 8000
+    runtime: 60
+
+  sample_qc:
+    # PCA + pheatmap in R; single-threaded.
+    threads: 1
+    mem_mb: 8000
+    runtime: 30
+
   multiqc:
     threads: 1
     mem_mb: 4000

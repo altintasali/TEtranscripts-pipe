@@ -40,11 +40,18 @@ LABELS = {
     "determine_strandedness": ("determine strandedness", "Per sample"),
     "tecount": ("TEcount", "Quantification + QC"),
     "tetranscripts_diffexp": ("TEtranscripts + DESeq2", "Quantification + QC"),
+    "annotation_to_bed": ("annotation -> BED tracks", "Chimera screen"),
+    "parse_chimeric_junctions": ("parse chimeric junctions", "Chimera screen"),
+    "junction_qc": ("junction QC", "Chimera screen"),
+    "chimera_igv_bed": ("IGV BED track", "Chimera screen"),
+    "chimera_counts": ("chimera counts matrix", "Chimera screen"),
+    "sample_qc_transform": ("sample-QC transform", "Chimera screen"),
+    "sample_qc": ("sample-QC plots", "Chimera screen"),
     "software_versions": ("software versions", "Quantification + QC"),
     "benchmark_summary": ("resource-usage summary", "Quantification + QC"),
     "multiqc": ("MultiQC", "Quantification + QC"),
 }
-PHASES = ["Reference (once)", "Per sample", "Quantification + QC", "Other"]
+PHASES = ["Reference (once)", "Per sample", "Quantification + QC", "Chimera screen", "Other"]
 IGNORED_RULES = {"all"}
 # benchmark_summary depends on every rule's benchmark file, and multiqc on
 # most rules' outputs -- drawing all those fan-in edges would turn the
