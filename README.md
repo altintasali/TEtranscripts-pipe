@@ -88,6 +88,7 @@ enabled), tool versions, and a per-rule resource-usage table.
 
 - [Quick start](#quick-start)
 - [Configuration](#configuration)
+- [Command-line interface](#command-line-interface)
 - [Test profile](#test-profile)
 - [Useful partial targets](#useful-partial-targets)
 - [HPC / SLURM](#hpc--slurm)
@@ -166,6 +167,10 @@ cp config/samples.example.csv input/samples.csv
 snakemake --cores 16
 ```
 
+(Or let the bundled CLI do these setup steps for you — `init`, `samples`, and
+`run` generate the same files and launch snakemake; see the
+[Command-line interface](#command-line-interface) section.)
+
 All tools (STAR, samtools, RSeQC, MultiQC, TEtranscripts, DESeq2, pheatmap,
 UCSC tools) live directly in this environment, so no `--sdm conda` is needed —
 nothing to download or solve per run. The pre-built tarball is exactly this
@@ -225,6 +230,53 @@ All rows of a lane-split sample must agree on `strandedness` and `condition`,
 and every row must include both `fastq_1` and `fastq_2` (single-end lanes
 can't be mixed with paired-end lanes for the same sample). See
 `config/samples.example.csv` for a worked example.
+
+## Command-line interface
+
+A thin CLI wraps the setup steps above so you don't have to assemble
+`input/config.yaml` and `input/samples.csv` by hand — it creates the same
+two gitignored files and then launches snakemake, so the workflow itself is
+unchanged. Run it with the project's Python (the env ships PyYAML):
+
+```bash
+python workflow/scripts/tetranscripts-pipe --version   # echoes the release from VERSION
+python workflow/scripts/tetranscripts-pipe --help      # lists the subcommands
+```
+
+Three subcommands:
+
+- **`init`** — copies `config/config.example.yaml` and
+  `config/samples.example.csv` into `input/` (refuses to overwrite unless
+  `--force`). Same as the manual `cp` steps in
+  [Configuration](#configuration), for starting a fresh analysis.
+
+- **`samples --reads DIR`** — scans a fastq directory (recursively) and
+  writes a schema-valid `input/samples.csv`. `_R1`/`_R2` (or `_1`/`_2`)
+  files pair up; a lone `_R1` is written as single-end; unmarked files
+  become single-end rows; `_L00N` lanes and `_001` chunks collapse into
+  repeated rows for the same sample — exactly the nf-core lane merging the
+  workflow's `cat_fastq` step expects. It fails loudly on R2-without-R1 and
+  on mixed paired/single-end lanes for one sample. `--dry-run` prints the
+  sheet to stdout instead of writing it.
+
+- **`run`** — generates `input/config.yaml` from the example template when
+  missing (with `--fasta/--gtf/--te-gtf` filling in the reference paths)
+  and the sample sheet from `--reads` when missing, then runs snakemake:
+
+  ```bash
+  python workflow/scripts/tetranscripts-pipe run \
+    --reads /data/fastq \
+    --fasta /refs/genome.fa --gtf /refs/genome.gtf --te-gtf /refs/TE_curated.gtf \
+    --cores 32
+
+  python workflow/scripts/tetranscripts-pipe run --dry-run --reads /data/fastq   # just print the plan
+  python workflow/scripts/tetranscripts-pipe run --profile workflow/profiles/slurm --cores 64
+  ```
+
+  An existing `input/config.yaml`/`input/samples.csv` is used as-is, so your
+  hand-edits survive; `--force` regenerates them. `--profile` (e.g. the
+  bundled `workflow/profiles/slurm`), `--cores`, `--snakemake-args` and
+  `--keep-temp` are passed through to snakemake.
 
 ## Test profile
 
