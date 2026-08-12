@@ -25,9 +25,11 @@ extra_fn_clean_exts:
 # and, when trimming is enabled, the TrimGalore!-run reports), disambiguated
 # by path_filters on the output directories. The resource-usage summary
 # (custom content emitted by the benchmark_summary rule, qc.smk) closes the
-# report. When the chimera stage is enabled, its sample-QC sections (ids
-# chimera_sample_qc_pca / chimera_sample_qc_heatmap, emitted by the sample_qc
-# rule) render inside the custom_content module (ordered below).
+# report. When the chimera stage and/or the TEcounts sample-QC stage is
+# enabled, their sample-QC sections (ids chimera_sample_qc_pca /
+# chimera_sample_qc_heatmap, tecount_sample_qc_pca / tecount_sample_qc_heatmap,
+# emitted by the sample_qc / tecount_qc rules) render inside the
+# custom_content module (ordered below).
 module_order:
   - fastqc:
       name: "FastQC (raw input)"
@@ -44,11 +46,14 @@ module_order:
 
 # Order of the custom-content sections within the custom_content module;
 # without this their order is arbitrary. Section ids come from the `_mqc.json`
-# documents emitted by the sample_qc (chimera screen, only when enabled) and
-# benchmark_summary rules. MultiQC silently skips ids that produced no data,
-# so the chimera ids are harmless when the chimera stage is off.
+# documents emitted by the sample_qc (chimera screen, only when enabled),
+# tecount_qc (TEcounts sample-QC, enabled by default) and benchmark_summary
+# rules. MultiQC silently skips ids that produced no data, so the ids are
+# harmless when the corresponding stage is off.
 custom_content:
   order:
     - chimera_sample_qc_pca
     - chimera_sample_qc_heatmap
+    - tecount_sample_qc_pca
+    - tecount_sample_qc_heatmap
     - resource_usage

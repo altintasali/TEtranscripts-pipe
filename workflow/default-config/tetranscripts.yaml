@@ -1,0 +1,44 @@
+# =============================================================================
+# BUILT-IN DEFAULT TEcounts/TEtranscripts settings -- part of the workflow
+# itself, loaded automatically (see workflow/Snakefile). You should NOT
+# normally need to edit this file; copy the `tetranscripts:` section from
+# config/config.example.yaml into input/config.yaml and change what you need
+# there instead.
+#
+# TEcount quantification runs on every sample unconditionally; the optional
+# `qc` subsection adds the sample-QC view (PCA + sample clustering) that
+# mirrors the chimera screen's QC stage, driven by the same shared
+# sample_qc.R script.
+# =============================================================================
+tetranscripts:
+  # TE counting mode: "multi" distributes multi-mapping reads across all their
+  # alignments (recommended, and the TEtranscripts default), "uniq" only uses
+  # uniquely-mapping reads.
+  mode: multi
+  # FDR cutoff for differential-expression significance (TEtranscripts --padj)
+  padj: 0.05
+  # Absolute log2 fold-change cutoff (TEtranscripts --foldchange). The value
+  # must be > 0; 1 is the effective "no filter" setting.
+  foldchange: 1
+  # Minimum read count cutoff (TEtranscripts --minread)
+  minread: 1
+  # Extra command-line arguments passed verbatim to TEtranscripts/TEcount
+  extra: ""
+  qc:
+    # Sample-QC view (PCA + sample clustering) of the per-sample TEcount
+    # tables, rendered inside multiqc_report.html. On by default; set
+    # enabled: false to skip it entirely (no counts matrix, no plots).
+    enabled: true
+    # Filters applied to the counts matrix *for the PCA/clustering view only*.
+    # min_events is the floor for drawing the QC plots. They never remove
+    # features from the per-sample cntTables.
+    min_samples_present: 2
+    min_total_counts: 5
+    min_events: 10
+    # Count-matrix transformation for the QC view: vst / rlog (DESeq2) or
+    # log2 (log2(x+1), no DESeq2).
+    pca_transform: vst
+    # Which features the QC-view matrix keeps: TE (TE subfamily names only,
+    # the default -- the view this pipeline is built for), gene (gene ids
+    # only), or all (genes + TEs, exactly what TEcount reports).
+    feature_class: TE

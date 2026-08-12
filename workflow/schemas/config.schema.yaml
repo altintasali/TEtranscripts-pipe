@@ -113,6 +113,37 @@ properties:
       foldchange: {type: number}
       minread: {type: integer}
       extra: {type: string}
+      qc:
+        type: object
+        description: >-
+          Sample-QC view (PCA + sample clustering) of the per-sample TEcount
+          tables, rendered inside multiqc_report.html. On by default; set
+          enabled to false to skip it entirely. Filters apply to the QC-view
+          counts matrix only -- the per-sample cntTables are never reduced.
+        properties:
+          enabled:
+            type: boolean
+          min_samples_present:
+            type: integer
+            minimum: 1
+          min_total_counts:
+            type: integer
+            minimum: 1
+          min_events:
+            type: integer
+            minimum: 1
+          pca_transform:
+            type: string
+            enum: ["vst", "rlog", "log2"]
+          feature_class:
+            type: string
+            enum: ["TE", "gene", "all"]
+            description: >-
+              Which features the QC-view counts matrix keeps: TE (TE subfamily
+              names only, the default), gene (gene ids only), or all (genes +
+              TEs, exactly what TEcount reports).
+        required: [enabled, min_samples_present, min_total_counts, min_events,
+                   pca_transform, feature_class]
     required: [mode]
 
   chimera:

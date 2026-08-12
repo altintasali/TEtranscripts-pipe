@@ -92,6 +92,16 @@ tetranscripts:
   foldchange: 1
   minread: 1
   extra: ""
+  # Sample-QC view: enabled so CI exercises the whole tecount sample-QC stage.
+  # feature_class: all keeps the 100 test genes + the single TE (default TE
+  # would leave just 1 feature, exercising only the empty-plot path).
+  qc:
+    enabled: true
+    min_samples_present: 2
+    min_total_counts: 5
+    min_events: 2
+    pca_transform: vst
+    feature_class: all
 
 # Tiny resource footprint so the test runs comfortably on a laptop or in CI
 # -- overrides the (much larger) built-in defaults in
@@ -110,6 +120,9 @@ resources:
   determine_strandedness: {threads: 1, mem_mb: 1000, runtime: 5}
   tecount: {threads: 1, mem_mb: 1000, runtime: 10}
   tetranscripts_diffexp: {threads: 1, mem_mb: 1000, runtime: 10}
+  tecount_counts: {threads: 1, mem_mb: 500, runtime: 5}
+  tecount_qc_transform: {threads: 1, mem_mb: 1000, runtime: 5}
+  tecount_qc: {threads: 1, mem_mb: 1000, runtime: 5}
   annotation_to_bed: {threads: 1, mem_mb: 500, runtime: 5}
   parse_chimeric_junctions: {threads: 1, mem_mb: 500, runtime: 5}
   chimera_counts: {threads: 1, mem_mb: 500, runtime: 5}

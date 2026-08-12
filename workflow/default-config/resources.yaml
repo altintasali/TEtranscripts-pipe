@@ -114,6 +114,29 @@ resources:
     mem_mb: 32000
     runtime: 360
 
+  # ---- TEcounts sample-QC (only when tetranscripts.qc.enabled) ----------
+  # These rules only run when tetranscripts.qc.enabled is true (the default,
+  # see common.smk); the entries are inert otherwise.
+
+  tecount_counts:
+    # Merging per-sample cntTables into the counts matrix; single-threaded,
+    # streaming I/O.
+    threads: 1
+    mem_mb: 4000
+    runtime: 30
+
+  tecount_qc_transform:
+    # DESeq2 vst/rlog on the TEcounts counts matrix; R is single-threaded.
+    threads: 1
+    mem_mb: 8000
+    runtime: 60
+
+  tecount_qc:
+    # PCA + sample-distance heatmap in R; single-threaded.
+    threads: 1
+    mem_mb: 8000
+    runtime: 30
+
   # ---- Chimera gene-TE junction screen (only when enabled) ----------------
   # These rules only run when chimera.enabled is true (see common.smk); the
   # entries are inert otherwise.

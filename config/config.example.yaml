@@ -125,6 +125,25 @@ tetranscripts:
   minread: 1
   # Extra command-line arguments passed verbatim to TEtranscripts/TEcount
   extra: ""
+  qc:
+    # Sample-QC view (PCA + sample clustering) of the per-sample TEcount
+    # tables, rendered interactively inside multiqc_report.html (same style
+    # as the chimera screen's QC view, driven by the same shared script).
+    # On by default; set enabled: false to skip the counts matrix + plots.
+    enabled: true
+    # Filters applied to the counts matrix *for the PCA/clustering view
+    # only* -- they never remove features from the per-sample cntTables.
+    # min_events is the floor for drawing the QC plots.
+    min_samples_present: 2
+    min_total_counts: 5
+    min_events: 10
+    # Count-matrix transformation for the QC view: vst / rlog (DESeq2) or
+    # log2 (log2(x+1), no DESeq2).
+    pca_transform: vst
+    # Which features the QC-view matrix keeps: TE (TE subfamily names only,
+    # the default -- the TE-focused view this pipeline is built for), gene
+    # (gene ids only), or all (genes + TEs, exactly what TEcount reports).
+    feature_class: TE
 
 # Differential gene/TE enrichment (TEtranscripts + DESeq2) is fully automatic:
 # if input/samples.csv has a "condition" column, the workflow generates one

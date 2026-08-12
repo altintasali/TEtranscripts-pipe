@@ -11,6 +11,7 @@ min_version("8.0")
 configfile: "workflow/default-config/versions.yaml"
 configfile: "workflow/default-config/resources.yaml"
 configfile: "workflow/default-config/chimera.yaml"
+configfile: "workflow/default-config/tetranscripts.yaml"
 
 # Your analysis config. Unlike the defaults above, this one belongs to you:
 # input/config.yaml (and input/samples.csv) are gitignored, so create them
@@ -53,6 +54,7 @@ include: "rules/trimming.smk"
 include: "rules/align.smk"
 include: "rules/strandedness.smk"
 include: "rules/tetranscripts.smk"
+include: "rules/tecount_qc.smk"
 if CHIMERA_ENABLED:
     include: "rules/chimera.smk"
     include: "rules/sample_qc.smk"
@@ -69,6 +71,9 @@ rule all:
         # included when the chimera stage is enabled.
         **({"chimera": all_chimera_outputs(),
             "sample_qc": all_sample_qc_outputs()} if CHIMERA_ENABLED else {}),
+        # The TEcounts sample-QC helpers live in rules/tecount_qc.smk, only
+        # included when tetranscripts.qc.enabled is true (the default).
+        **({"tecount_qc": all_tecount_qc_outputs()} if TECOUNT_QC["enabled"] else {}),
 
 
 rule star_index_only:

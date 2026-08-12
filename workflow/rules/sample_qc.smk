@@ -34,8 +34,8 @@ rule sample_qc_transform:
     conda:
         CHIMERA_QC_ENV
     shell:
-        "Rscript {SCRIPTS_DIR}/chimera_sample_qc.R "
-        "--transform {input.counts} {params.samples} {wildcards.transform} "
+        "Rscript {SCRIPTS_DIR}/sample_qc.R "
+        "--transform chimera {input.counts} {params.samples} {wildcards.transform} "
         "{params.min_samples_present} {params.min_total_counts} "
         "{output} > {log} 2>&1"
 
@@ -63,6 +63,6 @@ rule sample_qc:
     conda:
         CHIMERA_QC_ENV
     shell:
-        "Rscript {SCRIPTS_DIR}/chimera_sample_qc.R "
-        "--plots {input.transformed} {params.samples} {params.min_events} "
+        "Rscript {SCRIPTS_DIR}/sample_qc.R "
+        "--plots chimera {input.transformed} {params.samples} {params.min_events} "
         "{wildcards.transform} {output.pca} {output.heatmap} > {log} 2>&1"

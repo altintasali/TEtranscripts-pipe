@@ -464,6 +464,13 @@ TRIM_ENABLED = bool(config.get("trimming", {}).get("enabled", True))
 # pipeline.
 CHIMERA_ENABLED = bool(config.get("chimera", {}).get("enabled", False))
 
+# TEcounts sample-QC (PCA + sample clustering, rules/tecount_qc.smk), built
+# from the per-sample TEcount tables. Defaults come from the built-in
+# workflow/default-config/tetranscripts.yaml (the `qc:` section); user config
+# overrides them. When disabled, no counts matrix or QC plots are produced.
+TECOUNT_QC = config["tetranscripts"]["qc"]
+TECOUNT_QC_ENABLED = bool(TECOUNT_QC["enabled"])
+
 # TrimGalore! always appends _trimmed (single-end) or _val_1/_val_2 (paired)
 # to the *input* basename, and its --basename normalization only strips a
 # single "_trimmed"/"_val_1" suffix. Feeding it an already-trimmed fastq
@@ -797,6 +804,14 @@ def all_benchmark_files():
                 f"sample_qc_transform/{transform}.txt",
                 f"results/pipeline_info/benchmarks/sample_qc/{transform}.txt",
             ]
+    # TEcounts sample-QC rules only run when tetranscripts.qc.enabled.
+    if TECOUNT_QC_ENABLED:
+        transform = TECOUNT_QC["pca_transform"]
+        files += [
+            "results/pipeline_info/benchmarks/tecount_counts/tecount_counts.txt",
+            f"results/pipeline_info/benchmarks/tecount_qc_transform/{transform}.txt",
+            f"results/pipeline_info/benchmarks/tecount_qc/{transform}.txt",
+        ]
     return sorted(set(files))
 
 

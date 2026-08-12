@@ -28,6 +28,9 @@ flowchart LR
     subgraph quantification_qc["Quantification + QC"]
         tecount["TEcount"]
         tetranscripts_diffexp["TEtranscripts + DESeq2"]
+        tecount_counts["tecount counts matrix"]
+        tecount_qc_transform["sample-QC transform (vst/rlog/log2)"]
+        tecount_qc["sample-QC plots (PCA + clustering)"]
         software_versions["software versions"]
         benchmark_summary["resource-usage summary"]
         multiqc["MultiQC"]
@@ -66,6 +69,9 @@ flowchart LR
     star_align --> tecount
     star_align --> tetranscripts_diffexp
     star_index --> star_align
+    tecount --> tecount_counts
+    tecount_counts --> tecount_qc_transform
+    tecount_qc_transform --> tecount_qc
     trim_galore_pe --> star_align
     trim_galore_se --> star_align
 ```
@@ -78,10 +84,12 @@ for every sample concatenates split lanes, optionally trims with TrimGalore!,
 aligns with STAR, and auto-detects library strandedness from the sorted BAM.
 TEcount quantifies genes + TEs per sample; if your sample sheet has a
 `condition` column, TEtranscripts + DESeq2 also runs every pairwise contrast.
-Optionally (`chimera.enabled: true`) the **same** alignment also drives a
-gene-TE chimera screen that annotates chimeric junction reads and produces a
-counts matrix plus an interactive sample-QC view. A single MultiQC report pulls
-together FastQC, TrimGalore!, STAR, RSeQC, the chimera QC plots (when
+The per-sample TEcount tables also drive a sample-QC view (PCA + sample
+clustering, on by default) rendered inside the MultiQC report. Optionally
+(`chimera.enabled: true`) the **same** alignment also drives a gene-TE chimera
+screen that annotates chimeric junction reads and produces a counts matrix
+plus an interactive sample-QC view. A single MultiQC report pulls together
+FastQC, TrimGalore!, STAR, RSeQC, the TEcounts and chimera QC plots (when
 enabled), tool versions, and a per-rule resource-usage table.
 
 ## Table of contents
@@ -98,6 +106,7 @@ enabled), tool versions, and a per-rule resource-usage table.
 - [Without conda](#without-conda)
 - [How strandedness is resolved](#how-strandedness-is-resolved)
 - [Automatic differential analysis](#automatic-differential-analysis)
+- [TEcounts sample-QC](#tecounts-sample-qc)
 - [The chimera screen](#the-chimera-screen)
 - [Output layout](#output-layout)
 - [Notes](#notes)
@@ -205,6 +214,7 @@ reference):
 | `trimming.extra` | extra TrimGalore! flags passed verbatim. |
 | `strandedness.min_fraction` | confidence threshold for RSeQC auto-detection. |
 | `tetranscripts.*` | TEcount/TEtranscripts options (mode, padj, foldchange...). |
+| `tetranscripts.qc.*` | TEcounts sample-QC view (PCA + sample clustering, on by default): `enabled`, view-only filters `min_samples_present`/`min_total_counts`/`min_events`, `pca_transform` (`vst`/`rlog`/`log2`), and `feature_class` (`TE` default / `gene` / `all`). They never remove features from the cntTables. |
 | `chimera.enabled` | run the gene-TE chimera screen (default `false`; see [The chimera screen](#the-chimera-screen)). |
 | `chimera.star` | STAR chimeric-alignment detection params (`segment_min`, `overhang_min`, `score_drop_max`, `extra`) — defaults follow the TEtranscripts authors' recommendations for the gene-TE chimera context. |
 | `chimera.breakpoint_tolerance` | slack (bp) allowed when matching a STAR chimeric breakpoint to an exon/TE feature edge (default `0`). |
@@ -456,6 +466,26 @@ values, named `{later}_vs_{earlier}` alphabetically (e.g. `control`/`treatment`
 -> `treatment_vs_control`). If the column is absent, the workflow stops after
 per-sample TEcount quantification.
 
+## TEcounts sample-QC
+
+On by default (`tetranscripts.qc.enabled: true`), the per-sample TEcount
+tables (`results/tecount/{sample}.cntTable`) are merged into a feature x
+sample counts matrix (`results/tecount/counts_matrix.tsv`) and a sample-QC
+view is produced with DESeq2 (nf-core/rnaseq style) — the same machinery as
+the chimera screen's QC stage, driven by the shared `sample_qc.R` script. The
+matrix is restricted to **TE subfamilies** by default (`feature_class: TE`,
+the view this pipeline is built for; `gene` and `all` also available), then
+transformed (`vst`/`rlog`/`log2`, `tetranscripts.qc.pca_transform`) and turned
+into a PCA scatter plus a sample-to-sample distance heatmap, written as MultiQC
+custom-content JSON and rendered interactively inside `multiqc_report.html`
+(points colored by the sample sheet's `condition` column). The
+`tetranscripts.qc` filters (`min_samples_present`, `min_total_counts`,
+`min_events`) apply **only to this QC view** — the per-sample cntTables are
+never reduced. If too few features pass, the plot rule ships empty
+custom-content JSON (the report documents the skip) and a log message instead
+of failing. Set `tetranscripts.qc.enabled: false` to skip the matrix and plots
+entirely.
+
 ## The chimera screen
 
 > **Experimental.** This stage is a newer addition to the pipeline — the
@@ -537,6 +567,10 @@ results/
 ├── rseqc/{sample}_infer_experiment.txt             # raw RSeQC report
 ├── rseqc/{sample}_strandedness.txt                 # resolved no/forward/reverse
 ├── tecount/{sample}.cntTable                       # per-sample gene+TE counts
+├── tecount/counts_matrix.tsv                       # feature x samples (if tetranscripts.qc.enabled)
+├── tecount/qc/{pca_transform}_counts.tsv           #   QC-view transformed matrix
+├── tecount/qc/pca_{pca_transform}_mqc.json         #   sample-QC PCA (custom content)
+├── tecount/qc/heatmap_{pca_transform}_mqc.json     #   sample-QC distance heatmap
 ├── tetranscripts/{contrast}_*.{txt,R}              # only if "condition" column present
 │                                                    #   ({contrast}.cntTable, _DESeq2.R,
 │                                                    #   _gene_TE_analysis.txt, _sigdiff_gene_TE.txt)
@@ -549,7 +583,7 @@ results/
 │   ├── qc/heatmap_{pca_transform}_mqc.json         #   sample-QC distance heatmap
 │   └── igv/{sample}_junctions.bed                  #   IGV track (if write_igv_bed)
 ├── versions/rnaseq_mqc_versions.yml                # pinned tool versions -> MultiQC
-├── qc/multiqc_report.html                          # FastQC + STAR + RSeQC (+ chimera QC) + resource usage
+├── qc/multiqc_report.html                          # FastQC + STAR + RSeQC (+ tecounts/chimera QC) + resource usage
 └── pipeline_info/
     ├── benchmarks/<rule>/...                       # per-rule CPU/RSS usage (-> MultiQC)
     ├── benchmark_summary_mqc.json                  # "Resource usage" table (see below)
