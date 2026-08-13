@@ -137,6 +137,13 @@ resources:
     mem_mb: 8000
     runtime: 30
 
+  tecount_summary:
+    # Per-sample TEcounts summary barplots (assignment + TE class) in pure
+    # python; single-threaded, streaming I/O over the raw cntTables.
+    threads: 1
+    mem_mb: 2000
+    runtime: 30
+
   # ---- Chimera gene-TE junction screen (only when enabled) ----------------
   # These rules only run when chimera.enabled is true (see common.smk); the
   # entries are inert otherwise.
@@ -162,6 +169,13 @@ resources:
   junction_qc:
     threads: 1
     mem_mb: 2000
+    runtime: 15
+
+  junction_qc_barplot:
+    # Merging the per-sample junction QC tables into one MultiQC bar-plot
+    # JSON; single-threaded, small.
+    threads: 1
+    mem_mb: 500
     runtime: 15
 
   chimera_igv_bed:

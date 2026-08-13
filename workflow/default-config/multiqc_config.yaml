@@ -47,13 +47,18 @@ module_order:
 # Order of the custom-content sections within the custom_content module;
 # without this their order is arbitrary. Section ids come from the `_mqc.json`
 # documents emitted by the sample_qc (chimera screen, only when enabled),
-# tecount_qc (TEcounts sample-QC, enabled by default) and benchmark_summary
+# tecount_qc (TEcounts sample-QC, enabled by default), junction_qc_barplot
+# (chimera junction-QC, only when the chimera stage is enabled), tecount_summary
+# (per-sample TEcounts assignment + TE-class barplots) and benchmark_summary
 # rules. MultiQC silently skips ids that produced no data, so the ids are
 # harmless when the corresponding stage is off.
 custom_content:
   order:
     - chimera_sample_qc_pca
     - chimera_sample_qc_heatmap
+    - chimera_junction_qc
     - tecount_sample_qc_pca
     - tecount_sample_qc_heatmap
+    - tecount_assignment
+    - tecount_te_class
     - resource_usage

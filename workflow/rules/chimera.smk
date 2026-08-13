@@ -45,6 +45,9 @@ def all_chimera_outputs():
         f"results/chimera/qc/{s}_junction_qc.tsv"
         for s in SAMPLES
     ]
+    files += [
+        "results/chimera/qc/junction_qc_mqc.json",
+    ]
     if WRITE_IGV_BED:
         files += [
             f"results/chimera/igv/{s}_junctions.bed"
@@ -179,6 +182,34 @@ rule junction_qc:
     shell:
         "python {SCRIPTS_DIR}/junction_qc.py "
         "--table {input} --sample {params.sample} --out {output} > {log} 2>&1"
+
+
+rule junction_qc_barplot:
+    # Merges the per-sample junction QC tables into one MultiQC bar-plot
+    # custom-content document (junction_qc_mqc.py): per-sample direction
+    # composition as counts and % of total junctions, rendered inside
+    # multiqc_report.html in the custom_content module.
+    input:
+        tables=lambda wc: [
+            f"results/chimera/qc/{s}_junction_qc.tsv" for s in SAMPLES
+        ],
+    output:
+        "results/chimera/qc/junction_qc_mqc.json",
+    params:
+        samples=lambda wc, input: " ".join(SAMPLES),
+    threads: get_resources("junction_qc_barplot")["threads"]
+    resources:
+        mem_mb=get_resources("junction_qc_barplot")["mem_mb"],
+        runtime=get_resources("junction_qc_barplot")["runtime"],
+    benchmark:
+        "results/pipeline_info/benchmarks/junction_qc_barplot/junction_qc_barplot.txt",
+    log:
+        "results/pipeline_info/logs/chimera/junction_qc_barplot.log",
+    shell:
+        "python {SCRIPTS_DIR}/junction_qc_mqc.py "
+        "--tables {input.tables} "
+        "--samples {params.samples} "
+        "--out {output} > {log} 2>&1"
 
 
 rule chimera_igv_bed:

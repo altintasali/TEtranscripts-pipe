@@ -31,6 +31,7 @@ flowchart LR
         tecount_counts["tecount counts matrix"]
         tecount_qc_transform["sample-QC transform (vst/rlog/log2)"]
         tecount_qc["sample-QC plots (PCA + clustering)"]
+        tecount_summary["tecount summary barplots (assignment + TE class)"]
         software_versions["software versions"]
         benchmark_summary["resource-usage summary"]
         multiqc["MultiQC"]
@@ -39,6 +40,7 @@ flowchart LR
         annotation_to_bed["annotation -> BED tracks"]
         parse_chimeric_junctions["parse chimeric junctions"]
         junction_qc["junction QC"]
+        junction_qc_barplot["junction QC barplot"]
         chimera_igv_bed["IGV BED track"]
         chimera_counts["chimera counts matrix"]
         sample_qc_transform["sample-QC transform"]
@@ -55,6 +57,7 @@ flowchart LR
     determine_strandedness --> tetranscripts_diffexp
     genepred_to_bed12 --> rseqc_infer_experiment
     gtf_to_genepred --> genepred_to_bed12
+    junction_qc --> junction_qc_barplot
     parse_chimeric_junctions --> chimera_counts
     parse_chimeric_junctions --> chimera_igv_bed
     parse_chimeric_junctions --> junction_qc
@@ -70,6 +73,7 @@ flowchart LR
     star_align --> tetranscripts_diffexp
     star_index --> star_align
     tecount --> tecount_counts
+    tecount --> tecount_summary
     tecount_counts --> tecount_qc_transform
     tecount_qc_transform --> tecount_qc
     trim_galore_pe --> star_align
@@ -85,10 +89,13 @@ aligns with STAR, and auto-detects library strandedness from the sorted BAM.
 TEcount quantifies genes + TEs per sample; if your sample sheet has a
 `condition` column, TEtranscripts + DESeq2 also runs every pairwise contrast.
 The per-sample TEcount tables also drive a sample-QC view (PCA + sample
-clustering, on by default) rendered inside the MultiQC report. Optionally
+clustering, on by default) and per-sample summary barplots (gene-vs-TE
+assignment and TE class composition), rendered inside the MultiQC report.
+Optionally
 (`chimera.enabled: true`) the **same** alignment also drives a gene-TE chimera
-screen that annotates chimeric junction reads and produces a counts matrix
-plus an interactive sample-QC view. A single MultiQC report pulls together
+screen that annotates chimeric junction reads and produces a counts matrix,
+an interactive sample-QC view, and a junction-QC barplot. A single MultiQC
+report pulls together
 FastQC, TrimGalore!, STAR, RSeQC, the TEcounts and chimera QC plots (when
 enabled), tool versions, and a per-rule resource-usage table.
 
@@ -487,6 +494,15 @@ custom-content JSON (the report documents the skip) and a log message instead
 of failing. Set `tetranscripts.qc.enabled: false` to skip the matrix and plots
 entirely.
 
+The same per-sample tables also feed two **summary barplots**
+(`results/tecount/qc/tecount_assignment_mqc.json` and
+`results/tecount/qc/tecount_te_class_mqc.json`, rendered in the report's
+custom-content section): per-sample read counts and % split into **genes vs TE
+subfamilies**, and the TE-subfamily reads broken down by repeat **class**
+(LINE/SINE/LTR/DNA/RC, anything else grouped as `unknown`). Unlike the sample-QC
+view these use the raw cntTables (all features), so they are independent of
+`feature_class` and always reflect every read TEcount assigned.
+
 ## The chimera screen
 
 > **Experimental.** This stage is a newer addition to the pipeline — the
@@ -534,6 +550,10 @@ The per-sample tables then merge into:
 - `results/chimera/qc/{sample}_junction_qc.tsv` — per-sample summary
   (total junctions, gene-TE vs other, canonical/non-canonical split,
   repeat-flagged count, top families/classes).
+- `results/chimera/qc/junction_qc_mqc.json` — a **junction-QC barplot** for the
+  report: per sample, junction counts (and % of total junctions) by direction
+  (`gene_to_te`/`te_to_gene` first, then the other classes), switchable between
+  counts and % in the interactive plot.
 
 If `chimera.outputs.write_counts_matrix` is on (default), a **sample-QC view**
 is produced with DESeq2 (nf-core/rnaseq style): the counts matrix is
@@ -601,7 +621,8 @@ flowchart TD
 
     subgraph qc["QC & inspection"]
         event --> jqc["junction_qc.py"]
-        jqc --> jq["per-sample junction QC → MultiQC table"]
+        jqc --> jq["per-sample junction QC table"]
+        jq --> jqb["junction QC barplot (counts + % by direction)<br/>→ MultiQC report"]
         matrix --> sqc["sample_qc.R<br/>DESeq2 transform (vst/rlog/log2)"]
         sqc --> plots["PCA scatter + sample-distance heatmap<br/>→ MultiQC report"]
         event --> igv["junctions_to_igv_bed.py<br/>(optional)"]
@@ -631,10 +652,11 @@ flowchart TD
    keeps only GT/AG junctions).
 4. **Aggregation & QC** — `chimera_counts.py` merges the per-sample tables into
    the `all_events.tsv` catalog and the event×sample `counts_matrix.tsv`.
-   `junction_qc.py` gives a per-sample QC table; `sample_qc.R` transforms the
-   matrix (vst/rlog/log2) and renders the PCA + sample-distance heatmap in the
-   MultiQC report. Optionally, an IGV BED track per sample supports visual
-   curation of candidates.
+   `junction_qc.py` gives a per-sample QC table, from which a junction-QC
+   barplot (counts + % by direction) is merged into the report; `sample_qc.R`
+   transforms the matrix (vst/rlog/log2) and renders the PCA + sample-distance
+   heatmap in the MultiQC report. Optionally, an IGV BED track per sample
+   supports visual curation of candidates.
 
 <details>
 <summary><b>A worked example (1 read, 2 hits)</b></summary>
@@ -700,6 +722,8 @@ results/
 ├── tecount/qc/{pca_transform}_counts.tsv           #   QC-view transformed matrix
 ├── tecount/qc/pca_{pca_transform}_mqc.json         #   sample-QC PCA (custom content)
 ├── tecount/qc/heatmap_{pca_transform}_mqc.json     #   sample-QC distance heatmap
+├── tecount/qc/tecount_assignment_mqc.json          #   gene-vs-TE summary barplot
+├── tecount/qc/tecount_te_class_mqc.json            #   TE class composition barplot
 ├── tetranscripts/{contrast}_*.{txt,R}              # only if "condition" column present
 │                                                    #   ({contrast}.cntTable, _DESeq2.R,
 │                                                    #   _gene_TE_analysis.txt, _sigdiff_gene_TE.txt)
@@ -708,11 +732,12 @@ results/
 │   ├── all_events.tsv                              #   merged event catalog
 │   ├── counts_matrix.tsv                           #   events x samples (if write_counts_matrix)
 │   ├── qc/{sample}_junction_qc.tsv                 #   per-sample junction summary
+│   ├── qc/junction_qc_mqc.json                     #   junction barplot by direction
 │   ├── qc/{pca_transform}_mqc.json                 #   sample-QC PCA (custom content)
 │   ├── qc/heatmap_{pca_transform}_mqc.json         #   sample-QC distance heatmap
 │   └── igv/{sample}_junctions.bed                  #   IGV track (if write_igv_bed)
 ├── versions/rnaseq_mqc_versions.yml                # pinned tool versions -> MultiQC
-├── qc/multiqc_report.html                          # FastQC + STAR + RSeQC (+ tecounts/chimera QC) + resource usage
+├── qc/multiqc_report.html                          # FastQC + STAR + RSeQC (+ tecounts/chimera QC + summary barplots) + resource usage
 └── pipeline_info/
     ├── benchmarks/<rule>/...                       # per-rule CPU/RSS usage (-> MultiQC)
     ├── benchmark_summary_mqc.json                  # "Resource usage" table (see below)

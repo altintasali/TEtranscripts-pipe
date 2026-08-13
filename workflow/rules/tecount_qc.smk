@@ -10,6 +10,8 @@
 #   tecount_counts      merge per-sample cntTables -> counts matrix
 #   tecount_qc_transform normalize the counts matrix for the QC view
 #   tecount_qc          PCA + sample-distance plots from the transformed matrix
+#   tecount_summary     per-sample assignment + TE-class summary barplots for
+#                       the MultiQC report (raw cntTables, pure python)
 #
 # The view reuses the shared sample_qc.R script (same as the chimera sample-QC
 # stage, passed --view tecount) and runs in the TETRANSCRIPTS_ENV, which
@@ -32,6 +34,8 @@ def all_tecount_qc_outputs():
         f"results/tecount/qc/{transform}_counts.tsv",
         f"results/tecount/qc/pca_{transform}_mqc.json",
         f"results/tecount/qc/heatmap_{transform}_mqc.json",
+        "results/tecount/qc/tecount_assignment_mqc.json",
+        "results/tecount/qc/tecount_te_class_mqc.json",
     ]
 
 
@@ -132,3 +136,32 @@ rule tecount_qc:
         "Rscript {SCRIPTS_DIR}/sample_qc.R "
         "--plots tecount {input.transformed} {params.samples} {params.min_events} "
         "{wildcards.transform} {output.pca} {output.heatmap} > {log} 2>&1"
+
+
+rule tecount_summary:
+    # Per-sample TEcounts summary stats for the MultiQC report (custom
+    # content): gene-vs-TE assignment and TE class composition as counts and
+    # percentages (tecount_summary_mqc.py). Unlike the sample-QC view it uses
+    # the RAW cntTables (all features), so it is independent of
+    # tetranscripts.qc.feature_class and needs no R env.
+    input:
+        tables=tecount_counts_input(),
+    output:
+        assignment="results/tecount/qc/tecount_assignment_mqc.json",
+        te_class="results/tecount/qc/tecount_te_class_mqc.json",
+    params:
+        samples=lambda wc, input: " ".join(SAMPLES),
+    threads: get_resources("tecount_summary")["threads"]
+    resources:
+        mem_mb=get_resources("tecount_summary")["mem_mb"],
+        runtime=get_resources("tecount_summary")["runtime"],
+    benchmark:
+        "results/pipeline_info/benchmarks/tecount_summary/tecount_summary.txt",
+    log:
+        "results/pipeline_info/logs/tecount/qc/summary.log",
+    shell:
+        "python {SCRIPTS_DIR}/tecount_summary_mqc.py "
+        "--tables {input.tables} "
+        "--samples {params.samples} "
+        "--out-assignment {output.assignment} "
+        "--out-class {output.te_class} > {log} 2>&1"

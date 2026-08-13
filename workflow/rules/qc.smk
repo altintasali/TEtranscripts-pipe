@@ -88,16 +88,31 @@ def _chimera_qc_mqc_inputs():
     ]
 
 
+def _junction_qc_mqc_inputs():
+    """MultiQC custom-content JSON from the chimera junction-QC barplot
+    (per-sample direction composition, counts + %). Only when the chimera
+    stage is enabled; independent of write_counts_matrix, since junction QC
+    runs for every sample the annotator produces."""
+    if not CHIMERA_ENABLED:
+        return []
+    return [
+        "results/chimera/qc/junction_qc_mqc.json",
+    ]
+
+
 def _tecount_qc_mqc_inputs():
     """MultiQC custom-content JSONs from the TEcounts sample-QC view (rendered
-    as interactive PCA + sample-distance plots inside the report). Only when
-    tetranscripts.qc.enabled (the default)."""
+    as interactive PCA + sample-distance plots inside the report) and the
+    per-sample summary barplots (gene-vs-TE assignment + TE class
+    composition). Only when tetranscripts.qc.enabled (the default)."""
     if not TECOUNT_QC_ENABLED:
         return []
     transform = TECOUNT_QC["pca_transform"]
     return [
         f"results/tecount/qc/pca_{transform}_mqc.json",
         f"results/tecount/qc/heatmap_{transform}_mqc.json",
+        "results/tecount/qc/tecount_assignment_mqc.json",
+        "results/tecount/qc/tecount_te_class_mqc.json",
     ]
 
 
@@ -105,9 +120,10 @@ rule multiqc:
     # Aggregates STAR alignment logs, (if trimming is enabled) TrimGalore!
     # + FastQC reports, the always-on raw FastQC reports, (if strandedness
     # auto-detection was used) RSeQC infer_experiment.py reports, the chimera
-    # and TEcounts sample-QC custom content (PCA + sample distances, when each
-    # view is enabled), the per-rule benchmark/resource summary, and the
-    # pinned tool versions into one HTML report. Runs the MultiQC version
+    # sample-QC (PCA + sample distances) and junction-QC barplot, the TEcounts
+    # sample-QC and per-sample summary barplots (each gated on its stage), the
+    # per-rule benchmark/resource summary, and the pinned tool versions into
+    # one HTML report. Runs the MultiQC version
     # pinned in config["versions"]["multiqc"]. The custom config
     # (multiqc_config.yaml) trims "_val_1"/"_val_2"/"_trimmed" off the FastQC
     # sample names so every module's rows merge into one clean row per sample
@@ -120,6 +136,7 @@ rule multiqc:
         "results/pipeline_info/benchmark_summary_mqc.json",
         "results/versions/rnaseq_mqc_versions.yml",
         chimera_qc=_chimera_qc_mqc_inputs(),
+        junction_qc=_junction_qc_mqc_inputs(),
         tecount_qc=_tecount_qc_mqc_inputs(),
     output:
         html="results/qc/multiqc_report.html",

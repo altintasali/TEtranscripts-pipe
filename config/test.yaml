@@ -123,10 +123,12 @@ resources:
   tecount_counts: {threads: 1, mem_mb: 500, runtime: 5}
   tecount_qc_transform: {threads: 1, mem_mb: 1000, runtime: 5}
   tecount_qc: {threads: 1, mem_mb: 1000, runtime: 5}
+  tecount_summary: {threads: 1, mem_mb: 500, runtime: 5}
   annotation_to_bed: {threads: 1, mem_mb: 500, runtime: 5}
   parse_chimeric_junctions: {threads: 1, mem_mb: 500, runtime: 5}
   chimera_counts: {threads: 1, mem_mb: 500, runtime: 5}
   junction_qc: {threads: 1, mem_mb: 500, runtime: 5}
+  junction_qc_barplot: {threads: 1, mem_mb: 500, runtime: 5}
   chimera_igv_bed: {threads: 1, mem_mb: 500, runtime: 5}
   sample_qc_transform: {threads: 1, mem_mb: 1000, runtime: 5}
   sample_qc: {threads: 1, mem_mb: 1000, runtime: 5}
