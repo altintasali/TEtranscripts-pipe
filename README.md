@@ -516,6 +516,16 @@ label for gene-TE events (`te_initiated` / `te_terminated` / `te_exonized`,
 from the gene's strand and the TE's position relative to it), an antisense
 flag, and the strandedness-derived `gene_strand_match` above.
 
+**Reading the table.** When a breakpoint overlaps several genes or several TE
+copies, the reported `gene_id` / `te_id` (and the `chimera_type` derived from
+their spans) use the alphabetically-first hit — deterministic and reproducible,
+but only one of the candidates. The full overlap set per junction is always in
+the `donor_hits` / `acceptor_hits` columns (e.g. `gene:ENSG1,ENSG2|te:AluJb_3`),
+so check those at multi-copy / nested-TE loci. And note the pipeline never
+applies a read-count filter: `all_events.tsv` and `counts_matrix.tsv` carry
+every annotated event verbatim, so apply your own min-reads / min-replicates
+cut before treating any call as confident.
+
 The per-sample tables then merge into:
 
 - `results/chimera/all_events.tsv` — every event across samples (with the
