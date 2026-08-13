@@ -108,6 +108,7 @@ enabled), tool versions, and a per-rule resource-usage table.
 - [Automatic differential analysis](#automatic-differential-analysis)
 - [TEcounts sample-QC](#tecounts-sample-qc)
 - [The chimera screen](#the-chimera-screen)
+- [How chimeric TEs are detected](#how-chimeric-tes-are-detected)
 - [Output layout](#output-layout)
 - [Notes](#notes)
 
@@ -547,6 +548,124 @@ to STAR's chimeric-alignment detection; the shipped defaults follow the
 TEtranscripts authors' recommendations for gene-TE chimeras. The screen calls
 for at least 2 samples (the PCA/heatmap view needs replicates); the QC-view
 `min_events` floor controls when the plots are drawn.
+
+## How chimeric TEs are detected
+
+The chimera screen reuses the **same STAR alignment** that feeds TEcount — no
+separate alignment step. STAR is asked for chimeric junction records
+(`--chimOutType Junctions WithinBAM SoftClip`), each chimeric read becomes one
+line in `{sample}_Chimeric.out.junction`, and the pipeline annotates those
+breakpoints against the gene and TE tracks. The whole flow:
+
+```mermaid
+flowchart TD
+    subgraph reference["Reference (built once)"]
+        gtf["gene GTF"] --> bed["annotation_to_bed.py"]
+        te_gtf["TE GTF"] --> bed
+        bed --> genes["genes.bed"]
+        bed --> exons["exons.bed"]
+        bed --> te["te.bed"]
+    end
+
+    subgraph alignment["Alignment (per sample)"]
+        reads["trimmed reads"] --> star["STAR alignment<br/>--chimOutType Junctions WithinBAM SoftClip<br/>--chimSegmentMin 12 · --chimJunctionOverhangMin 12<br/>--chimScoreDropMax 20"]
+        star --> bam["sorted BAM<br/>(SA tags → IGV re-inspection)"]
+        star --> junc["{sample}_Chimeric.out.junction<br/>one line per chimeric read:<br/>donor 5' / acceptor 3' breakpoints, strands,<br/>junction type, repeat flag"]
+    end
+
+    subgraph annotate["Per-sample junction annotation"]
+        junc --> parse["parse_chimeric_junctions.py"]
+        genes --> parse
+        exons --> parse
+        te --> parse
+        stranded["RSeQC strandedness"] --> parse
+        parse --> classify["classify each breakpoint pair by track overlap<br/>gene_to_te · te_to_gene → the event of interest<br/>gene_to_gene · te_to_te · gene_to_other · te_to_other · other<br/>(annotate-only: nothing is filtered away)"]
+        classify --> event["{sample}_junctions.tsv<br/>event_id · supporting reads · gene/TE ids<br/>family/class · chimera_type<br/>(te_initiated / te_terminated / te_exonized)<br/>antisense flag · strand match"]
+    end
+
+    subgraph aggregate["Aggregation"]
+        event --> counts["chimera_counts.py"]
+        counts --> all_events["all_events.tsv"]
+        counts --> matrix["counts_matrix.tsv"]
+    end
+
+    subgraph qc["QC & inspection"]
+        event --> jqc["junction_qc.py"]
+        jqc --> jq["per-sample junction QC → MultiQC table"]
+        matrix --> sqc["sample_qc.R<br/>DESeq2 transform (vst/rlog/log2)"]
+        sqc --> plots["PCA scatter + sample-distance heatmap<br/>→ MultiQC report"]
+        event --> igv["junctions_to_igv_bed.py<br/>(optional)"]
+        igv --> bedtrack["IGV BED track"]
+    end
+```
+
+**Stage by stage:**
+
+1. **Reference (once)** — `annotation_to_bed.py` turns the gene GTF and the
+   curated TE GTF into three BED tracks (`genes.bed`, `exons.bed`, `te.bed`)
+   that the breakpoint-overlap test runs against.
+2. **Alignment** — STAR detects chimeric alignments while it maps (defaults:
+   `chimSegmentMin 12`, `chimJunctionOverhangMin 12`, `chimScoreDropMax 20`).
+   Each chimeric read is reported as a donor (5') and acceptor (3') segment
+   with breakpoint coordinates, strands, junction type and a repeat flag. The
+   BAM's SA tags let any junction be re-inspected in IGV.
+3. **Annotation** — for every junction, the donor and acceptor breakpoints are
+   tested against the exon and TE tracks (within `chimera.breakpoint_tolerance`).
+   A gene exon joined to a TE gives `gene_to_te` / `te_to_gene` — the event of
+   interest; the other overlaps are recorded but not discarded. Identical
+   junctions across reads collapse into one event with a supporting-read count,
+   plus the `chimera_type` subclass (`te_initiated` / `te_terminated` /
+   `te_exonized`, from the gene strand and the TE's position), an antisense
+   flag, and a strandedness-derived strand match. Annotate-only by design:
+   nothing is filtered here (optionally `require_canonical_junction: true`
+   keeps only GT/AG junctions).
+4. **Aggregation & QC** — `chimera_counts.py` merges the per-sample tables into
+   the `all_events.tsv` catalog and the event×sample `counts_matrix.tsv`.
+   `junction_qc.py` gives a per-sample QC table; `sample_qc.R` transforms the
+   matrix (vst/rlog/log2) and renders the PCA + sample-distance heatmap in the
+   MultiQC report. Optionally, an IGV BED track per sample supports visual
+   curation of candidates.
+
+<details>
+<summary><b>A worked example (1 read, 2 hits)</b></summary>
+
+A read whose 5' segment aligns to a LINE1 element and whose 3' segment aligns to
+an exon of gene *G* — a `te_to_gene` chimera:
+
+```
+  chr2 482492─482501                chr2 1005203─1005212
+  TE L1PA_0123 (− strand)           gene G exon 1 (+ strand)
+
+  5' ── A G G T T A G C T A | C C T T G G A A C G ── 3'
+          └─── donor ───┘   └─── acceptor ───┘
+          segment's last    segment's first
+          base: 482501      base: 1005203
+```
+
+STAR's `{sample}_Chimeric.out.junction` line (one per chimeric read):
+
+```
+chr2   482501   -   chr2   1005203   +   1   0   ...
+  └chrom┘ └donor bp┘ └strand┘   └acceptor bp┘ └strand┘  │   │
+  (chr, donor breakpoint & strand, acceptor chrom,      │   └ repeat flag
+   acceptor breakpoint & strand)                        └ junction type
+                                                          (1 = canonical GT/AG)
+```
+
+The pipeline's annotation:
+
+```
+event_id:    chr2:482501:-:1005203:+:te_to_gene
+direction:   te_to_gene            (5' donor → TE, 3' acceptor → gene exon)
+gene_id:     ENSG000... (gene G),  strand +
+te_id:       L1PA_0123,  family: L1, class: LINE
+chimera_type: te_initiated          (TE upstream of G's TSS on the gene strand)
+reads:       7                      (7 supporting reads collapsed into one event)
+canonical:   yes
+gene_strand_match: yes              (forward-stranded library)
+```
+
+</details>
 
 ## Output layout
 
