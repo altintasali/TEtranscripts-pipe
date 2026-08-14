@@ -546,7 +546,13 @@ The per-sample tables then merge into:
 
 - `results/chimera/all_events.tsv` — every event across samples (with the
   per-sample supporting read counts and a total).
+- `results/chimera/te_chimeras.tsv` — the `all_events` catalog filtered to the
+  gene-TE chimeras only (`direction` `gene_to_te`/`te_to_gene`), same columns —
+  the TE chimeras as their own table, no filtering needed.
 - `results/chimera/counts_matrix.tsv` — events x samples read counts.
+- `results/chimera/{sample}_te_chimeras.tsv` — per sample, the same gene-TE
+  filter of `{sample}_junctions.tsv` (same columns, handy for per-sample
+  inspection or IGV-style work).
 - `results/chimera/qc/{sample}_junction_qc.tsv` — per-sample summary
   (total junctions, gene-TE vs other, canonical/non-canonical split,
   repeat-flagged count, top families/classes).
@@ -729,7 +735,9 @@ results/
 │                                                    #   _gene_TE_analysis.txt, _sigdiff_gene_TE.txt)
 ├── chimera/                                        # only if chimera.enabled:
 │   ├── {sample}_junctions.tsv                      #   per-sample annotated junctions
+│   ├── {sample}_te_chimeras.tsv                    #   per-sample gene-TE events only
 │   ├── all_events.tsv                              #   merged event catalog
+│   ├── te_chimeras.tsv                             #   merged gene-TE events only
 │   ├── counts_matrix.tsv                           #   events x samples (if write_counts_matrix)
 │   ├── qc/{sample}_junction_qc.tsv                 #   per-sample junction summary
 │   ├── qc/junction_qc_mqc.json                     #   junction barplot by direction

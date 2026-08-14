@@ -12,8 +12,8 @@
 #
 # Rules:
 #   annotation_to_bed        GTF + TE GTF -> BED tracks (once)
-#   parse_chimeric_junctions per-sample junction annotation
-#   chimera_counts           merge per-sample tables -> all_events + counts
+#   parse_chimeric_junctions per-sample junction annotation (+ {sample}_te_chimeras)
+#   chimera_counts           merge per-sample tables -> all_events + counts + te_chimeras
 #   junction_qc              per-sample QC summary (MultiQC custom content)
 #   chimera_igv_bed          per-sample IGV track (config-gated)
 # -----------------------------------------------------------------------------
@@ -38,7 +38,12 @@ def all_chimera_outputs():
         for s in SAMPLES
     ]
     files += [
+        f"results/chimera/{s}_te_chimeras.tsv"
+        for s in SAMPLES
+    ]
+    files += [
         "results/chimera/all_events.tsv",
+        "results/chimera/te_chimeras.tsv",
         "results/chimera/counts_matrix.tsv",
     ]
     files += [
@@ -107,7 +112,8 @@ rule parse_chimeric_junctions:
         te="results/reference/te.bed",
         strandedness=strandedness_input,
     output:
-        "results/chimera/{sample}_junctions.tsv",
+        junctions="results/chimera/{sample}_junctions.tsv",
+        te_chimeras="results/chimera/{sample}_te_chimeras.tsv",
     params:
         tolerance=config["chimera"]["breakpoint_tolerance"],
         canonical_flag=lambda wc: (
@@ -132,7 +138,8 @@ rule parse_chimeric_junctions:
         "--breakpoint-tolerance {params.tolerance} "
         "{params.canonical_flag} "
         "--library-strandedness {params.library} "
-        "--out {output} > {log} 2>&1"
+        "--out {output.junctions} "
+        "--te-out {output.te_chimeras} > {log} 2>&1"
 
 
 rule chimera_counts:
@@ -144,6 +151,7 @@ rule chimera_counts:
     output:
         events="results/chimera/all_events.tsv",
         counts="results/chimera/counts_matrix.tsv",
+        te_events="results/chimera/te_chimeras.tsv",
     params:
         sample_names=lambda wc, input: " ".join(SAMPLES),
     threads: get_resources("chimera_counts")["threads"]
@@ -159,7 +167,8 @@ rule chimera_counts:
         "--tables {input.tables} "
         "--sample-names {params.sample_names} "
         "--out-events {output.events} "
-        "--out-counts {output.counts} > {log} 2>&1"
+        "--out-counts {output.counts} "
+        "--out-te-events {output.te_events} > {log} 2>&1"
 
 
 rule junction_qc:

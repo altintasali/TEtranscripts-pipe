@@ -11,10 +11,14 @@ Outputs:
   counts_matrix.tsv  event_id x sample read-count matrix (0 where a sample has
                    no reads supporting the event). Written only when the
                    chimera.outputs.write_counts_matrix config is true.
+  te_chimeras.tsv   the all_events catalog filtered to gene<->TE events
+                   (direction gene_to_te / te_to_gene), written when
+                   --out-te-events is given -- the TE chimeras as their own
+                   table.
 
-Nothing is filtered here: the full union of annotated events is shipped (the
-QC filters in the chimera.qc config section apply only to the PCA/clustering
-view in sample_qc.smk).
+Nothing is filtered from the main outputs: the full union of annotated events
+is shipped (the QC filters in the chimera.qc config section apply only to the
+PCA/clustering view in sample_qc.smk).
 """
 import argparse
 import os
@@ -46,6 +50,11 @@ def main():
     ap.add_argument("--sample-names", required=True, nargs="+")
     ap.add_argument("--out-events", required=True)
     ap.add_argument("--out-counts", required=False)
+    ap.add_argument(
+        "--out-te-events", required=False,
+        help="Optional output: the all-events catalog filtered to gene<->TE "
+        "events (direction gene_to_te / te_to_gene).",
+    )
     args = ap.parse_args()
 
     if len(args.tables) != len(args.sample_names):
@@ -81,6 +90,17 @@ def main():
                 ev = events[eid]
                 counts = [ev["counts"].get(s, 0) for s in args.sample_names]
                 fh.write(eid + "\t" + "\t".join(str(c) for c in counts) + "\n")
+
+    if args.out_te_events:
+        with open(args.out_te_events, "w") as fh:
+            fh.write("\t".join(ANNOTATION_COLUMNS + ["n_samples", "total_reads"]) + "\n")
+            for eid in order:
+                ev = events[eid]
+                if ev.get("direction") not in ("gene_to_te", "te_to_gene"):
+                    continue
+                row = [ev.get(c, ".") for c in ANNOTATION_COLUMNS]
+                row += [len(ev["counts"]), sum(ev["counts"].values())]
+                fh.write("\t".join(str(x) for x in row) + "\n")
 
     print(f"{len(order)} unique events across {len(args.sample_names)} samples "
           f"-> {args.out_events}")

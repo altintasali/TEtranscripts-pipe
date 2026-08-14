@@ -23,6 +23,10 @@ Output columns (results/chimera/{sample}.junctions.tsv):
     gene_strand, te_id, te_family, te_class, chimera_type, antisense_flag,
     library_strand, transcript_strand, gene_strand_match
 
+When --te-out is given, the gene<->TE events (direction gene_to_te /
+te_to_gene) are additionally written to that path with the same columns,
+so the TE chimeras are available as their own table.
+
 junction_type/canonical: STAR's column-6 value (0 non-canonical .. 6) and a
 derived GT/AG-ish yes/no. TE-involved splicing is often non-canonical, so
 this is reported but never filtered (see require_canonical_junction config
@@ -115,6 +119,11 @@ def main():
         "unstranded here.",
     )
     ap.add_argument("--out", required=True)
+    ap.add_argument(
+        "--te-out", required=False,
+        help="Optional second output: only the gene<->TE events (direction "
+        "gene_to_te / te_to_gene), same columns as --out.",
+    )
     args = ap.parse_args()
 
     genes = load_bed(args.genes)
@@ -339,6 +348,15 @@ def main():
         fh.write("\t".join(header) + "\n")
         for row in rows:
             fh.write("\t".join(str(x) for x in row) + "\n")
+
+    if args.te_out:
+        os.makedirs(os.path.dirname(args.te_out), exist_ok=True)
+        dir_idx = header.index("direction")
+        with open(args.te_out, "w") as fh:
+            fh.write("\t".join(header) + "\n")
+            for row in rows:
+                if row[dir_idx] in ("gene_to_te", "te_to_gene"):
+                    fh.write("\t".join(str(x) for x in row) + "\n")
 
     print(f"{args.sample}: {len(rows)} events from {args.junctions}")
 
