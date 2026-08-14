@@ -304,6 +304,17 @@ Three subcommands:
   python workflow/scripts/tetranscripts-pipe run --config input/config.yaml --cores 32
   ```
 
+  Relative paths inside a config always resolve against the repo checkout that
+  *contains* the config (its `workflow/Snakefile` ancestor), and snakemake is
+  launched from that same root. So the CLI can be installed in a different
+  checkout than the analysis — e.g. a shared `apps/` copy running a config in
+  an analysis working copy:
+
+  ```bash
+  python /software/TEtranscripts-pipe/workflow/scripts/tetranscripts-pipe \
+    run --config /data/projects/rnaseq/TEtranscripts-pipe/input/config.yaml --cores 32
+  ```
+
   `--samplesheet` still takes precedence for the CLI's own existence check, but
   with an existing config snakemake always reads the config's `samples:` path —
   the flag is authoritative only when the config is scaffolded (or regenerated

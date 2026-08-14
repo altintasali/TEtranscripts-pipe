@@ -11,6 +11,11 @@ The workflow itself still reads the same two gitignored files
 (input/config.yaml and input/samples.csv); this CLI just creates them and
 launches snakemake. For an existing config, `run --config <cfg> --cores N`
 is enough -- the sample sheet is taken from the config's `samples:` key.
+
+Relative paths inside a config resolve against the repo checkout that
+contains it (its workflow/Snakefile ancestor), and snakemake runs from that
+same root -- so the CLI can live in a different checkout (e.g. a shared
+apps/ install) than the analysis.
 Errors are written to stderr and exit non-zero (1).
 """
 import argparse
@@ -97,14 +102,34 @@ def _resolve_input_dir(value):
     return os.path.join(REPO_ROOT, value)
 
 
-def _repo_abspath(path):
-    """Resolve a possibly-relative path against the repo root. Snakemake runs
-    with cwd=REPO_ROOT, so relative paths inside config.yaml (e.g. the
-    `samples:` key) are repo-root-relative -- the CLI must resolve them the
-    same way, not against the caller's current working directory."""
+def _find_repo_root(config_path):
+    """The analysis repo root that `config_path`'s relative paths belong to.
+
+    Walks up from the config file's directory to the first ancestor containing
+    workflow/Snakefile. The CLI may be installed in a different checkout than
+    the analysis (e.g. a shared apps/ copy while the config lives in an
+    analysis working copy), so the config's relative paths must resolve
+    against its own repo, not this script's. Falls back to this script's
+    REPO_ROOT when no repo is found."""
+    cur = os.path.dirname(os.path.abspath(config_path))
+    while True:
+        if os.path.exists(os.path.join(cur, "workflow", "Snakefile")):
+            return cur
+        parent = os.path.dirname(cur)
+        if parent == cur:
+            return REPO_ROOT
+        cur = parent
+
+
+def _repo_abspath(path, root=REPO_ROOT):
+    """Resolve a possibly-relative path against a repo root. Snakemake runs
+    with cwd=the config's repo root, so relative paths inside config.yaml
+    (e.g. the `samples:` key) are repo-root-relative -- the CLI must resolve
+    them the same way, not against the caller's current working directory.
+    Defaults to this script's REPO_ROOT for callers without a config anchor."""
     if os.path.isabs(path):
         return path
-    return os.path.abspath(os.path.join(REPO_ROOT, path))
+    return os.path.abspath(os.path.join(root, path))
 
 
 def _parse_fastq_name(fname):
@@ -256,7 +281,8 @@ def cmd_samples(args):
     print(f"wrote {sheet} ({len(rows)} sample row(s)) from {reads_dir}")
 
 
-def _write_run_config(config_path, sheet_path, fasta, gtf, te_gtf):
+def _write_run_config(config_path, sheet_path, fasta, gtf, te_gtf,
+                      analysis_root=REPO_ROOT):
     missing = [flag for flag, val in
                (("--fasta", fasta), ("--gtf", gtf), ("--te-gtf", te_gtf))
                if not val]
@@ -268,9 +294,9 @@ def _write_run_config(config_path, sheet_path, fasta, gtf, te_gtf):
         )
     conf = _load_yaml(CONFIG_EXAMPLE)
     conf["samples"] = sheet_path
-    conf["ref"]["fasta"] = os.path.abspath(fasta)
-    conf["ref"]["gtf"] = os.path.abspath(gtf)
-    conf["ref"]["te_gtf"] = os.path.abspath(te_gtf)
+    conf["ref"]["fasta"] = _repo_abspath(fasta, analysis_root)
+    conf["ref"]["gtf"] = _repo_abspath(gtf, analysis_root)
+    conf["ref"]["te_gtf"] = _repo_abspath(te_gtf, analysis_root)
     os.makedirs(os.path.dirname(config_path), exist_ok=True)
     _write_yaml(config_path, conf)
     print(
@@ -283,19 +309,26 @@ def cmd_run(args):
     if args.cores < 1:
         _die("--cores must be >= 1")
     config_path = os.path.abspath(args.config) if args.config else DEFAULT_CONFIG
+    # The config's relative paths belong to the repo checkout that contains it
+    # (its workflow/Snakefile ancestor), which may differ from where this CLI
+    # is installed -- e.g. a shared apps/ copy with the config in an analysis
+    # working copy. Snakemake is launched from that same root, so relative
+    # paths resolve exactly as if snakemake were run there directly.
+    analysis_root = _find_repo_root(config_path)
+    default_sheet = os.path.join(analysis_root, "input", "samples.csv")
     # Sample-sheet path precedence: --samplesheet, then the existing config's
     # `samples:` key (the path the workflow actually reads, resolved
     # repo-root-relative like snakemake does), then the default location.
     # With an existing config whose `samples:` path is valid, `run --config
     # <cfg> --cores N` needs no other options.
     if args.samplesheet:
-        sheet_path = _repo_abspath(args.samplesheet)
+        sheet_path = _repo_abspath(args.samplesheet, analysis_root)
     elif os.path.exists(config_path):
         conf = _load_yaml(config_path)
         cfg_sheet = conf.get("samples") if isinstance(conf, dict) else None
-        sheet_path = _repo_abspath(cfg_sheet) if cfg_sheet else DEFAULT_SHEET
+        sheet_path = _repo_abspath(cfg_sheet, analysis_root) if cfg_sheet else default_sheet
     else:
-        sheet_path = DEFAULT_SHEET
+        sheet_path = default_sheet
 
     if args.reads:
         reads_dir = os.path.abspath(args.reads)
@@ -304,7 +337,8 @@ def cmd_run(args):
 
     if not os.path.exists(config_path) or args.force:
         _write_run_config(config_path, sheet_path,
-                          args.fasta, args.gtf, args.te_gtf)
+                          args.fasta, args.gtf, args.te_gtf,
+                          analysis_root)
     elif args.fasta or args.gtf or args.te_gtf:
         print(f"note: {config_path} already exists; ignoring "
               f"--fasta/--gtf/--te-gtf", file=sys.stderr)
@@ -344,7 +378,7 @@ def cmd_run(args):
     print("dry-run (no jobs will run): " + " ".join(cmd)
           if args.dry_run else "running snakemake ...")
     try:
-        proc = subprocess.run(cmd, cwd=REPO_ROOT)
+        proc = subprocess.run(cmd, cwd=analysis_root)
     except FileNotFoundError:
         _die(
             "'snakemake' not found on PATH; activate the environment first:\n"
@@ -424,7 +458,11 @@ def _build_parser():
                     "then launch snakemake. An existing config/sample sheet is used "
                     "as-is unless --force is given. With an existing --config, the "
                     "sample sheet is taken from its 'samples:' key, so "
-                    "`run --config <cfg> --cores N` needs no other options.",
+                    "`run --config <cfg> --cores N` needs no other options. "
+                    "Relative paths in the config resolve against the repo checkout "
+                    "that contains it (found via its workflow/Snakefile), and "
+                    "snakemake runs from that root -- the CLI may be installed in a "
+                    "different checkout than the analysis.",
     )
     p_run.add_argument("--fasta", metavar="PATH",
                        help="genome FASTA (for a new config)")
@@ -438,9 +476,10 @@ def _build_parser():
                        help="config file (default: <repo>/input/config.yaml)")
     p_run.add_argument("--samplesheet", metavar="PATH",
                        help="sample sheet path (default: the config's samples: key, "
-                            "else <repo>/input/samples.csv). Note: with an existing "
-                            "config, snakemake still reads the config's samples: path; "
-                            "this flag only sets the path the CLI checks/writes.")
+                            "else <repo>/input/samples.csv, resolved against the "
+                            "config's repo root). Note: with an existing config, "
+                            "snakemake still reads the config's samples: path; this "
+                            "flag only sets the path the CLI checks/writes.")
     p_run.add_argument("--cores", type=int, default=1, metavar="N",
                        help="snakemake --cores (default 1)")
     p_run.add_argument("--profile", metavar="P",
