@@ -81,12 +81,12 @@ def main():
             "title": "Chimera junctions by direction",
             "ylab": "junctions",
             "cpswitch": True,
+            "data_labels": [
+                {"name": "Junction counts"},
+                {"name": "% of total junctions"},
+            ],
         },
-        "samples": samples,
-        "datasets": [
-            {"name": "Junction counts", "data": counts},
-            {"name": "% of total junctions", "data": pct},
-        ],
+        "data": [counts, pct],
     }
 
     os.makedirs(os.path.dirname(args.out), exist_ok=True)

@@ -119,12 +119,12 @@ def main():
             "title": "TEcounts assignment (genes vs TEs)",
             "ylab": "assigned reads",
             "cpswitch": True,
+            "data_labels": [
+                {"name": "Read counts"},
+                {"name": "% of total assigned reads"},
+            ],
         },
-        "samples": samples,
-        "datasets": [
-            {"name": "Read counts", "data": assign},
-            {"name": "% of total assigned reads", "data": assign_pct},
-        ],
+        "data": [assign, assign_pct],
     }
     class_doc = {
         "id": "tecount_te_class",
@@ -140,12 +140,12 @@ def main():
             "title": "TE class composition",
             "ylab": "TE reads",
             "cpswitch": True,
+            "data_labels": [
+                {"name": "TE read counts"},
+                {"name": "% of TE reads"},
+            ],
         },
-        "samples": samples,
-        "datasets": [
-            {"name": "TE read counts", "data": classes},
-            {"name": "% of TE reads", "data": class_pct},
-        ],
+        "data": [classes, class_pct],
     }
 
     for out, doc in ((args.out_assignment, assignment_doc),
