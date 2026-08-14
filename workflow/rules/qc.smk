@@ -104,15 +104,23 @@ def _junction_qc_mqc_inputs():
 
 def _tecount_qc_mqc_inputs():
     """MultiQC custom-content JSONs from the TEcounts sample-QC view (rendered
-    as interactive PCA + sample-distance plots inside the report) and the
-    per-sample summary barplots (gene-vs-TE assignment + TE class
-    composition). Only when tetranscripts.qc.enabled (the default)."""
+    as interactive PCA + sample-distance plots inside the report). Only when
+    tetranscripts.qc.enabled (the default)."""
     if not TECOUNT_QC_ENABLED:
         return []
     transform = TECOUNT_QC["pca_transform"]
     return [
         f"results/tecount/qc/pca_{transform}_mqc.json",
         f"results/tecount/qc/heatmap_{transform}_mqc.json",
+    ]
+
+
+def _tecount_summary_mqc_inputs():
+    """MultiQC custom-content JSONs for the per-sample summary barplots
+    (gene-vs-TE assignment + TE class composition). Always produced, since
+    they only need the raw cntTables -- independent of
+    tetranscripts.qc.enabled."""
+    return [
         "results/tecount/qc/tecount_assignment_mqc.json",
         "results/tecount/qc/tecount_te_class_mqc.json",
     ]
@@ -123,7 +131,8 @@ rule multiqc:
     # + FastQC reports, the always-on raw FastQC reports, (if strandedness
     # auto-detection was used) RSeQC infer_experiment.py reports, the chimera
     # sample-QC (PCA + sample distances) and junction-QC barplot, the TEcounts
-    # sample-QC and per-sample summary barplots (each gated on its stage), the
+    # sample-QC (gated on tetranscripts.qc.enabled) and the always-on
+    # per-sample summary barplots, the
     # per-rule benchmark/resource summary, and the pinned tool versions into
     # one HTML report. Runs the MultiQC version
     # pinned in config["versions"]["multiqc"]. The custom config
@@ -140,6 +149,7 @@ rule multiqc:
         chimera_qc=_chimera_qc_mqc_inputs(),
         junction_qc=_junction_qc_mqc_inputs(),
         tecount_qc=_tecount_qc_mqc_inputs(),
+        tecount_summary=_tecount_summary_mqc_inputs(),
     output:
         html="results/qc/multiqc_report.html",
         data=directory("results/qc/multiqc_report_data"),

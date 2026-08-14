@@ -91,7 +91,7 @@ jobs:
           set +e -uo pipefail
           T=$(mktemp -d)
           FAIL=0
-          echo "[guards] 1/11 missing reference"
+          echo "[guards] 1/13 missing reference"
 
           # --- a missing/typo'd reference is a hard parse-time error ---------
           sed 's|  fasta: .*|  fasta: /nonexistent/ref.fa|' config/test.yaml > "$T/missing_ref.yaml"
@@ -101,7 +101,7 @@ jobs:
             echo "ERROR: wrong failure message for missing reference"; FAIL=1
           fi
 
-          echo "[guards] 2/11 already-trimmed fastqs"
+          echo "[guards] 2/13 already-trimmed fastqs"
 
           # --- already-trimmed-looking fastqs are rejected while trimming on --
           printf 'sample,fastq_1,fastq_2,strandedness,condition\nzyg_wt_01,zyg_wt_01_trimmed.fq.gz,,auto,wt\n' > "$T/trimmed.csv"
@@ -112,7 +112,7 @@ jobs:
             echo "ERROR: wrong failure message for already-trimmed fastqs"; FAIL=1
           fi
 
-          echo "[guards] 3/11 node-local decompressed_dir, plain refs"
+          echo "[guards] 3/13 node-local decompressed_dir, plain refs"
 
           # --- node-local decompressed_dir is fine with plain refs ------------
           # (no gunzip_reference jobs run, so the setting is dead config)
@@ -121,7 +121,7 @@ jobs:
             echo "ERROR: node-local decompressed_dir with plain refs must still dry-run"; FAIL=1
           fi
 
-          echo "[guards] 4/11 gzipped refs, default decompressed_dir"
+          echo "[guards] 4/13 gzipped refs, default decompressed_dir"
 
           # --- gzipped references: make .gz copies of the test refs ------------
           gzip -c .tests/resources/genome.fa > "$T/genome.fa.gz"
@@ -137,7 +137,7 @@ jobs:
             echo "ERROR: gzipped refs with default decompressed_dir must dry-run"; FAIL=1
           fi
 
-          echo "[guards] 5/11 gz refs + node-local decompressed_dir"
+          echo "[guards] 5/13 gz refs + node-local decompressed_dir"
 
           # --- gz refs + node-local /tmp decompressed_dir: hard parse error ----
           sed 's|  sjdb_overhang: 49|  sjdb_overhang: 49\n  decompressed_dir: /tmp/rnaseq-decompressed|' "$T/gz.yaml" > "$T/gz_tmpdir.yaml"
@@ -147,7 +147,7 @@ jobs:
             echo "ERROR: wrong failure message for gz refs + node-local decompressed_dir"; FAIL=1
           fi
 
-          echo "[guards] 6/11 gz refs + empty decompressed_dir"
+          echo "[guards] 6/13 gz refs + empty decompressed_dir"
 
           # --- gz refs + empty decompressed_dir: hard parse error ---------------
           sed 's|  sjdb_overhang: 49|  sjdb_overhang: 49\n  decompressed_dir: ""|' "$T/gz.yaml" > "$T/gz_empty.yaml"
@@ -157,7 +157,7 @@ jobs:
             echo "ERROR: wrong failure message for gz refs + empty decompressed_dir"; FAIL=1
           fi
 
-          echo "[guards] 7/11 star.index omitted"
+          echo "[guards] 7/13 star.index omitted"
 
           # --- star.index omitted: defaults to generated results/star_index -----
           sed '/^  index: .*star_index$/d' config/test.yaml > "$T/no_index.yaml"
@@ -167,7 +167,7 @@ jobs:
             echo "ERROR: default star index path results/star_index not used"; FAIL=1
           fi
 
-          echo "[guards] 8/11 star.index empty"
+          echo "[guards] 8/13 star.index empty"
 
           # --- star.index empty string: same default applies --------------------
           sed 's|^  index: .*|  index: ""|' config/test.yaml > "$T/empty_index.yaml"
@@ -175,7 +175,7 @@ jobs:
             echo "ERROR: empty star.index must dry-run (default results/star_index)"; FAIL=1
           fi
 
-          echo "[guards] 9/11 CLI samples generator"
+          echo "[guards] 9/13 CLI samples generator"
 
           # --- the samples CLI must reproduce the committed fixture -----------
           # (same rows, order-insensitive; generated paths are absolute while
@@ -194,7 +194,7 @@ jobs:
             fi
           fi
 
-          echo "[guards] 10/11 CLI run --dry-run"
+          echo "[guards] 10/13 CLI run --dry-run"
 
           # --- CLI run must scaffold config + sheet and pass a real dry-run ---
           python workflow/scripts/tetranscripts-pipe run \
@@ -213,7 +213,7 @@ jobs:
             echo "ERROR: CLI run --dry-run planned no jobs (tecount missing from the DAG)"; tail -40 "$T/cli_run.log"; FAIL=1
           fi
 
-          echo "[guards] 11/11 MultiQC custom-content JSON format"
+          echo "[guards] 11/13 MultiQC custom-content JSON format"
 
           # --- the barplot emitters must render in the installed MultiQC ------
           # MultiQC's custom_content module only reads a top-level "data" key;
@@ -251,6 +251,38 @@ jobs:
                 FAIL=1
               fi
             done
+          fi
+
+          echo "[guards] 12/13 CLI run with an existing config (config-only)"
+
+          # --- CLI run with an existing --config: no other flags needed -------
+          # The sheet is taken from the config's 'samples:' key
+          # (config/test.yaml -> .tests/samples.csv), resolved repo-root
+          # relative like snakemake itself does.
+          python workflow/scripts/tetranscripts-pipe run \
+            --config config/test.yaml --cores 2 --dry-run > "$T/cli_config_only.log" 2>&1
+          CLI_RC=$?
+          if [ $CLI_RC -ne 0 ]; then
+            echo "ERROR: CLI run --config-only dry-run failed (exit $CLI_RC)"; tail -40 "$T/cli_config_only.log"; FAIL=1
+          elif ! grep -q "dry-run OK" "$T/cli_config_only.log"; then
+            echo "ERROR: CLI run --config-only did not report success"; tail -40 "$T/cli_config_only.log"; FAIL=1
+          elif ! grep -q "Job stats:" "$T/cli_config_only.log" || ! grep -q "tecount_summary" "$T/cli_config_only.log"; then
+            echo "ERROR: CLI run --config-only planned no jobs (tecount_summary missing)"; tail -40 "$T/cli_config_only.log"; FAIL=1
+          fi
+
+          echo "[guards] 13/13 qc-off keeps the summary barplots"
+
+          # --- tetranscripts.qc.enabled: false still plans the summary barplots
+          # The assignment + TE-class barplots use the raw cntTables, so they
+          # are decoupled from the R-based sample-QC view (v0.6.5). The 4-space
+          # indent pins this to tetranscripts.qc.enabled (not trimming/chimera).
+          sed 's/^    enabled: true/    enabled: false/' config/test.yaml > "$T/qc_off.yaml"
+          if ! snakemake --configfile "$T/qc_off.yaml" -n --cores 1 >"$T/qc_off.log" 2>&1; then
+            echo "ERROR: qc-off config must dry-run"; tail -40 "$T/qc_off.log"; FAIL=1
+          elif ! grep -q "tecount_summary" "$T/qc_off.log"; then
+            echo "ERROR: tecount_summary not planned with tetranscripts.qc.enabled false"; tail -40 "$T/qc_off.log"; FAIL=1
+          elif grep -qE "tecount_counts|tecount_qc_transform" "$T/qc_off.log"; then
+            echo "ERROR: R-based tecount QC rules still planned with tetranscripts.qc.enabled false"; tail -40 "$T/qc_off.log"; FAIL=1
           fi
 
           echo "[guards] done, FAIL=$FAIL"

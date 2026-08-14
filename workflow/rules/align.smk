@@ -3,10 +3,10 @@ import os
 
 def _chim_star_args(wildcards):
     """STAR chimeric-alignment parameters from config["chimera"]["star"], or
-    nothing when the chimera screen is disabled (the default). --chimOutType
-    stays fixed (Junctions + WithinBAM SoftClip): the junction file feeds the
-    chimera screen and the SA tags embedded in the BAM let the same alignment
-    be re-inspected in IGV."""
+    nothing when the chimera screen is disabled (chimera.enabled: false).
+    --chimOutType stays fixed (Junctions + WithinBAM SoftClip): the junction
+    file feeds the chimera screen and the SA tags embedded in the BAM let the
+    same alignment be re-inspected in IGV."""
     if not CHIMERA_ENABLED:
         return ""
     c = config["chimera"]["star"]

@@ -149,20 +149,21 @@ properties:
   chimera:
     type: object
     description: >-
-      Optional gene-TE chimera screen (STAR --chimOutType Junctions WithinBAM
+      Gene-TE chimera screen (STAR --chimOutType Junctions WithinBAM
       SoftClip), per-junction annotation, count matrix, and the chimera
-      sample-QC (PCA / sample clustering). Disabled by default; set enabled
-      to true to add the chimera stage to the same alignment run that feeds
-      quantification. EXPERIMENTAL: classification and QC-view behavior may
-      still change between releases.
+      sample-QC (PCA / sample clustering). Enabled by default; set enabled
+      to false to opt out -- the workflow then behaves like a plain
+      quantification pipeline. EXPERIMENTAL: classification and QC-view
+      behavior may still change between releases.
     properties:
       enabled:
         type: boolean
         description: >-
-          When false (default), the chimera STAR flags, rules and outputs are
-          absent and the workflow behaves exactly like the plain
-          quantification pipeline. When true, the chimera screen runs on the
-          same alignment as TEcount.
+          When true (default), the STAR alignment emits chimeric junctions
+          and the chimera screen runs on the same alignment as TEcount. When
+          false, the chimera STAR flags, rules and outputs are absent and
+          the workflow behaves exactly like the plain quantification
+          pipeline.
       star:
         type: object
         description: STAR chimeric-junction detection parameters.

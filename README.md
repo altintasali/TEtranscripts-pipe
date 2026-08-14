@@ -91,13 +91,13 @@ TEcount quantifies genes + TEs per sample; if your sample sheet has a
 The per-sample TEcount tables also drive a sample-QC view (PCA + sample
 clustering, on by default) and per-sample summary barplots (gene-vs-TE
 assignment and TE class composition), rendered inside the MultiQC report.
-Optionally
-(`chimera.enabled: true`) the **same** alignment also drives a gene-TE chimera
+The **same** alignment also drives a gene-TE chimera
 screen that annotates chimeric junction reads and produces a counts matrix,
-an interactive sample-QC view, and a junction-QC barplot. A single MultiQC
+an interactive sample-QC view, and a junction-QC barplot (on by default;
+set `chimera.enabled: false` to opt out). A single MultiQC
 report pulls together
-FastQC, TrimGalore!, STAR, RSeQC, the TEcounts and chimera QC plots (when
-enabled), tool versions, and a per-rule resource-usage table.
+FastQC, TrimGalore!, STAR, RSeQC, the TEcounts and chimera QC plots, tool
+versions, and a per-rule resource-usage table.
 
 ## Table of contents
 
@@ -222,8 +222,8 @@ reference):
 | `trimming.extra` | extra TrimGalore! flags passed verbatim. |
 | `strandedness.min_fraction` | confidence threshold for RSeQC auto-detection. |
 | `tetranscripts.*` | TEcount/TEtranscripts options (mode, padj, foldchange...). |
-| `tetranscripts.qc.*` | TEcounts sample-QC view (PCA + sample clustering, on by default): `enabled`, view-only filters `min_samples_present`/`min_total_counts`/`min_events`, `pca_transform` (`vst`/`rlog`/`log2`), and `feature_class` (`TE` default / `gene` / `all`). They never remove features from the cntTables. |
-| `chimera.enabled` | run the gene-TE chimera screen (default `false`; see [The chimera screen](#the-chimera-screen)). |
+| `tetranscripts.qc.*` | TEcounts sample-QC view (PCA + sample clustering, on by default): `enabled`, view-only filters `min_samples_present`/`min_total_counts`/`min_events`, `pca_transform` (`vst`/`rlog`/`log2`), and `feature_class` (`TE` default / `gene` / `all`). They never remove features from the cntTables. The assignment + TE-class summary barplots are independent and always produced. |
+| `chimera.enabled` | run the gene-TE chimera screen (default `true`; set `false` to opt out, see [The chimera screen](#the-chimera-screen)). |
 | `chimera.star` | STAR chimeric-alignment detection params (`segment_min`, `overhang_min`, `score_drop_max`, `extra`) — defaults follow the TEtranscripts authors' recommendations for the gene-TE chimera context. |
 | `chimera.breakpoint_tolerance` | slack (bp) allowed when matching a STAR chimeric breakpoint to an exon/TE feature edge (default `0`). |
 | `chimera.require_canonical_junction` | require STAR junction type 1 (GT/AG) for a junction to count as gene-TE (default `false` — TE-involved splicing is often non-canonical). |
@@ -295,6 +295,19 @@ Three subcommands:
   hand-edits survive; `--force` regenerates them. `--profile` (e.g. the
   bundled `workflow/profiles/slurm`), `--cores`, `--snakemake-args` and
   `--keep-temp` are passed through to snakemake.
+
+  Once your config exists and already points at a sample sheet (its `samples:`
+  key), **no other options are needed** — `run` reads the sheet path straight
+  from the config (resolved repo-root-relative, exactly like snakemake does):
+
+  ```bash
+  python workflow/scripts/tetranscripts-pipe run --config input/config.yaml --cores 32
+  ```
+
+  `--samplesheet` still takes precedence for the CLI's own existence check, but
+  with an existing config snakemake always reads the config's `samples:` path —
+  the flag is authoritative only when the config is scaffolded (or regenerated
+  with `--force`).
 
 ## Test profile
 
@@ -492,7 +505,8 @@ custom-content JSON and rendered interactively inside `multiqc_report.html`
 never reduced. If too few features pass, the plot rule ships empty
 custom-content JSON (the report documents the skip) and a log message instead
 of failing. Set `tetranscripts.qc.enabled: false` to skip the matrix and plots
-entirely.
+entirely (the summary barplots below still render — they only need the raw
+cntTables).
 
 The same per-sample tables also feed two **summary barplots**
 (`results/tecount/qc/tecount_assignment_mqc.json` and
@@ -501,7 +515,8 @@ custom-content section): per-sample read counts and % split into **genes vs TE
 subfamilies**, and the TE-subfamily reads broken down by repeat **class**
 (LINE/SINE/LTR/DNA/RC, anything else grouped as `unknown`). Unlike the sample-QC
 view these use the raw cntTables (all features), so they are independent of
-`feature_class` and always reflect every read TEcount assigned.
+`feature_class` and always reflect every read TEcount assigned — and they are
+**always produced**, independent of `tetranscripts.qc.enabled`.
 
 ## The chimera screen
 
@@ -510,7 +525,8 @@ view these use the raw cntTables (all features), so they are independent of
 > releases. Use it for exploration and validate the output before relying on
 > it for published results.
 
-Optional, off by default (`chimera.enabled: false`); turn it on and the
+On by default (`chimera.enabled: true`); set it to `false` to opt out and
+return to a plain quantification pipeline. When on, the
 **same** STAR alignment that feeds TEcount also detects gene-TE chimeric
 junctions (no separate alignment step). Per sample, STAR's chimeric junction
 records (`Chimeric.out.junction`, from `--chimOutType Junctions WithinBAM
@@ -736,7 +752,7 @@ results/
 ├── tetranscripts/{contrast}_*.{txt,R}              # only if "condition" column present
 │                                                    #   ({contrast}.cntTable, _DESeq2.R,
 │                                                    #   _gene_TE_analysis.txt, _sigdiff_gene_TE.txt)
-├── chimera/                                        # only if chimera.enabled:
+├── chimera/                                        # always (set chimera.enabled: false to skip):
 │   ├── {sample}_junctions.tsv                      #   per-sample annotated junctions
 │   ├── {sample}_te_chimeras.tsv                    #   per-sample gene-TE events only
 │   ├── all_events.tsv                              #   merged event catalog

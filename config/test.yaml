@@ -62,8 +62,9 @@ outputs:
   keep_trimmed_fastq: false
 
 # Chimera screen settings (see config/config.example.yaml for the meanings).
-# enabled: true so the CI test exercises the full chimera stage (the
-# default-config value is false). The other defaults below match the built-in
+# enabled: true so the CI test exercises the full chimera stage (this is now
+# also the built-in default-config value; kept explicit for CI). The other
+# defaults below match the built-in
 # defaults, so this section is really just exercising the config plumbing on
 # the synthetic test data; the single test TE is enough for junction parsing
 # + counts + sample-QC to run.

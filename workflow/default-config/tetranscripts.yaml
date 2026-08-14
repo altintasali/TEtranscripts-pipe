@@ -8,7 +8,8 @@
 # TEcount quantification runs on every sample unconditionally; the optional
 # `qc` subsection adds the sample-QC view (PCA + sample clustering) that
 # mirrors the chimera screen's QC stage, driven by the same shared
-# sample_qc.R script.
+# sample_qc.R script. The gene-vs-TE assignment and TE-class summary
+# barplots are independent of this toggle (they use the raw cntTables).
 # =============================================================================
 tetranscripts:
   # TE counting mode: "multi" distributes multi-mapping reads across all their
@@ -27,7 +28,8 @@ tetranscripts:
   qc:
     # Sample-QC view (PCA + sample clustering) of the per-sample TEcount
     # tables, rendered inside multiqc_report.html. On by default; set
-    # enabled: false to skip it entirely (no counts matrix, no plots).
+    # enabled: false to skip it entirely (no counts matrix, no plots). The
+    # summary barplots (tecount_assignment / tecount_te_class) always render.
     enabled: true
     # Filters applied to the counts matrix *for the PCA/clustering view only*.
     # min_events is the floor for drawing the QC plots. They never remove

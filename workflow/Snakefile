@@ -71,9 +71,11 @@ rule all:
         # included when the chimera stage is enabled.
         **({"chimera": all_chimera_outputs(),
             "sample_qc": all_sample_qc_outputs()} if CHIMERA_ENABLED else {}),
-        # The TEcounts sample-QC helpers live in rules/tecount_qc.smk, only
-        # included when tetranscripts.qc.enabled is true (the default).
+        # The TEcounts sample-QC helpers live in rules/tecount_qc.smk; the
+        # PCA/clustering view only runs when tetranscripts.qc.enabled is
+        # true (the default), while the summary barplots always render.
         **({"tecount_qc": all_tecount_qc_outputs()} if TECOUNT_QC["enabled"] else {}),
+        **({"tecount_summary": all_tecount_summary_outputs()}),
 
 
 rule star_index_only:

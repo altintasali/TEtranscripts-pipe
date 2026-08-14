@@ -34,6 +34,14 @@ def all_tecount_qc_outputs():
         f"results/tecount/qc/{transform}_counts.tsv",
         f"results/tecount/qc/pca_{transform}_mqc.json",
         f"results/tecount/qc/heatmap_{transform}_mqc.json",
+    ]
+
+
+def all_tecount_summary_outputs():
+    """Per-sample TEcounts summary-barplot JSONs (gene-vs-TE assignment + TE
+    class composition) for the `all` target. Always produced: they only need
+    the raw cntTables, so they are independent of tetranscripts.qc.enabled."""
+    return [
         "results/tecount/qc/tecount_assignment_mqc.json",
         "results/tecount/qc/tecount_te_class_mqc.json",
     ]
@@ -143,7 +151,8 @@ rule tecount_summary:
     # content): gene-vs-TE assignment and TE class composition as counts and
     # percentages (tecount_summary_mqc.py). Unlike the sample-QC view it uses
     # the RAW cntTables (all features), so it is independent of
-    # tetranscripts.qc.feature_class and needs no R env.
+    # tetranscripts.qc.enabled and .feature_class, and needs no R env --
+    # always produced.
     input:
         tables=tecount_counts_input(),
     output:

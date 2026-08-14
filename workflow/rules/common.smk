@@ -458,11 +458,12 @@ def _is_paired(sample):
 # -----------------------------------------------------------------------------
 TRIM_ENABLED = bool(config.get("trimming", {}).get("enabled", True))
 
-# Optional chimera screen (rules/chimera.smk + sample_qc.smk). When disabled
-# (the default), no chimera STAR flags are passed, the chimera rules are not
-# included, and the workflow behaves exactly like the plain quantification
-# pipeline.
-CHIMERA_ENABLED = bool(config.get("chimera", {}).get("enabled", False))
+# Optional chimera screen (rules/chimera.smk + sample_qc.smk). When enabled
+# (the default), the STAR alignment emits chimeric junctions and the chimera
+# rules annotate them; set chimera.enabled: false to opt out -- no chimera
+# STAR flags are passed, the chimera rules are not included, and the workflow
+# behaves like the plain quantification pipeline.
+CHIMERA_ENABLED = bool(config.get("chimera", {}).get("enabled", True))
 
 # TEcounts sample-QC (PCA + sample clustering, rules/tecount_qc.smk), built
 # from the per-sample TEcount tables. Defaults come from the built-in
@@ -812,6 +813,10 @@ def all_benchmark_files():
             f"results/pipeline_info/benchmarks/tecount_qc_transform/{transform}.txt",
             f"results/pipeline_info/benchmarks/tecount_qc/{transform}.txt",
         ]
+    # The summary-barplot rule runs on every run (raw cntTables only).
+    files.append(
+        "results/pipeline_info/benchmarks/tecount_summary/tecount_summary.txt"
+    )
     return sorted(set(files))
 
 

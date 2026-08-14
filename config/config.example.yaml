@@ -129,7 +129,9 @@ tetranscripts:
     # Sample-QC view (PCA + sample clustering) of the per-sample TEcount
     # tables, rendered interactively inside multiqc_report.html (same style
     # as the chimera screen's QC view, driven by the same shared script).
-    # On by default; set enabled: false to skip the counts matrix + plots.
+    # On by default; set enabled: false to skip the counts matrix + plots
+    # (the gene-vs-TE assignment and TE-class summary barplots still render
+    # -- they only need the raw cntTables).
     enabled: true
     # Filters applied to the counts matrix *for the PCA/clustering view
     # only* -- they never remove features from the per-sample cntTables.
@@ -153,18 +155,19 @@ tetranscripts:
 # after per-sample TEcount quantification. Nothing to configure here.
 
 chimera:
-  # Optional gene-TE chimera screen, run on the SAME STAR alignment that
-  # feeds TEcount (no separate alignment). Disabled by default: when off,
-  # the workflow behaves exactly like the plain quantification pipeline.
-  # Set enabled: true to also detect and annotate chimeric gene-TE junction
-  # reads (results/chimera/...). See the "Chimera screen" section of the
-  # README for the pipeline flow and output layout.
+  # Gene-TE chimera screen, run on the SAME STAR alignment that feeds TEcount
+  # (no separate alignment). On by default: the STAR alignment always emits
+  # chimeric junctions and the workflow detects and annotates chimeric
+  # gene-TE junction reads (results/chimera/...). Set enabled: false to opt
+  # out -- the workflow then behaves like a plain quantification pipeline.
+  # See the "Chimera screen" section of the README for the pipeline flow and
+  # output layout.
   #
   # EXPERIMENTAL: this stage is a newer addition to the pipeline -- its
   # junction classification and QC-view behavior may still change between
   # releases. Use for exploration, and validate the output before relying
   # on it for published results.
-  enabled: false
+  enabled: true
   star:
     # STAR chimeric-alignment detection parameters. The defaults below are
     # the TEtranscripts authors' recommendations for the gene-TE chimera

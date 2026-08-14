@@ -9,7 +9,9 @@ Bootstrap commands for a STAR + RSeQC + TEtranscripts analysis:
 
 The workflow itself still reads the same two gitignored files
 (input/config.yaml and input/samples.csv); this CLI just creates them and
-launches snakemake. Errors are written to stderr and exit non-zero (1).
+launches snakemake. For an existing config, `run --config <cfg> --cores N`
+is enough -- the sample sheet is taken from the config's `samples:` key.
+Errors are written to stderr and exit non-zero (1).
 """
 import argparse
 import csv
@@ -93,6 +95,16 @@ def _resolve_input_dir(value):
     if os.path.isabs(value):
         return value
     return os.path.join(REPO_ROOT, value)
+
+
+def _repo_abspath(path):
+    """Resolve a possibly-relative path against the repo root. Snakemake runs
+    with cwd=REPO_ROOT, so relative paths inside config.yaml (e.g. the
+    `samples:` key) are repo-root-relative -- the CLI must resolve them the
+    same way, not against the caller's current working directory."""
+    if os.path.isabs(path):
+        return path
+    return os.path.abspath(os.path.join(REPO_ROOT, path))
 
 
 def _parse_fastq_name(fname):
@@ -235,7 +247,7 @@ def cmd_samples(args):
     if args.dry_run:
         _emit_csv(sys.stdout, rows)
         return 0
-    sheet = os.path.abspath(args.samplesheet) if args.samplesheet else DEFAULT_SHEET
+    sheet = _repo_abspath(args.samplesheet) if args.samplesheet else DEFAULT_SHEET
     if os.path.exists(sheet) and not args.force:
         _die(f"{sheet} already exists; re-run with --force to overwrite")
     os.makedirs(os.path.dirname(sheet), exist_ok=True)
@@ -271,7 +283,19 @@ def cmd_run(args):
     if args.cores < 1:
         _die("--cores must be >= 1")
     config_path = os.path.abspath(args.config) if args.config else DEFAULT_CONFIG
-    sheet_path = os.path.abspath(args.samplesheet) if args.samplesheet else DEFAULT_SHEET
+    # Sample-sheet path precedence: --samplesheet, then the existing config's
+    # `samples:` key (the path the workflow actually reads, resolved
+    # repo-root-relative like snakemake does), then the default location.
+    # With an existing config whose `samples:` path is valid, `run --config
+    # <cfg> --cores N` needs no other options.
+    if args.samplesheet:
+        sheet_path = _repo_abspath(args.samplesheet)
+    elif os.path.exists(config_path):
+        conf = _load_yaml(config_path)
+        cfg_sheet = conf.get("samples") if isinstance(conf, dict) else None
+        sheet_path = _repo_abspath(cfg_sheet) if cfg_sheet else DEFAULT_SHEET
+    else:
+        sheet_path = DEFAULT_SHEET
 
     if args.reads:
         reads_dir = os.path.abspath(args.reads)
@@ -300,7 +324,8 @@ def cmd_run(args):
         _die(
             f"no sample sheet at {sheet_path}. Generate one with:\n"
             f"  python workflow/scripts/tetranscripts-pipe samples --reads DIR\n"
-            f"or pass --reads to this command."
+            f"or pass --reads to this command, or set the 'samples:' key in "
+            f"{config_path}."
         )
 
     cmd = ["snakemake", "--configfile", config_path,
@@ -397,7 +422,9 @@ def _build_parser():
         description="Scaffold input/config.yaml (from config.example.yaml) when "
                     "missing, generate the sample sheet from --reads when missing, "
                     "then launch snakemake. An existing config/sample sheet is used "
-                    "as-is unless --force is given.",
+                    "as-is unless --force is given. With an existing --config, the "
+                    "sample sheet is taken from its 'samples:' key, so "
+                    "`run --config <cfg> --cores N` needs no other options.",
     )
     p_run.add_argument("--fasta", metavar="PATH",
                        help="genome FASTA (for a new config)")
@@ -410,7 +437,10 @@ def _build_parser():
     p_run.add_argument("--config", metavar="PATH",
                        help="config file (default: <repo>/input/config.yaml)")
     p_run.add_argument("--samplesheet", metavar="PATH",
-                       help="sample sheet path (default: <repo>/input/samples.csv)")
+                       help="sample sheet path (default: the config's samples: key, "
+                            "else <repo>/input/samples.csv). Note: with an existing "
+                            "config, snakemake still reads the config's samples: path; "
+                            "this flag only sets the path the CLI checks/writes.")
     p_run.add_argument("--cores", type=int, default=1, metavar="N",
                        help="snakemake --cores (default 1)")
     p_run.add_argument("--profile", metavar="P",

@@ -4,10 +4,11 @@
 # to edit this file; copy the `chimera:` section from config/config.example.yaml
 # into input/config.yaml and change what you need there instead.
 #
-# The chimera screen is opt-in: `chimera.enabled: false` (the default) keeps
-# the workflow byte-identical to the plain quantification pipeline -- no extra
-# STAR flags, no chimera rules, no chimera outputs. Set it to true to also
-# screen gene-TE chimeric junctions from the same STAR alignment.
+# The chimera screen is on by default (`chimera.enabled: true`): the STAR
+# alignment always emits chimeric junctions, and the workflow annotates them,
+# builds the count matrix + QC views, and writes the results/chimera/ outputs.
+# Set `chimera.enabled: false` to opt out -- the workflow then behaves like a
+# plain quantification pipeline (no chimera STAR flags, rules, or outputs).
 #
 # EXPERIMENTAL: this stage is a newer addition to the pipeline -- its junction
 # classification and QC-view behavior may still change between releases. Use
@@ -15,7 +16,7 @@
 # results.
 # =============================================================================
 chimera:
-  enabled: false
+  enabled: true
   star:
     segment_min: 12
     overhang_min: 12
