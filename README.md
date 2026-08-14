@@ -560,6 +560,9 @@ The per-sample tables then merge into:
   report: per sample, junction counts (and % of total junctions) by direction
   (`gene_to_te`/`te_to_gene` first, then the other classes), switchable between
   counts and % in the interactive plot.
+- `results/chimera/qc/te_chimeras_mqc.json` — the **TE-chimeras barplot**: the
+  gene↔TE subset on its own (`gene_to_te` vs `te_to_gene`, counts and % of
+  total junctions), the last chimera view in the report.
 
 If `chimera.outputs.write_counts_matrix` is on (default), a **sample-QC view**
 is produced with DESeq2 (nf-core/rnaseq style): the counts matrix is
@@ -741,6 +744,7 @@ results/
 │   ├── counts_matrix.tsv                           #   events x samples (if write_counts_matrix)
 │   ├── qc/{sample}_junction_qc.tsv                 #   per-sample junction summary
 │   ├── qc/junction_qc_mqc.json                     #   junction barplot by direction
+│   ├── qc/te_chimeras_mqc.json                     #   TE-chimeras barplot (gene<->TE)
 │   ├── qc/{pca_transform}_mqc.json                 #   sample-QC PCA (custom content)
 │   ├── qc/heatmap_{pca_transform}_mqc.json         #   sample-QC distance heatmap
 │   └── igv/{sample}_junctions.bed                  #   IGV track (if write_igv_bed)

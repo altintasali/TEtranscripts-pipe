@@ -48,17 +48,21 @@ module_order:
 # without this their order is arbitrary. Section ids come from the `_mqc.json`
 # documents emitted by the sample_qc (chimera screen, only when enabled),
 # tecount_qc (TEcounts sample-QC, enabled by default), junction_qc_barplot
-# (chimera junction-QC, only when the chimera stage is enabled), tecount_summary
-# (per-sample TEcounts assignment + TE-class barplots) and benchmark_summary
-# rules. MultiQC silently skips ids that produced no data, so the ids are
-# harmless when the corresponding stage is off.
+# (chimera junction-QC + TE-chimeras barplots, only when the chimera stage is
+# enabled), tecount_summary (per-sample TEcounts assignment + TE-class
+# barplots) and benchmark_summary rules. Ordered by the analysis flow --
+# TEcounts quantification (primary output) first, then the downstream chimera
+# screen, closing with the TE-chimeras view and the resource-usage table.
+# MultiQC silently skips ids that produced no data, so the ids are harmless
+# when the corresponding stage is off.
 custom_content:
   order:
-    - chimera_sample_qc_pca
-    - chimera_sample_qc_heatmap
-    - chimera_junction_qc
     - tecount_sample_qc_pca
     - tecount_sample_qc_heatmap
     - tecount_assignment
     - tecount_te_class
+    - chimera_sample_qc_pca
+    - chimera_sample_qc_heatmap
+    - chimera_junction_qc
+    - chimera_te_chimeras
     - resource_usage

@@ -52,6 +52,7 @@ def all_chimera_outputs():
     ]
     files += [
         "results/chimera/qc/junction_qc_mqc.json",
+        "results/chimera/qc/te_chimeras_mqc.json",
     ]
     if WRITE_IGV_BED:
         files += [
@@ -194,16 +195,18 @@ rule junction_qc:
 
 
 rule junction_qc_barplot:
-    # Merges the per-sample junction QC tables into one MultiQC bar-plot
-    # custom-content document (junction_qc_mqc.py): per-sample direction
-    # composition as counts and % of total junctions, rendered inside
-    # multiqc_report.html in the custom_content module.
+    # Merges the per-sample junction QC tables into two MultiQC bar-plot
+    # custom-content documents (junction_qc_mqc.py): per-sample direction
+    # composition as counts and % of total junctions, plus the gene<->TE
+    # subset (the TE-chimeras view), rendered inside multiqc_report.html in
+    # the custom_content module.
     input:
         tables=lambda wc: [
             f"results/chimera/qc/{s}_junction_qc.tsv" for s in SAMPLES
         ],
     output:
-        "results/chimera/qc/junction_qc_mqc.json",
+        junction="results/chimera/qc/junction_qc_mqc.json",
+        te_chimeras="results/chimera/qc/te_chimeras_mqc.json",
     params:
         samples=lambda wc, input: " ".join(SAMPLES),
     threads: get_resources("junction_qc_barplot")["threads"]
@@ -218,7 +221,8 @@ rule junction_qc_barplot:
         "python {SCRIPTS_DIR}/junction_qc_mqc.py "
         "--tables {input.tables} "
         "--samples {params.samples} "
-        "--out {output} > {log} 2>&1"
+        "--out {output.junction} "
+        "--out-te-chimeras {output.te_chimeras} > {log} 2>&1"
 
 
 rule chimera_igv_bed:
