@@ -15,7 +15,10 @@ is enough -- the sample sheet is taken from the config's `samples:` key.
 Relative paths inside a config resolve against the repo checkout that
 contains it (its workflow/Snakefile ancestor), and snakemake runs from that
 same root -- so the CLI can live in a different checkout (e.g. a shared
-apps/ install) than the analysis.
+apps/ install) than the analysis. When the analysis directory is a standalone
+directory (no workflow/ or Snakefile), the CLI auto-creates a workflow/
+symlink pointing at its own checkout so snakemake can find the rules and
+default configs.
 Errors are written to stderr and exit non-zero (1).
 """
 import argparse
@@ -110,7 +113,9 @@ def _find_repo_root(config_path):
     the analysis (e.g. a shared apps/ copy while the config lives in an
     analysis working copy), so the config's relative paths must resolve
     against its own repo, not this script's. Falls back to this script's
-    REPO_ROOT when no repo is found."""
+    REPO_ROOT when no repo is found; ``cmd_run`` then calls
+    ``_ensure_analysis_root`` to handle standalone analysis directories that
+    lack a checkout (auto-creating a workflow/ symlink)."""
     cur = os.path.dirname(os.path.abspath(config_path))
     while True:
         if os.path.exists(os.path.join(cur, "workflow", "Snakefile")):
@@ -305,6 +310,33 @@ def _write_run_config(config_path, sheet_path, fasta, gtf, te_gtf,
     )
 
 
+def _ensure_analysis_root(config_path):
+    """Resolve the analysis root for a config outside any repo checkout.
+
+    Walks up from *config_path*'s directory to the first ancestor that
+    contains an ``input/`` subdirectory — the conventional layout for an
+    analysis directory (``<root>/input/config.yaml``).  Creates a
+    ``workflow/`` symlink pointing at this script's own checkout so that
+    Snakemake can find the Snakefile, default configs, rules, and scripts
+    (all resolved relative to cwd).  Returns the analysis root directory."""
+    config_dir = os.path.dirname(os.path.abspath(config_path))
+    candidate = config_dir
+    while True:
+        if os.path.isdir(os.path.join(candidate, "input")):
+            analysis_root = candidate
+            break
+        parent = os.path.dirname(candidate)
+        if parent == candidate:
+            analysis_root = config_dir
+            break
+        candidate = parent
+    workflow_link = os.path.join(analysis_root, "workflow")
+    if not os.path.lexists(workflow_link):
+        os.symlink(WORKFLOW_DIR, workflow_link)
+        print(f"created workflow/ symlink -> {WORKFLOW_DIR}")
+    return analysis_root
+
+
 def cmd_run(args):
     if args.cores < 1:
         _die("--cores must be >= 1")
@@ -315,6 +347,16 @@ def cmd_run(args):
     # working copy. Snakemake is launched from that same root, so relative
     # paths resolve exactly as if snakemake were run there directly.
     analysis_root = _find_repo_root(config_path)
+    # When _find_repo_root falls back to REPO_ROOT (this script's checkout),
+    # the config may live in a standalone analysis directory that lacks
+    # workflow/.  Detect this and create a workflow/ symlink so snakemake
+    # can find the Snakefile and default-config YAMLs (all cwd-relative).
+    if analysis_root == REPO_ROOT:
+        config_dir = os.path.dirname(os.path.abspath(config_path))
+        config_inside_repo = (config_dir == REPO_ROOT
+                              or config_dir.startswith(REPO_ROOT + os.sep))
+        if not config_inside_repo:
+            analysis_root = _ensure_analysis_root(config_path)
     default_sheet = os.path.join(analysis_root, "input", "samples.csv")
     # Sample-sheet path precedence: --samplesheet, then the existing config's
     # `samples:` key (the path the workflow actually reads, resolved
