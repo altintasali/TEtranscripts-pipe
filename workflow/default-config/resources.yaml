@@ -161,9 +161,12 @@ resources:
     runtime: 120
 
   chimera_counts:
-    # Merging per-sample junction tables; single-threaded, streaming I/O.
+    # Merging per-sample junction tables; single-threaded.  Loads all unique
+    # events into a single Python dict — peak RSS is 10-20x the on-disk size
+    # of the input TSVs (Python dict overhead).  84 samples × ~20 MB each
+    # needs ≥16 GB.
     threads: 1
-    mem_mb: 4000
+    mem_mb: 16000
     runtime: 30
 
   junction_qc:
