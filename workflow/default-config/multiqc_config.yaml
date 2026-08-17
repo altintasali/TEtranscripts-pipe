@@ -3,11 +3,12 @@
 #
 # The key setting is extra_fn_clean_exts: TrimGalore! names its trimmed/fastqc
 # files {sample}_val_{1,2}_... / {sample}_trimmed_... (see trimming.smk), and
-# without cleaning those suffixes MultiQC would derive FastQC sample names
-# like "control_rep1_val_1" -- which no longer matches the "control_rep1" rows
-# from STAR/RSeQC, so the General Stats table would gain extra, mostly-empty
-# rows per sample. Trimming the suffixes makes every module's rows merge into
-# one clean row per sample.
+# raw FastQC zips carry the read suffix {sample}_R{read}_fastqc.zip.  Without
+# cleaning those suffixes MultiQC would derive FastQC sample names like
+# "control_rep1_val_1" or "control_rep1_R1" -- which no longer match the
+# "control_rep1" rows from STAR/RSeQC, so the General Stats table would gain
+# extra, mostly-empty rows per sample.  Trimming the suffixes makes every
+# module's rows merge into one clean row per sample.
 # =============================================================================
 title: "TEtranscripts-pipe"
 comment: >-
@@ -19,6 +20,8 @@ extra_fn_clean_exts:
   - "_val_1"
   - "_val_2"
   - "_trimmed"
+  - "_R1"
+  - "_R2"
 
 # Order report sections by the analysis flow: raw QC -> trimming -> alignment
 # -> strandedness -> quantification/versions. FastQC appears twice (raw input
