@@ -111,7 +111,9 @@ def main():
 
     assignment_doc = {
         "id": "tecount_assignment",
-        "section_name": "TEcounts: gene vs TE assignment",
+        "parent_id": "tecounts",
+        "parent_name": "TEcounts",
+        "section_name": "TEcounts: Gene vs TE Assignment",
         "description": (
             "Per-sample read counts assigned by TEcount to genes vs TE "
             "subfamilies (counts and % of total assigned reads)."
@@ -131,7 +133,9 @@ def main():
     }
     class_doc = {
         "id": "tecount_te_class",
-        "section_name": "TEcounts: TE class composition",
+        "parent_id": "tecounts",
+        "parent_name": "TEcounts",
+        "section_name": "TEcounts: TE Class Composition",
         "description": (
             "Per-sample TE-subfamily reads by repeat class (counts and % of "
             "TE reads); classes not in LINE/SINE/LTR/DNA/RC are grouped as "

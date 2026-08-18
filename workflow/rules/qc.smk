@@ -176,7 +176,7 @@ rule config_used:
 
         doc = {
             "id": "config_used",
-            "section_name": "Configuration used",
+            "section_name": "Configuration Used",
             "description": (
                 "The resolved run configuration (config values from the "
                 "config file passed with --configfile)."

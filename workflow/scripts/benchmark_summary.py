@@ -113,7 +113,7 @@ def main():
 
     summary = {
         "id": "resource_usage",
-        "section_name": "Resource usage",
+        "section_name": "Resource Usage",
         "description": (
             "Per-rule job count, wall time, and resource efficiency -- for "
             "CPU and RAM: the allocated amount (resources.yaml), the mean/max "
