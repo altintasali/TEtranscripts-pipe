@@ -390,23 +390,38 @@ def star_index_stamp():
 
 
 _STAR_INDEX_MANIFEST = os.path.join(STAR_INDEX_DIR, ".refs_used.txt")
-if os.path.isdir(STAR_INDEX_DIR) and os.path.isfile(_STAR_INDEX_MANIFEST):
-    try:
-        with open(_STAR_INDEX_MANIFEST) as fh:
-            _recorded = fh.read()
-    except OSError:
-        _recorded = ""
-    if _recorded != star_index_stamp():
-        logger.warning(
-            f"The STAR index at {STAR_INDEX_DIR} was built for a different "
-            "reference setup than config.yaml now specifies (its "
-            ".refs_used.txt stamp no longer matches). If you changed the "
-            "reference fasta/GTF, sjdb_overhang, or STAR version since, "
-            "rebuild it with `snakemake -R star_index` -- otherwise the old "
-            "index is silently reused. If the index is deliberately shared, "
-            "run `snakemake -R star_index` once to re-record the current "
-            "reference into it and silence this warning."
-        )
+if os.path.isdir(STAR_INDEX_DIR):
+    if not os.path.isfile(_STAR_INDEX_MANIFEST):
+        # Auto-stamp a pre-built index so --rerun-incomplete doesn't rebuild it
+        try:
+            with open(_STAR_INDEX_MANIFEST, "w") as fh:
+                fh.write(star_index_stamp())
+            logger.info(
+                f"Auto-stamped pre-built STAR index at {STAR_INDEX_DIR} "
+                f"(.refs_used.txt created)"
+            )
+        except OSError:
+            logger.warning(
+                f"Could not create .refs_used.txt in {STAR_INDEX_DIR}; "
+                "--rerun-incomplete may rebuild the index"
+            )
+    else:
+        try:
+            with open(_STAR_INDEX_MANIFEST) as fh:
+                _recorded = fh.read()
+        except OSError:
+            _recorded = ""
+        if _recorded != star_index_stamp():
+            logger.warning(
+                f"The STAR index at {STAR_INDEX_DIR} was built for a different "
+                "reference setup than config.yaml now specifies (its "
+                ".refs_used.txt stamp no longer matches). If you changed the "
+                "reference fasta/GTF, sjdb_overhang, or STAR version since, "
+                "rebuild it with `snakemake -R star_index` -- otherwise the old "
+                "index is silently reused. If the index is deliberately shared, "
+                "run `snakemake -R star_index` once to re-record the current "
+                "reference into it and silence this warning."
+            )
 
 # -----------------------------------------------------------------------------
 # Per-sample strandedness resolution.
