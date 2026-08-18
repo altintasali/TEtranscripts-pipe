@@ -412,6 +412,8 @@ def cmd_run(args):
         cmd.append("-n")
     if args.keep_temp:
         cmd.append("--keep-temp")
+    if args.rerun_incomplete:
+        cmd.append("--rerun-incomplete")
     if args.snakemake_args:
         cmd += shlex.split(args.snakemake_args)
     if args.verbose:
@@ -530,6 +532,8 @@ def _build_parser():
                        help="print the snakemake plan without running jobs")
     p_run.add_argument("--keep-temp", action="store_true",
                        help="keep temp() fastqs that snakemake would delete")
+    p_run.add_argument("--rerun-incomplete", action="store_true",
+                       help="rerun jobs with incomplete outputs (--rerun-incomplete)")
     p_run.add_argument("--force", action="store_true",
                        help="regenerate config/sample sheet even if they exist")
     p_run.add_argument("--snakemake-args", metavar="ARGS",
