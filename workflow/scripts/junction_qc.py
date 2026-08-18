@@ -10,10 +10,14 @@ module (parse_junction_qc) so the report can show per-sample chimera QC.
 import argparse
 import collections
 import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _io import open_read, open_write
 
 
 def load(path):
-    with open(path) as fh:
+    with open_read(path) as fh:
         header = fh.readline().rstrip("\n").split("\t")
         for line in fh:
             if not line.strip():
@@ -54,7 +58,7 @@ def main():
         lines.append((f"strand_match_{key}", str(strand_match.get(key, 0))))
 
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
-    with open(args.out, "w") as fh:
+    with open_write(args.out) as fh:
         fh.write("metric\tvalue\n")
         for metric, value in lines:
             fh.write(f"{metric}\t{value}\n")

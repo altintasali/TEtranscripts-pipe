@@ -24,6 +24,9 @@ import argparse
 import os
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _io import open_read, open_write
+
 ANNOTATION_COLUMNS = [
     "event_id", "chrom", "donor_breakpoint", "donor_strand",
     "acceptor_breakpoint", "acceptor_strand", "junction_type", "canonical",
@@ -35,7 +38,7 @@ ANNOTATION_COLUMNS = [
 
 def load(path):
     rows = []
-    with open(path) as fh:
+    with open_read(path) as fh:
         header = fh.readline().rstrip("\n").split("\t")
         for line in fh:
             if not line.strip():
@@ -74,7 +77,7 @@ def main():
     # keep the first sample that saw each event (stable order)
     order = sorted(events, key=lambda e: (events[e]["sample"], e))
 
-    with open(args.out_events, "w") as fh:
+    with open_write(args.out_events) as fh:
         header = ANNOTATION_COLUMNS + ["n_samples", "total_reads"]
         fh.write("\t".join(header) + "\n")
         for eid in order:
@@ -84,7 +87,7 @@ def main():
             fh.write("\t".join(str(x) for x in row) + "\n")
 
     if args.out_counts:
-        with open(args.out_counts, "w") as fh:
+        with open_write(args.out_counts) as fh:
             fh.write("event_id\t" + "\t".join(args.sample_names) + "\n")
             for eid in order:
                 ev = events[eid]
@@ -92,7 +95,7 @@ def main():
                 fh.write(eid + "\t" + "\t".join(str(c) for c in counts) + "\n")
 
     if args.out_te_events:
-        with open(args.out_te_events, "w") as fh:
+        with open_write(args.out_te_events) as fh:
             fh.write("\t".join(ANNOTATION_COLUMNS + ["n_samples", "total_reads"]) + "\n")
             for eid in order:
                 ev = events[eid]

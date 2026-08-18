@@ -22,13 +22,16 @@ import json
 import os
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _io import open_read, open_write
+
 TE_CLASSES = ["LINE", "SINE", "LTR", "DNA", "RC"]
 
 
 def load_counts(path):
     """feature -> count from a raw TEcount cntTable (header + rows)."""
     counts = {}
-    with open(path) as fh:
+    with open_read(path) as fh:
         fh.readline()  # header: gene/TE \t <bam path>
         for line in fh:
             if not line.strip():
@@ -151,7 +154,7 @@ def main():
     for out, doc in ((args.out_assignment, assignment_doc),
                      (args.out_class, class_doc)):
         os.makedirs(os.path.dirname(out), exist_ok=True)
-        with open(out, "w") as fh:
+        with open_write(out) as fh:
             json.dump(doc, fh, indent=2)
             fh.write("\n")
         print(f"TEcounts summary barplot ({len(samples)} samples) -> {out}")

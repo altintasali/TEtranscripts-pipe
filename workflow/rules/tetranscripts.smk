@@ -8,7 +8,7 @@ rule tecount:
         te_gtf=TE_GTF,
         strandedness=strandedness_input,
     output:
-        "results/tecount/{sample}.cntTable",
+        "results/tecount/{sample}.cntTable.gz",
     params:
         stranded=get_strandedness_param,
         mode=config["tetranscripts"]["mode"],
@@ -33,6 +33,7 @@ rule tecount:
         "--project {wildcards.sample} "
         "--outdir {params.outdir} "
         "{params.extra} "
+        "&& gzip -f {params.outdir}/{wildcards.sample}.cntTable "
         "> {log} 2>&1"
 
 
@@ -56,10 +57,10 @@ rule tetranscripts_diffexp:
         gtf=GTF,
         te_gtf=TE_GTF,
     output:
-        cnt_table="results/tetranscripts/{contrast}.cntTable",
-        deseq_script="results/tetranscripts/{contrast}_DESeq2.R",
-        full="results/tetranscripts/{contrast}_gene_TE_analysis.txt",
-        sig="results/tetranscripts/{contrast}_sigdiff_gene_TE.txt",
+        cnt_table="results/tetranscripts/{contrast}.cntTable.gz",
+        deseq_script="results/tetranscripts/{contrast}_DESeq2.R.gz",
+        full="results/tetranscripts/{contrast}_gene_TE_analysis.txt.gz",
+        sig="results/tetranscripts/{contrast}_sigdiff_gene_TE.txt.gz",
     params:
         stranded=get_contrast_strandedness_param,
         mode=config["tetranscripts"]["mode"],
@@ -90,4 +91,9 @@ rule tetranscripts_diffexp:
         "--minread {params.minread} "
         "--outdir {params.outdir} "
         "{params.extra} "
+        "&& gzip -f "
+        "{params.outdir}/{wildcards.contrast}.cntTable "
+        "{params.outdir}/{wildcards.contrast}_DESeq2.R "
+        "{params.outdir}/{wildcards.contrast}_gene_TE_analysis.txt "
+        "{params.outdir}/{wildcards.contrast}_sigdiff_gene_TE.txt "
         "> {log} 2>&1"

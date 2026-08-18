@@ -16,9 +16,9 @@
 # -----------------------------------------------------------------------------
 rule sample_qc_transform:
     input:
-        counts="results/chimera/counts_matrix.tsv",
+        counts="results/chimera/counts_matrix.tsv.gz",
     output:
-        "results/chimera/qc/{transform}_counts.tsv",
+        "results/chimera/qc/{transform}_counts.tsv.gz",
     params:
         samples=config["samples"],
         min_samples_present=CHIMERA_QC["min_samples_present"],
@@ -45,10 +45,10 @@ rule sample_qc:
     # counts, colored by condition (sample sheet's "condition" column; absent
     # -> one "all" group), emitted as MultiQC custom-content JSON.
     input:
-        transformed="results/chimera/qc/{transform}_counts.tsv",
+        transformed="results/chimera/qc/{transform}_counts.tsv.gz",
     output:
-        pca="results/chimera/qc/pca_{transform}_mqc.json",
-        heatmap="results/chimera/qc/heatmap_{transform}_mqc.json",
+        pca="results/chimera/qc/pca_{transform}_mqc.json.gz",
+        heatmap="results/chimera/qc/heatmap_{transform}_mqc.json.gz",
     params:
         samples=config["samples"],
         min_events=CHIMERA_QC["min_events"],

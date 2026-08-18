@@ -18,6 +18,9 @@ import json
 import os
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _io import open_read, open_write
+
 DIRECTIONS = [
     "gene_to_te", "te_to_gene", "gene_to_gene", "te_to_te",
     "gene_to_other", "other_to_gene", "te_to_other", "other",
@@ -27,7 +30,7 @@ DIRECTIONS = [
 def load_metrics(path):
     """metric/value pairs from a junction_qc.tsv."""
     metrics = {}
-    with open(path) as fh:
+    with open_read(path) as fh:
         fh.readline()  # header: metric \t value
         for line in fh:
             if not line.strip():
@@ -99,7 +102,7 @@ def main():
     }
 
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
-    with open(args.out, "w") as fh:
+    with open_write(args.out) as fh:
         json.dump(doc, fh, indent=2)
         fh.write("\n")
     print(f"junction QC barplot ({len(samples)} samples) -> {args.out}")
@@ -155,7 +158,7 @@ def main():
         }
 
         os.makedirs(os.path.dirname(args.out_te_chimeras), exist_ok=True)
-        with open(args.out_te_chimeras, "w") as fh:
+        with open_write(args.out_te_chimeras) as fh:
             json.dump(te_doc, fh, indent=2)
             fh.write("\n")
         print(f"TE-chimeras barplot ({len(samples)} samples) -> {args.out_te_chimeras}")

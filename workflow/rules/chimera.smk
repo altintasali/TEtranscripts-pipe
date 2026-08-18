@@ -26,7 +26,7 @@ CHIMERA_QC = config["chimera"]["qc"]
 
 def chimera_counts_input():
     return [
-        f"results/chimera/{s}_junctions.tsv"
+        f"results/chimera/{s}_junctions.tsv.gz"
         for s in SAMPLES
     ]
 
@@ -34,25 +34,25 @@ def chimera_counts_input():
 def all_chimera_outputs():
     """Chimera artifacts for the `all` target (Snakefile)."""
     files = [
-        f"results/chimera/{s}_junctions.tsv"
+        f"results/chimera/{s}_junctions.tsv.gz"
         for s in SAMPLES
     ]
     files += [
-        f"results/chimera/{s}_te_chimeras.tsv"
+        f"results/chimera/{s}_te_chimeras.tsv.gz"
         for s in SAMPLES
     ]
     files += [
-        "results/chimera/all_events.tsv",
-        "results/chimera/te_chimeras.tsv",
-        "results/chimera/counts_matrix.tsv",
+        "results/chimera/all_events.tsv.gz",
+        "results/chimera/te_chimeras.tsv.gz",
+        "results/chimera/counts_matrix.tsv.gz",
     ]
     files += [
-        f"results/chimera/qc/{s}_junction_qc.tsv"
+        f"results/chimera/qc/{s}_junction_qc.tsv.gz"
         for s in SAMPLES
     ]
     files += [
-        "results/chimera/qc/junction_qc_mqc.json",
-        "results/chimera/qc/te_chimeras_mqc.json",
+        "results/chimera/qc/junction_qc_mqc.json.gz",
+        "results/chimera/qc/te_chimeras_mqc.json.gz",
     ]
     if WRITE_IGV_BED:
         files += [
@@ -69,9 +69,9 @@ def all_sample_qc_outputs():
         return []
     transform = CHIMERA_QC["pca_transform"]
     return [
-        f"results/chimera/qc/{transform}_counts.tsv",
-        f"results/chimera/qc/pca_{transform}_mqc.json",
-        f"results/chimera/qc/heatmap_{transform}_mqc.json",
+        f"results/chimera/qc/{transform}_counts.tsv.gz",
+        f"results/chimera/qc/pca_{transform}_mqc.json.gz",
+        f"results/chimera/qc/heatmap_{transform}_mqc.json.gz",
     ]
 
 
@@ -113,8 +113,8 @@ rule parse_chimeric_junctions:
         te="results/reference/te.bed",
         strandedness=strandedness_input,
     output:
-        junctions="results/chimera/{sample}_junctions.tsv",
-        te_chimeras="results/chimera/{sample}_te_chimeras.tsv",
+        junctions="results/chimera/{sample}_junctions.tsv.gz",
+        te_chimeras="results/chimera/{sample}_te_chimeras.tsv.gz",
     params:
         tolerance=config["chimera"]["breakpoint_tolerance"],
         canonical_flag=lambda wc: (
@@ -150,9 +150,9 @@ rule chimera_counts:
     input:
         tables=chimera_counts_input(),
     output:
-        events="results/chimera/all_events.tsv",
-        counts="results/chimera/counts_matrix.tsv",
-        te_events="results/chimera/te_chimeras.tsv",
+        events="results/chimera/all_events.tsv.gz",
+        counts="results/chimera/counts_matrix.tsv.gz",
+        te_events="results/chimera/te_chimeras.tsv.gz",
     params:
         sample_names=lambda wc, input: " ".join(SAMPLES),
     threads: get_resources("chimera_counts")["threads"]
@@ -176,9 +176,9 @@ rule junction_qc:
     # Per-sample junction QC summary (junction_qc.py) for the MultiQC custom
     # content table.
     input:
-        "results/chimera/{sample}_junctions.tsv",
+        "results/chimera/{sample}_junctions.tsv.gz",
     output:
-        "results/chimera/qc/{sample}_junction_qc.tsv",
+        "results/chimera/qc/{sample}_junction_qc.tsv.gz",
     params:
         sample=lambda wc: wc.sample,
     threads: get_resources("junction_qc")["threads"]
@@ -202,11 +202,11 @@ rule junction_qc_barplot:
     # the custom_content module.
     input:
         tables=lambda wc: [
-            f"results/chimera/qc/{s}_junction_qc.tsv" for s in SAMPLES
+            f"results/chimera/qc/{s}_junction_qc.tsv.gz" for s in SAMPLES
         ],
     output:
-        junction="results/chimera/qc/junction_qc_mqc.json",
-        te_chimeras="results/chimera/qc/te_chimeras_mqc.json",
+        junction="results/chimera/qc/junction_qc_mqc.json.gz",
+        te_chimeras="results/chimera/qc/te_chimeras_mqc.json.gz",
     params:
         samples=lambda wc, input: " ".join(SAMPLES),
     threads: get_resources("junction_qc_barplot")["threads"]
@@ -230,7 +230,7 @@ rule chimera_igv_bed:
     # candidates can be inspected visually. Gated by
     # config["chimera"]["outputs"]["write_igv_bed"].
     input:
-        "results/chimera/{sample}_junctions.tsv",
+        "results/chimera/{sample}_junctions.tsv.gz",
     output:
         "results/chimera/igv/{sample}_junctions.bed",
     params:
