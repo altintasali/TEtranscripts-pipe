@@ -24,16 +24,11 @@ rule software_versions:
         import yaml
 
         versions = {
-            "STAR": V["star"],
-            "SAMtools": V["samtools"],
             "Trim Galore!": V["trim_galore"],
-            "FastQC": V["fastqc"],
-            "RSeQC": V["rseqc"],
-            "MultiQC": V["multiqc"],
             "TEtranscripts": V["tetranscripts"],
             "DESeq2": V["deseq2"],
         }
         with open("results/versions/rnaseq_mqc_versions.yml", "w") as fh:
             yaml.safe_dump(
-                {"software_versions": versions}, fh, default_flow_style=False
+                {"TEtranscripts-pipe": versions}, fh, default_flow_style=False
             )
