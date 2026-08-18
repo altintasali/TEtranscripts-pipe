@@ -60,13 +60,7 @@ module_order:
 # when the corresponding stage is off.
 custom_content:
   order:
-    - tecount_sample_qc_pca
-    - tecount_sample_qc_heatmap
-    - tecount_assignment
-    - tecount_te_class
-    - chimera_sample_qc_pca
-    - chimera_sample_qc_heatmap
-    - chimera_junction_qc
-    - chimera_te_chimeras
+    - tecounts
+    - chimera
     - config_used
     - resource_usage
