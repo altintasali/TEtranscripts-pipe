@@ -692,7 +692,7 @@ def get_contrast_strandedness_param(wildcards, input):
 
 
 def all_tecount_tables():
-    return expand("results/tecount/{sample}.cntTable", sample=SAMPLES)
+    return expand("results/tecount/{sample}.cntTable.gz", sample=SAMPLES)
 
 
 def all_trim_outputs():
@@ -741,7 +741,7 @@ def all_raw_fastqc_reports():
 
 def all_diffexp_outputs():
     return expand(
-        "results/tetranscripts/{contrast}_sigdiff_gene_TE.txt",
+        "results/tetranscripts/{contrast}_sigdiff_gene_TE.txt.gz",
         contrast=list(CONTRASTS.keys()),
     )
 

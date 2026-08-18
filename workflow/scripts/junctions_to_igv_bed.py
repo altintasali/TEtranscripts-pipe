@@ -9,8 +9,12 @@ BED columns written (BED6, score = supporting reads, strand = donor strand):
     chrom  donor_bp  acceptor_bp  event_id  reads  donor_strand
 """
 import os
+import sys
 
-with open(snakemake.input[0]) as fh:
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _io import open_read
+
+with open_read(snakemake.input[0]) as fh:
     header = fh.readline().rstrip("\n").split("\t")
     rows = [
         dict(zip(header, line.rstrip("\n").split("\t")))

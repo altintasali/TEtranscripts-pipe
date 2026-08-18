@@ -30,10 +30,10 @@ def all_tecount_qc_outputs():
     produced when tetranscripts.qc.enabled is true."""
     transform = TECOUNT_QC["pca_transform"]
     return [
-        "results/tecount/counts_matrix.tsv",
-        f"results/tecount/qc/{transform}_counts.tsv",
-        f"results/tecount/qc/pca_{transform}_mqc.json",
-        f"results/tecount/qc/heatmap_{transform}_mqc.json",
+        "results/tecount/counts_matrix.tsv.gz",
+        f"results/tecount/qc/{transform}_counts.tsv.gz",
+        f"results/tecount/qc/pca_{transform}_mqc.json.gz",
+        f"results/tecount/qc/heatmap_{transform}_mqc.json.gz",
     ]
 
 
@@ -42,14 +42,14 @@ def all_tecount_summary_outputs():
     class composition) for the `all` target. Always produced: they only need
     the raw cntTables, so they are independent of tetranscripts.qc.enabled."""
     return [
-        "results/tecount/qc/tecount_assignment_mqc.json",
-        "results/tecount/qc/tecount_te_class_mqc.json",
+        "results/tecount/qc/tecount_assignment_mqc.json.gz",
+        "results/tecount/qc/tecount_te_class_mqc.json.gz",
     ]
 
 
 def tecount_counts_input():
     return [
-        f"results/tecount/{s}.cntTable"
+        f"results/tecount/{s}.cntTable.gz"
         for s in SAMPLES
     ]
 
@@ -65,7 +65,7 @@ rule tecount_counts:
         gtf=GTF,
         te_gtf=TE_GTF,
     output:
-        counts="results/tecount/counts_matrix.tsv",
+        counts="results/tecount/counts_matrix.tsv.gz",
     params:
         sample_names=lambda wc, input: " ".join(SAMPLES),
         feature_class=TECOUNT_QC["feature_class"],
@@ -92,9 +92,9 @@ rule tecount_qc_transform:
     # log2(x + 1) without DESeq2. Filters in tetranscripts.qc apply only to
     # this view.
     input:
-        counts="results/tecount/counts_matrix.tsv",
+        counts="results/tecount/counts_matrix.tsv.gz",
     output:
-        "results/tecount/qc/{transform}_counts.tsv",
+        "results/tecount/qc/{transform}_counts.tsv.gz",
     params:
         samples=config["samples"],
         min_samples_present=TECOUNT_QC["min_samples_present"],
@@ -123,10 +123,10 @@ rule tecount_qc:
     # JSON (ids tecount_sample_qc_pca / tecount_sample_qc_heatmap, ordered
     # inside the custom_content module by multiqc_config.yaml).
     input:
-        transformed="results/tecount/qc/{transform}_counts.tsv",
+        transformed="results/tecount/qc/{transform}_counts.tsv.gz",
     output:
-        pca="results/tecount/qc/pca_{transform}_mqc.json",
-        heatmap="results/tecount/qc/heatmap_{transform}_mqc.json",
+        pca="results/tecount/qc/pca_{transform}_mqc.json.gz",
+        heatmap="results/tecount/qc/heatmap_{transform}_mqc.json.gz",
     params:
         samples=config["samples"],
         min_events=TECOUNT_QC["min_events"],
@@ -156,8 +156,8 @@ rule tecount_summary:
     input:
         tables=tecount_counts_input(),
     output:
-        assignment="results/tecount/qc/tecount_assignment_mqc.json",
-        te_class="results/tecount/qc/tecount_te_class_mqc.json",
+        assignment="results/tecount/qc/tecount_assignment_mqc.json.gz",
+        te_class="results/tecount/qc/tecount_te_class_mqc.json.gz",
     params:
         samples=lambda wc, input: " ".join(SAMPLES),
     threads: get_resources("tecount_summary")["threads"]

@@ -52,6 +52,10 @@ strand. For unstranded libraries these columns are NA.
 import argparse
 import bisect
 import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _io import open_write
 
 
 def load_bed(path, n_extra=0):
@@ -344,7 +348,7 @@ def main():
         "gene_strand_match",
     ]
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
-    with open(args.out, "w") as fh:
+    with open_write(args.out) as fh:
         fh.write("\t".join(header) + "\n")
         for row in rows:
             fh.write("\t".join(str(x) for x in row) + "\n")
@@ -352,7 +356,7 @@ def main():
     if args.te_out:
         os.makedirs(os.path.dirname(args.te_out), exist_ok=True)
         dir_idx = header.index("direction")
-        with open(args.te_out, "w") as fh:
+        with open_write(args.te_out) as fh:
             fh.write("\t".join(header) + "\n")
             for row in rows:
                 if row[dir_idx] in ("gene_to_te", "te_to_gene"):

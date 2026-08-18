@@ -30,6 +30,9 @@ import os
 import re
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _io import open_read, open_write
+
 ATTR_RE = re.compile(r'(\w+)\s+"([^"]*)"')
 
 
@@ -62,7 +65,7 @@ def parse_gtf_keys(path):
 
 def load_counts(path, feature_keys):
     counts = {}
-    with open(path) as fh:
+    with open_read(path) as fh:
         fh.readline()  # header: gene/TE \t <bam path>
         for line in fh:
             if not line.strip():
@@ -111,7 +114,7 @@ def main():
         sample_counts.append((sample, counts))
         features.update(counts)
 
-    with open(args.out_counts, "w") as fh:
+    with open_write(args.out_counts) as fh:
         fh.write("gene/TE\t" + "\t".join(s for s, _ in sample_counts) + "\n")
         for feature in sorted(features):
             vals = [
