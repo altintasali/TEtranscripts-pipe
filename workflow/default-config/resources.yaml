@@ -119,16 +119,19 @@ resources:
   # see common.smk); the entries are inert otherwise.
 
   tecount_counts:
-    # Merging per-sample cntTables into the counts matrix; single-threaded,
-    # streaming I/O.
+    # Merging per-sample cntTables into the counts matrix; single-threaded.
+    # Memory scales with sample count.  Base 2 GB + 50 MB per sample.
     threads: 1
-    mem_mb: 4000
+    mem_mb: 2000
+    mem_per_sample: 50
     runtime: 30
 
   tecount_qc_transform:
     # DESeq2 vst/rlog on the TEcounts counts matrix; R is single-threaded.
+    # Memory scales with sample count.  Base 4 GB + 150 MB per sample.
     threads: 1
-    mem_mb: 8000
+    mem_mb: 4000
+    mem_per_sample: 150
     runtime: 60
 
   tecount_qc:
@@ -162,11 +165,11 @@ resources:
 
   chimera_counts:
     # Merging per-sample junction tables; single-threaded.  Loads all unique
-    # events into a single Python dict — peak RSS is 10-20x the on-disk size
-    # of the input TSVs (Python dict overhead).  84 samples × ~20 MB each
-    # needs ≥16 GB.
+    # events into a single Python dict — peak RSS scales linearly with sample
+    # count.  Base 4 GB + 150 MB per sample.
     threads: 1
-    mem_mb: 16000
+    mem_mb: 4000
+    mem_per_sample: 150
     runtime: 30
 
   junction_qc:
@@ -188,14 +191,18 @@ resources:
 
   sample_qc_transform:
     # DESeq2 vst/rlog on the chimera counts matrix; R is single-threaded.
+    # Memory scales with sample count.  Base 4 GB + 250 MB per sample.
     threads: 1
-    mem_mb: 8000
+    mem_mb: 4000
+    mem_per_sample: 250
     runtime: 60
 
   sample_qc:
-    # PCA + pheatmap in R; single-threaded.
+    # PCA + pheatmap in R; single-threaded.  Memory scales with sample count.
+    # Base 4 GB + 150 MB per sample.
     threads: 1
-    mem_mb: 8000
+    mem_mb: 4000
+    mem_per_sample: 150
     runtime: 30
 
   multiqc:

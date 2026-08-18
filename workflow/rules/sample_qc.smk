@@ -25,7 +25,7 @@ rule sample_qc_transform:
         min_total_counts=CHIMERA_QC["min_total_counts"],
     threads: get_resources("sample_qc_transform")["threads"]
     resources:
-        mem_mb=get_resources("sample_qc_transform")["mem_mb"],
+        mem_mb=get_scaled_mem_mb("sample_qc_transform"),
         runtime=get_resources("sample_qc_transform")["runtime"],
     benchmark:
         "results/pipeline_info/benchmarks/sample_qc_transform/{transform}.txt",
@@ -54,7 +54,7 @@ rule sample_qc:
         min_events=CHIMERA_QC["min_events"],
     threads: get_resources("sample_qc")["threads"]
     resources:
-        mem_mb=get_resources("sample_qc")["mem_mb"],
+        mem_mb=get_scaled_mem_mb("sample_qc"),
         runtime=get_resources("sample_qc")["runtime"],
     benchmark:
         "results/pipeline_info/benchmarks/sample_qc/{transform}.txt",

@@ -34,6 +34,21 @@ def get_resources(rule_name):
     """Return {threads, mem_mb, runtime} for a rule name."""
     return {**_RESOURCE_DEFAULTS, **RESOURCES.get(rule_name, {})}
 
+
+def get_scaled_mem_mb(rule_name):
+    """Return *mem_mb* for *rule_name*, scaled by sample count.
+
+    Rules that accumulate per-sample data in memory (chimera_counts,
+    sample_qc_transform, tecount_counts, …) declare a ``mem_per_sample``
+    key in ``resources.yaml`` on top of the base ``mem_mb``.  This helper
+    computes ``base + per_sample × len(SAMPLES)`` so the SLURM allocation
+    grows automatically with the experiment size.  Rules without
+    ``mem_per_sample`` return the plain ``mem_mb`` value unchanged.
+    """
+    res = get_resources(rule_name)
+    per_sample = RESOURCES.get(rule_name, {}).get("mem_per_sample", 0)
+    return res["mem_mb"] + per_sample * len(SAMPLES)
+
 # -----------------------------------------------------------------------------
 # Load & validate sample sheet
 # columns: sample, fastq_1, fastq_2 (optional), strandedness (optional),

@@ -71,7 +71,7 @@ rule tecount_counts:
         feature_class=TECOUNT_QC["feature_class"],
     threads: get_resources("tecount_counts")["threads"]
     resources:
-        mem_mb=get_resources("tecount_counts")["mem_mb"],
+        mem_mb=get_scaled_mem_mb("tecount_counts"),
         runtime=get_resources("tecount_counts")["runtime"],
     benchmark:
         "results/pipeline_info/benchmarks/tecount_counts/tecount_counts.txt",
@@ -101,7 +101,7 @@ rule tecount_qc_transform:
         min_total_counts=TECOUNT_QC["min_total_counts"],
     threads: get_resources("tecount_qc_transform")["threads"]
     resources:
-        mem_mb=get_resources("tecount_qc_transform")["mem_mb"],
+        mem_mb=get_scaled_mem_mb("tecount_qc_transform"),
         runtime=get_resources("tecount_qc_transform")["runtime"],
     benchmark:
         "results/pipeline_info/benchmarks/tecount_qc_transform/{transform}.txt",

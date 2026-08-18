@@ -157,7 +157,7 @@ rule chimera_counts:
         sample_names=lambda wc, input: " ".join(SAMPLES),
     threads: get_resources("chimera_counts")["threads"]
     resources:
-        mem_mb=get_resources("chimera_counts")["mem_mb"],
+        mem_mb=get_scaled_mem_mb("chimera_counts"),
         runtime=get_resources("chimera_counts")["runtime"],
     benchmark:
         "results/pipeline_info/benchmarks/chimera_counts/chimera_counts.txt",
