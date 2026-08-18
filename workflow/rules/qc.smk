@@ -126,6 +126,75 @@ def _tecount_summary_mqc_inputs():
     ]
 
 
+rule config_used:
+    # The resolved run config, written as a MultiQC custom-content table so
+    # the report records exactly which settings were used.
+    output:
+        "results/pipeline_info/config_used_mqc.json.gz",
+    threads: get_resources("config_used")["threads"]
+    resources:
+        mem_mb=get_resources("config_used")["mem_mb"],
+        runtime=get_resources("config_used")["runtime"],
+    log:
+        "results/pipeline_info/logs/multiqc/config_used.log",
+    run:
+        import gzip
+        import json
+
+        star_extra = config.get("star", {}).get("extra", "") or "(none)"
+        trim_extra = config.get("trimming", {}).get("extra", "") or "(none)"
+        te_extra = config.get("tetranscripts", {}).get("extra", "") or "(none)"
+
+        rows = {
+            "pipeline_version": open("VERSION").read().strip(),
+            "samples": f"{len(SAMPLES)} ({', '.join(SAMPLES)})",
+            "ref.fasta": str(config["ref"]["fasta"]),
+            "ref.gtf": str(config["ref"]["gtf"]),
+            "ref.te_gtf": str(config["ref"]["te_gtf"]),
+            "ref.sjdb_overhang": str(SJDB_OVERHANG),
+            "star.index": STAR_INDEX_DIR,
+            "star.extra": star_extra,
+            "trimming.enabled": str(TRIM_ENABLED),
+            "trimming.trim_nextseq": str(config.get("trimming", {}).get("trim_nextseq", 0)),
+            "trimming.extra": trim_extra,
+            "strandedness.min_fraction": str(config.get("strandedness", {}).get("min_fraction", 0.6)),
+            "tetranscripts.mode": config["tetranscripts"]["mode"],
+            "tetranscripts.padj": str(config["tetranscripts"]["padj"]),
+            "tetranscripts.foldchange": str(config["tetranscripts"]["foldchange"]),
+            "tetranscripts.minread": str(config["tetranscripts"]["minread"]),
+            "tetranscripts.extra": te_extra,
+            "tetranscripts.qc.enabled": str(TECOUNT_QC_ENABLED),
+            "tetranscripts.qc.feature_class": TECOUNT_QC["feature_class"],
+            "tetranscripts.qc.pca_transform": TECOUNT_QC["pca_transform"],
+            "chimera.enabled": str(CHIMERA_ENABLED),
+            "chimera.breakpoint_tolerance": str(config.get("chimera", {}).get("breakpoint_tolerance", 0)),
+            "chimera.require_canonical_junction": str(config.get("chimera", {}).get("require_canonical_junction", False)),
+            "chimera.qc.pca_transform": config.get("chimera", {}).get("qc", {}).get("pca_transform", "vst"),
+            "outputs.keep_merged_fastq": str(KEEP_MERGED_FASTQ),
+            "outputs.keep_trimmed_fastq": str(KEEP_TRIMMED_FASTQ),
+        }
+
+        doc = {
+            "id": "config_used",
+            "section_name": "Configuration used",
+            "description": (
+                "The resolved run configuration (config values from the "
+                "config file passed with --configfile)."
+            ),
+            "plot_type": "table",
+            "pconfig": {
+                "id": "config_used_table",
+                "title": "Configuration used",
+                "col1_header": "Setting",
+                "sort_rows": False,
+            },
+            "headers": {"value": {"title": "Value"}},
+            "data": {k: {"value": v} for k, v in rows.items()},
+        }
+        with gzip.open(str(output), "wt") as fh:
+            json.dump(doc, fh, indent=2)
+
+
 rule multiqc:
     # Aggregates STAR alignment logs, (if trimming is enabled) TrimGalore!
     # + FastQC reports, the always-on raw FastQC reports, (if strandedness
@@ -145,6 +214,7 @@ rule multiqc:
         all_fastqc_reports(),
         all_raw_fastqc_reports(),
         "results/pipeline_info/benchmark_summary_mqc.json",
+        "results/pipeline_info/config_used_mqc.json.gz",
         "results/versions/rnaseq_mqc_versions.yml.gz",
         chimera_qc=_chimera_qc_mqc_inputs(),
         junction_qc=_junction_qc_mqc_inputs(),

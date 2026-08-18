@@ -68,4 +68,5 @@ custom_content:
     - chimera_sample_qc_heatmap
     - chimera_junction_qc
     - chimera_te_chimeras
+    - config_used
     - resource_usage
