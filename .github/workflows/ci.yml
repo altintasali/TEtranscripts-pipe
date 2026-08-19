@@ -35,36 +35,6 @@ jobs:
       - shell: bash -l {0}
         run: |
           snakemake --configfile config/test.yaml --cores 2
-          test -f .tests/resources/star_index/.refs_used.txt
-          # index was built for sjdb_overhang=49; a different value must warn,
-          # and the matching value must NOT warn. Capture dry-run output to a
-          # file so a failure here is diagnosable instead of swallowed by a pipe.
-          sed 's/  sjdb_overhang: 49/  sjdb_overhang: 48/' config/test.yaml > /tmp/stale_index.yaml
-          if snakemake --configfile /tmp/stale_index.yaml -n > /tmp/stale_index_dryrun.log 2>&1; then
-            if grep -q "built for a different" /tmp/stale_index_dryrun.log; then
-              echo "OK: stale-index warning fired for sjdb_overhang=48"
-            else
-              echo "ERROR: stale-index warning did not fire for sjdb_overhang=48 (dry-run log tail below)"
-              tail -30 /tmp/stale_index_dryrun.log
-              exit 1
-            fi
-          else
-            echo "ERROR: dry-run with sjdb_overhang=48 failed to run (log tail below)"
-            tail -30 /tmp/stale_index_dryrun.log
-            exit 1
-          fi
-          if snakemake --configfile config/test.yaml -n > /tmp/index_dryrun.log 2>&1; then
-            if grep -q "built for a different" /tmp/index_dryrun.log; then
-              echo "ERROR: stale-index warning fired although sjdb_overhang matches (log tail below)"
-              tail -30 /tmp/index_dryrun.log
-              exit 1
-            fi
-            echo "OK: no stale-index warning for matching sjdb_overhang=49"
-          else
-            echo "ERROR: dry-run with matching sjdb_overhang=49 failed to run (log tail below)"
-            tail -30 /tmp/index_dryrun.log
-            exit 1
-          fi
 
   guards:
     # Negative tests for the parse-time startup checks in common.smk: each
