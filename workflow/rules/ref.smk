@@ -34,24 +34,26 @@ rule star_index:
     # generated env in common.smk) rather than a snakemake-wrapper, so the
     # exact tool version is fully under your control.
     #
-    # The fasta/gtf inputs are marked ancient() when build_index=true: an
-    # existing index directory is honored as-is instead of being rebuilt
-    # whenever the reference files happen to be *newer* than the index
-    # (Snakemake's up-to-date check compares mtimes, which would otherwise
-    # re-trigger the index build every run for a shared/prebuilt index --
-    # see the "STAR index" README note).  When build_index=false the inputs
-    # are empty lists so no decompression (gunzip_reference) is triggered
-    # and the output directory already exists, so Snakemake skips the rule
-    # entirely.
+    # build_index=true:  the fasta/gtf inputs are marked ancient() so an
+    #   existing index directory is honored as-is instead of being rebuilt
+    #   whenever the reference files happen to be *newer* than the index.
+    #
+    # build_index=false: the user provides a pre-built external index.  The
+    #   inputs are empty (no gunzip_reference triggered) and the external
+    #   index is copied into the output directory (idempotent -- skipped if
+    #   already present).  The output is temp()-wrapped so Snakemake
+    #   auto-deletes the copy after all downstream consumers (star_align)
+    #   are done, preserving disk space while never touching the original.
     input:
         fasta=ancient(FASTA) if STAR_BUILD_INDEX else [],
         gtf=ancient(GTF) if STAR_BUILD_INDEX else [],
     output:
-        directory(STAR_INDEX_DIR),
+        directory(STAR_INDEX_DIR) if STAR_BUILD_INDEX else temp(directory(STAR_INDEX_DIR)),
     params:
         sjdb_overhang=SJDB_OVERHANG,
         extra=config["star"].get("index_extra", ""),
         build_index=STAR_BUILD_INDEX,
+        source_index=STAR_INDEX_SOURCE,
     threads: get_resources("star_index")["threads"]
     resources:
         mem_mb=get_resources("star_index")["mem_mb"],
@@ -63,44 +65,46 @@ rule star_index:
     conda:
         STAR_ENV
     shell:
-        # When build_index=true: if the output directory already contains a
+        # build_index=true:  if the output directory already contains a
         # valid STAR index (core files SA, SAindex, Genome all present), skip
-        # the rebuild entirely. Otherwise, build from scratch. STAR has a
-        # long-standing, still-unresolved crash-on-exit bug ("double free or
-        # corruption" / segfault while freeing memory *after* all output has
-        # already been written and closed) -- confirmed benign by STAR's own
-        # author: https://groups.google.com/g/rna-star/c/3_ckDieghws ("this
-        # problem is happening after STAR finished all calculations, so it
-        # does not affect the results"). So if STAR exits non-zero, don't
-        # trust that alone -- check whether the core index files actually
-        # landed on disk before treating it as a real failure.
+        # the rebuild.  Otherwise build from scratch.  STAR has a long-
+        # standing crash-on-exit bug (benign -- output is already written).
+        # We tolerate a non-zero exit by checking the index files.
         #
-        # When build_index=false: the output directory already exists and
-        # the rule is skipped by Snakemake before the shell runs, but if
-        # --rerun-incomplete forces re-execution this branch is a safe no-op.
+        # build_index=false: copy the external index into results/ (one-time
+        # cost).  Idempotent -- if the copy already exists, skip.
         "if [ {params.build_index} = True ]; then "
-        "if [ -s {output}/SA ] && [ -s {output}/SAindex ] && "
-        "[ -s {output}/Genome ]; then "
-        "echo 'STAR index already present at {output}; skipping rebuild' "
-        ">> {log}; "
+        "  if [ -s {output}/SA ] && [ -s {output}/SAindex ] && "
+        "      [ -s {output}/Genome ]; then "
+        "    echo 'STAR index already present at {output}; skipping rebuild' "
+        "    >> {log}; "
+        "  else "
+        "    mkdir -p {output} && "
+        "    (STAR --runMode genomeGenerate "
+        "    --genomeDir {output} "
+        "    --genomeFastaFiles {input.fasta} "
+        "    --sjdbGTFfile {input.gtf} "
+        "    --sjdbOverhang {params.sjdb_overhang} "
+        "    --runThreadN {threads} "
+        "    {params.extra} "
+        "    > {log} 2>&1 "
+        "    || (echo 'STAR exited non-zero; checking whether the index was "
+        "    actually written successfully anyway (see rule comment re: known "
+        "    benign STAR exit-time crash)' >> {log}; "
+        "    test -s {output}/SA && test -s {output}/SAindex && "
+        "    test -s {output}/Genome)); "
+        "  fi; "
         "else "
-        "mkdir -p {output} && "
-        "(STAR --runMode genomeGenerate "
-        "--genomeDir {output} "
-        "--genomeFastaFiles {input.fasta} "
-        "--sjdbGTFfile {input.gtf} "
-        "--sjdbOverhang {params.sjdb_overhang} "
-        "--runThreadN {threads} "
-        "{params.extra} "
-        "> {log} 2>&1 "
-        "|| (echo 'STAR exited non-zero; checking whether the index was "
-        "actually written successfully anyway (see rule comment re: known "
-        "benign STAR exit-time crash)' >> {log}; "
-        "test -s {output}/SA && test -s {output}/SAindex && "
-        "test -s {output}/Genome)); "
-        "fi; "
-        "else "
-        "echo 'star.build_index=false; index already exists' >> {log} || true; "
+        "  mkdir -p {output} && "
+        "  if [ -s {output}/SA ] && [ -s {output}/SAindex ] && "
+        "      [ -s {output}/Genome ]; then "
+        "    echo 'STAR index already present at {output}; skipping copy' "
+        "    >> {log}; "
+        "  else "
+        "    echo 'Copying external STAR index from {params.source_index} "
+        "    to {output}' >> {log} && "
+        "    cp -a {params.source_index}/* {output}/; "
+        "  fi; "
         "fi"
 
 

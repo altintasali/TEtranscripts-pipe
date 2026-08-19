@@ -351,27 +351,44 @@ with open("results/pipeline_info/logs/config_resolution.log", "w") as fh:
         fh.write("no gzipped reference files (fasta/gtf/te_gtf) detected\n")
 
 # -----------------------------------------------------------------------------
-# Where the STAR index lives. Defaults to a generated directory under results/
-# when star.index is not set (or empty) in config.yaml; an existing index
-# directory is honored as-is. The star.build_index flag (default true)
-# controls whether the workflow may build it; when false, the index must
-# already exist.
+# Where the STAR index lives.
+#
+# build_index=true  (default): the index is built (or reused if already
+#   present) at the path given by star.index, or results/star_index if unset.
+#
+# build_index=false: the user provides a pre-built external index via
+#   star.index.  Instead of pointing Snakemake directly at the external
+#   directory (which it would "own" as a directory() output and could
+#   destroy on --rerun-incomplete), we COPY it into results/star_index/
+#   on the first run.  The copy is temp()-wrapped so Snakemake auto-deletes
+#   it once all downstream consumers (star_align) are done.  The original
+#   external index is never modified.
 # -----------------------------------------------------------------------------
-STAR_INDEX_DIR = os.path.abspath(
-    (config["star"].get("index") or "").strip() or "results/star_index"
-)
+_STAR_INDEX_RAW = (config["star"].get("index") or "").strip()
 STAR_BUILD_INDEX = config["star"].get("build_index", True)
 
-if not STAR_BUILD_INDEX and not os.path.isdir(STAR_INDEX_DIR):
-    raise WorkflowError(
-        f"star.build_index is false but STAR index directory does not exist: "
-        f"{STAR_INDEX_DIR}. Either build it beforehand or remove "
-        f"star.build_index from config.yaml."
-    )
+if STAR_BUILD_INDEX:
+    # Index lives where the user says (or the default).
+    STAR_INDEX_DIR = os.path.abspath(_STAR_INDEX_RAW or "results/star_index")
+    STAR_INDEX_SOURCE = ""
+else:
+    # External index -- copy it to results/ so Snakemake never touches the
+    # original.
+    STAR_INDEX_SOURCE = os.path.abspath(_STAR_INDEX_RAW) if _STAR_INDEX_RAW else ""
+    STAR_INDEX_DIR = os.path.abspath("results/star_index")
 
-# Ensure the index directory exists so star_align's idx= input is satisfied
-# even when build_index=false (the directory is the user's pre-built index).
-os.makedirs(STAR_INDEX_DIR, exist_ok=True)
+    if not STAR_INDEX_SOURCE:
+        raise WorkflowError(
+            "star.build_index is false but no star.index path was provided. "
+            "Set star.index in config.yaml to the directory containing the "
+            "pre-built STAR index."
+        )
+    if not os.path.isdir(STAR_INDEX_SOURCE):
+        raise WorkflowError(
+            f"star.build_index is false but star.index path does not exist: "
+            f"{STAR_INDEX_SOURCE}. Either build the index beforehand or set "
+            f"star.build_index: true in config.yaml."
+        )
 
 # -----------------------------------------------------------------------------
 # Per-sample strandedness resolution.

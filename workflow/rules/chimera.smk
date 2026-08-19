@@ -97,7 +97,7 @@ rule annotation_to_bed:
     log:
         "results/pipeline_info/logs/chimera/annotation_to_bed.log",
     shell:
-        "python {SCRIPTS_DIR}/annotation_to_bed.py "
+        "python3 {SCRIPTS_DIR}/annotation_to_bed.py "
         "--gtf {input.gtf} --te-gtf {input.te_gtf} "
         "--outdir {params.outdir} > {log} 2>&1"
 
@@ -132,7 +132,7 @@ rule parse_chimeric_junctions:
     log:
         "results/pipeline_info/logs/chimera/parse/{sample}.log",
     shell:
-        "python {SCRIPTS_DIR}/parse_chimeric_junctions.py "
+        "python3 {SCRIPTS_DIR}/parse_chimeric_junctions.py "
         "--junctions {input.junctions} "
         "--genes {input.genes} --exons {input.exons} --te {input.te} "
         "--sample {wildcards.sample} "
@@ -164,7 +164,7 @@ rule chimera_counts:
     log:
         "results/pipeline_info/logs/chimera/counts.log",
     shell:
-        "python {SCRIPTS_DIR}/chimera_counts.py "
+        "python3 {SCRIPTS_DIR}/chimera_counts.py "
         "--tables {input.tables} "
         "--sample-names {params.sample_names} "
         "--out-events {output.events} "
@@ -190,7 +190,7 @@ rule junction_qc:
     log:
         "results/pipeline_info/logs/chimera/junction_qc/{sample}.log",
     shell:
-        "python {SCRIPTS_DIR}/junction_qc.py "
+        "python3 {SCRIPTS_DIR}/junction_qc.py "
         "--table {input} --sample {params.sample} --out {output} > {log} 2>&1"
 
 
@@ -218,7 +218,7 @@ rule junction_qc_barplot:
     log:
         "results/pipeline_info/logs/chimera/junction_qc_barplot.log",
     shell:
-        "python {SCRIPTS_DIR}/junction_qc_mqc.py "
+        "python3 {SCRIPTS_DIR}/junction_qc_mqc.py "
         "--tables {input.tables} "
         "--samples {params.samples} "
         "--out {output.junction} "

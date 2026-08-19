@@ -217,5 +217,5 @@ resources:
 
   config_used:
     threads: 1
-    mem_mb: 500
-    runtime: 5
+    mem_mb: 2000
+    runtime: 10

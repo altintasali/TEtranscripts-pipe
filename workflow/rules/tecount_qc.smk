@@ -78,7 +78,7 @@ rule tecount_counts:
     log:
         "results/pipeline_info/logs/tecount/counts.log",
     shell:
-        "python {SCRIPTS_DIR}/tecount_counts.py "
+        "python3 {SCRIPTS_DIR}/tecount_counts.py "
         "--tables {input.tables} "
         "--sample-names {params.sample_names} "
         "--gtf {input.gtf} --te-gtf {input.te_gtf} "
@@ -169,7 +169,7 @@ rule tecount_summary:
     log:
         "results/pipeline_info/logs/tecount/qc/summary.log",
     shell:
-        "python {SCRIPTS_DIR}/tecount_summary_mqc.py "
+        "python3 {SCRIPTS_DIR}/tecount_summary_mqc.py "
         "--tables {input.tables} "
         "--samples {params.samples} "
         "--out-assignment {output.assignment} "
