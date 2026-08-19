@@ -137,64 +137,19 @@ rule config_used:
         runtime=get_resources("config_used")["runtime"],
     log:
         "results/pipeline_info/logs/multiqc/config_used.log",
-    run:
-        import gzip
-        import json
-
-        star_extra = config.get("star", {}).get("extra", "") or "(none)"
-        trim_extra = config.get("trimming", {}).get("extra", "") or "(none)"
-        te_extra = config.get("tetranscripts", {}).get("extra", "") or "(none)"
-
-        rows = {
-            "pipeline_version": (lambda _p: open(_p).read().strip() if os.path.isfile(_p) else "unknown")(
-                os.path.join(os.path.dirname(os.path.dirname(str(SNAKEFILE))), "VERSION")
-            ),
-            "samples": f"{len(SAMPLES)} ({', '.join(SAMPLES)})",
-            "ref.fasta": str(config["ref"]["fasta"]),
-            "ref.gtf": str(config["ref"]["gtf"]),
-            "ref.te_gtf": str(config["ref"]["te_gtf"]),
-            "ref.sjdb_overhang": str(SJDB_OVERHANG),
-            "star.index": STAR_INDEX_DIR,
-            "star.extra": star_extra,
-            "trimming.enabled": str(TRIM_ENABLED),
-            "trimming.trim_nextseq": str(config.get("trimming", {}).get("trim_nextseq", 0)),
-            "trimming.extra": trim_extra,
-            "strandedness.min_fraction": str(config.get("strandedness", {}).get("min_fraction", 0.6)),
-            "tetranscripts.mode": config["tetranscripts"]["mode"],
-            "tetranscripts.padj": str(config["tetranscripts"]["padj"]),
-            "tetranscripts.foldchange": str(config["tetranscripts"]["foldchange"]),
-            "tetranscripts.minread": str(config["tetranscripts"]["minread"]),
-            "tetranscripts.extra": te_extra,
-            "tetranscripts.qc.enabled": str(TECOUNT_QC_ENABLED),
-            "tetranscripts.qc.feature_class": TECOUNT_QC["feature_class"],
-            "tetranscripts.qc.pca_transform": TECOUNT_QC["pca_transform"],
-            "chimera.enabled": str(CHIMERA_ENABLED),
-            "chimera.breakpoint_tolerance": str(config.get("chimera", {}).get("breakpoint_tolerance", 0)),
-            "chimera.require_canonical_junction": str(config.get("chimera", {}).get("require_canonical_junction", False)),
-            "chimera.qc.pca_transform": config.get("chimera", {}).get("qc", {}).get("pca_transform", "vst"),
-            "outputs.keep_merged_fastq": str(KEEP_MERGED_FASTQ),
-            "outputs.keep_trimmed_fastq": str(KEEP_TRIMMED_FASTQ),
-        }
-
-        doc = {
-            "id": "config_used",
-            "section_name": "Configuration Used",
-            "description": (
-                "The resolved run configuration (config values from the "
-                "config file passed with --configfile)."
-            ),
-            "plot_type": "table",
-            "pconfig": {
-                "id": "config_used_table",
-                "title": "Configuration used",
-                "col1_header": "Setting",
-                "sort_rows": False,
-            },
-            "headers": {"value": {"title": "Value"}},
-            "data": {k: {"value": v} for k, v in rows.items()},
-        }
-        with gzip.open(str(output), "wt") as fh:
-            json.dump(doc, fh, indent=2)
+    params:
+        _samples=SAMPLES,
+        _sample_count=len(SAMPLES),
+        _sjdb_overhang=SJDB_OVERHANG,
+        _star_index=STAR_INDEX_DIR,
+        _trim_enabled=TRIM_ENABLED,
+        _tecount_qc_enabled=TECOUNT_QC_ENABLED,
+        _tecount_qc=TECOUNT_QC,
+        _chimera_enabled=CHIMERA_ENABLED,
+        _keep_merged_fastq=KEEP_MERGED_FASTQ,
+        _keep_trimmed_fastq=KEEP_TRIMMED_FASTQ,
+    script:
+        "../scripts/config_used_mqc.py"
 
 
 rule multiqc:
