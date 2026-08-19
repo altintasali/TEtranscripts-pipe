@@ -146,7 +146,9 @@ rule config_used:
         te_extra = config.get("tetranscripts", {}).get("extra", "") or "(none)"
 
         rows = {
-            "pipeline_version": open(os.path.join(os.path.dirname(os.path.dirname(str(SNAKEFILE))), "VERSION")).read().strip(),
+            "pipeline_version": (lambda _p: open(_p).read().strip() if os.path.isfile(_p) else "unknown")(
+                os.path.join(os.path.dirname(os.path.dirname(str(SNAKEFILE))), "VERSION")
+            ),
             "samples": f"{len(SAMPLES)} ({', '.join(SAMPLES)})",
             "ref.fasta": str(config["ref"]["fasta"]),
             "ref.gtf": str(config["ref"]["gtf"]),
