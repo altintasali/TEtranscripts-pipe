@@ -97,7 +97,7 @@ rule star_index:
         "test -s {output}/Genome)); "
         "fi; "
         "else "
-        "echo 'star.build_index=false; index already exists' >> {log}; "
+        "echo 'star.build_index=false; index already exists' >> {log} || true; "
         "fi"
 
 
