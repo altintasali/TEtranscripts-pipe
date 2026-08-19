@@ -369,6 +369,15 @@ if not STAR_BUILD_INDEX and not os.path.isdir(STAR_INDEX_DIR):
         f"star.build_index from config.yaml."
     )
 
+# Sentinel file for star_index rule when build_index=false. Created at
+# parse time so Snakemake sees the output already exists and skips the
+# rule entirely in dry-run and execution.
+STAR_INDEX_NOOP = os.path.join(STAR_INDEX_DIR, ".build_index_disabled")
+if not STAR_BUILD_INDEX:
+    os.makedirs(STAR_INDEX_DIR, exist_ok=True)
+    with open(STAR_INDEX_NOOP, "w") as _fh:
+        _fh.write("build_index=false; index already exists.\n")
+
 # -----------------------------------------------------------------------------
 # Per-sample strandedness resolution.
 # The sample sheet's optional "strandedness" column (nf-core/rnaseq

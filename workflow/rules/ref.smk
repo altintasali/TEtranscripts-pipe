@@ -45,7 +45,7 @@ rule star_index:
         fasta=ancient(FASTA),
         gtf=ancient(GTF),
     output:
-        directory(STAR_INDEX_DIR),
+        directory(STAR_INDEX_DIR) if STAR_BUILD_INDEX else STAR_INDEX_NOOP,
     params:
         sjdb_overhang=SJDB_OVERHANG,
         extra=config["star"].get("index_extra", ""),
@@ -61,19 +61,21 @@ rule star_index:
     conda:
         STAR_ENV
     shell:
-        # If the output directory already contains a valid STAR index (core
-        # files SA, SAindex, Genome all present), skip the rebuild entirely.
-        # This prevents unnecessary re-indexing when a pre-existing /
-        # shared index is pointed at via star.index in config.yaml.
-        # Otherwise, build from scratch. STAR has a long-standing,
-        # still-unresolved crash-on-exit bug ("double free or corruption" /
-        # segfault while freeing memory *after* all output has already been
-        # written and closed) -- confirmed benign by STAR's own author:
-        # https://groups.google.com/g/rna-star/c/3_ckDieghws ("this problem
-        # is happening after STAR finished all calculations, so it does not
-        # affect the results"). So if STAR exits non-zero, don't trust that
-        # alone -- check whether the core index files actually landed on
-        # disk before treating it as a real failure.
+        # When build_index=true: if the output directory already contains a
+        # valid STAR index (core files SA, SAindex, Genome all present), skip
+        # the rebuild entirely. Otherwise, build from scratch. STAR has a
+        # long-standing, still-unresolved crash-on-exit bug ("double free or
+        # corruption" / segfault while freeing memory *after* all output has
+        # already been written and closed) -- confirmed benign by STAR's own
+        # author: https://groups.google.com/g/rna-star/c/3_ckDieghws ("this
+        # problem is happening after STAR finished all calculations, so it
+        # does not affect the results"). So if STAR exits non-zero, don't
+        # trust that alone -- check whether the core index files actually
+        # landed on disk before treating it as a real failure.
+        #
+        # When build_index=false: the sentinel output was created at parse
+        # time and this branch is a no-op.
+        "if [ {params.build_index} = True ]; then "
         "if [ -s {output}/SA ] && [ -s {output}/SAindex ] && "
         "[ -s {output}/Genome ]; then "
         "echo 'STAR index already present at {output}; skipping rebuild' "
@@ -93,6 +95,9 @@ rule star_index:
         "benign STAR exit-time crash)' >> {log}; "
         "test -s {output}/SA && test -s {output}/SAindex && "
         "test -s {output}/Genome)); "
+        "fi; "
+        "else "
+        "echo 'star.build_index=false; index already exists' >> {log}; "
         "fi"
 
 
