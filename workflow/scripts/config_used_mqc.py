@@ -4,7 +4,6 @@
 Snakemake ``script:`` directive calls this with a ``snakemake`` object whose
 attributes mirror the rule's config, output, and log declarations.
 """
-import gzip
 import json
 import os
 import sys
@@ -109,7 +108,7 @@ def main(smk):
     # Ensure the output directory exists.
     os.makedirs(os.path.dirname(str(smk.output)), exist_ok=True)
 
-    with gzip.open(str(smk.output), "wt") as fh:
+    with open(str(smk.output), "w") as fh:
         json.dump(doc, fh, indent=2)
 
 

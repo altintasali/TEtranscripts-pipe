@@ -83,8 +83,8 @@ def _chimera_qc_mqc_inputs():
         return []
     transform = config["chimera"]["qc"]["pca_transform"]
     return [
-        f"results/chimera/qc/pca_{transform}_mqc.json.gz",
-        f"results/chimera/qc/heatmap_{transform}_mqc.json.gz",
+        f"results/chimera/qc/pca_{transform}_mqc.json",
+        f"results/chimera/qc/heatmap_{transform}_mqc.json",
     ]
 
 
@@ -97,8 +97,8 @@ def _junction_qc_mqc_inputs():
     if not CHIMERA_ENABLED:
         return []
     return [
-        "results/chimera/qc/junction_qc_mqc.json.gz",
-        "results/chimera/qc/te_chimeras_mqc.json.gz",
+        "results/chimera/qc/junction_qc_mqc.json",
+        "results/chimera/qc/te_chimeras_mqc.json",
     ]
 
 
@@ -110,8 +110,8 @@ def _tecount_qc_mqc_inputs():
         return []
     transform = TECOUNT_QC["pca_transform"]
     return [
-        f"results/tecount/qc/pca_{transform}_mqc.json.gz",
-        f"results/tecount/qc/heatmap_{transform}_mqc.json.gz",
+        f"results/tecount/qc/pca_{transform}_mqc.json",
+        f"results/tecount/qc/heatmap_{transform}_mqc.json",
     ]
 
 
@@ -121,8 +121,8 @@ def _tecount_summary_mqc_inputs():
     they only need the raw cntTables -- independent of
     tetranscripts.qc.enabled."""
     return [
-        "results/tecount/qc/tecount_assignment_mqc.json.gz",
-        "results/tecount/qc/tecount_te_class_mqc.json.gz",
+        "results/tecount/qc/tecount_assignment_mqc.json",
+        "results/tecount/qc/tecount_te_class_mqc.json",
     ]
 
 
@@ -130,7 +130,7 @@ rule config_used:
     # The resolved run config, written as a MultiQC custom-content table so
     # the report records exactly which settings were used.
     output:
-        "results/pipeline_info/config_used_mqc.json.gz",
+        "results/pipeline_info/config_used_mqc.json",
     threads: get_resources("config_used")["threads"]
     resources:
         mem_mb=get_resources("config_used")["mem_mb"],
@@ -171,8 +171,8 @@ rule multiqc:
         all_fastqc_reports(),
         all_raw_fastqc_reports(),
         "results/pipeline_info/benchmark_summary_mqc.json",
-        "results/pipeline_info/config_used_mqc.json.gz",
-        "results/versions/rnaseq_mqc_versions.yml.gz",
+        "results/pipeline_info/config_used_mqc.json",
+        "results/versions/rnaseq_mqc_versions.yml",
         chimera_qc=_chimera_qc_mqc_inputs(),
         junction_qc=_junction_qc_mqc_inputs(),
         tecount_qc=_tecount_qc_mqc_inputs(),

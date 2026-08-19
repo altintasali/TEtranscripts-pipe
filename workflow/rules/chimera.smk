@@ -51,8 +51,8 @@ def all_chimera_outputs():
         for s in SAMPLES
     ]
     files += [
-        "results/chimera/qc/junction_qc_mqc.json.gz",
-        "results/chimera/qc/te_chimeras_mqc.json.gz",
+        "results/chimera/qc/junction_qc_mqc.json",
+        "results/chimera/qc/te_chimeras_mqc.json",
     ]
     if WRITE_IGV_BED:
         files += [
@@ -70,8 +70,8 @@ def all_sample_qc_outputs():
     transform = CHIMERA_QC["pca_transform"]
     return [
         f"results/chimera/qc/{transform}_counts.tsv.gz",
-        f"results/chimera/qc/pca_{transform}_mqc.json.gz",
-        f"results/chimera/qc/heatmap_{transform}_mqc.json.gz",
+        f"results/chimera/qc/pca_{transform}_mqc.json",
+        f"results/chimera/qc/heatmap_{transform}_mqc.json",
     ]
 
 
@@ -205,8 +205,8 @@ rule junction_qc_barplot:
             f"results/chimera/qc/{s}_junction_qc.tsv.gz" for s in SAMPLES
         ],
     output:
-        junction="results/chimera/qc/junction_qc_mqc.json.gz",
-        te_chimeras="results/chimera/qc/te_chimeras_mqc.json.gz",
+        junction="results/chimera/qc/junction_qc_mqc.json",
+        te_chimeras="results/chimera/qc/te_chimeras_mqc.json",
     params:
         samples=lambda wc, input: " ".join(SAMPLES),
     threads: get_resources("junction_qc_barplot")["threads"]

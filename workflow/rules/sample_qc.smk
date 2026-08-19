@@ -47,8 +47,8 @@ rule sample_qc:
     input:
         transformed="results/chimera/qc/{transform}_counts.tsv.gz",
     output:
-        pca="results/chimera/qc/pca_{transform}_mqc.json.gz",
-        heatmap="results/chimera/qc/heatmap_{transform}_mqc.json.gz",
+        pca="results/chimera/qc/pca_{transform}_mqc.json",
+        heatmap="results/chimera/qc/heatmap_{transform}_mqc.json",
     params:
         samples=config["samples"],
         min_events=CHIMERA_QC["min_events"],

@@ -11,7 +11,7 @@
 # -----------------------------------------------------------------------------
 rule software_versions:
     output:
-        "results/versions/rnaseq_mqc_versions.yml.gz",
+        "results/versions/rnaseq_mqc_versions.yml",
     threads: get_resources("software_versions")["threads"]
     resources:
         mem_mb=get_resources("software_versions")["mem_mb"],
@@ -21,7 +21,6 @@ rule software_versions:
     log:
         "results/pipeline_info/logs/software_versions.log",
     run:
-        import gzip
         import yaml
 
         versions = {
@@ -29,7 +28,7 @@ rule software_versions:
             "TEtranscripts": V["tetranscripts"],
             "DESeq2": V["deseq2"],
         }
-        with gzip.open("results/versions/rnaseq_mqc_versions.yml.gz", "wt") as fh:
+        with open("results/versions/rnaseq_mqc_versions.yml", "w") as fh:
             yaml.safe_dump(
                 {"TEtranscripts-pipe": versions}, fh, default_flow_style=False
             )

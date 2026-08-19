@@ -347,7 +347,8 @@ def cmd_run(args):
     # is installed -- e.g. a shared apps/ copy with the config in an analysis
     # working copy. Snakemake is launched from that same root, so relative
     # paths resolve exactly as if snakemake were run there directly.
-    analysis_root = _find_repo_root(config_path)
+    repo_root = _find_repo_root(config_path)
+    analysis_root = repo_root
     # When _find_repo_root falls back to REPO_ROOT (this script's checkout),
     # the config may live in a standalone analysis directory that lacks
     # workflow/.  Detect this and create a workflow/ symlink so snakemake
@@ -379,9 +380,12 @@ def cmd_run(args):
             _die(f"reads directory does not exist: {reads_dir!r}")
 
     if not os.path.exists(config_path) or args.force:
+        # Resolve CLI reference paths against the repo root (CWD), not the
+        # analysis root -- the user's --fasta/--gtf/--te-gtf are relative to
+        # where they ran the command, which is the repo checkout.
         _write_run_config(config_path, sheet_path,
                           args.fasta, args.gtf, args.te_gtf,
-                          analysis_root)
+                          repo_root)
     elif args.fasta or args.gtf or args.te_gtf:
         print(f"note: {config_path} already exists; ignoring "
               f"--fasta/--gtf/--te-gtf", file=sys.stderr)
