@@ -353,77 +353,21 @@ with open("results/pipeline_info/logs/config_resolution.log", "w") as fh:
 # -----------------------------------------------------------------------------
 # Where the STAR index lives. Defaults to a generated directory under results/
 # when star.index is not set (or empty) in config.yaml; an existing index
-# directory is honored as-is (rebuilt only when missing or via
-# `snakemake -R star_index`).
+# directory is honored as-is. The star.build_index flag (default true)
+# controls whether the workflow may build it; when false, the index must
+# already exist.
 # -----------------------------------------------------------------------------
 STAR_INDEX_DIR = os.path.abspath(
     (config["star"].get("index") or "").strip() or "results/star_index"
 )
+STAR_BUILD_INDEX = config["star"].get("build_index", True)
 
-# -----------------------------------------------------------------------------
-# STAR index freshness. star_index (ref.smk) marks its fasta/gtf inputs
-# ancient() so a shared/prebuilt index is honored as-is regardless of file
-# mtimes -- but that also means a changed reference is silently *not* rebuilt.
-# So star_index records a small stamp of everything the index was built with
-# (ref paths + size + mtime, sjdb_overhang, STAR version, index_extra) into
-# {index}/.refs_used.txt, and we compare it at parse time: a mismatch warns
-# that the current config expects a different index and -R star_index is
-# needed. An index without a stamp (pre-existing/shared) is left alone.
-# -----------------------------------------------------------------------------
-def _stat_line(prefix, path):
-    try:
-        st = os.stat(path)
-        return [f"{prefix}_size={st.st_size}", f"{prefix}_mtime={st.st_mtime}"]
-    except OSError:
-        return [f"{prefix}_size=missing", f"{prefix}_mtime=missing"]
-
-
-def star_index_stamp():
-    """One key=value line per input that determines the STAR index content."""
-    lines = []
-    for key in ("fasta", "gtf"):
-        src = str(config["ref"][key])
-        lines.append(f"{key}={src}")
-        lines.extend(_stat_line(key, src))
-    lines.append(f"sjdb_overhang={SJDB_OVERHANG}")
-    lines.append(f"star={config['versions']['star']}")
-    lines.append(f"index_extra={config['star'].get('index_extra', '')}")
-    return "\n".join(lines) + "\n"
-
-
-_STAR_INDEX_MANIFEST = os.path.join(STAR_INDEX_DIR, ".refs_used.txt")
-if os.path.isdir(STAR_INDEX_DIR):
-    if not os.path.isfile(_STAR_INDEX_MANIFEST):
-        # Auto-stamp a pre-built index so --rerun-incomplete doesn't rebuild it
-        try:
-            with open(_STAR_INDEX_MANIFEST, "w") as fh:
-                fh.write(star_index_stamp())
-            logger.info(
-                f"Auto-stamped pre-built STAR index at {STAR_INDEX_DIR} "
-                f"(.refs_used.txt created)"
-            )
-        except OSError:
-            logger.warning(
-                f"Could not create .refs_used.txt in {STAR_INDEX_DIR}; "
-                "--rerun-incomplete may rebuild the index"
-            )
-    else:
-        try:
-            with open(_STAR_INDEX_MANIFEST) as fh:
-                _recorded = fh.read()
-        except OSError:
-            _recorded = ""
-        if _recorded != star_index_stamp():
-            logger.warning(
-                f"The STAR index at {STAR_INDEX_DIR} was built for a different "
-                "reference setup than config.yaml now specifies (its "
-                ".refs_used.txt stamp no longer matches). If you changed the "
-                "reference fasta/GTF, sjdb_overhang, or STAR version since, "
-                "rebuild it with `snakemake -R star_index` -- otherwise the old "
-                "index is silently reused. If the index is deliberately shared, "
-                "run `snakemake -R star_index` once to re-record the current "
-                "reference into it and silence this warning."
-            )
+if not STAR_BUILD_INDEX and not os.path.isdir(STAR_INDEX_DIR):
+    raise WorkflowError(
+        f"star.build_index is false but STAR index directory does not exist: "
+        f"{STAR_INDEX_DIR}. Either build it beforehand or remove "
+        f"star.build_index from config.yaml."
+    )
 
 # -----------------------------------------------------------------------------
 # Per-sample strandedness resolution.

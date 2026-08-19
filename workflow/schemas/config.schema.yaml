@@ -60,9 +60,16 @@ properties:
         description: >-
           Directory that holds (or will hold) the STAR genome index.
           Optional -- when absent (or empty), the workflow generates one at
-          results/star_index. An existing directory is honored as-is and only
-          rebuilt when missing (or via `snakemake -R star_index`); point this
-          at a shared/prebuilt index to reuse it.
+          results/star_index. An existing directory is honored as-is; use
+          build_index to control whether it is rebuilt.
+      build_index:
+        type: boolean
+        default: true
+        description: >-
+          Whether the workflow may build a STAR genome index. When true
+          (default), the index is built automatically if missing. When false,
+          an existing index must already be present at star.index; the
+          workflow raises an error if it is missing.
       index_extra: {type: string}
       extra: {type: string}
       tmpdir:
