@@ -207,7 +207,7 @@ jobs:
                 --out-class "$T/custom/tecount/qc/tecount_te_class_mqc.json" > "$T/tsum.log" 2>&1; then
             echo "ERROR: tecount_summary_mqc.py failed"; cat "$T/tsum.log"; FAIL=1
           fi
-          if ! multiqc --force -c workflow/default-config/multiqc_config.yaml \
+          if ! multiqc --force --no-ansi -c workflow/default-config/multiqc_config.yaml \
                 -o "$T/mqc" -n report "$T/custom" > "$T/mqc.log" 2>&1; then
             echo "ERROR: multiqc run failed"; tail -40 "$T/mqc.log"; FAIL=1
           else
