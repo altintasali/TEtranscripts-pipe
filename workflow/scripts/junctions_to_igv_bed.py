@@ -12,7 +12,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _io import open_read
+from gz_io import open_read
 
 with open_read(snakemake.input[0]) as fh:
     header = fh.readline().rstrip("\n").split("\t")

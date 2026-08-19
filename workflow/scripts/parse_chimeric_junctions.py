@@ -55,7 +55,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _io import open_write
+from gz_io import open_write
 
 
 def load_bed(path, n_extra=0):

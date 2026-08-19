@@ -53,6 +53,7 @@ LABELS = {
     "sample_qc_transform": ("sample-QC transform", "Chimera screen"),
     "sample_qc": ("sample-QC plots", "Chimera screen"),
     "software_versions": ("software versions", "Quantification + QC"),
+    "config_used": ("config used", "Quantification + QC"),
     "benchmark_summary": ("resource-usage summary", "Quantification + QC"),
     "multiqc": ("MultiQC", "Quantification + QC"),
 }

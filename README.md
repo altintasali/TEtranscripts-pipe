@@ -1,6 +1,9 @@
 # TEtranscripts-pipe
 
-![version](https://img.shields.io/github/v/tag/altintasali/TEtranscripts-pipe?label=version)
+![CI](https://img.shields.io/github/actions/workflow/status/altintasali/TEtranscripts-pipe/ci.yml?label=CI)
+![License](https://img.shields.io/github/license/altintasali/TEtranscripts-pipe?color=blue)
+![Platform](https://img.shields.io/badge/platform-Python-blue)
+![Version](https://img.shields.io/badge/version-0.8.2-blue)
 
 A Snakemake workflow that quantifies genes **and** transposable elements (TEs)
 from RNA-seq data with [TEtranscripts/TEcount](https://github.com/mhammell-laboratory/TEtranscripts),
@@ -33,6 +36,7 @@ flowchart LR
         tecount_qc["sample-QC plots (PCA + clustering)"]
         tecount_summary["tecount summary barplots (assignment + TE class)"]
         software_versions["software versions"]
+        config_used["config used"]
         benchmark_summary["resource-usage summary"]
         multiqc["MultiQC"]
     end
@@ -796,7 +800,8 @@ files were resolved).
 ## Notes
 
 - Versioning: the current release is recorded in the `VERSION` file at the repo
-  root and tagged `vX.Y.Z` in git (the badge above tracks the latest tag).
+  root and tagged `vX.Y.Z` in git (the version badge above shows the current
+  release).
 - Gzipped fastqs are read natively by STAR, so merged/trimmed intermediates stay
   gzipped; gzipped references (`.fa.gz`/`.gtf.gz`) decompress once into
   `ref.decompressed_dir`. Mix and match freely.

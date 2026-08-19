@@ -23,7 +23,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _io import open_read, open_write
+from gz_io import open_read, open_write
 
 TE_CLASSES = ["LINE", "SINE", "LTR", "DNA", "RC"]
 

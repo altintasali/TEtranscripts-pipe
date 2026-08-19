@@ -19,7 +19,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _io import open_read, open_write
+from gz_io import open_read, open_write
 
 DIRECTIONS = [
     "gene_to_te", "te_to_gene", "gene_to_gene", "te_to_te",

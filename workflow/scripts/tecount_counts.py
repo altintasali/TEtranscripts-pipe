@@ -31,7 +31,7 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _io import open_read, open_write
+from gz_io import open_read, open_write
 
 ATTR_RE = re.compile(r'(\w+)\s+"([^"]*)"')
 

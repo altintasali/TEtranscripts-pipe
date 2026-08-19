@@ -332,6 +332,7 @@ def _ensure_analysis_root(config_path):
         candidate = parent
     workflow_link = os.path.join(analysis_root, "workflow")
     if not os.path.lexists(workflow_link):
+        os.makedirs(analysis_root, exist_ok=True)
         os.symlink(WORKFLOW_DIR, workflow_link)
         print(f"created workflow/ symlink -> {WORKFLOW_DIR}")
     return analysis_root
