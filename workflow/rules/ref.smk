@@ -34,18 +34,20 @@ rule star_index:
     # generated env in common.smk) rather than a snakemake-wrapper, so the
     # exact tool version is fully under your control.
     #
-    # The fasta/gtf inputs are marked ancient(): an existing index directory
-    # is honored as-is instead of being rebuilt whenever the reference files
-    # happen to be *newer* than the index (Snakemake's up-to-date check
-    # compares mtimes, which would otherwise re-trigger the index build every
-    # run for a shared/prebuilt index -- see the "STAR index" README note).
-    # The index is rebuilt only when the output directory is missing, or
-    # explicitly via `snakemake -R star_index` / deleting the directory.
+    # The fasta/gtf inputs are marked ancient() when build_index=true: an
+    # existing index directory is honored as-is instead of being rebuilt
+    # whenever the reference files happen to be *newer* than the index
+    # (Snakemake's up-to-date check compares mtimes, which would otherwise
+    # re-trigger the index build every run for a shared/prebuilt index --
+    # see the "STAR index" README note).  When build_index=false the inputs
+    # are empty lists so no decompression (gunzip_reference) is triggered
+    # and the output directory already exists, so Snakemake skips the rule
+    # entirely.
     input:
-        fasta=ancient(FASTA),
-        gtf=ancient(GTF),
+        fasta=ancient(FASTA) if STAR_BUILD_INDEX else [],
+        gtf=ancient(GTF) if STAR_BUILD_INDEX else [],
     output:
-        directory(STAR_INDEX_DIR) if STAR_BUILD_INDEX else STAR_INDEX_NOOP,
+        directory(STAR_INDEX_DIR),
     params:
         sjdb_overhang=SJDB_OVERHANG,
         extra=config["star"].get("index_extra", ""),
@@ -73,8 +75,9 @@ rule star_index:
         # trust that alone -- check whether the core index files actually
         # landed on disk before treating it as a real failure.
         #
-        # When build_index=false: the sentinel output was created at parse
-        # time and this branch is a no-op.
+        # When build_index=false: the output directory already exists and
+        # the rule is skipped by Snakemake before the shell runs, but if
+        # --rerun-incomplete forces re-execution this branch is a safe no-op.
         "if [ {params.build_index} = True ]; then "
         "if [ -s {output}/SA ] && [ -s {output}/SAindex ] && "
         "[ -s {output}/Genome ]; then "

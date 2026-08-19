@@ -81,7 +81,7 @@ rule all:
 rule star_index_only:
     # Convenience target: just (re)build the STAR genome index.
     input:
-        STAR_INDEX_DIR if STAR_BUILD_INDEX else STAR_INDEX_NOOP,
+        STAR_INDEX_DIR,
 
 
 rule strandedness_only:
