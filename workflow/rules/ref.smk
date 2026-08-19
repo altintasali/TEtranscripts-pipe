@@ -61,16 +61,24 @@ rule star_index:
     conda:
         STAR_ENV
     shell:
-        # STAR has a long-standing, still-unresolved crash-on-exit bug
-        # ("double free or corruption" / segfault while freeing memory
-        # *after* all output has already been written and closed) --
-        # confirmed benign by STAR's own author:
-        # https://groups.google.com/g/rna-star/c/3_ckDieghws
-        # ("this problem is happening after STAR finished all
-        # calculations, so it does not affect the results"). So if STAR
-        # exits non-zero, don't trust that alone -- check whether the core
-        # index files actually landed on disk before treating it as a
-        # real failure.
+        # If the output directory already contains a valid STAR index (core
+        # files SA, SAindex, Genome all present), skip the rebuild entirely.
+        # This prevents unnecessary re-indexing when a pre-existing /
+        # shared index is pointed at via star.index in config.yaml.
+        # Otherwise, build from scratch. STAR has a long-standing,
+        # still-unresolved crash-on-exit bug ("double free or corruption" /
+        # segfault while freeing memory *after* all output has already been
+        # written and closed) -- confirmed benign by STAR's own author:
+        # https://groups.google.com/g/rna-star/c/3_ckDieghws ("this problem
+        # is happening after STAR finished all calculations, so it does not
+        # affect the results"). So if STAR exits non-zero, don't trust that
+        # alone -- check whether the core index files actually landed on
+        # disk before treating it as a real failure.
+        "if [ -s {output}/SA ] && [ -s {output}/SAindex ] && "
+        "[ -s {output}/Genome ]; then "
+        "echo 'STAR index already present at {output}; skipping rebuild' "
+        ">> {log}; "
+        "else "
         "mkdir -p {output} && "
         "(STAR --runMode genomeGenerate "
         "--genomeDir {output} "
@@ -84,7 +92,8 @@ rule star_index:
         "actually written successfully anyway (see rule comment re: known "
         "benign STAR exit-time crash)' >> {log}; "
         "test -s {output}/SA && test -s {output}/SAindex && "
-        "test -s {output}/Genome)) && "
+        "test -s {output}/Genome)); "
+        "fi && "
         "printf '%s' \"{params.ref_stamp}\" > {output}/.refs_used.txt"
 
 

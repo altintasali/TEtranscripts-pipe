@@ -356,7 +356,9 @@ with open("results/pipeline_info/logs/config_resolution.log", "w") as fh:
 # directory is honored as-is (rebuilt only when missing or via
 # `snakemake -R star_index`).
 # -----------------------------------------------------------------------------
-STAR_INDEX_DIR = (config["star"].get("index") or "").strip() or "results/star_index"
+STAR_INDEX_DIR = os.path.abspath(
+    (config["star"].get("index") or "").strip() or "results/star_index"
+)
 
 # -----------------------------------------------------------------------------
 # STAR index freshness. star_index (ref.smk) marks its fasta/gtf inputs
