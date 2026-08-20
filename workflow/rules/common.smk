@@ -203,7 +203,8 @@ DECOMPRESS_DIR = config["ref"].get(
 )
 
 _HAS_GZ_REFS = any(
-    str(config["ref"][k]).endswith(".gz") for k in ("fasta", "gtf", "te_gtf")
+    str(config["ref"].get(k, "")).endswith(".gz")
+    for k in ("fasta", "gtf", "te_gtf")
 )
 if "decompressed_dir" in config.get("ref", {}) and _HAS_GZ_REFS:
     _local_tmp = tempfile.gettempdir().rstrip(os.sep)

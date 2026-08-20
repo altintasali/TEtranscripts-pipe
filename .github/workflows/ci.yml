@@ -297,10 +297,14 @@ jobs:
           echo "[guards] 16/17 keep_star_index: false + build_index: false"
 
           # --- keep_star_index: false + build_index: false must dry-run and
-          # plan the cleanup_star_index rule.  Use .tests/resources/star_index
-          # as the external source to avoid the path collision guard.
-          sed -e 's|^  index: .*|  index: .tests/resources/star_index\n  build_index: false|' \
+          # plan the cleanup_star_index rule.  Create a temp dir as a fake
+          # external STAR index (the real .tests/resources/star_index is not
+          # tracked by git and does not exist on CI).
+          mkdir -p "$T/fake_star_index"
+          sed -e 's|^  index: .*|  index: '"$T"'/fake_star_index|' \
               config/test.yaml > "$T/ksif.yaml"
+          sed -e '/^  index: /a\  build_index: false' "$T/ksif.yaml" > "$T/ksif2.yaml"
+          mv "$T/ksif2.yaml" "$T/ksif.yaml"
           sed -e '/^outputs:/a\'$'\n''  keep_star_index: false' "$T/ksif.yaml" > "$T/ksif2.yaml"
           mv "$T/ksif2.yaml" "$T/ksif.yaml"
           if ! snakemake --configfile "$T/ksif.yaml" -n --cores 1 >"$T/ksif.log" 2>&1; then
@@ -313,9 +317,11 @@ jobs:
 
           # --- build_index=false: ref.fasta is optional.  Remove fasta from
           # the config and confirm the dry-run still passes.
-          sed -e 's|^  index: .*|  index: .tests/resources/star_index\n  build_index: false|' \
+          sed -e 's|^  index: .*|  index: '"$T"'/fake_star_index|' \
               -e '/^  fasta: /d' \
               config/test.yaml > "$T/no_fasta.yaml"
+          sed -e '/^  index: /a\  build_index: false' "$T/no_fasta.yaml" > "$T/no_fasta2.yaml"
+          mv "$T/no_fasta2.yaml" "$T/no_fasta.yaml"
           if ! snakemake --configfile "$T/no_fasta.yaml" -n --cores 1 >"$T/no_fasta.log" 2>&1; then
             echo "ERROR: build_index=false without ref.fasta failed"; tail -20 "$T/no_fasta.log"; FAIL=1
           elif grep -q "Missing reference" "$T/no_fasta.log"; then
