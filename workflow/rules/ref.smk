@@ -113,7 +113,8 @@ rule star_index:
 rule cleanup_star_index:
     # Removes the STAR genome index after alignment is done, when the user
     # sets outputs.keep_star_index: false.  Saves disk on big runs at the
-    # cost of re-copying (or rebuilding) the index on the next run.
+    # cost of re-copying (or rebuilding) the index on the next run.  Runs
+    # locally (not submitted to the cluster) -- it is a trivial shell command.
     input:
         bams=expand("results/star/{sample}_Aligned.out.bam", sample=SAMPLES),
     output:
@@ -121,9 +122,6 @@ rule cleanup_star_index:
     params:
         keep=KEEP_STAR_INDEX,
         index_dir=STAR_INDEX_DIR,
-    resources:
-        mem_mb=100,
-        runtime=1,
     shell:
         "if [ {params.keep} = False ] && [ -d {params.index_dir} ]; then "
         "  echo 'Removing STAR index at {params.index_dir}' && "

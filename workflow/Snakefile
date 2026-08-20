@@ -61,6 +61,8 @@ if CHIMERA_ENABLED:
 include: "rules/software_versions.smk"
 include: "rules/qc.smk"
 
+localrules: cleanup_star_index
+
 
 rule all:
     input:
