@@ -299,6 +299,49 @@ if _missing_refs:
         "directory you run snakemake from, usually the repo root)."
     )
 
+# Guard against empty GTF files: a file that exists but contains only
+# comments or blank lines would silently produce empty BED tracks and
+# zero-row count matrices, leading to broken downstream analysis.
+def _count_gtf_features(path):
+    """Return the number of non-comment, non-empty lines in a GTF file."""
+    import gzip as _gzip
+
+    _open = _gzip.open if str(path).endswith(".gz") else open
+    _count = 0
+    try:
+        with _open(path, "rt") as fh:
+            for line in fh:
+                if line.strip() and not line.startswith("#"):
+                    _count += 1
+    except Exception:
+        return -1  # unreadable — let the file-exists check catch it
+    return _count
+
+
+_empty_gtf_warnings = []
+for _key, _resolved in (("gtf", GTF), ("te_gtf", TE_GTF)):
+    _source = config["ref"][_key]
+    _check = _source if str(_source).endswith(".gz") else _resolved
+    if os.path.exists(_check):
+        _n = _count_gtf_features(_check)
+        if _n == 0:
+            _empty_gtf_warnings.append(
+                f"ref.{_key}: {_check} exists but contains no feature lines "
+                f"(empty GTF). Downstream results will be empty."
+            )
+        elif _n < 0:
+            _empty_gtf_warnings.append(
+                f"ref.{_key}: {_check} exists but could not be read to "
+                f"validate content."
+            )
+if _empty_gtf_warnings:
+    logger.warning(
+        "Empty or unreadable GTF file(s):\n  "
+        + "\n  ".join(_empty_gtf_warnings)
+        + "\nDownstream BED tracks, count matrices, and QC views will be "
+        "empty for these annotations."
+    )
+
 # -----------------------------------------------------------------------------
 # STAR sjdbOverhang: auto-detected from the sample sheet's fastq files
 # (max read length - 1, STAR's own recommendation) unless the user pins an
@@ -677,6 +720,22 @@ def _build_contrasts():
 
 
 CONTRASTS = _build_contrasts()
+
+# Warn at parse time when any contrast has fewer than 2 replicates in a
+# group -- DESeq2 (called internally by TEtranscripts) needs >= 2
+# replicates per condition to estimate dispersion.  This is a warning,
+# not an error, because the user may be doing exploratory analysis.
+import warnings as _warnings
+
+for _cname, _cval in CONTRASTS.items():
+    for _group in ("treatment", "control"):
+        if len(_cval[_group]) < 2:
+            _warnings.warn(
+                f"contrast '{_cname}': {_group} group has only "
+                f"{len(_cval[_group])} sample(s); DESeq2 needs >= 2 "
+                f"replicates per condition for dispersion estimation.",
+                stacklevel=2,
+            )
 
 
 def _contrast_samples(wildcards):

@@ -29,10 +29,18 @@ for line in text.splitlines():
         fractions[pattern] = value
 
 if not fractions:
-    raise ValueError(
-        f"Could not parse any 'explained by' fractions from {snakemake.input.txt}. "
-        "Check the RSeQC infer_experiment.py output format."
+    # RSeQC may produce no parseable output for an empty BAM (zero reads).
+    # Default to "no" (unstranded) rather than crashing the pipeline --
+    # the downstream tools will simply find zero counts, which is correct
+    # for a sample with no data.
+    print(
+        f"WARNING: could not parse any 'explained by' fractions from "
+        f"{snakemake.input.txt} (empty BAM?). Defaulting to 'no' (unstranded).",
+        file=sys.stderr,
     )
+    with open(snakemake.output.txt, "w") as fh:
+        fh.write("no\n")
+    sys.exit(0)
 
 forward_value = 0.0
 reverse_value = 0.0

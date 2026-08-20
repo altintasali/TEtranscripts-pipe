@@ -44,7 +44,11 @@ _TRIM_SHELL = (
     "--fastqc_args '-t {threads}' "
     "--basename {wildcards.sample} --output_dir {params.outdir} "
     "{params.reads} "
-    "> {log} 2>&1"
+    "> {log} 2>&1 && "
+    "python3 workflow/scripts/check_nonempty_fastq.py "
+    "{params.outdir}/{wildcards.sample}_val_1.fq.gz "
+    "{params.outdir}/{wildcards.sample}_val_2.fq.gz "
+    "{params.outdir}/{wildcards.sample}_trimmed.fq.gz"
 )
 
 

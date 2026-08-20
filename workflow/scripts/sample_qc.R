@@ -68,7 +68,11 @@ transform_matrix <- function(counts, method) {
         return(log2(counts + 1))
     }
     if (ncol(counts) < 2) {
-        stop("need >= 2 samples for vst/rlog")
+        message(sprintf(
+            "only %d sample(s); vst/rlog requires >= 2, falling back to log2",
+            ncol(counts)
+        ))
+        return(log2(counts + 1))
     }
     if (method == "vst") {
         tryCatch(
