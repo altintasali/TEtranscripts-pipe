@@ -51,7 +51,7 @@ properties:
           scheduler cannot see the compute node's output. When gzipped
           references are present, a node-local or empty value is rejected at
           parse time with a WorkflowError.
-    required: [fasta, gtf, te_gtf, sjdb_overhang]
+    required: [gtf, te_gtf, sjdb_overhang]
   star:
     type: object
     properties:
@@ -258,6 +258,12 @@ properties:
       keep_trimmed_fastq:
         type: boolean
         description: Keep the TrimGalore!-trimmed fastqs (results/trimming/).
+      keep_star_index:
+        type: boolean
+        description: >-
+          Keep the STAR genome index in results/star_index/ after alignment.
+          false deletes it (rm -rf) once all samples are aligned, saving disk
+          at the cost of re-copying (or rebuilding) on the next run.
 
 required:
   - samples

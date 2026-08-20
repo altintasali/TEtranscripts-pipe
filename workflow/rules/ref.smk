@@ -110,6 +110,27 @@ rule star_index:
         "fi"
 
 
+rule cleanup_star_index:
+    # Removes the STAR genome index after alignment is done, when the user
+    # sets outputs.keep_star_index: false.  Saves disk on big runs at the
+    # cost of re-copying (or rebuilding) the index on the next run.
+    input:
+        bams=expand("results/star/{sample}_Aligned.out.bam", sample=SAMPLES),
+    output:
+        touch("results/pipeline_info/.star_index_cleaned"),
+    params:
+        keep=KEEP_STAR_INDEX,
+        index_dir=STAR_INDEX_DIR,
+    resources:
+        mem_mb=100,
+        runtime=1,
+    shell:
+        "if [ {params.keep} = False ] && [ -d {params.index_dir} ]; then "
+        "  echo 'Removing STAR index at {params.index_dir}' && "
+        "  rm -rf {params.index_dir}; "
+        "fi"
+
+
 rule gtf_to_genepred:
     # RSeQC's infer_experiment.py needs a BED12 reference model, not a GTF.
     # UCSC's gtfToGenePred + genePredToBed is the standard conversion route.

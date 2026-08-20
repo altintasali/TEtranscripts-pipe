@@ -248,7 +248,23 @@ def _resolve_ref_path(key):
     return path
 
 
-FASTA = _resolve_ref_path("fasta")
+# FASTA is only needed when building the index; when build_index is false
+# the user provides a pre-built index and ref.fasta is irrelevant.
+_STAR_BUILD_EARLY = config["star"].get("build_index", True)
+if _STAR_BUILD_EARLY:
+    FASTA = _resolve_ref_path("fasta")
+else:
+    _raw_fasta = (config["ref"].get("fasta") or "").strip()
+    if _raw_fasta:
+        import warnings as _warn
+        _warn.warn(
+            f"ref.fasta ({_raw_fasta}) is set but star.build_index is false "
+            f"-- the FASTA file will not be used. Remove it from config.yaml "
+            f"to suppress this warning.",
+            stacklevel=2,
+        )
+    FASTA = None  # not needed; star_index copies the external index
+
 GTF = _resolve_ref_path("gtf")
 TE_GTF = _resolve_ref_path("te_gtf")
 
@@ -258,13 +274,21 @@ TE_GTF = _resolve_ref_path("te_gtf")
 # we check the .gz source: the decompressed target is a temp() rule output
 # that legitimately doesn't exist until gunzip_reference runs.
 _missing_refs = []
-for _key, _resolved in (("fasta", FASTA), ("gtf", GTF), ("te_gtf", TE_GTF)):
+for _key, _resolved in (("gtf", GTF), ("te_gtf", TE_GTF)):
     _source = config["ref"][_key]
     _check = _source if str(_source).endswith(".gz") else _resolved
     if not os.path.exists(_check):
         _missing_refs.append(
             f"ref.{_key}: {_check} (exists: False, resolves to: "
             f"{os.path.abspath(_check)})"
+        )
+if FASTA is not None:
+    _fasta_src = config["ref"]["fasta"]
+    _fasta_check = _fasta_src if str(_fasta_src).endswith(".gz") else FASTA
+    if not os.path.exists(_fasta_check):
+        _missing_refs.append(
+            f"ref.fasta: {_fasta_check} (exists: False, resolves to: "
+            f"{os.path.abspath(_fasta_check)})"
         )
 if _missing_refs:
     raise WorkflowError(
@@ -528,6 +552,7 @@ if TRIM_ENABLED:
 # runs at the cost of re-running the merge/trim steps if they're needed again.
 KEEP_MERGED_FASTQ = bool(config.get("outputs", {}).get("keep_merged_fastq", True))
 KEEP_TRIMMED_FASTQ = bool(config.get("outputs", {}).get("keep_trimmed_fastq", True))
+KEEP_STAR_INDEX = bool(config.get("outputs", {}).get("keep_star_index", True))
 
 
 def _maybe_temp(path, keep):

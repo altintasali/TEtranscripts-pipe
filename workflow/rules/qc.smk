@@ -148,6 +148,7 @@ rule config_used:
         _chimera_enabled=CHIMERA_ENABLED,
         _keep_merged_fastq=KEEP_MERGED_FASTQ,
         _keep_trimmed_fastq=KEEP_TRIMMED_FASTQ,
+        _keep_star_index=KEEP_STAR_INDEX,
     script:
         "../scripts/config_used_mqc.py"
 

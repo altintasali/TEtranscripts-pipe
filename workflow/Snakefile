@@ -67,6 +67,7 @@ rule all:
         all_tecount_tables(),
         all_diffexp_outputs(),
         "results/qc/multiqc_report.html",
+        "results/pipeline_info/.star_index_cleaned",
         # The chimera helper functions live in rules/chimera.smk, only
         # included when the chimera stage is enabled.
         **({"chimera": all_chimera_outputs(),

@@ -57,11 +57,12 @@ def main(smk):
     chimera_enabled = params.get("_chimera_enabled", "")
     keep_merged = params.get("_keep_merged_fastq", "")
     keep_trimmed = params.get("_keep_trimmed_fastq", "")
+    keep_star_index = params.get("_keep_star_index", "")
 
     rows = {
         "pipeline_version": _read_version(smk),
         "samples": f"{sample_count} ({sample_names})",
-        "ref.fasta": str(config["ref"]["fasta"]),
+        "ref.fasta": str(config.get("ref", {}).get("fasta", "(not provided)")),
         "ref.gtf": str(config["ref"]["gtf"]),
         "ref.te_gtf": str(config["ref"]["te_gtf"]),
         "ref.sjdb_overhang": str(sjdb_overhang),
@@ -85,6 +86,7 @@ def main(smk):
         "chimera.qc.pca_transform": config.get("chimera", {}).get("qc", {}).get("pca_transform", "vst"),
         "outputs.keep_merged_fastq": str(keep_merged),
         "outputs.keep_trimmed_fastq": str(keep_trimmed),
+        "outputs.keep_star_index": str(keep_star_index),
     }
 
     doc = {

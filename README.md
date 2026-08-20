@@ -50,6 +50,9 @@ flowchart LR
         sample_qc_transform["sample-QC transform"]
         sample_qc["sample-QC plots"]
     end
+    subgraph other["Other"]
+        cleanup_star_index["cleanup_star_index"]
+    end
     annotation_to_bed --> parse_chimeric_junctions
     benchmark_summary --> multiqc
     cat_fastq --> fastqc_raw
@@ -71,6 +74,7 @@ flowchart LR
     samtools_sort --> rseqc_infer_experiment
     samtools_sort --> samtools_index
     software_versions --> multiqc
+    star_align --> cleanup_star_index
     star_align --> parse_chimeric_junctions
     star_align --> samtools_sort
     star_align --> tecount
@@ -237,6 +241,7 @@ reference):
 | `chimera.outputs.write_counts_matrix` | write the chimera counts matrix + sample-QC view (`results/chimera/`, default `true`). |
 | `outputs.keep_merged_fastq` | keep the lane-concatenated fastqs (`results/fastq/`). `false` deletes them (temp()) once alignment is done. |
 | `outputs.keep_trimmed_fastq` | keep the trimmed fastqs (`results/trimming/`). `false` deletes them (temp()) once alignment is done. |
+| `outputs.keep_star_index` | keep the STAR genome index (`results/star_index/`). `false` deletes it (rm -rf) once alignment is done. |
 
 **`input/samples.csv`** — the design file. Columns in this exact order
 (an nf-core/rnaseq samplesheet works as-is):

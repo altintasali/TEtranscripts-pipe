@@ -214,3 +214,8 @@ outputs:
   # a full re-alignment on the next run).
   keep_merged_fastq: true
   keep_trimmed_fastq: true
+  # Whether to keep the STAR genome index (results/star_index/) after
+  # alignment. Setting to false deletes it (rm -rf) once all samples are
+  # aligned, saving disk at the cost of re-copying (or rebuilding) on the
+  # next run.
+  keep_star_index: true
