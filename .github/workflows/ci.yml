@@ -61,7 +61,7 @@ jobs:
           set +e -uo pipefail
           T=$(mktemp -d)
           FAIL=0
-          echo "[guards] 1/14 missing reference"
+          echo "[guards] 1/15 missing reference"
 
           # --- a missing/typo'd reference is a hard parse-time error ---------
           sed 's|  fasta: .*|  fasta: /nonexistent/ref.fa|' config/test.yaml > "$T/missing_ref.yaml"
@@ -71,7 +71,7 @@ jobs:
             echo "ERROR: wrong failure message for missing reference"; FAIL=1
           fi
 
-          echo "[guards] 2/14 already-trimmed fastqs"
+          echo "[guards] 2/15 already-trimmed fastqs"
 
           # --- already-trimmed-looking fastqs are rejected while trimming on --
           printf 'sample,fastq_1,fastq_2,strandedness,condition\nzyg_wt_01,zyg_wt_01_trimmed.fq.gz,,auto,wt\n' > "$T/trimmed.csv"
@@ -82,7 +82,7 @@ jobs:
             echo "ERROR: wrong failure message for already-trimmed fastqs"; FAIL=1
           fi
 
-          echo "[guards] 3/14 node-local decompressed_dir, plain refs"
+          echo "[guards] 3/15 node-local decompressed_dir, plain refs"
 
           # --- node-local decompressed_dir is fine with plain refs ------------
           # (no gunzip_reference jobs run, so the setting is dead config)
@@ -91,7 +91,7 @@ jobs:
             echo "ERROR: node-local decompressed_dir with plain refs must still dry-run"; FAIL=1
           fi
 
-          echo "[guards] 4/14 gzipped refs, default decompressed_dir"
+          echo "[guards] 4/15 gzipped refs, default decompressed_dir"
 
           # --- gzipped references: make .gz copies of the test refs ------------
           gzip -c .tests/resources/genome.fa > "$T/genome.fa.gz"
@@ -107,7 +107,7 @@ jobs:
             echo "ERROR: gzipped refs with default decompressed_dir must dry-run"; FAIL=1
           fi
 
-          echo "[guards] 5/14 gz refs + node-local decompressed_dir"
+          echo "[guards] 5/15 gz refs + node-local decompressed_dir"
 
           # --- gz refs + node-local /tmp decompressed_dir: hard parse error ----
           sed 's|  sjdb_overhang: 49|  sjdb_overhang: 49\n  decompressed_dir: /tmp/rnaseq-decompressed|' "$T/gz.yaml" > "$T/gz_tmpdir.yaml"
@@ -117,7 +117,7 @@ jobs:
             echo "ERROR: wrong failure message for gz refs + node-local decompressed_dir"; FAIL=1
           fi
 
-          echo "[guards] 6/14 gz refs + empty decompressed_dir"
+          echo "[guards] 6/15 gz refs + empty decompressed_dir"
 
           # --- gz refs + empty decompressed_dir: hard parse error ---------------
           sed 's|  sjdb_overhang: 49|  sjdb_overhang: 49\n  decompressed_dir: ""|' "$T/gz.yaml" > "$T/gz_empty.yaml"
@@ -127,7 +127,7 @@ jobs:
             echo "ERROR: wrong failure message for gz refs + empty decompressed_dir"; FAIL=1
           fi
 
-          echo "[guards] 7/14 star.index omitted"
+          echo "[guards] 7/15 star.index omitted"
 
           # --- star.index omitted: defaults to generated results/star_index -----
           sed '/^  index: .*star_index$/d' config/test.yaml > "$T/no_index.yaml"
@@ -137,7 +137,7 @@ jobs:
             echo "ERROR: default star index path results/star_index not used"; FAIL=1
           fi
 
-          echo "[guards] 8/14 star.index empty"
+          echo "[guards] 8/15 star.index empty"
 
           # --- star.index empty string: same default applies --------------------
           sed 's|^  index: .*|  index: ""|' config/test.yaml > "$T/empty_index.yaml"
@@ -145,7 +145,7 @@ jobs:
             echo "ERROR: empty star.index must dry-run (default results/star_index)"; FAIL=1
           fi
 
-          echo "[guards] 9/14 CLI samples generator"
+          echo "[guards] 9/15 CLI samples generator"
 
           # --- the samples CLI must reproduce the committed fixture -----------
           # (same rows, order-insensitive; generated paths are absolute while
@@ -164,7 +164,7 @@ jobs:
             fi
           fi
 
-          echo "[guards] 10/14 CLI run --dry-run"
+          echo "[guards] 10/15 CLI run --dry-run"
 
           # --- CLI run must scaffold config + sheet and pass a real dry-run ---
           python workflow/scripts/tetranscripts-pipe run \
@@ -183,7 +183,7 @@ jobs:
             echo "ERROR: CLI run --dry-run planned no jobs (tecount missing from the DAG)"; tail -40 "$T/cli_run.log"; FAIL=1
           fi
 
-          echo "[guards] 11/14 MultiQC custom-content JSON format"
+          echo "[guards] 11/15 MultiQC custom-content JSON format"
 
           # --- the barplot emitters must render in the installed MultiQC ------
           # MultiQC's custom_content module only reads a top-level "data" key;
@@ -223,7 +223,7 @@ jobs:
             done
           fi
 
-          echo "[guards] 12/14 CLI run with an existing config (config-only)"
+          echo "[guards] 12/15 CLI run with an existing config (config-only)"
 
           # --- CLI run with an existing --config: no other flags needed -------
           # The sheet is taken from the config's 'samples:' key
@@ -240,7 +240,7 @@ jobs:
             echo "ERROR: CLI run --config-only planned no jobs (tecount_summary missing)"; tail -40 "$T/cli_config_only.log"; FAIL=1
           fi
 
-          echo "[guards] 13/14 qc-off keeps the summary barplots"
+          echo "[guards] 13/15 qc-off keeps the summary barplots"
 
           # --- tetranscripts.qc.enabled: false still plans the summary barplots
           # The assignment + TE-class barplots use the raw cntTables, so they
@@ -255,7 +255,7 @@ jobs:
             echo "ERROR: R-based tecount QC rules still planned with tetranscripts.qc.enabled false"; tail -40 "$T/qc_off.log"; FAIL=1
           fi
 
-          echo "[guards] 14/14 CLI with config in a different checkout (deployed split)"
+          echo "[guards] 14/15 CLI with config in a different checkout (deployed split)"
 
           # --- CLI installed elsewhere, config in an analysis checkout -------
           # The deployment runs this script from a shared apps/ copy while
@@ -278,6 +278,21 @@ jobs:
           elif ! grep -q "$WD2" "$T/deployed.log"; then
             echo "ERROR: run did not anchor to the config's checkout ($WD2)"; tail -40 "$T/deployed.log"; FAIL=1
           fi
+
+          echo "[guards] 15/15 build_index=false path collision"
+
+          # --- build_index=false with star.index pointing to the default output
+          # directory (results/star_index) is rejected at parse time.  The path
+          # must exist for the containment check to fire.
+          mkdir -p results/star_index
+          sed -e 's|^  index: .*|  index: results/star_index\n  build_index: false|' \
+              config/test.yaml > "$T/collision.yaml"
+          if snakemake --configfile "$T/collision.yaml" -n --cores 1 >"$T/collision.log" 2>&1; then
+            echo "ERROR: build_index=false with star.index == results/star_index did not fail"; FAIL=1
+          elif ! grep -q "same directory" "$T/collision.log"; then
+            echo "ERROR: wrong failure message for path collision"; FAIL=1
+          fi
+          rmdir results/star_index
 
           echo "[guards] done, FAIL=$FAIL"
           exit $FAIL

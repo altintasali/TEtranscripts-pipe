@@ -41,14 +41,14 @@ rule star_index:
     # build_index=false: the user provides a pre-built external index.  The
     #   inputs are empty (no gunzip_reference triggered) and the external
     #   index is copied into the output directory (idempotent -- skipped if
-    #   already present).  The output is temp()-wrapped so Snakemake
-    #   auto-deletes the copy after all downstream consumers (star_align)
-    #   are done, preserving disk space while never touching the original.
+    #   already present).  The copy is persistent (not temp()-wrapped) to
+    #   avoid accidental deletion of the original external index -- see the
+    #   validation in common.smk that prevents source/destination overlap.
     input:
         fasta=ancient(FASTA) if STAR_BUILD_INDEX else [],
         gtf=ancient(GTF) if STAR_BUILD_INDEX else [],
     output:
-        directory(STAR_INDEX_DIR) if STAR_BUILD_INDEX else temp(directory(STAR_INDEX_DIR)),
+        directory(STAR_INDEX_DIR),
     params:
         sjdb_overhang=SJDB_OVERHANG,
         extra=config["star"].get("index_extra", ""),
@@ -72,7 +72,9 @@ rule star_index:
         # We tolerate a non-zero exit by checking the index files.
         #
         # build_index=false: copy the external index into results/ (one-time
-        # cost).  Idempotent -- if the copy already exists, skip.
+        # cost).  Idempotent -- if the copy already exists, skip.  The copy
+        # is persistent (not temp()-wrapped) so the original index is never
+        # at risk of accidental deletion.
         "if [ {params.build_index} = True ]; then "
         "  if [ -s {output}/SA ] && [ -s {output}/SAindex ] && "
         "      [ -s {output}/Genome ]; then "

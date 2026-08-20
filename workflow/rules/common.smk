@@ -360,9 +360,9 @@ with open("results/pipeline_info/logs/config_resolution.log", "w") as fh:
 #   star.index.  Instead of pointing Snakemake directly at the external
 #   directory (which it would "own" as a directory() output and could
 #   destroy on --rerun-incomplete), we COPY it into results/star_index/
-#   on the first run.  The copy is temp()-wrapped so Snakemake auto-deletes
-#   it once all downstream consumers (star_align) are done.  The original
-#   external index is never modified.
+#   on the first run.  The copy is persistent (not temp()-wrapped) so
+#   Snakemake never deletes the original.  Validation below ensures the
+#   source and destination do not overlap.
 # -----------------------------------------------------------------------------
 _STAR_INDEX_RAW = (config["star"].get("index") or "").strip()
 STAR_BUILD_INDEX = config["star"].get("build_index", True)
@@ -373,7 +373,8 @@ if STAR_BUILD_INDEX:
     STAR_INDEX_SOURCE = ""
 else:
     # External index -- copy it to results/ so Snakemake never touches the
-    # original.
+    # original.  The copy is persistent (not temp()-wrapped) so the original
+    # index is never at risk of accidental deletion.
     STAR_INDEX_SOURCE = os.path.abspath(_STAR_INDEX_RAW) if _STAR_INDEX_RAW else ""
     STAR_INDEX_DIR = os.path.abspath("results/star_index")
 
@@ -388,6 +389,28 @@ else:
             f"star.build_index is false but star.index path does not exist: "
             f"{STAR_INDEX_SOURCE}. Either build the index beforehand or set "
             f"star.build_index: true in config.yaml."
+        )
+    # Guard against the source index and the workflow's internal copy
+    # directory overlapping -- Snakemake would "own" the output directory
+    # and could destroy the original on cleanup or re-run.
+    _src = os.path.normpath(STAR_INDEX_SOURCE)
+    _dst = os.path.normpath(STAR_INDEX_DIR)
+    if _src == _dst:
+        raise WorkflowError(
+            f"star.build_index is false but star.index ({STAR_INDEX_SOURCE}) "
+            f"resolves to the same directory as the workflow's internal "
+            f"star_index output ({STAR_INDEX_DIR}). Set star.index to the "
+            f"actual pre-built index location (a different path), or remove "
+            f"the star.index line to let the workflow copy the index to "
+            f"{STAR_INDEX_DIR} automatically."
+        )
+    if _src.startswith(_dst + os.sep) or _dst.startswith(_src + os.sep):
+        raise WorkflowError(
+            f"star.build_index is false but the star.index path "
+            f"({STAR_INDEX_SOURCE}) and the internal star_index output "
+            f"({STAR_INDEX_DIR}) overlap (one is inside the other). "
+            f"Move one of them outside the other's tree to prevent "
+            f"accidental data loss."
         )
 
 # -----------------------------------------------------------------------------
