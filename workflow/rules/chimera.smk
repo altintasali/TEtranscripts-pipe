@@ -25,6 +25,11 @@ CHIMERA_QC = config["chimera"]["qc"]
 
 
 def chimera_counts_input():
+    if TELOCAL_ENABLED:
+        return [
+            f"results/chimera/{s}_junctions_telocal.tsv.gz"
+            for s in SAMPLES
+        ]
     return [
         f"results/chimera/{s}_junctions.tsv.gz"
         for s in SAMPLES
@@ -37,6 +42,11 @@ def all_chimera_outputs():
         f"results/chimera/{s}_junctions.tsv.gz"
         for s in SAMPLES
     ]
+    if TELOCAL_ENABLED:
+        files += [
+            f"results/chimera/{s}_junctions_telocal.tsv.gz"
+            for s in SAMPLES
+        ]
     files += [
         f"results/chimera/{s}_te_chimeras.tsv.gz"
         for s in SAMPLES
@@ -141,6 +151,42 @@ rule parse_chimeric_junctions:
         "--library-strandedness {params.library} "
         "--out {output.junctions} "
         "--te-out {output.te_chimeras} > {log} 2>&1"
+
+
+def _telocal_counts_for_chimera():
+    """Per-sample TElocal cntTable paths (only when TELOCAL_ENABLED)."""
+    return [f"results/telocal/{s}.cntTable.gz" for s in SAMPLES]
+
+
+rule chimera_telocal_annotate:
+    # Enrich per-sample junction tables with TElocal locus-level expression.
+    # Adds telocal_count, telocal_locus, telocal_active, te_refined_by_telocal
+    # columns.  Only runs when both chimera and telocal are enabled.
+    # Reads ALL samples' telocal tables to build a global interval index
+    # (sparse loci won't overlap if a sample lacks them, which is fine).
+    input:
+        junctions="results/chimera/{sample}_junctions.tsv.gz",
+        telocal_tables=_telocal_counts_for_chimera,
+    output:
+        "results/chimera/{sample}_junctions_telocal.tsv.gz",
+    params:
+        sample_name=lambda wc: wc.sample,
+        tolerance=config["chimera"]["breakpoint_tolerance"],
+    threads: get_resources("parse_chimeric_junctions")["threads"]
+    resources:
+        mem_mb=get_resources("parse_chimeric_junctions")["mem_mb"],
+        runtime=get_resources("parse_chimeric_junctions")["runtime"],
+    benchmark:
+        "results/pipeline_info/benchmarks/chimera_telocal_annotate/{sample}.txt",
+    log:
+        "results/pipeline_info/logs/chimera/telocal_annotate/{sample}.log",
+    shell:
+        "python3 {SCRIPTS_DIR}/chimera_telocal_annotate.py "
+        "--junctions {input.junctions} "
+        "--telocal-tables {input.telocal_tables} "
+        "--sample-name {params.sample_name} "
+        "--breakpoint-tolerance {params.tolerance} "
+        "--out {output} > {log} 2>&1"
 
 
 rule chimera_counts:

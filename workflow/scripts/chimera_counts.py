@@ -34,6 +34,8 @@ ANNOTATION_COLUMNS = [
     "repeat_flag", "direction", "gene_id", "gene_strand", "te_id",
     "te_family", "te_class", "chimera_type", "antisense_flag",
     "library_strand", "transcript_strand", "gene_strand_match",
+    "telocal_count", "telocal_locus", "telocal_active",
+    "te_refined_by_telocal",
 ]
 
 
