@@ -39,5 +39,7 @@ dependencies:
   # runtime deps pin an ancient bioconductor-deseq (DESeq v1) that can only
   # coexist with R 4.0-era packages, making it unsolvable alongside the modern
   # bioconductor-deseq2/r-base above (see README "Tool versions").
+  # TElocal is also PyPI-only and shares pysam as a runtime dependency.
   - pip:
     - TEtranscripts==2.2.4
+    - TElocal==1.1.3

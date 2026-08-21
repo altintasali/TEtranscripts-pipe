@@ -107,6 +107,14 @@ resources:
     mem_mb: 12000
     runtime: 240
 
+  telocal:
+    # TElocal is single-threaded like TEcount. Memory is dominated by the
+    # .locInd index (a pickled balanced binary tree over 500-bp bins).
+    # ~8-12GB covers a human/mouse dataset.
+    threads: 1
+    mem_mb: 12000
+    runtime: 240
+
   tetranscripts_diffexp:
     # Pools every treatment/control BAM in a contrast at once, so scales
     # with both annotation size and total mapped reads across all samples.

@@ -227,6 +227,29 @@ properties:
     required: [enabled, star, breakpoint_tolerance, require_canonical_junction,
                qc, outputs]
 
+  telocal:
+    type: object
+    description: >-
+      Locus-level TE quantification (TElocal), complementing TEcount's
+      subfamily-level quantification. Enabled by default; requires a
+      pre-built .locInd file. Set enabled to false to skip.
+    properties:
+      enabled:
+        type: boolean
+        description: >-
+          When true, TElocal runs on each sample's BAM and produces
+          per-sample locus-level TE count tables. When false, the telocal
+          rules are not included.
+      locind:
+        type: string
+        description: >-
+          Path to a pre-built TElocal .locInd file (built from the same TE
+          GTF via TElocal_indexer). Required when enabled is true.
+      extra:
+        type: string
+        description: Extra command-line arguments passed verbatim to TElocal.
+    required: [enabled]
+
   resources:
     type: object
     description: >-

@@ -94,8 +94,9 @@ flowchart LR
 The workflow builds a STAR index and an RSeQC gene model (BED12) **once**, then
 for every sample concatenates split lanes, optionally trims with TrimGalore!,
 aligns with STAR, and auto-detects library strandedness from the sorted BAM.
-TEcount quantifies genes + TEs per sample; if your sample sheet has a
-`condition` column, TEtranscripts + DESeq2 also runs every pairwise contrast.
+TEcount quantifies genes + TEs per sample (subfamily-level); TElocal provides
+locus-level TE quantification from the same alignment. If your sample sheet has
+a `condition` column, TEtranscripts + DESeq2 also runs every pairwise contrast.
 The per-sample TEcount tables also drive a sample-QC view (PCA + sample
 clustering, on by default) and per-sample summary barplots (gene-vs-TE
 assignment and TE class composition), rendered inside the MultiQC report.
@@ -104,7 +105,7 @@ screen that annotates chimeric junction reads and produces a counts matrix,
 an interactive sample-QC view, and a junction-QC barplot (on by default;
 set `chimera.enabled: false` to opt out). A single MultiQC
 report pulls together
-FastQC, TrimGalore!, STAR, RSeQC, the TEcounts and chimera QC plots, tool
+FastQC, TrimGalore!, STAR, RSeQC, the TEcounts, TElocal, and chimera QC plots, tool
 versions, and a per-rule resource-usage table.
 
 ## Table of contents
@@ -539,6 +540,41 @@ view these use the raw cntTables (all features), so they are independent of
 `feature_class` and always reflect every read TEcount assigned — and they are
 **always produced**, independent of `tetranscripts.qc.enabled`.
 
+## TElocal: locus-level TE quantification
+
+On by default (`telocal.enabled: true`); TElocal provides **locus-level**
+TE quantification as a complement to TEcount's subfamily-level counts. Where
+TEcount pools all copies of a TE subfamily into one count (e.g. all L1PA2
+instances → one `L1PA2` row), TElocal resolves TEs **per genomic instance**
+using the same EM-based multi-mapper assignment, reporting counts per locus
+(e.g. `chr1:564318:564741(L1PA2:+):L1PA2:L1:LINE`).
+
+TElocal uses the **same unsorted BAM** as TEcount (`results/star/{sample}_Aligned.out.bam`), so no re-alignment is needed. Results go to
+`results/telocal/{sample}.cntTable.gz`. Per-sample summary barplots
+(gene-vs-TE assignment and TE class composition) are rendered in the MultiQC
+report (`results/telocal/qc/telocal_assignment_mqc.json` and
+`telocal_te_class_mqc.json`).
+
+### Setup
+
+TElocal requires a pre-built `.locInd` file — a pickled index built from the
+same TE GTF that TEcount uses. Build one with:
+
+```bash
+TElocal_indexer --afile TE.gtf --itype TE   # ~30 GB RAM for human genome
+```
+
+Or download prebuilt indices from
+https://www.mghlab.org/software/telocal. Set the path in your config:
+
+```yaml
+telocal:
+  enabled: true
+  locind: /path/to/TE_annotation.locInd
+```
+
+Set `telocal.enabled: false` to skip locus-level quantification entirely.
+
 ## The chimera screen
 
 > **Experimental.** This stage is a newer addition to the pipeline — the
@@ -773,6 +809,10 @@ results/
 ├── tetranscripts/{contrast}_*.{txt,R}              # only if "condition" column present
 │                                                    #   ({contrast}.cntTable, _DESeq2.R,
 │                                                    #   _gene_TE_analysis.txt, _sigdiff_gene_TE.txt)
+├── telocal/                                         # only if telocal.enabled (default: true):
+│   ├── {sample}.cntTable.gz                         #   per-sample locus-level TE counts
+│   └── qc/telocal_assignment_mqc.json               #   gene-vs-TE summary barplot
+│   └── qc/telocal_te_class_mqc.json                 #   TE class composition barplot
 ├── chimera/                                        # always (set chimera.enabled: false to skip):
 │   ├── {sample}_junctions.tsv                      #   per-sample annotated junctions
 │   ├── {sample}_te_chimeras.tsv                    #   per-sample gene-TE events only
@@ -786,7 +826,7 @@ results/
 │   ├── qc/heatmap_{pca_transform}_mqc.json         #   sample-QC distance heatmap
 │   └── igv/{sample}_junctions.bed                  #   IGV track (if write_igv_bed)
 ├── versions/rnaseq_mqc_versions.yml                # pinned tool versions -> MultiQC
-├── qc/multiqc_report.html                          # FastQC + STAR + RSeQC (+ tecounts/chimera QC + summary barplots) + resource usage
+├── qc/multiqc_report.html                          # FastQC + STAR + RSeQC (+ tecounts/telocal/chimera QC + summary barplots) + resource usage
 └── pipeline_info/
     ├── benchmarks/<rule>/...                       # per-rule CPU/RSS usage (-> MultiQC)
     ├── benchmark_summary_mqc.json                  # "Resource usage" table (see below)
