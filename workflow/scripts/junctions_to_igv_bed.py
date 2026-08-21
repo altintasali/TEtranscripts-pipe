@@ -37,7 +37,7 @@ with open(snakemake.output[0], "w") as fh:
         # so span [donor-1, acceptor).
         start, end = min(donor - 1, acceptor), max(donor - 1, acceptor)
         fh.write("\t".join([
-            r.get("chrom", "."), str(start), str(end),
+            r.get("donor_chrom", "."), str(start), str(end),
             r.get("event_id", "."), r.get("reads", "1"),
             r.get("donor_strand", "."),
         ]) + "\n")

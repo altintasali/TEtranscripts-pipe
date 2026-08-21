@@ -17,11 +17,11 @@ Filtering / evidence decisions are left to the user downstream -- the pipeline
 ships the full event table and the counts matrix instead.
 
 Output columns (results/chimera/{sample}.junctions.tsv):
-    event_id, sample, chrom, donor_breakpoint, donor_strand,
-    acceptor_breakpoint, acceptor_strand, junction_type, canonical,
-    repeat_flag, reads, donor_hits, acceptor_hits, direction, gene_id,
-    gene_strand, te_id, te_family, te_class, chimera_type, antisense_flag,
-    library_strand, transcript_strand, gene_strand_match
+    event_id, sample, donor_chrom, donor_breakpoint, donor_strand,
+    acceptor_chrom, acceptor_breakpoint, acceptor_strand, junction_type,
+    canonical, repeat_flag, reads, donor_hits, acceptor_hits, direction,
+    gene_id, gene_strand, te_id, te_family, te_class, chimera_type,
+    antisense_flag, library_strand, transcript_strand, gene_strand_match
 
 When --te-out is given, the gene<->TE events (direction gene_to_te /
 te_to_gene) are additionally written to that path with the same columns,
@@ -35,9 +35,11 @@ for the opt-in).
 direction: gene_to_te / te_to_gene (the two primary classes), or one of
 gene_to_other / te_to_other / te_to_te / gene_to_gene / other.
 
-chimera_type (only for gene<->TE events): te_initiated (TE upstream of the
-gene's TSS on the gene strand), te_terminated (TE downstream of the gene),
-te_exonized (TE within the gene body), trans (different chromosomes).
+chimera_type (only for gene<->TE events where donor and acceptor are on the
+same chromosome): te_initiated (TE upstream of the gene's TSS on the gene
+strand), te_terminated (TE downstream of the gene), te_exonized (TE within the
+gene body). For trans events (donor and acceptor on different chromosomes),
+chimera_type is ".".
 
 antisense_flag: "yes" when an annotated gene overlaps the TE insertion on the
 opposite strand of the assigned gene -- the embedded-TE / sense-antisense
@@ -81,11 +83,17 @@ def overlapping(track, chrom, start0, end0):
     `track` must be sorted by start. Returns list of (start, end, extras)."""
     if chrom not in track:
         return []
-    starts = [x[0] for x in track[chrom]]
+    feats = track[chrom]
+    starts = [x[0] for x in feats]
     lo = bisect.bisect_right(starts, start0) - 1
+    # Scan backward to catch long features that start before start0 but
+    # extend past it (e.g. large genes, nested TE annotations).
+    while lo > 0 and feats[lo - 1][1] > start0:
+        lo -= 1
+    lo = max(lo, 0)
     hits = []
-    for i in range(max(lo, 0), len(track[chrom])):
-        s, e, extras = track[chrom][i]
+    for i in range(lo, len(feats)):
+        s, e, extras = feats[i]
         if s >= end0:
             break
         if e > start0:
@@ -163,7 +171,8 @@ def main():
             cols = line.rstrip("\n").split("\t")
             if len(cols) < 8:
                 continue
-            chrom = cols[0]
+            donor_chrom = cols[0]
+            acceptor_chrom = cols[3]
             try:
                 donor_bp, acceptor_bp = int(cols[1]), int(cols[4])
             except ValueError:
@@ -175,10 +184,10 @@ def main():
             d0, d1 = locus(donor_bp)
             a0, a1 = locus(acceptor_bp)
 
-            donor_exons = overlapping(exons, chrom, d0, d1)
-            donor_tes = overlapping(te, chrom, d0, d1)
-            acceptor_exons = overlapping(exons, chrom, a0, a1)
-            acceptor_tes = overlapping(te, chrom, a0, a1)
+            donor_exons = overlapping(exons, donor_chrom, d0, d1)
+            donor_tes = overlapping(te, donor_chrom, d0, d1)
+            acceptor_exons = overlapping(exons, acceptor_chrom, a0, a1)
+            acceptor_tes = overlapping(te, acceptor_chrom, a0, a1)
 
             donor_genes = sorted({ex[2][0] for ex in donor_exons})
             acceptor_genes = sorted({ex[2][0] for ex in acceptor_exons})
@@ -231,8 +240,8 @@ def main():
                 te_id = None
                 gene_side_strand = "."
 
-            key = (chrom, donor_bp, donor_strand, acceptor_bp, acceptor_strand,
-                   direction)
+            key = (donor_chrom, donor_bp, donor_strand, acceptor_chrom,
+                   acceptor_bp, acceptor_strand, direction)
             ev = events.setdefault(key, {"reads": 0, "gene_id": gene_id,
                                           "te_id": te_id})
             ev["reads"] += 1
@@ -258,8 +267,8 @@ def main():
     # Resolve per-event annotations (gene span/strand, TE family/class, type,
     # antisense, strand evidence).
     rows = []
-    for (chrom, donor_bp, donor_strand, acceptor_bp, acceptor_strand,
-         direction), ev in sorted(events.items()):
+    for (donor_chrom, donor_bp, donor_strand, acceptor_chrom, acceptor_bp,
+         acceptor_strand, direction), ev in sorted(events.items()):
         if args.require_canonical:
             try:
                 if int(ev["junction_type"]) not in CANONICAL_TYPES:
@@ -301,8 +310,10 @@ def main():
                 else:
                     chimera_type = "te_exonized"
             # antisense: annotated gene overlapping the TE insertion on the
-            # strand opposite the assigned gene
-            for s, e, ex in overlapping(genes, chrom, te_span[0], te_span[1]):
+            # strand opposite the assigned gene.  TE is on the acceptor side
+            # for gene_to_te, donor side for te_to_gene.
+            te_chrom = acceptor_chrom if direction == "gene_to_te" else donor_chrom
+            for s, e, ex in overlapping(genes, te_chrom, te_span[0], te_span[1]):
                 if ex[0] != gene_id and ex[2] == opp(gene_strand):
                     antisense = "yes"
                     break
@@ -321,12 +332,13 @@ def main():
             canonical = "yes" if int(ev["junction_type"]) in CANONICAL_TYPES else "no"
         except ValueError:
             canonical = "no"
-        event_id = f"{chrom}:{donor_bp}:{donor_strand}:{acceptor_bp}:{acceptor_strand}:{direction}"
+        event_id = f"{donor_chrom}:{donor_bp}:{donor_strand}:{acceptor_chrom}:{acceptor_bp}:{acceptor_strand}:{direction}"
 
         rows.append(
             [
-                event_id, args.sample, chrom, donor_bp, donor_strand,
-                acceptor_bp, acceptor_strand, ev["junction_type"], canonical,
+                event_id, args.sample, donor_chrom, donor_bp, donor_strand,
+                acceptor_chrom, acceptor_bp, acceptor_strand,
+                ev["junction_type"], canonical,
                 ev["repeat_flag"], ev["reads"],
                 f"gene:{ev['donor_hits']}|te:{ev['donor_te_hits']}",
                 f"gene:{ev['acceptor_hits']}|te:{ev['acceptor_te_hits']}",
@@ -340,8 +352,9 @@ def main():
         )
 
     header = [
-        "event_id", "sample", "chrom", "donor_breakpoint", "donor_strand",
-        "acceptor_breakpoint", "acceptor_strand", "junction_type", "canonical",
+        "event_id", "sample", "donor_chrom", "donor_breakpoint", "donor_strand",
+        "acceptor_chrom", "acceptor_breakpoint", "acceptor_strand",
+        "junction_type", "canonical",
         "repeat_flag", "reads", "donor_hits", "acceptor_hits", "direction",
         "gene_id", "gene_strand", "te_id", "te_family", "te_class",
         "chimera_type", "antisense_flag", "library_strand", "transcript_strand",

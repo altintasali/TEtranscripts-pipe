@@ -28,8 +28,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from gz_io import open_read, open_write
 
 ANNOTATION_COLUMNS = [
-    "event_id", "chrom", "donor_breakpoint", "donor_strand",
-    "acceptor_breakpoint", "acceptor_strand", "junction_type", "canonical",
+    "event_id", "donor_chrom", "donor_breakpoint", "donor_strand",
+    "acceptor_chrom", "acceptor_breakpoint", "acceptor_strand",
+    "junction_type", "canonical",
     "repeat_flag", "direction", "gene_id", "gene_strand", "te_id",
     "te_family", "te_class", "chimera_type", "antisense_flag",
     "library_strand", "transcript_strand", "gene_strand_match",
