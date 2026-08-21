@@ -302,6 +302,10 @@ def _write_run_config(config_path, sheet_path, fasta, gtf, te_gtf,
     conf["ref"]["fasta"] = _repo_abspath(fasta, analysis_root)
     conf["ref"]["gtf"] = _repo_abspath(gtf, analysis_root)
     conf["ref"]["te_gtf"] = _repo_abspath(te_gtf, analysis_root)
+    tl = conf.get("telocal") or {}
+    if not tl.get("locind"):
+        tl["enabled"] = False
+        conf["telocal"] = tl
     os.makedirs(os.path.dirname(config_path), exist_ok=True)
     _write_yaml(config_path, conf)
     print(
