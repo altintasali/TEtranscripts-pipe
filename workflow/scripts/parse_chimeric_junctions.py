@@ -86,11 +86,14 @@ def overlapping(track, chrom, start0, end0):
     feats = track[chrom]
     starts = [x[0] for x in feats]
     lo = bisect.bisect_right(starts, start0) - 1
-    # Scan backward to catch long features that start before start0 but
-    # extend past it (e.g. large genes, nested TE annotations).
-    while lo > 0 and feats[lo - 1][1] > start0:
-        lo -= 1
     lo = max(lo, 0)
+    # Walk backward from bisect point to find the earliest feature whose
+    # end > start0.  Features are sorted by start but not by end, so a
+    # short feature sandwiched between two long ones (nested genes, embedded
+    # ncRNAs) must not block the scan.
+    for i in range(lo, -1, -1):
+        if feats[i][1] > start0:
+            lo = i
     hits = []
     for i in range(lo, len(feats)):
         s, e, extras = feats[i]
@@ -292,7 +295,9 @@ def main():
 
         chimera_type = "."
         antisense = "."
-        if direction in ("gene_to_te", "te_to_gene") and gene_span and te_span:
+        if (donor_chrom == acceptor_chrom
+                and direction in ("gene_to_te", "te_to_gene")
+                and gene_span and te_span):
             gs, ge, gst = gene_span[0], gene_span[1], gene_strand
             ts, te = te_span[0], te_span[1]
             if gst == "+":
