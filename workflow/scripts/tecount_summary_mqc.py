@@ -111,7 +111,9 @@ def main():
 
     assignment_doc = {
         "id": "tecount_assignment",
-        "parent_id": "tecounts",
+        # Must match sample_qc.R's tecount view id -- a mismatch splits the
+        # TEcount group into two report sections.
+        "parent_id": "tecount",
         "parent_name": "TEcount",
         "section_name": "Gene vs. TE Assignment",
         "description": (
@@ -133,7 +135,7 @@ def main():
     }
     class_doc = {
         "id": "tecount_te_class",
-        "parent_id": "tecounts",
+        "parent_id": "tecount",
         "parent_name": "TEcount",
         "section_name": "TE Class Composition",
         "description": (

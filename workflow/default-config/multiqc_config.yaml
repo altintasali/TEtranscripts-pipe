@@ -47,8 +47,10 @@ module_order:
 # without this their order is arbitrary. Each id below is a parent group
 # (parent_id on the emitted `_mqc.json` documents) rendered as one
 # collapsible report section:
-#   tecounts     TEcount: assignment + TE-class barplots, PCA, Clusters
+#   tecount      TEcount: assignment + TE-class barplots, PCA, Clusters
 #                (tecount_summary / tecount_qc rules)
+#                NOTE: must match sample_qc.R's tecount view id exactly --
+#                a mismatch splits the group into two report sections.
 #   telocal      TElocal: same section set (telocal_summary / telocal_qc)
 #   chimera      Chimera: Junction QC barplot + PCA + Clusters
 #                (junction_qc_barplot / sample_qc rules)
@@ -60,7 +62,7 @@ module_order:
 # when the corresponding stage is off.
 custom_content:
   order:
-    - tecounts
+    - tecount
     - telocal
     - chimera
     - te_chimeras
