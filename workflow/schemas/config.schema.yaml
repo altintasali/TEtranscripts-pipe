@@ -247,7 +247,7 @@ properties:
           Path to a pre-built TElocal .locInd file (built from the same TE
           GTF via TElocal_indexer). Required when enabled is true. When
           empty, the workflow auto-builds the index from the TE GTF into
-          results/telocal/locInd.
+          results/telocal/telocal.locInd.
       extra:
         type: string
         description: Extra command-line arguments passed verbatim to TElocal.
@@ -331,7 +331,8 @@ properties:
         type: boolean
         description: >-
           Keep the auto-built TElocal .locInd index
-          (results/telocal/locInd) after all samples' TElocal runs finish.
+          (results/telocal/telocal.locInd) after all samples' TElocal runs
+          finish.
           false deletes it once quantification is done, saving disk at the
           cost of re-building on the next run. Never applies to a
           user-provided telocal.locind path.

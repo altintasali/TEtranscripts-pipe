@@ -8,7 +8,9 @@ rule telocal_locind:
     input:
         te_gtf=TE_GTF,
     output:
-        "results/telocal/locInd",
+        # Must end in .locInd -- TElocal rejects any --TE file whose path
+        # does not have that suffix.
+        "results/telocal/telocal.locInd",
     threads: get_resources("telocal_locind")["threads"]
     resources:
         mem_mb=get_resources("telocal_locind")["mem_mb"],

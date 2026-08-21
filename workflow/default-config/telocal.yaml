@@ -18,7 +18,8 @@ telocal:
   # Build with: TElocal_indexer --afile TE.gtf --itype TE
   # Or download prebuilt indices from https://www.mghlab.org/software/telocal
   # When empty, the workflow auto-builds the index from the TE GTF into
-  # results/telocal/locInd (kept unless outputs.keep_telocal_index is false).
+  # results/telocal/telocal.locInd (kept unless outputs.keep_telocal_index
+  # is false).
   locind: ""
   # Extra command-line arguments passed verbatim to TElocal.
   extra: ""

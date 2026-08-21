@@ -251,7 +251,7 @@ reference):
 | `tetranscripts.*` | TEcount/TEtranscripts options (mode, padj, foldchange...). |
 | `tetranscripts.qc.*` | TEcounts sample-QC view (PCA + sample clustering, on by default): `enabled`, view-only filters `min_samples_present`/`min_total_counts`/`min_events`, `pca_transform` (`vst`/`rlog`/`log2`), and `feature_class` (`TE` default / `gene` / `all`). They never remove features from the cntTables. The assignment + TE-class summary barplots are independent and always produced. |
 | `telocal.enabled` | run TElocal locus-level TE quantification (default `true`, see [TElocal: locus-level TE quantification](#telocal-locus-level-te-quantification)). |
-| `telocal.locind` | path to a pre-built `.locInd` index. Empty (default) auto-builds it from the TE GTF into `results/telocal/locInd`. |
+| `telocal.locind` | path to a pre-built `.locInd` index. Empty (default) auto-builds it from the TE GTF into `results/telocal/telocal.locInd`. |
 | `telocal.qc.*` | TElocal sample-QC view — same keys as `tetranscripts.qc.*`; default `pca_transform: log2` (locus matrices are too large for vst/rlog). |
 | `chimera.enabled` | run the gene-TE chimera screen (default `true`; set `false` to opt out, see [The chimera screen](#the-chimera-screen)). |
 | `chimera.star` | STAR chimeric-alignment detection params (`segment_min`, `overhang_min`, `score_drop_max`, `extra`) — defaults follow the TEtranscripts authors' recommendations for the gene-TE chimera context. |
@@ -263,7 +263,7 @@ reference):
 | `outputs.keep_merged_fastq` | keep the lane-concatenated fastqs (`results/fastq/`). `false` deletes them (temp()) once alignment is done. |
 | `outputs.keep_trimmed_fastq` | keep the trimmed fastqs (`results/trimming/`). `false` deletes them (temp()) once alignment is done. |
 | `outputs.keep_star_index` | keep the STAR genome index (`results/star_index/`). `false` deletes it (rm -rf) once alignment is done. |
-| `outputs.keep_telocal_index` | keep the auto-built TElocal index (`results/telocal/locInd`). `false` deletes it once all TElocal runs finish. Never applies to a user-provided `telocal.locind` path. |
+| `outputs.keep_telocal_index` | keep the auto-built TElocal index (`results/telocal/telocal.locInd`). `false` deletes it once all TElocal runs finish. Never applies to a user-provided `telocal.locind` path. |
 
 **`input/samples.csv`** — the design file. Columns in this exact order
 (an nf-core/rnaseq samplesheet works as-is):
@@ -604,7 +604,8 @@ telocal:
 ```
 
 When `locind` is empty, the workflow auto-builds the index from your TE GTF
-into `results/telocal/locInd`. It is kept by default;
+into `results/telocal/telocal.locInd` (the `.locInd` suffix is mandatory —
+TElocal rejects any `--TE` file whose path lacks it). It is kept by default;
 `outputs.keep_telocal_index: false` deletes it once all TElocal runs finish
 (a user-provided `locind` path is never touched). Auto-building trades disk
 for convenience — rebuilding takes minutes to ~1 h depending on genome and TE

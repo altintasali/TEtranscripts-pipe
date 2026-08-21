@@ -585,10 +585,12 @@ def _telocal_locind_path():
 
     When the user provides a path, use it directly.  When locind is empty,
     auto-build from the TE GTF (telocal_locind rule) into results/telocal/.
+    The name must keep the .locInd suffix -- TElocal rejects any --TE file
+    whose path does not end in .locInd.
     """
     if _telocal_locind_cfg:
         return _telocal_locind_cfg
-    return "results/telocal/locInd"
+    return "results/telocal/telocal.locInd"
 
 # TrimGalore! always appends _trimmed (single-end) or _val_1/_val_2 (paired)
 # to the *input* basename, and its --basename normalization only strips a
@@ -627,7 +629,8 @@ if TRIM_ENABLED:
 KEEP_MERGED_FASTQ = bool(config.get("outputs", {}).get("keep_merged_fastq", True))
 KEEP_TRIMMED_FASTQ = bool(config.get("outputs", {}).get("keep_trimmed_fastq", True))
 KEEP_STAR_INDEX = bool(config.get("outputs", {}).get("keep_star_index", True))
-# Whether the auto-built TElocal .locInd index (results/telocal/locInd) is
+# Whether the auto-built TElocal .locInd index
+# (results/telocal/telocal.locInd) is
 # kept after all TElocal runs finish. Never applies to a user-provided
 # telocal.locind path -- that file is only ever read, never deleted.
 KEEP_TELOCAL_INDEX = bool(

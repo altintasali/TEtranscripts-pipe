@@ -220,7 +220,8 @@ telocal:
   # (requires ~30 GB RAM for a human genome). Or download prebuilt indices
   # from https://www.mghlab.org/software/telocal
   # When empty, the workflow auto-builds the index from the TE GTF into
-  # results/telocal/locInd (kept unless outputs.keep_telocal_index: false).
+  # results/telocal/telocal.locInd (kept unless
+  # outputs.keep_telocal_index: false).
   locind: ""
   # Extra command-line arguments passed verbatim to TElocal.
   extra: ""
@@ -251,7 +252,7 @@ outputs:
   # next run.
   keep_star_index: true
   # Whether to keep the auto-built TElocal .locInd index
-  # (results/telocal/locInd) after all samples' TElocal runs finish.
+  # (results/telocal/telocal.locInd) after all samples' TElocal runs finish.
   # Setting to false deletes it once quantification is done, saving disk at
   # the cost of re-building on the next run. Never applies to a user-provided
   # telocal.locind path -- that file is only ever read, never deleted.
