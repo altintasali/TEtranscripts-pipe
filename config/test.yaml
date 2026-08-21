@@ -104,6 +104,11 @@ tetranscripts:
     pca_transform: vst
     feature_class: all
 
+# TElocal: disabled in the test profile (no .locInd file in .tests/).
+telocal:
+  enabled: false
+  locind: ""
+
 # Tiny resource footprint so the test runs comfortably on a laptop or in CI
 # -- overrides the (much larger) built-in defaults in
 # workflow/default-config/resources.yaml for every rule used by this test.

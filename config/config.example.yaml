@@ -204,6 +204,25 @@ chimera:
     write_igv_bed: false
     write_counts_matrix: true
 
+# Locus-level TE quantification (TElocal) -- a complement to TEcount's
+# subfamily-level quantification. TElocal resolves TEs per genomic instance
+# using the same EM-based multi-mapper assignment but reports counts per locus
+# instead of pooling by subfamily. Requires a pre-built .locInd file (see
+# below). Results go to results/telocal/.
+#
+# TElocal uses the same unsorted BAM as TEcount, so no re-alignment is needed.
+telocal:
+  enabled: true
+  # Path to a pre-built TElocal .locInd file (required when enabled).
+  # The .locInd is a pickled index built from the same TE GTF that TEcount
+  # uses. Build with:
+  #   TElocal_indexer --afile TE.gtf --itype TE
+  # (requires ~30 GB RAM for a human genome). Or download prebuilt indices
+  # from https://www.mghlab.org/software/telocal
+  locind: ""
+  # Extra command-line arguments passed verbatim to TElocal.
+  extra: ""
+
 outputs:
   # Whether intermediate fastq files are kept after the downstream rules that
   # consume them finish. Setting either to false marks those files as

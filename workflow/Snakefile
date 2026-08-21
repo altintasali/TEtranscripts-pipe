@@ -12,6 +12,7 @@ configfile: "workflow/default-config/versions.yaml"
 configfile: "workflow/default-config/resources.yaml"
 configfile: "workflow/default-config/chimera.yaml"
 configfile: "workflow/default-config/tetranscripts.yaml"
+configfile: "workflow/default-config/telocal.yaml"
 
 # Your analysis config. Unlike the defaults above, this one belongs to you:
 # input/config.yaml (and input/samples.csv) are gitignored, so create them
@@ -55,6 +56,8 @@ include: "rules/align.smk"
 include: "rules/strandedness.smk"
 include: "rules/tetranscripts.smk"
 include: "rules/tecount_qc.smk"
+if TELOCAL_ENABLED:
+    include: "rules/telocal.smk"
 if CHIMERA_ENABLED:
     include: "rules/chimera.smk"
     include: "rules/sample_qc.smk"
@@ -79,6 +82,7 @@ rule all:
         # true (the default), while the summary barplots always render.
         **({"tecount_qc": all_tecount_qc_outputs()} if TECOUNT_QC["enabled"] else {}),
         **({"tecount_summary": all_tecount_summary_outputs()}),
+        **({"telocal": all_telocal_outputs()} if TELOCAL_ENABLED else {}),
 
 
 rule star_index_only:

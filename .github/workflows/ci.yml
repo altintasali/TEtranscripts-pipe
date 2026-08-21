@@ -61,7 +61,7 @@ jobs:
           set +e -uo pipefail
           T=$(mktemp -d)
           FAIL=0
-          echo "[guards] 1/19 missing reference"
+          echo "[guards] 1/21 missing reference"
 
           # --- a missing/typo'd reference is a hard parse-time error ---------
           sed 's|  fasta: .*|  fasta: /nonexistent/ref.fa|' config/test.yaml > "$T/missing_ref.yaml"
@@ -71,7 +71,7 @@ jobs:
             echo "ERROR: wrong failure message for missing reference"; FAIL=1
           fi
 
-          echo "[guards] 2/19 already-trimmed fastqs"
+          echo "[guards] 2/21 already-trimmed fastqs"
 
           # --- already-trimmed-looking fastqs are rejected while trimming on --
           printf 'sample,fastq_1,fastq_2,strandedness,condition\nzyg_wt_01,zyg_wt_01_trimmed.fq.gz,,auto,wt\n' > "$T/trimmed.csv"
@@ -82,7 +82,7 @@ jobs:
             echo "ERROR: wrong failure message for already-trimmed fastqs"; FAIL=1
           fi
 
-          echo "[guards] 3/19 node-local decompressed_dir, plain refs"
+          echo "[guards] 3/21 node-local decompressed_dir, plain refs"
 
           # --- node-local decompressed_dir is fine with plain refs ------------
           # (no gunzip_reference jobs run, so the setting is dead config)
@@ -91,7 +91,7 @@ jobs:
             echo "ERROR: node-local decompressed_dir with plain refs must still dry-run"; FAIL=1
           fi
 
-          echo "[guards] 4/19 gzipped refs, default decompressed_dir"
+          echo "[guards] 4/21 gzipped refs, default decompressed_dir"
 
           # --- gzipped references: make .gz copies of the test refs ------------
           gzip -c .tests/resources/genome.fa > "$T/genome.fa.gz"
@@ -107,7 +107,7 @@ jobs:
             echo "ERROR: gzipped refs with default decompressed_dir must dry-run"; FAIL=1
           fi
 
-          echo "[guards] 5/19 gz refs + node-local decompressed_dir"
+          echo "[guards] 5/21 gz refs + node-local decompressed_dir"
 
           # --- gz refs + node-local /tmp decompressed_dir: hard parse error ----
           sed 's|  sjdb_overhang: 49|  sjdb_overhang: 49\n  decompressed_dir: /tmp/rnaseq-decompressed|' "$T/gz.yaml" > "$T/gz_tmpdir.yaml"
@@ -117,7 +117,7 @@ jobs:
             echo "ERROR: wrong failure message for gz refs + node-local decompressed_dir"; FAIL=1
           fi
 
-          echo "[guards] 6/19 gz refs + empty decompressed_dir"
+          echo "[guards] 6/21 gz refs + empty decompressed_dir"
 
           # --- gz refs + empty decompressed_dir: hard parse error ---------------
           sed 's|  sjdb_overhang: 49|  sjdb_overhang: 49\n  decompressed_dir: ""|' "$T/gz.yaml" > "$T/gz_empty.yaml"
@@ -127,7 +127,7 @@ jobs:
             echo "ERROR: wrong failure message for gz refs + empty decompressed_dir"; FAIL=1
           fi
 
-          echo "[guards] 7/19 star.index omitted"
+          echo "[guards] 7/21 star.index omitted"
 
           # --- star.index omitted: defaults to generated results/star_index -----
           sed '/^  index: .*star_index$/d' config/test.yaml > "$T/no_index.yaml"
@@ -137,7 +137,7 @@ jobs:
             echo "ERROR: default star index path results/star_index not used"; FAIL=1
           fi
 
-          echo "[guards] 8/19 star.index empty"
+          echo "[guards] 8/21 star.index empty"
 
           # --- star.index empty string: same default applies --------------------
           sed 's|^  index: .*|  index: ""|' config/test.yaml > "$T/empty_index.yaml"
@@ -145,7 +145,7 @@ jobs:
             echo "ERROR: empty star.index must dry-run (default results/star_index)"; FAIL=1
           fi
 
-          echo "[guards] 9/19 CLI samples generator"
+          echo "[guards] 9/21 CLI samples generator"
 
           # --- the samples CLI must reproduce the committed fixture -----------
           # (same rows, order-insensitive; generated paths are absolute while
@@ -164,7 +164,7 @@ jobs:
             fi
           fi
 
-          echo "[guards] 10/19 CLI run --dry-run"
+          echo "[guards] 10/21 CLI run --dry-run"
 
           # --- CLI run must scaffold config + sheet and pass a real dry-run ---
           python workflow/scripts/tetranscripts-pipe run \
@@ -183,7 +183,7 @@ jobs:
             echo "ERROR: CLI run --dry-run planned no jobs (tecount missing from the DAG)"; tail -40 "$T/cli_run.log"; FAIL=1
           fi
 
-          echo "[guards] 11/19 MultiQC custom-content JSON format"
+          echo "[guards] 11/21 MultiQC custom-content JSON format"
 
           # --- the barplot emitters must render in the installed MultiQC ------
           # MultiQC's custom_content module only reads a top-level "data" key;
@@ -223,7 +223,7 @@ jobs:
             done
           fi
 
-          echo "[guards] 12/19 CLI run with an existing config (config-only)"
+          echo "[guards] 12/21 CLI run with an existing config (config-only)"
 
           # --- CLI run with an existing --config: no other flags needed -------
           # The sheet is taken from the config's 'samples:' key
@@ -240,7 +240,7 @@ jobs:
             echo "ERROR: CLI run --config-only planned no jobs (tecount_summary missing)"; tail -40 "$T/cli_config_only.log"; FAIL=1
           fi
 
-          echo "[guards] 13/19 qc-off keeps the summary barplots"
+          echo "[guards] 13/21 qc-off keeps the summary barplots"
 
           # --- tetranscripts.qc.enabled: false still plans the summary barplots
           # The assignment + TE-class barplots use the raw cntTables, so they
@@ -255,7 +255,7 @@ jobs:
             echo "ERROR: R-based tecount QC rules still planned with tetranscripts.qc.enabled false"; tail -40 "$T/qc_off.log"; FAIL=1
           fi
 
-          echo "[guards] 14/19 CLI with config in a different checkout (deployed split)"
+          echo "[guards] 14/21 CLI with config in a different checkout (deployed split)"
 
           # --- CLI installed elsewhere, config in an analysis checkout -------
           # The deployment runs this script from a shared apps/ copy while
@@ -279,7 +279,7 @@ jobs:
             echo "ERROR: run did not anchor to the config's checkout ($WD2)"; tail -40 "$T/deployed.log"; FAIL=1
           fi
 
-          echo "[guards] 15/19 build_index=false path collision"
+          echo "[guards] 15/21 build_index=false path collision"
 
           # --- build_index=false with star.index pointing to the default output
           # directory (results/star_index) is rejected at parse time.  The path
@@ -294,7 +294,7 @@ jobs:
           fi
           rmdir results/star_index
 
-          echo "[guards] 16/19 keep_star_index: false + build_index: false"
+          echo "[guards] 16/21 keep_star_index: false + build_index: false"
 
           # --- keep_star_index: false + build_index: false must dry-run and
           # plan the cleanup_star_index rule.  Create a temp dir as a fake
@@ -313,7 +313,7 @@ jobs:
             echo "ERROR: cleanup_star_index rule not planned"; FAIL=1
           fi
 
-          echo "[guards] 17/19 build_index=false without ref.fasta"
+          echo "[guards] 17/21 build_index=false without ref.fasta"
 
           # --- build_index=false: ref.fasta is optional.  Remove fasta from
           # the config and confirm the dry-run still passes.
@@ -328,7 +328,7 @@ jobs:
             echo "ERROR: build_index=false without ref.fasta raised missing reference error"; FAIL=1
           fi
 
-          echo "[guards] 18/19 empty GTF warning"
+          echo "[guards] 18/21 empty GTF warning"
 
           # --- an empty-but-existing GTF must produce a parse-time warning
           # (not an error) during dry-run.
@@ -341,12 +341,50 @@ jobs:
             echo "ERROR: empty GTF did not produce expected warning"; tail -20 "$T/empty_gtf.log"; FAIL=1
           fi
 
-          echo "[guards] 19/19 check_nonempty_fastq rejects empty file"
+          echo "[guards] 19/21 check_nonempty_fastq rejects empty file"
 
           # --- check_nonempty_fastq.py must exit 1 for an empty FASTQ
           echo -n "" | gzip > "$T/empty.fq.gz"
           if python3 workflow/scripts/check_nonempty_fastq.py "$T/empty.fq.gz" >/dev/null 2>&1; then
             echo "ERROR: check_nonempty_fastq accepted an empty FASTQ"; FAIL=1
+          fi
+
+          echo "[guards] 20/21 telocal enabled with empty locind fails"
+
+          # --- telocal.enabled: true with empty locind must fail at parse time
+          printf '\ntelocal:\n  enabled: true\n  locind: ""\n' >> "$T/telocal_empty_locind.yaml"
+          cat config/test.yaml "$T/telocal_empty_locind.yaml" > "$T/telocal_bad.yaml"
+          if snakemake --configfile "$T/telocal_bad.yaml" -n --cores 1 >"$T/telocal_empty.log" 2>&1; then
+            echo "ERROR: telocal enabled with empty locind did not fail"; FAIL=1
+          elif ! grep -q "telocal.locind is empty" "$T/telocal_empty.log"; then
+            echo "ERROR: wrong failure message for empty telocal locind"; FAIL=1
+          fi
+
+          echo "[guards] 21/21 telocal_summary_mqc.py on synthetic fixtures"
+
+          # --- telocal_summary_mqc.py must render in MultiQC ------------------
+          printf 'gene/TE\t/path/a.bam\nENSG0001\t80\nchr1:100:200(L1PA2:+):L1PA2:L1:LINE\t5\n' > "$T/tl_a.cntTable"
+          printf 'gene/TE\t/path/b.bam\nENSG0001\t0\nchr1:100:200(L1PA2:+):L1PA2:L1:LINE\t0\n' > "$T/tl_b.cntTable"
+          mkdir -p "$T/custom/telocal/qc"
+          if ! python workflow/scripts/telocal_summary_mqc.py \
+                --tables "$T/tl_a.cntTable" "$T/tl_b.cntTable" --samples a b \
+                --out-assignment "$T/custom/telocal/qc/telocal_assignment_mqc.json" \
+                --out-class "$T/custom/telocal/qc/telocal_te_class_mqc.json" > "$T/tlsum.log" 2>&1; then
+            echo "ERROR: telocal_summary_mqc.py failed"; cat "$T/tlsum.log"; FAIL=1
+          fi
+          if ! multiqc --force --no-ansi -c workflow/default-config/multiqc_config.yaml \
+                -o "$T/mqc_tl" -n report "$T/custom" > "$T/mqc_tl.log" 2>&1; then
+            echo "ERROR: multiqc run with telocal failed"; tail -40 "$T/mqc_tl.log"; FAIL=1
+          else
+            for cid in telocal_assignment telocal_te_class; do
+              if ! grep -q "custom_content | $cid: Found" "$T/mqc_tl.log" \
+                 || [ ! -f "$T/mqc_tl/report_data/multiqc_${cid}_plot.txt" ]; then
+                echo "ERROR: section '$cid' not rendered by MultiQC"
+                grep "custom_content" "$T/mqc_tl.log" | head -20
+                ls "$T/mqc_tl/report_data" | grep "${cid}" || true
+                FAIL=1
+              fi
+            done
           fi
 
           echo "[guards] done, FAIL=$FAIL"

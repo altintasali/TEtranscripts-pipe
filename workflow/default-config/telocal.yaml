@@ -1,0 +1,22 @@
+# =============================================================================
+# BUILT-IN DEFAULT TElocal settings -- part of the workflow itself, loaded
+# automatically (see workflow/Snakefile). You should NOT normally need to edit
+# this file; copy the `telocal:` section from config/config.example.yaml into
+# input/config.yaml and change what you need there instead.
+#
+# TElocal provides locus-level TE quantification (per genomic instance) as a
+# complement to TEcount's subfamily-level quantification. It uses the same
+# EM-based multi-mapper assignment but resolves TEs per locus instead of
+# pooling by subfamily.
+#
+# Requires a pre-built .locInd file (built from the same TE GTF used by
+# TEcount via TElocal_indexer -- see config/config.example.yaml for details).
+# =============================================================================
+telocal:
+  enabled: true
+  # Path to a pre-built TElocal .locInd file. Required when enabled.
+  # Build with: TElocal_indexer --afile TE.gtf --itype TE
+  # Or download prebuilt indices from https://www.mghlab.org/software/telocal
+  locind: ""
+  # Extra command-line arguments passed verbatim to TElocal.
+  extra: ""
