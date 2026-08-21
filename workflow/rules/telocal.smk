@@ -51,7 +51,7 @@ rule telocal:
         TETRANSCRIPTS_ENV
     shell:
         "( mkdir -p results/telocal && cd results/telocal &&"
-        " TElocal -b {input.bam}"
+        " TElocal --sortByPos -b {input.bam}"
         " --GTF {input.gtf} --TE {input.locind}"
         " --stranded {params.stranded}"
         " {params.extra}"
