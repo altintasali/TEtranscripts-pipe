@@ -126,6 +126,27 @@ def _tecount_summary_mqc_inputs():
     ]
 
 
+def _telocal_qc_mqc_inputs():
+    """MultiQC custom-content JSONs from the TElocal sample-QC view (rendered
+    as interactive PCA + sample-distance plots inside the report) plus the
+    per-sample summary barplots. The QC view only when telocal.qc.enabled
+    (the default); the barplots always, since they only need the raw
+    cntTables."""
+    if not TELOCAL_ENABLED:
+        return []
+    files = [
+        "results/telocal/qc/telocal_assignment_mqc.json",
+        "results/telocal/qc/telocal_te_class_mqc.json",
+    ]
+    if TELOCAL_QC_ENABLED:
+        transform = TELOCAL_QC["pca_transform"]
+        files += [
+            f"results/telocal/qc/pca_{transform}_mqc.json",
+            f"results/telocal/qc/heatmap_{transform}_mqc.json",
+        ]
+    return files
+
+
 rule config_used:
     # The resolved run config, written as a MultiQC custom-content table so
     # the report records exactly which settings were used.
@@ -146,9 +167,14 @@ rule config_used:
         _tecount_qc_enabled=TECOUNT_QC_ENABLED,
         _tecount_qc=TECOUNT_QC,
         _chimera_enabled=CHIMERA_ENABLED,
+        _telocal_enabled=TELOCAL_ENABLED,
+        _telocal_locind_auto=not _telocal_locind_cfg,
+        _telocal_qc_enabled=TELOCAL_QC_ENABLED,
+        _telocal_qc=TELOCAL_QC,
         _keep_merged_fastq=KEEP_MERGED_FASTQ,
         _keep_trimmed_fastq=KEEP_TRIMMED_FASTQ,
         _keep_star_index=KEEP_STAR_INDEX,
+        _keep_telocal_index=KEEP_TELOCAL_INDEX,
     script:
         "../scripts/config_used_mqc.py"
 
@@ -159,9 +185,10 @@ rule multiqc:
     # auto-detection was used) RSeQC infer_experiment.py reports, the chimera
     # sample-QC (PCA + sample distances) and junction-QC barplot, the TEcounts
     # sample-QC (gated on tetranscripts.qc.enabled) and the always-on
-    # per-sample summary barplots, the
-    # per-rule benchmark/resource summary, and the pinned tool versions into
-    # one HTML report. Runs the MultiQC version
+    # per-sample summary barplots, the TElocal summary barplots + sample-QC
+    # view (the latter gated on telocal.qc.enabled), the per-rule
+    # benchmark/resource summary, and the pinned tool versions into one HTML
+    # report. Runs the MultiQC version
     # pinned in config["versions"]["multiqc"]. The custom config
     # (multiqc_config.yaml) trims "_val_1"/"_val_2"/"_trimmed" off the FastQC
     # sample names so every module's rows merge into one clean row per sample
@@ -178,6 +205,7 @@ rule multiqc:
         junction_qc=_junction_qc_mqc_inputs(),
         tecount_qc=_tecount_qc_mqc_inputs(),
         tecount_summary=_tecount_summary_mqc_inputs(),
+        telocal=_telocal_qc_mqc_inputs(),
     output:
         html="results/qc/multiqc_report.html",
         data=directory("results/qc/multiqc_report_data"),

@@ -64,7 +64,7 @@ if CHIMERA_ENABLED:
 include: "rules/software_versions.smk"
 include: "rules/qc.smk"
 
-localrules: cleanup_star_index
+localrules: cleanup_star_index, cleanup_telocal_index
 
 
 rule all:
@@ -82,7 +82,12 @@ rule all:
         # true (the default), while the summary barplots always render.
         **({"tecount_qc": all_tecount_qc_outputs()} if TECOUNT_QC["enabled"] else {}),
         **({"tecount_summary": all_tecount_summary_outputs()}),
-        **({"telocal": all_telocal_outputs()} if TELOCAL_ENABLED else {}),
+        # The TElocal helpers live in rules/telocal.smk; the counts matrix +
+        # PCA/clustering view only run when telocal.qc.enabled is true,
+        # while the summary barplots always render.
+        **({"telocal": all_telocal_outputs(),
+            "telocal_cleanup": "results/pipeline_info/.telocal_index_cleaned"}
+           if TELOCAL_ENABLED else {}),
 
 
 rule star_index_only:

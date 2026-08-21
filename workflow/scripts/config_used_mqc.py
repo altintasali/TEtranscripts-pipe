@@ -55,9 +55,14 @@ def main(smk):
     tecount_qc_enabled = params.get("_tecount_qc_enabled", "")
     tecount_qc = params.get("_tecount_qc", {})
     chimera_enabled = params.get("_chimera_enabled", "")
+    telocal_enabled = params.get("_telocal_enabled", "")
+    telocal_locind_auto = params.get("_telocal_locind_auto", "")
+    telocal_qc_enabled = params.get("_telocal_qc_enabled", "")
+    telocal_qc = params.get("_telocal_qc", {})
     keep_merged = params.get("_keep_merged_fastq", "")
     keep_trimmed = params.get("_keep_trimmed_fastq", "")
     keep_star_index = params.get("_keep_star_index", "")
+    keep_telocal_index = params.get("_keep_telocal_index", "")
 
     rows = {
         "pipeline_version": _read_version(smk),
@@ -84,9 +89,18 @@ def main(smk):
         "chimera.breakpoint_tolerance": str(config.get("chimera", {}).get("breakpoint_tolerance", 0)),
         "chimera.require_canonical_junction": str(config.get("chimera", {}).get("require_canonical_junction", False)),
         "chimera.qc.pca_transform": config.get("chimera", {}).get("qc", {}).get("pca_transform", "vst"),
+        "telocal.enabled": str(telocal_enabled),
+        "telocal.locind": (
+            "(auto-build from TE GTF)" if telocal_locind_auto in (True, "True", "")
+            else str(config.get("telocal", {}).get("locind", ""))
+        ),
+        "telocal.qc.enabled": str(telocal_qc_enabled),
+        "telocal.qc.feature_class": telocal_qc.get("feature_class", ""),
+        "telocal.qc.pca_transform": telocal_qc.get("pca_transform", ""),
         "outputs.keep_merged_fastq": str(keep_merged),
         "outputs.keep_trimmed_fastq": str(keep_trimmed),
         "outputs.keep_star_index": str(keep_star_index),
+        "outputs.keep_telocal_index": str(keep_telocal_index),
     }
 
     doc = {

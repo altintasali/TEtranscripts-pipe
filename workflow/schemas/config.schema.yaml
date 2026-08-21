@@ -18,6 +18,7 @@ properties:
       rseqc: {type: string}
       multiqc: {type: string}
       tetranscripts: {type: string}
+      telocal: {type: string}
       deseq2: {type: string}
       ucsc_gtftogenepred: {type: string}
       ucsc_genepredtobed: {type: string}
@@ -244,10 +245,49 @@ properties:
         type: string
         description: >-
           Path to a pre-built TElocal .locInd file (built from the same TE
-          GTF via TElocal_indexer). Required when enabled is true.
+          GTF via TElocal_indexer). Required when enabled is true. When
+          empty, the workflow auto-builds the index from the TE GTF into
+          results/telocal/locInd.
       extra:
         type: string
         description: Extra command-line arguments passed verbatim to TElocal.
+      qc:
+        type: object
+        description: >-
+          Sample-QC view (PCA + sample clustering) of the per-sample TElocal
+          tables, rendered inside multiqc_report.html. Mirrors
+          tetranscripts.qc and shares its sample_qc.R machinery. On by
+          default; set enabled to false to skip it entirely. Filters apply to
+          the QC-view counts matrix only -- the per-sample cntTables are
+          never reduced.
+        properties:
+          enabled:
+            type: boolean
+          min_samples_present:
+            type: integer
+            minimum: 1
+          min_total_counts:
+            type: integer
+            minimum: 1
+          min_events:
+            type: integer
+            minimum: 1
+          pca_transform:
+            type: string
+            enum: ["vst", "rlog", "log2"]
+            description: >-
+              Defaults to log2: locus-level matrices hold one row per TE
+              instance (often millions), which makes vst/rlog prohibitively
+              slow.
+          feature_class:
+            type: string
+            enum: ["TE", "gene", "all"]
+            description: >-
+              Which features the QC-view counts matrix keeps: TE (TE loci
+              only, the default), gene (gene ids only), or all (genes +
+              loci, exactly what the TElocal cntTables report).
+        required: [enabled, min_samples_present, min_total_counts, min_events,
+                   pca_transform, feature_class]
     required: [enabled]
 
   resources:
@@ -287,6 +327,14 @@ properties:
           Keep the STAR genome index in results/star_index/ after alignment.
           false deletes it (rm -rf) once all samples are aligned, saving disk
           at the cost of re-copying (or rebuilding) on the next run.
+      keep_telocal_index:
+        type: boolean
+        description: >-
+          Keep the auto-built TElocal .locInd index
+          (results/telocal/locInd) after all samples' TElocal runs finish.
+          false deletes it once quantification is done, saving disk at the
+          cost of re-building on the next run. Never applies to a
+          user-provided telocal.locind path.
 
 required:
   - samples

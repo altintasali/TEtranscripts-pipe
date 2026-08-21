@@ -566,17 +566,29 @@ TECOUNT_QC_ENABLED = bool(TECOUNT_QC["enabled"])
 # telocal_locind rule auto-builds from the TE GTF.
 TELOCAL_ENABLED = bool(config.get("telocal", {}).get("enabled", False))
 _telocal_locind_cfg = config.get("telocal", {}).get("locind", "")
+TELOCAL_QC = config["telocal"].get(
+    "qc",
+    {
+        "enabled": True,
+        "min_samples_present": 2,
+        "min_total_counts": 5,
+        "min_events": 10,
+        "pca_transform": "log2",
+        "feature_class": "TE",
+    },
+)
+TELOCAL_QC_ENABLED = bool(TELOCAL_QC["enabled"])
 
 
 def _telocal_locind_path():
     """Return the .locInd path for the telocal rule.
 
     When the user provides a path, use it directly.  When locind is empty,
-    auto-build from the TE GTF (telocal_locind rule).
+    auto-build from the TE GTF (telocal_locind rule) into results/telocal/.
     """
     if _telocal_locind_cfg:
         return _telocal_locind_cfg
-    return "results/telocal.locInd"
+    return "results/telocal/locInd"
 
 # TrimGalore! always appends _trimmed (single-end) or _val_1/_val_2 (paired)
 # to the *input* basename, and its --basename normalization only strips a
@@ -615,6 +627,12 @@ if TRIM_ENABLED:
 KEEP_MERGED_FASTQ = bool(config.get("outputs", {}).get("keep_merged_fastq", True))
 KEEP_TRIMMED_FASTQ = bool(config.get("outputs", {}).get("keep_trimmed_fastq", True))
 KEEP_STAR_INDEX = bool(config.get("outputs", {}).get("keep_star_index", True))
+# Whether the auto-built TElocal .locInd index (results/telocal/locInd) is
+# kept after all TElocal runs finish. Never applies to a user-provided
+# telocal.locind path -- that file is only ever read, never deleted.
+KEEP_TELOCAL_INDEX = bool(
+    config.get("outputs", {}).get("keep_telocal_index", True)
+)
 
 
 def _maybe_temp(path, keep):
@@ -804,9 +822,19 @@ def all_tecount_tables():
 
 
 def all_telocal_outputs():
-    """TElocal per-sample count tables and summary barplots for the `all`
-    target (Snakefile)."""
+    """TElocal per-sample count tables, counts matrix + sample-QC artifacts,
+    and summary barplots for the `all` target (Snakefile). The QC view only
+    runs when telocal.qc.enabled is true; the summary barplots always
+    render."""
     files = expand("results/telocal/{sample}.cntTable.gz", sample=SAMPLES)
+    if TELOCAL_QC_ENABLED:
+        transform = TELOCAL_QC["pca_transform"]
+        files += [
+            "results/telocal/counts_matrix.tsv.gz",
+            f"results/telocal/qc/{transform}_counts.tsv.gz",
+            f"results/telocal/qc/pca_{transform}_mqc.json",
+            f"results/telocal/qc/heatmap_{transform}_mqc.json",
+        ]
     files += [
         "results/telocal/qc/telocal_assignment_mqc.json",
         "results/telocal/qc/telocal_te_class_mqc.json",
@@ -951,6 +979,22 @@ def all_benchmark_files():
     files.append(
         "results/pipeline_info/benchmarks/tecount_summary/tecount_summary.txt"
     )
+    # TElocal rules only run when the telocal stage is enabled; its QC view
+    # additionally requires telocal.qc.enabled.
+    if TELOCAL_ENABLED:
+        files += [
+            "results/pipeline_info/benchmarks/telocal_locind/locind.txt",
+            "results/pipeline_info/benchmarks/telocal_summary/telocal_summary.txt",
+        ]
+        for s in SAMPLES:
+            files.append(f"results/pipeline_info/benchmarks/telocal/{s}.txt")
+        if TELOCAL_QC_ENABLED:
+            transform = TELOCAL_QC["pca_transform"]
+            files += [
+                "results/pipeline_info/benchmarks/telocal_counts/telocal_counts.txt",
+                f"results/pipeline_info/benchmarks/telocal_qc_transform/{transform}.txt",
+                f"results/pipeline_info/benchmarks/telocal_qc/{transform}.txt",
+            ]
     return sorted(set(files))
 
 

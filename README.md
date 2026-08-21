@@ -16,6 +16,8 @@ flowchart LR
         star_index["STAR index"]
         gtf_to_genepred["GTF -> genePred"]
         genepred_to_bed12["genePred -> BED12"]
+        telocal_locind["TElocal locus index"]
+        cleanup_star_index["remove STAR index (if keep: false)"]
     end
     subgraph per_sample["Per sample"]
         cat_fastq["concat lanes"]
@@ -35,6 +37,12 @@ flowchart LR
         tecount_qc_transform["sample-QC transform (vst/rlog/log2)"]
         tecount_qc["sample-QC plots (PCA + clustering)"]
         tecount_summary["tecount summary barplots (assignment + TE class)"]
+        telocal["TElocal"]
+        telocal_counts["telocal counts matrix"]
+        telocal_qc_transform["telocal sample-QC transform (log2/vst/rlog)"]
+        telocal_qc["telocal sample-QC plots (PCA + clustering)"]
+        telocal_summary["telocal summary barplots (assignment + TE class)"]
+        cleanup_telocal_index["remove TElocal index (if keep: false)"]
         software_versions["software versions"]
         config_used["config used"]
         benchmark_summary["resource-usage summary"]
@@ -43,6 +51,7 @@ flowchart LR
     subgraph chimera_screen["Chimera screen"]
         annotation_to_bed["annotation -> BED tracks"]
         parse_chimeric_junctions["parse chimeric junctions"]
+        chimera_telocal_annotate["annotate junctions with TElocal counts"]
         junction_qc["junction QC"]
         junction_qc_barplot["junction QC barplot"]
         chimera_igv_bed["IGV BED track"]
@@ -50,23 +59,22 @@ flowchart LR
         sample_qc_transform["sample-QC transform"]
         sample_qc["sample-QC plots"]
     end
-    subgraph other["Other"]
-        cleanup_star_index["cleanup_star_index"]
-    end
     annotation_to_bed --> parse_chimeric_junctions
     benchmark_summary --> multiqc
     cat_fastq --> fastqc_raw
     cat_fastq --> trim_galore_pe
     cat_fastq --> trim_galore_se
     chimera_counts --> sample_qc_transform
+    chimera_telocal_annotate --> chimera_counts
     determine_strandedness --> parse_chimeric_junctions
     determine_strandedness --> tecount
+    determine_strandedness --> telocal
     determine_strandedness --> tetranscripts_diffexp
     genepred_to_bed12 --> rseqc_infer_experiment
     gtf_to_genepred --> genepred_to_bed12
     junction_qc --> junction_qc_barplot
-    parse_chimeric_junctions --> chimera_counts
     parse_chimeric_junctions --> chimera_igv_bed
+    parse_chimeric_junctions --> chimera_telocal_annotate
     parse_chimeric_junctions --> junction_qc
     rseqc_infer_experiment --> determine_strandedness
     sample_qc_transform --> sample_qc
@@ -78,12 +86,20 @@ flowchart LR
     star_align --> parse_chimeric_junctions
     star_align --> samtools_sort
     star_align --> tecount
+    star_align --> telocal
     star_align --> tetranscripts_diffexp
     star_index --> star_align
     tecount --> tecount_counts
     tecount --> tecount_summary
     tecount_counts --> tecount_qc_transform
     tecount_qc_transform --> tecount_qc
+    telocal --> chimera_telocal_annotate
+    telocal --> cleanup_telocal_index
+    telocal --> telocal_counts
+    telocal --> telocal_summary
+    telocal_counts --> telocal_qc_transform
+    telocal_locind --> telocal
+    telocal_qc_transform --> telocal_qc
     trim_galore_pe --> star_align
     trim_galore_se --> star_align
 ```
@@ -99,7 +115,8 @@ locus-level TE quantification from the same alignment. If your sample sheet has
 a `condition` column, TEtranscripts + DESeq2 also runs every pairwise contrast.
 The per-sample TEcount tables also drive a sample-QC view (PCA + sample
 clustering, on by default) and per-sample summary barplots (gene-vs-TE
-assignment and TE class composition), rendered inside the MultiQC report.
+assignment and TE class composition), rendered inside the MultiQC report;
+the TElocal tables drive the same section set for the locus-level counts.
 The **same** alignment also drives a gene-TE chimera
 screen that annotates chimeric junction reads and produces a counts matrix,
 an interactive sample-QC view, and a junction-QC barplot (on by default;
@@ -233,6 +250,9 @@ reference):
 | `strandedness.min_fraction` | confidence threshold for RSeQC auto-detection. |
 | `tetranscripts.*` | TEcount/TEtranscripts options (mode, padj, foldchange...). |
 | `tetranscripts.qc.*` | TEcounts sample-QC view (PCA + sample clustering, on by default): `enabled`, view-only filters `min_samples_present`/`min_total_counts`/`min_events`, `pca_transform` (`vst`/`rlog`/`log2`), and `feature_class` (`TE` default / `gene` / `all`). They never remove features from the cntTables. The assignment + TE-class summary barplots are independent and always produced. |
+| `telocal.enabled` | run TElocal locus-level TE quantification (default `true`, see [TElocal: locus-level TE quantification](#telocal-locus-level-te-quantification)). |
+| `telocal.locind` | path to a pre-built `.locInd` index. Empty (default) auto-builds it from the TE GTF into `results/telocal/locInd`. |
+| `telocal.qc.*` | TElocal sample-QC view — same keys as `tetranscripts.qc.*`; default `pca_transform: log2` (locus matrices are too large for vst/rlog). |
 | `chimera.enabled` | run the gene-TE chimera screen (default `true`; set `false` to opt out, see [The chimera screen](#the-chimera-screen)). |
 | `chimera.star` | STAR chimeric-alignment detection params (`segment_min`, `overhang_min`, `score_drop_max`, `extra`) — defaults follow the TEtranscripts authors' recommendations for the gene-TE chimera context. |
 | `chimera.breakpoint_tolerance` | slack (bp) allowed when matching a STAR chimeric breakpoint to an exon/TE feature edge (default `0`). |
@@ -243,6 +263,7 @@ reference):
 | `outputs.keep_merged_fastq` | keep the lane-concatenated fastqs (`results/fastq/`). `false` deletes them (temp()) once alignment is done. |
 | `outputs.keep_trimmed_fastq` | keep the trimmed fastqs (`results/trimming/`). `false` deletes them (temp()) once alignment is done. |
 | `outputs.keep_star_index` | keep the STAR genome index (`results/star_index/`). `false` deletes it (rm -rf) once alignment is done. |
+| `outputs.keep_telocal_index` | keep the auto-built TElocal index (`results/telocal/locInd`). `false` deletes it once all TElocal runs finish. Never applies to a user-provided `telocal.locind` path. |
 
 **`input/samples.csv`** — the design file. Columns in this exact order
 (an nf-core/rnaseq samplesheet works as-is):
@@ -555,6 +576,15 @@ TElocal uses the **same unsorted BAM** as TEcount (`results/star/{sample}_Aligne
 report (`results/telocal/qc/telocal_assignment_mqc.json` and
 `telocal_te_class_mqc.json`).
 
+A **sample-QC view** mirrors the TEcount one (`telocal.qc.*`: `enabled`,
+view-only filters, `pca_transform`, `feature_class`): the per-sample tables are
+merged into a locus x sample counts matrix
+(`results/telocal/counts_matrix.tsv.gz`) that drives a PCA scatter and a
+sample-to-sample clustering heatmap in the report. The default transform is
+`log2` — locus-level matrices hold one row per TE instance (often millions),
+which makes DESeq2's vst/rlog prohibitively slow; opt in deliberately if you
+want them.
+
 ### Setup
 
 TElocal requires a pre-built `.locInd` file — a pickled index built from the
@@ -572,6 +602,13 @@ telocal:
   enabled: true
   locind: /path/to/TE_annotation.locInd
 ```
+
+When `locind` is empty, the workflow auto-builds the index from your TE GTF
+into `results/telocal/locInd`. It is kept by default;
+`outputs.keep_telocal_index: false` deletes it once all TElocal runs finish
+(a user-provided `locind` path is never touched). Auto-building trades disk
+for convenience — rebuilding takes minutes to ~1 h depending on genome and TE
+annotation size.
 
 Set `telocal.enabled: false` to skip locus-level quantification entirely.
 
@@ -809,10 +846,17 @@ results/
 ├── tetranscripts/{contrast}_*.{txt,R}              # only if "condition" column present
 │                                                    #   ({contrast}.cntTable, _DESeq2.R,
 │                                                    #   _gene_TE_analysis.txt, _sigdiff_gene_TE.txt)
-├── telocal/                                         # only if telocal.enabled (default: true):
-│   ├── {sample}.cntTable.gz                         #   per-sample locus-level TE counts
-│   └── qc/telocal_assignment_mqc.json               #   gene-vs-TE summary barplot
-│   └── qc/telocal_te_class_mqc.json                 #   TE class composition barplot
+├── telocal/                                          # only if telocal.enabled (default: true):
+│   ├── locInd                                        #   auto-built TElocal index (if locind empty;
+│   │                                                 #   removed when outputs.keep_telocal_index: false)
+│   ├── {sample}.cntTable.gz                          #   per-sample locus-level TE counts
+│   ├── counts_matrix.tsv.gz                          #   locus x samples (if telocal.qc.enabled)
+│   └── qc/
+│       ├── {pca_transform}_counts.tsv.gz             #   QC-view transformed matrix
+│       ├── pca_{pca_transform}_mqc.json              #   sample-QC PCA (custom content)
+│       ├── heatmap_{pca_transform}_mqc.json          #   sample-QC distance heatmap
+│       ├── telocal_assignment_mqc.json               #   gene-vs-TE summary barplot
+│       └── telocal_te_class_mqc.json                 #   TE class composition barplot
 ├── chimera/                                        # always (set chimera.enabled: false to skip):
 │   ├── {sample}_junctions.tsv                      #   per-sample annotated junctions
 │   ├── {sample}_te_chimeras.tsv                    #   per-sample gene-TE events only

@@ -26,13 +26,9 @@ extra_fn_clean_exts:
 # Order report sections by the analysis flow: raw QC -> trimming -> alignment
 # -> strandedness -> quantification/versions. FastQC appears twice (raw input
 # and, when trimming is enabled, the TrimGalore!-run reports), disambiguated
-# by path_filters on the output directories. The resource-usage summary
-# (custom content emitted by the benchmark_summary rule, qc.smk) closes the
-# report. When the chimera stage and/or the TEcounts sample-QC stage is
-# enabled, their sample-QC sections (ids chimera_sample_qc_pca /
-# chimera_sample_qc_heatmap, tecount_sample_qc_pca / tecount_sample_qc_heatmap,
-# emitted by the sample_qc / tecount_qc rules) render inside the
-# custom_content module (ordered below).
+# by path_filters on the output directories. The custom-content module holds
+# all quantification/chimera sections (ordered below); the resource-usage
+# summary and software versions close the report.
 module_order:
   - fastqc:
       name: "FastQC (raw input)"
@@ -47,18 +43,19 @@ module_order:
   - rseqc
   - custom_content
 
-# Order of the custom-content sections within the custom_content module;
-# without this their order is arbitrary. Section ids come from the `_mqc.json`
-# documents emitted by the sample_qc (chimera screen, only when enabled),
-# tecount_qc (TEcounts sample-QC, enabled by default), telocal_summary
-# (TElocal locus-level TE assignment + TE-class barplots, enabled by default),
-# junction_qc_barplot
-# (chimera junction-QC + TE-chimeras barplots, only when the chimera stage is
-# enabled), tecount_summary (per-sample TEcounts assignment + TE-class
-# barplots) and benchmark_summary rules. Ordered by the analysis flow --
-# TEcounts quantification (primary output) first, then TElocal, then the
-# downstream chimera screen, closing with the TE-chimeras view and the
-# resource-usage table.
+# Order of the custom-content groups within the custom_content module;
+# without this their order is arbitrary. Each id below is a parent group
+# (parent_id on the emitted `_mqc.json` documents) rendered as one
+# collapsible report section:
+#   tecounts     TEcount: assignment + TE-class barplots, PCA, Clusters
+#                (tecount_summary / tecount_qc rules)
+#   telocal      TElocal: same section set (telocal_summary / telocal_qc)
+#   chimera      Chimera: Junction QC barplot + PCA + Clusters
+#                (junction_qc_barplot / sample_qc rules)
+#   te_chimeras  Chimeric TEs: gene<->TE junction subset view
+#                (junction_qc_barplot rule)
+#   config_used  resolved run configuration (config_used rule)
+#   resource_usage  per-rule benchmark summary (benchmark_summary rule)
 # MultiQC silently skips ids that produced no data, so the ids are harmless
 # when the corresponding stage is off.
 custom_content:
@@ -66,5 +63,6 @@ custom_content:
     - tecounts
     - telocal
     - chimera
+    - te_chimeras
     - config_used
     - resource_usage

@@ -364,7 +364,7 @@ jobs:
             FAIL=1
           fi
 
-          echo "[guards] 21/21 telocal_summary_mqc.py on synthetic fixtures"
+          echo "[guards] 21/21 telocal_summary_mqc.py + telocal counts matrix"
 
           # --- telocal_summary_mqc.py must render in MultiQC ------------------
           printf 'gene/TE\t/path/a.bam\nENSG0001\t80\nchr1:100:200(L1PA2:+):L1PA2:L1:LINE\t5\n' > "$T/tl_a.cntTable"
@@ -376,6 +376,21 @@ jobs:
                 --out-class "$T/custom/telocal/qc/telocal_te_class_mqc.json" > "$T/tlsum.log" 2>&1; then
             echo "ERROR: telocal_summary_mqc.py failed"; cat "$T/tlsum.log"; FAIL=1
           fi
+
+          # --- tecount_counts.py --key-style telocal classifies by shape ------
+          # TE-locus keys (>= 3 colon fields) are kept with --feature-class TE;
+          # gene keys (no colons) are dropped.
+          if ! python workflow/scripts/tecount_counts.py \
+                --tables "$T/tl_a.cntTable" "$T/tl_b.cntTable" --sample-names a b \
+                --key-style telocal --feature-class TE \
+                --out-counts "$T/telocal_counts_matrix.tsv" > "$T/tlcounts.log" 2>&1; then
+            echo "ERROR: tecount_counts.py --key-style telocal failed"; cat "$T/tlcounts.log"; FAIL=1
+          elif ! grep -q "^chr1:100:200(L1PA2:+):L1PA2:L1:LINE" "$T/telocal_counts_matrix.tsv" \
+             || grep -q "^ENSG0001" "$T/telocal_counts_matrix.tsv"; then
+            echo "ERROR: telocal counts matrix kept wrong features (TE-only filter)"
+            cat "$T/telocal_counts_matrix.tsv"; FAIL=1
+          fi
+
           if ! multiqc --force --no-ansi -c workflow/default-config/multiqc_config.yaml \
                 -o "$T/mqc_tl" -n report "$T/custom" > "$T/mqc_tl.log" 2>&1; then
             echo "ERROR: multiqc run with telocal failed"; tail -40 "$T/mqc_tl.log"; FAIL=1

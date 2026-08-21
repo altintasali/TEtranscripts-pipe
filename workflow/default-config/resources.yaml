@@ -123,6 +123,30 @@ resources:
     mem_mb: 32000
     runtime: 360
 
+  telocal_counts:
+    # Merging per-sample TElocal cntTables into the counts matrix;
+    # single-threaded.  Locus-level tables are much larger than TEcount's
+    # (one row per TE instance), so the per-sample allowance is higher.
+    # Base 2 GB + 200 MB per sample.
+    threads: 1
+    mem_mb: 2000
+    mem_per_sample: 200
+    runtime: 60
+
+  telocal_qc_transform:
+    # log2/vst/rlog on the TElocal counts matrix; R is single-threaded.
+    # Memory scales with sample count.  Base 4 GB + 250 MB per sample.
+    threads: 1
+    mem_mb: 4000
+    mem_per_sample: 250
+    runtime: 120
+
+  telocal_qc:
+    # PCA + sample-distance heatmap in R; single-threaded.
+    threads: 1
+    mem_mb: 8000
+    runtime: 30
+
   tetranscripts_diffexp:
     # Pools every treatment/control BAM in a contrast at once, so scales
     # with both annotation size and total mapped reads across all samples.

@@ -120,7 +120,7 @@ def main():
         "id": "telocal_assignment",
         "parent_id": "telocal",
         "parent_name": "TElocal",
-        "section_name": "TElocal: Gene vs TE Assignment",
+        "section_name": "Gene vs. TE Assignment",
         "description": (
             "Per-sample read counts assigned by TElocal to genes vs TE "
             "loci (counts and % of total assigned reads)."
@@ -142,7 +142,7 @@ def main():
         "id": "telocal_te_class",
         "parent_id": "telocal",
         "parent_name": "TElocal",
-        "section_name": "TElocal: TE Class Composition",
+        "section_name": "TE Class Composition",
         "description": (
             "Per-sample TE-locus reads by repeat class (counts and % of "
             "TE reads); classes not in LINE/SINE/LTR/DNA/RC are grouped as "

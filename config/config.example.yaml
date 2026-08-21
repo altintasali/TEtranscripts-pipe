@@ -219,9 +219,21 @@ telocal:
   #   TElocal_indexer --afile TE.gtf --itype TE
   # (requires ~30 GB RAM for a human genome). Or download prebuilt indices
   # from https://www.mghlab.org/software/telocal
+  # When empty, the workflow auto-builds the index from the TE GTF into
+  # results/telocal/locInd (kept unless outputs.keep_telocal_index: false).
   locind: ""
   # Extra command-line arguments passed verbatim to TElocal.
   extra: ""
+  qc:
+    # Sample-QC view (PCA + sample clustering) of the per-sample TElocal
+    # tables -- mirrors tetranscripts.qc above and shares its machinery.
+    enabled: true
+    min_samples_present: 2
+    min_total_counts: 5
+    min_events: 10
+    # log2 default: locus-level matrices are far too large for vst/rlog.
+    pca_transform: log2
+    feature_class: TE
 
 outputs:
   # Whether intermediate fastq files are kept after the downstream rules that
@@ -238,3 +250,9 @@ outputs:
   # aligned, saving disk at the cost of re-copying (or rebuilding) on the
   # next run.
   keep_star_index: true
+  # Whether to keep the auto-built TElocal .locInd index
+  # (results/telocal/locInd) after all samples' TElocal runs finish.
+  # Setting to false deletes it once quantification is done, saving disk at
+  # the cost of re-building on the next run. Never applies to a user-provided
+  # telocal.locind path -- that file is only ever read, never deleted.
+  keep_telocal_index: true

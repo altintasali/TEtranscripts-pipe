@@ -83,7 +83,7 @@ def main():
         "id": "chimera_junction_qc",
         "parent_id": "chimera",
         "parent_name": "Chimera",
-        "section_name": "Chimera: Junction QC",
+        "section_name": "Junction QC",
         "description": (
             "Per-sample composition of annotated chimeric junctions by "
             "direction (the gene\u2194TE event classes first), as counts and "
@@ -140,9 +140,9 @@ def main():
 
         te_doc = {
             "id": "chimera_te_chimeras",
-            "parent_id": "chimera",
-            "parent_name": "Chimera",
-            "section_name": "Chimera: TE Chimeras",
+            "parent_id": "te_chimeras",
+            "parent_name": "Chimeric TEs",
+            "section_name": "Chimeric TEs",
             "description": (
                 "Per-sample gene\u2194TE chimeric junctions (direction "
                 "gene_to_te / te_to_gene), as counts and % of total junctions."

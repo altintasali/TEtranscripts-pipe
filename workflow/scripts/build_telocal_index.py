@@ -8,7 +8,7 @@ TElocal requires a pickled ``TElocal_Toolkit.TEindex.TEfeatures`` object
 the ``TElocal_Toolkit`` library directly.
 
 Usage:
-  build_telocal_index.py --gtf te.gtf --out results/telocal.locInd
+  build_telocal_index.py --gtf te.gtf --out results/telocal/locInd
 """
 import argparse
 import os
