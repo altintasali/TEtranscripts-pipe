@@ -562,17 +562,21 @@ TECOUNT_QC_ENABLED = bool(TECOUNT_QC["enabled"])
 
 # TElocal locus-level quantification (rules/telocal.smk). Requires a
 # pre-built .locInd file; disabled by default in older configs but enabled
-# in the built-in telocal.yaml defaults.
+# in the built-in telocal.yaml defaults.  When locind is empty, the
+# telocal_locind rule auto-builds from the TE GTF.
 TELOCAL_ENABLED = bool(config.get("telocal", {}).get("enabled", False))
-if TELOCAL_ENABLED:
-    _telocal_locind = config.get("telocal", {}).get("locind", "")
-    if not _telocal_locind:
-        raise RuntimeError(
-            "telocal.enabled is true but telocal.locind is empty. "
-            "Provide a path to a pre-built .locInd file "
-            "(build with: TElocal_indexer --afile TE.gtf --itype TE), "
-            "or set telocal.enabled: false to skip locus-level quantification."
-        )
+_telocal_locind_cfg = config.get("telocal", {}).get("locind", "")
+
+
+def _telocal_locind_path():
+    """Return the .locInd path for the telocal rule.
+
+    When the user provides a path, use it directly.  When locind is empty,
+    auto-build from the TE GTF (telocal_locind rule).
+    """
+    if _telocal_locind_cfg:
+        return _telocal_locind_cfg
+    return "results/telocal.locInd"
 
 # TrimGalore! always appends _trimmed (single-end) or _val_1/_val_2 (paired)
 # to the *input* basename, and its --basename normalization only strips a

@@ -153,7 +153,7 @@ rule parse_chimeric_junctions:
         "--te-out {output.te_chimeras} > {log} 2>&1"
 
 
-def _telocal_counts_for_chimera():
+def _telocal_counts_for_chimera(wc=None):
     """Per-sample TElocal cntTable paths (only when TELOCAL_ENABLED)."""
     return [f"results/telocal/{s}.cntTable.gz" for s in SAMPLES]
 

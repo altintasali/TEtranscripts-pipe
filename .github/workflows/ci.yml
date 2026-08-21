@@ -349,15 +349,19 @@ jobs:
             echo "ERROR: check_nonempty_fastq accepted an empty FASTQ"; FAIL=1
           fi
 
-          echo "[guards] 20/21 telocal enabled with empty locind fails"
+          echo "[guards] 20/21 telocal enabled with empty locind auto-builds"
 
-          # --- telocal.enabled: true with empty locind must fail at parse time
+          # --- telocal.enabled: true with empty locind must now succeed
+          # (auto-builds from TE GTF via telocal_locind rule)
           printf '\ntelocal:\n  enabled: true\n  locind: ""\n' >> "$T/telocal_empty_locind.yaml"
-          cat config/test.yaml "$T/telocal_empty_locind.yaml" > "$T/telocal_bad.yaml"
-          if snakemake --configfile "$T/telocal_bad.yaml" -n --cores 1 >"$T/telocal_empty.log" 2>&1; then
-            echo "ERROR: telocal enabled with empty locind did not fail"; FAIL=1
-          elif ! grep -q "telocal.locind is empty" "$T/telocal_empty.log"; then
-            echo "ERROR: wrong failure message for empty telocal locind"; FAIL=1
+          cat config/test.yaml "$T/telocal_empty_locind.yaml" > "$T/telocal_auto.yaml"
+          if ! snakemake --configfile "$T/telocal_auto.yaml" -n --cores 1 >"$T/telocal_auto.log" 2>&1; then
+            echo "ERROR: telocal enabled with empty locind failed (auto-build should work)"
+            tail -20 "$T/telocal_auto.log"
+            FAIL=1
+          elif ! grep -q "telocal_locind" "$T/telocal_auto.log"; then
+            echo "ERROR: telocal_locind rule not triggered in auto-build mode"
+            FAIL=1
           fi
 
           echo "[guards] 21/21 telocal_summary_mqc.py on synthetic fixtures"

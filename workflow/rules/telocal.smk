@@ -1,3 +1,30 @@
+rule telocal_locind:
+    # Build the TElocal locus index from the TE GTF.  Only triggered when
+    # the user does not provide a pre-built .locInd via config
+    # telocal.locind -- the telocal rule selects the auto-built path when
+    # locind is empty.
+    input:
+        te_gtf=TE_GTF,
+    output:
+        "results/telocal.locInd",
+    threads: get_resources("telocal_locind")["threads"]
+    resources:
+        mem_mb=get_resources("telocal_locind")["mem_mb"],
+        runtime=get_resources("telocal_locind")["runtime"],
+    benchmark:
+        "results/pipeline_info/benchmarks/telocal_locind/locind.txt",
+    log:
+        "results/pipeline_info/logs/telocal/locind.log",
+    conda:
+        TETRANSCRIPTS_ENV
+    shell:
+        "( mkdir -p results &&"
+        " TElocal_indexer --afile {input.te_gtf}"
+        " --itype TE"
+        " --index_prefix results/telocal.locInd )"
+        " > {log} 2>&1"
+
+
 rule telocal:
     # Per-sample locus-level TE quantification (TElocal). Complements TEcount's
     # subfamily-level quantification by resolving TEs per genomic instance.
@@ -7,7 +34,7 @@ rule telocal:
     input:
         bam="results/star/{sample}_Aligned.out.bam",
         gtf=GTF,
-        locind=config["telocal"]["locind"],
+        locind=_telocal_locind_path(),
         strandedness=strandedness_input,
     output:
         "results/telocal/{sample}.cntTable.gz",

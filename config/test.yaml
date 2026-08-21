@@ -104,9 +104,10 @@ tetranscripts:
     pca_transform: vst
     feature_class: all
 
-# TElocal: disabled in the test profile (no .locInd file in .tests/).
+# TElocal: enabled for the test profile; locind is empty so the
+# telocal_locind rule auto-builds from the test TE GTF (tiny, <1 min).
 telocal:
-  enabled: false
+  enabled: true
   locind: ""
 
 # Tiny resource footprint so the test runs comfortably on a laptop or in CI
@@ -136,6 +137,7 @@ resources:
   junction_qc: {threads: 1, mem_mb: 500, runtime: 5}
   junction_qc_barplot: {threads: 1, mem_mb: 500, runtime: 5}
   chimera_igv_bed: {threads: 1, mem_mb: 500, runtime: 5}
+  telocal_locind: {threads: 1, mem_mb: 500, runtime: 5}
   sample_qc_transform: {threads: 1, mem_mb: 1000, runtime: 5}
   sample_qc: {threads: 1, mem_mb: 1000, runtime: 5}
   software_versions: {threads: 1, mem_mb: 500, runtime: 5}

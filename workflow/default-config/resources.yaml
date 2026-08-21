@@ -115,6 +115,14 @@ resources:
     mem_mb: 12000
     runtime: 240
 
+  telocal_locind:
+    # TElocal_indexer builds the locus index from the TE GTF.  Memory is
+    # dominated by loading the full TE annotation into a balanced binary tree;
+    # ~30GB is typical for a human/mouse genome with a comprehensive TE GTF.
+    threads: 1
+    mem_mb: 32000
+    runtime: 360
+
   tetranscripts_diffexp:
     # Pools every treatment/control BAM in a contrast at once, so scales
     # with both annotation size and total mapped reads across all samples.
