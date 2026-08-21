@@ -50,12 +50,13 @@ rule telocal:
     conda:
         TETRANSCRIPTS_ENV
     shell:
-        "( mkdir -p results/telocal && cd results/telocal &&"
+        "( mkdir -p results/telocal &&"
         " TElocal --sortByPos -b {input.bam}"
         " --GTF {input.gtf} --TE {input.locind}"
         " --stranded {params.stranded}"
         " {params.extra}"
-        " && gzip -f {wildcards.sample}.cntTable )"
+        " && mv {wildcards.sample}.cntTable results/telocal/"
+        " && gzip -f results/telocal/{wildcards.sample}.cntTable )"
         " > {log} 2>&1"
 
 
