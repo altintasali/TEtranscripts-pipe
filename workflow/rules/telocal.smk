@@ -18,11 +18,9 @@ rule telocal_locind:
     conda:
         TETRANSCRIPTS_ENV
     shell:
-        "( mkdir -p results &&"
-        " TElocal_indexer --afile {input.te_gtf}"
-        " --itype TE"
-        " --index_prefix results/telocal.locInd )"
-        " > {log} 2>&1"
+        "python3 {SCRIPTS_DIR}/build_telocal_index.py "
+        "--gtf {input.te_gtf} "
+        "--out {output} > {log} 2>&1"
 
 
 rule telocal:
