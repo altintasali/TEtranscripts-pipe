@@ -32,16 +32,15 @@ resources:
     runtime: 120
 
   # TrimGalore! + FastQC: TrimGalore! passes --cores {threads} through to
-  # cutadapt and runs FastQC inside, so both single-end (trim_galore_se) and
-  # paired-end (trim_galore_pe) rules are sized from 4 threads. Modest CPU;
-  # I/O bound.
+  # cutadapt and runs FastQC inside. Modest CPU; I/O bound. Paired-end keeps
+  # 4 threads; single-end runs with 2 (retuned after an 84-sample run).
   trim_galore_pe:
     threads: 4
     mem_mb: 8000
     runtime: 180
 
   trim_galore_se:
-    threads: 4
+    threads: 2
     mem_mb: 8000
     runtime: 180
 
@@ -55,9 +54,12 @@ resources:
   star_index:
     # Peak memory for STAR genome index generation scales with genome size;
     # ~32-40GB is typical for a human/mouse-sized genome (SA index).
-    threads: 8
+    # 2 threads: genome generation barely scales past a couple of cores, so
+    # the threads are spent on cluster throughput instead; runtime limit
+    # raised to compensate for the slower build.
+    threads: 2
     mem_mb: 40000
-    runtime: 180
+    runtime: 360
 
   gtf_to_genepred:
     threads: 1
@@ -71,16 +73,18 @@ resources:
 
   star_align:
     # STAR keeps the whole genome index in memory per job; ~2.5x the index's
-    # on-disk size is a safe estimate for human/mouse.
-    threads: 12
+    # on-disk size is a safe estimate for human/mouse. 2 threads per job
+    # trades wall time for cluster throughput (more samples aligned in
+    # parallel); the runtime limit is raised accordingly.
+    threads: 2
     mem_mb: 32000
-    runtime: 240
+    runtime: 600
 
   samtools_sort:
     # Coordinate sorting is I/O-bound in practice; measured runs used <=3
-    # cores regardless of allocation, so 4 threads suffice. -m per-thread
+    # cores regardless of allocation, so 2 threads suffice. -m per-thread
     # memory scales with threads (see align.smk), keeping total under mem_mb.
-    threads: 4
+    threads: 2
     mem_mb: 16000
     runtime: 120
 
@@ -192,49 +196,57 @@ resources:
   # entries are inert otherwise.
 
   annotation_to_bed:
-    # Pure-python GTF->BED conversion; single-threaded, small.
-    threads: 1
+    # Pure-python GTF->BED conversion; single-threaded, small. 2 threads
+    # reserved as scheduler headroom.
+    threads: 2
     mem_mb: 2000
     runtime: 30
 
   parse_chimeric_junctions:
-    # Annotating a junction file against the gene/TE tracks; single-threaded.
-    threads: 1
+    # Annotating a junction file against the gene/TE tracks; single-threaded
+    # python (2nd core reserved as scheduler headroom).
+    threads: 2
     mem_mb: 8000
     runtime: 120
 
   chimera_counts:
-    # Merging per-sample junction tables; single-threaded.  Loads all unique
-    # events into a single Python dict — peak RSS scales linearly with sample
-    # count.  Base 4 GB + 150 MB per sample.
-    threads: 1
-    mem_mb: 4000
-    mem_per_sample: 150
+    # Merging per-sample junction tables; single-threaded python (2 threads
+    # reserved as scheduler headroom).  Loads all unique events into a
+    # single Python dict -- peak RSS scales linearly with sample count.
+    # Measured on an 84-sample run: >200% RAM efficiency at base 4 GB +
+    # 150 MB/sample, ~12 GB peak RSS.  Base 2 GB + 125 MB per sample
+    # (~12.5 GB at 84 samples).
+    threads: 2
+    mem_mb: 2000
+    mem_per_sample: 125
     runtime: 30
 
   junction_qc:
-    threads: 1
+    threads: 2
     mem_mb: 2000
     runtime: 15
 
   junction_qc_barplot:
     # Merging the per-sample junction QC tables into one MultiQC bar-plot
-    # JSON; single-threaded, small.
-    threads: 1
+    # JSON; single-threaded, small (2nd core reserved as scheduler headroom).
+    threads: 2
     mem_mb: 500
     runtime: 15
 
   chimera_igv_bed:
-    threads: 1
+    threads: 2
     mem_mb: 2000
     runtime: 15
 
   sample_qc_transform:
-    # DESeq2 vst/rlog on the chimera counts matrix; R is single-threaded.
-    # Memory scales with sample count.  Base 4 GB + 250 MB per sample.
-    threads: 1
-    mem_mb: 4000
-    mem_per_sample: 250
+    # DESeq2 vst/rlog on the chimera counts matrix; R is single-threaded
+    # (2nd core reserved as scheduler headroom).  Memory scales with sample
+    # count.  Measured on an 84-sample run: >200% RAM efficiency at base
+    # 4 GB + 250 MB/sample, ~12 GB peak RSS.  Base 2 GB + 125 MB per sample
+    # (~12.5 GB at 84 samples).
+    threads: 2
+    mem_mb: 2000
+    mem_per_sample: 125
     runtime: 60
 
   sample_qc:
