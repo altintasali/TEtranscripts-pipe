@@ -54,6 +54,7 @@ rule telocal:
         " TElocal --sortByPos -b {input.bam}"
         " --GTF {input.gtf} --TE {input.locind}"
         " --stranded {params.stranded}"
+        " --project {wildcards.sample}"
         " {params.extra}"
         " && mv {wildcards.sample}.cntTable results/telocal/"
         " && gzip -f results/telocal/{wildcards.sample}.cntTable )"
