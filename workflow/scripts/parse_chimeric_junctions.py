@@ -16,7 +16,7 @@ junction is enabled -- see the config schema; the default keeps everything).
 Filtering / evidence decisions are left to the user downstream -- the pipeline
 ships the full event table and the counts matrix instead.
 
-Output columns (results/chimera/{sample}.junctions.tsv):
+Output columns (results/chimera_junction/{sample}.junctions.tsv):
     event_id, sample, donor_chrom, donor_breakpoint, donor_strand,
     acceptor_chrom, acceptor_breakpoint, acceptor_strand, junction_type,
     canonical, repeat_flag, reads, donor_hits, acceptor_hits, direction,

@@ -85,10 +85,12 @@ def main(smk):
         "tetranscripts.qc.enabled": str(tecount_qc_enabled),
         "tetranscripts.qc.feature_class": tecount_qc.get("feature_class", ""),
         "tetranscripts.qc.pca_transform": tecount_qc.get("pca_transform", ""),
-        "chimera.enabled": str(chimera_enabled),
-        "chimera.breakpoint_tolerance": str(config.get("chimera", {}).get("breakpoint_tolerance", 0)),
-        "chimera.require_canonical_junction": str(config.get("chimera", {}).get("require_canonical_junction", False)),
-        "chimera.qc.pca_transform": config.get("chimera", {}).get("qc", {}).get("pca_transform", "vst"),
+        "chimera.junction.enabled": str(chimera_enabled),
+        "chimera.junction.breakpoint_tolerance": str(config.get("chimera", {}).get("junction", {}).get("breakpoint_tolerance", 0)),
+        "chimera.junction.require_canonical_junction": str(config.get("chimera", {}).get("junction", {}).get("require_canonical_junction", False)),
+        "chimera.junction.qc.pca_transform": config.get("chimera", {}).get("junction", {}).get("qc", {}).get("pca_transform", "vst"),
+        "chimera.assembly.enabled": str(config.get("chimera", {}).get("assembly", {}).get("enabled", False)),
+        "chimera.assembly.breakpoint_tolerance": str(config.get("chimera", {}).get("assembly", {}).get("breakpoint_tolerance", 0)),
         "telocal.enabled": str(telocal_enabled),
         "telocal.locind": (
             "(auto-build from TE GTF)" if telocal_locind_auto in (True, "True", "")

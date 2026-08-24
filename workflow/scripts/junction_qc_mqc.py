@@ -8,7 +8,7 @@ custom-content bar plots:
                             the TE-chimeras view, written when --out-te-chimeras
                             is given.
 
-Reads every results/chimera/qc/{sample}_junction_qc.tsv (metric/value pairs)
+Reads every results/chimera_junction/qc/{sample}_junction_qc.tsv (metric/value pairs)
 and writes the JSONs above. MultiQC renders them inside multiqc_report.html in
 the custom_content module (ordered by multiqc_config.yaml), with the two
 datasets switchable via each plot's cpswitch control.

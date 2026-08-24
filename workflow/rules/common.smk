@@ -572,12 +572,23 @@ def _is_paired(sample):
 # -----------------------------------------------------------------------------
 TRIM_ENABLED = bool(config.get("trimming", {}).get("enabled", True))
 
-# Optional chimera screen (rules/chimera.smk + sample_qc.smk). When enabled
-# (the default), the STAR alignment emits chimeric junctions and the chimera
-# rules annotate them; set chimera.enabled: false to opt out -- no chimera
-# STAR flags are passed, the chimera rules are not included, and the workflow
-# behaves like the plain quantification pipeline.
-CHIMERA_ENABLED = bool(config.get("chimera", {}).get("enabled", True))
+# Optional chimera-junction screen (rules/chimera_junction.smk +
+# sample_qc.smk). When enabled (the default), the STAR alignment emits
+# chimeric junctions and the chimera rules annotate them; set
+# chimera.junction.enabled: false to opt out -- no chimera STAR flags are
+# passed, the chimera rules are not included, and the workflow behaves like
+# the plain quantification pipeline. See CHIMERA_ASSEMBLY_ENABLED below for
+# the complementary StringTie-assembly-based screen.
+CHIMERA_JUNCTION_ENABLED = bool(
+    config.get("chimera", {}).get("junction", {}).get("enabled", True)
+)
+
+# Optional chimera-assembly screen (rules/chimera_assembly.smk):
+# StringTie-assembly-based detection, complementing CHIMERA_JUNCTION_ENABLED
+# above. Off by default -- newer and less validated.
+CHIMERA_ASSEMBLY_ENABLED = bool(
+    config.get("chimera", {}).get("assembly", {}).get("enabled", False)
+)
 
 # TEcounts sample-QC (PCA + sample clustering, rules/tecount_qc.smk), built
 # from the per-sample TEcount tables. Defaults come from the built-in
@@ -986,7 +997,7 @@ def all_benchmark_files():
             f"results/pipeline_info/benchmarks/tetranscripts_diffexp/{contrast}.txt"
         )
     # Chimera-screen rules only run when the chimera stage is enabled.
-    if CHIMERA_ENABLED:
+    if CHIMERA_JUNCTION_ENABLED:
         files += [
             "results/pipeline_info/benchmarks/annotation_to_bed/annotation_to_bed.txt",
             "results/pipeline_info/benchmarks/chimera_counts/chimera_counts.txt",
@@ -996,12 +1007,12 @@ def all_benchmark_files():
                 f"results/pipeline_info/benchmarks/parse_chimeric_junctions/{s}.txt",
                 f"results/pipeline_info/benchmarks/junction_qc/{s}.txt",
             ]
-            if config["chimera"]["outputs"]["write_igv_bed"]:
+            if config["chimera"]["junction"]["outputs"]["write_igv_bed"]:
                 files.append(
                     f"results/pipeline_info/benchmarks/chimera_igv_bed/{s}.txt"
                 )
-        if config["chimera"]["outputs"]["write_counts_matrix"]:
-            transform = config["chimera"]["qc"]["pca_transform"]
+        if config["chimera"]["junction"]["outputs"]["write_counts_matrix"]:
+            transform = config["chimera"]["junction"]["qc"]["pca_transform"]
             files += [
                 f"results/pipeline_info/benchmarks/"
                 f"sample_qc_transform/{transform}.txt",
@@ -1095,6 +1106,7 @@ def _write_env(name, dependencies, pip_dependencies=None):
 
 STAR_ENV = _write_env("star", [f"star={V['star']}"])
 SAMTOOLS_ENV = _write_env("samtools", [f"samtools={V['samtools']}"])
+STRINGTIE_ENV = _write_env("stringtie", [f"stringtie={V['stringtie']}"])
 # trim-galore brings cutadapt (its core dependency) along automatically;
 # fastqc is added explicitly because trim_galore's --fastqc_args (nf-core/
 # rnaseq default) shells out to it, and its reports feed the MultiQC report.

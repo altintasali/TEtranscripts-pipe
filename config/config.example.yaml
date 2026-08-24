@@ -175,52 +175,87 @@ tetranscripts:
 # after per-sample TEcount quantification. Nothing to configure here.
 
 chimera:
-  # Gene-TE chimera screen, run on the SAME STAR alignment that feeds TEcount
-  # (no separate alignment). On by default: the STAR alignment always emits
-  # chimeric junctions and the workflow detects and annotates chimeric
-  # gene-TE junction reads (results/chimera/...). Set enabled: false to opt
-  # out -- the workflow then behaves like a plain quantification pipeline.
-  # See the "Chimera screen" section of the README for the pipeline flow and
-  # output layout.
+  # Gene-TE chimera detection via two independent, complementary methods.
+  # See the "Chimera detection" section of the README for the pipeline flow
+  # and output layout of both.
   #
-  # EXPERIMENTAL: this stage is a newer addition to the pipeline -- its
-  # junction classification and QC-view behavior may still change between
-  # releases. Use for exploration, and validate the output before relying
-  # on it for published results.
-  enabled: true
-  star:
-    # STAR chimeric-alignment detection parameters. The defaults below are
-    # the TEtranscripts authors' recommendations for the gene-TE chimera
-    # context (from their STAR settings).
-    segment_min: 12
-    overhang_min: 12
-    score_drop_max: 20
-    # Extra verbatim STAR chimeric-alignment flags (usually empty).
-    extra: ""
-  # Slack (bp) allowed when matching a STAR chimeric breakpoint to an
-  # exon/TE feature edge (annotation coordinate conventions can shift
-  # breakpoints by a base or two).
-  breakpoint_tolerance: 0
-  # Whether to require STAR junction type 1 (GT/AG) for a junction to be
-  # classified as gene-TE. TE-involved splicing is often non-canonical, so
-  # the default (false) keeps everything and records the type.
-  require_canonical_junction: false
-  qc:
-    # Filters applied to the chimera count matrix *for the PCA/clustering
-    # view only* -- they never remove events from all_events.tsv or the
-    # counts matrix. min_events is the floor for drawing the QC plots.
-    min_samples_present: 2
-    min_total_counts: 5
-    min_events: 10
-    # Count-matrix transformation for the QC view: vst / rlog (DESeq2) or
-    # log2 (log2(x+1), no DESeq2).
-    pca_transform: vst
-  outputs:
-    # Which chimera artifacts to write. The per-sample junction tables, the
-    # all-events catalog, the counts matrix, and the junction-QC summaries
-    # are always written; these toggles cover the optional extras.
-    write_igv_bed: false
-    write_counts_matrix: true
+  # EXPERIMENTAL: both stages are newer additions to the pipeline -- their
+  # classification and QC-view behavior may still change between releases.
+  # Use for exploration, and validate the output before relying on it for
+  # published results.
+  junction:
+    # STAR chimeric-junction read screen, run on the SAME STAR alignment
+    # that feeds TEcount (no separate alignment). On by default: the STAR
+    # alignment always emits chimeric junctions and the workflow detects
+    # and annotates chimeric gene-TE junction reads
+    # (results/chimera_junction/...). Set enabled: false to opt out -- the
+    # workflow then behaves like a plain quantification pipeline. Only
+    # sees reads STAR can't explain as one linear alignment -- an
+    # ordinary, canonical-intron TE-initiated splice will not appear here;
+    # see chimera.assembly below for that case.
+    enabled: true
+    star:
+      # STAR chimeric-alignment detection parameters. The defaults below are
+      # the TEtranscripts authors' recommendations for the gene-TE chimera
+      # context (from their STAR settings).
+      segment_min: 12
+      overhang_min: 12
+      score_drop_max: 20
+      # Extra verbatim STAR chimeric-alignment flags (usually empty).
+      extra: ""
+    # Slack (bp) allowed when matching a STAR chimeric breakpoint to an
+    # exon/TE feature edge (annotation coordinate conventions can shift
+    # breakpoints by a base or two).
+    breakpoint_tolerance: 0
+    # Whether to require STAR junction type 1 (GT/AG) for a junction to be
+    # classified as gene-TE. TE-involved splicing is often non-canonical, so
+    # the default (false) keeps everything and records the type.
+    require_canonical_junction: false
+    qc:
+      # Filters applied to the chimera count matrix *for the PCA/clustering
+      # view only* -- they never remove events from all_events.tsv or the
+      # counts matrix. min_events is the floor for drawing the QC plots.
+      min_samples_present: 2
+      min_total_counts: 5
+      min_events: 10
+      # Count-matrix transformation for the QC view: vst / rlog (DESeq2) or
+      # log2 (log2(x+1), no DESeq2).
+      pca_transform: vst
+    outputs:
+      # Which chimera artifacts to write. The per-sample junction tables, the
+      # all-events catalog, the counts matrix, and the junction-QC summaries
+      # are always written; these toggles cover the optional extras.
+      write_igv_bed: false
+      write_counts_matrix: true
+  assembly:
+    # StringTie-assembly chimera screen: catches TE-initiated/exonized/
+    # terminated transcripts spliced via an ordinary, canonical intron --
+    # structurally invisible to chimera.junction above, since STAR only
+    # flags a junction as chimeric when a read can't be explained by one
+    # linear alignment. Complements chimera.junction; a candidate found by
+    # both is cross-referenced in
+    # results/chimera_assembly/candidates_with_junction_evidence.tsv.gz.
+    #
+    # Off by default -- newer and less validated than chimera.junction.
+    # Uses its own dedicated STAR alignment pass (--outSAMstrandField
+    # intronMotif, needed for StringTie's strand inference on unstranded
+    # data) which suppresses non-canonical-junction reads from that one
+    # private BAM only -- the main alignment everything else uses is
+    # untouched, so this is a sensitivity tradeoff scoped to this screen
+    # alone, not the rest of the pipeline.
+    enabled: false
+    # Slack (bp) allowed when matching an assembled transcript's exon to a
+    # TE/gene-exon feature edge. StringTie's exon boundaries (especially
+    # the first exon's 5' end, which has no upstream junction to anchor
+    # it) are coverage-inferred and can be imprecise at low depth -- a
+    # more generous default than chimera.junction's, since single-end data
+    # typically gives lower depth per read than paired-end.
+    breakpoint_tolerance: 5
+    # Not applied automatically -- candidates are always fully reported,
+    # same annotate-first philosophy as chimera.junction. This is just the
+    # threshold used when reading results/chimera_assembly/tpm_matrix.tsv.gz
+    # yourself downstream.
+    min_transcript_tpm: 1
 
 # Locus-level TE quantification (TElocal) -- a complement to TEcount's
 # subfamily-level quantification. TElocal resolves TEs per genomic instance

@@ -168,3 +168,36 @@ rule genepred_to_bed12:
         UCSC_TOOLS_ENV
     shell:
         "genePredToBed {input.genepred} {output.bed12} > {log} 2>&1"
+
+
+if CHIMERA_JUNCTION_ENABLED or CHIMERA_ASSEMBLY_ENABLED:
+
+    rule annotation_to_bed:
+        # Converts the gene GTF + the curated TE GTF into the BED tracks
+        # both chimera screens' breakpoint/exon-overlap tests run against
+        # (genes.bed, exons.bed, te.bed) -- shared by chimera_junction.smk
+        # and chimera_assembly.smk, so it lives here (built whenever either
+        # is enabled) rather than in either one specifically.
+        # Pure-python (annotation_to_bed.py), so it runs in the base
+        # environment.
+        input:
+            gtf=GTF,
+            te_gtf=TE_GTF,
+        output:
+            genes="results/reference/genes.bed",
+            exons="results/reference/exons.bed",
+            te="results/reference/te.bed",
+        params:
+            outdir="results/reference",
+        threads: get_resources("annotation_to_bed")["threads"]
+        resources:
+            mem_mb=get_resources("annotation_to_bed")["mem_mb"],
+            runtime=get_resources("annotation_to_bed")["runtime"],
+        benchmark:
+            "results/pipeline_info/benchmarks/annotation_to_bed/annotation_to_bed.txt",
+        log:
+            "results/pipeline_info/logs/reference/annotation_to_bed.log",
+        shell:
+            "python3 {SCRIPTS_DIR}/annotation_to_bed.py "
+            "--gtf {input.gtf} --te-gtf {input.te_gtf} "
+            "--outdir {params.outdir} > {log} 2>&1"

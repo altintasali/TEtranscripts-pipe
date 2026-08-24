@@ -77,14 +77,14 @@ def _chimera_qc_mqc_inputs():
     as interactive PCA + sample-distance plots inside the report). Only when
     the chimera stage is enabled and a counts matrix is written. Their
     directory is added to the MultiQC scan dirs via params.indirs."""
-    if not CHIMERA_ENABLED:
+    if not CHIMERA_JUNCTION_ENABLED:
         return []
-    if not config["chimera"]["outputs"]["write_counts_matrix"]:
+    if not config["chimera"]["junction"]["outputs"]["write_counts_matrix"]:
         return []
-    transform = config["chimera"]["qc"]["pca_transform"]
+    transform = config["chimera"]["junction"]["qc"]["pca_transform"]
     return [
-        f"results/chimera/qc/pca_{transform}_mqc.json",
-        f"results/chimera/qc/heatmap_{transform}_mqc.json",
+        f"results/chimera_junction/qc/pca_{transform}_mqc.json",
+        f"results/chimera_junction/qc/heatmap_{transform}_mqc.json",
     ]
 
 
@@ -94,11 +94,11 @@ def _junction_qc_mqc_inputs():
     gene<->TE subset). Only when the chimera stage is enabled; independent of
     write_counts_matrix, since junction QC runs for every sample the annotator
     produces."""
-    if not CHIMERA_ENABLED:
+    if not CHIMERA_JUNCTION_ENABLED:
         return []
     return [
-        "results/chimera/qc/junction_qc_mqc.json",
-        "results/chimera/qc/te_chimeras_mqc.json",
+        "results/chimera_junction/qc/junction_qc_mqc.json",
+        "results/chimera_junction/qc/te_chimeras_mqc.json",
     ]
 
 
@@ -123,6 +123,18 @@ def _tecount_summary_mqc_inputs():
     return [
         "results/tecount/qc/tecount_assignment_mqc.json",
         "results/tecount/qc/tecount_te_class_mqc.json",
+    ]
+
+
+def _chimera_assembly_mqc_inputs():
+    """MultiQC custom-content JSONs from the chimera-assembly screen (candidates
+    by class + the "what to look at" highlights). Only when chimera.assembly
+    is enabled (off by default)."""
+    if not CHIMERA_ASSEMBLY_ENABLED:
+        return []
+    return [
+        "results/chimera_assembly/qc/chimera_assembly_classes_mqc.json",
+        "results/chimera_assembly/qc/chimera_assembly_highlights_mqc.json",
     ]
 
 
@@ -166,7 +178,7 @@ rule config_used:
         _trim_enabled=TRIM_ENABLED,
         _tecount_qc_enabled=TECOUNT_QC_ENABLED,
         _tecount_qc=TECOUNT_QC,
-        _chimera_enabled=CHIMERA_ENABLED,
+        _chimera_enabled=CHIMERA_JUNCTION_ENABLED,
         _telocal_enabled=TELOCAL_ENABLED,
         _telocal_locind_auto=not _telocal_locind_cfg,
         _telocal_qc_enabled=TELOCAL_QC_ENABLED,
@@ -206,6 +218,7 @@ rule multiqc:
         tecount_qc=_tecount_qc_mqc_inputs(),
         tecount_summary=_tecount_summary_mqc_inputs(),
         telocal=_telocal_qc_mqc_inputs(),
+        chimera_assembly=_chimera_assembly_mqc_inputs(),
     output:
         html="results/qc/multiqc_report.html",
         data=directory("results/qc/multiqc_report_data"),

@@ -129,7 +129,7 @@ the TElocal tables drive the same section set for the locus-level counts.
 The **same** alignment also drives a gene-TE chimera
 screen that annotates chimeric junction reads and produces a counts matrix,
 an interactive sample-QC view, and a junction-QC barplot (on by default;
-set `chimera.enabled: false` to opt out). A single MultiQC
+set `chimera.junction.enabled: false` to opt out). A single MultiQC
 report pulls together
 FastQC, TrimGalore!, STAR, RSeQC, the TEcounts, TElocal, and chimera QC plots, tool
 versions, and a per-rule resource-usage table.
@@ -150,8 +150,9 @@ versions, and a per-rule resource-usage table.
 - [STAR 2-pass mapping](#star-2-pass-mapping)
 - [Automatic differential analysis](#automatic-differential-analysis)
 - [TEcounts sample-QC](#tecounts-sample-qc)
-- [The chimera screen](#the-chimera-screen)
-- [How chimeric TEs are detected](#how-chimeric-tes-are-detected)
+- [Chimera detection](#chimera-detection)
+- [How chimeric TEs are detected (junction screen)](#how-chimeric-tes-are-detected-junction-screen)
+- [The chimera-assembly screen](#the-chimera-assembly-screen)
 - [Output layout](#output-layout)
 - [Notes](#notes)
 
@@ -265,13 +266,16 @@ reference):
 | `telocal.enabled` | run TElocal locus-level TE quantification (default `true`, see [TElocal: locus-level TE quantification](#telocal-locus-level-te-quantification)). |
 | `telocal.locind` | path to a pre-built `.locInd` index. Empty (default) auto-builds it from the TE GTF into `results/telocal/telocal.locInd`. |
 | `telocal.qc.*` | TElocal sample-QC view — same keys as `tetranscripts.qc.*`; default `pca_transform: log2` (locus matrices are too large for vst/rlog). |
-| `chimera.enabled` | run the gene-TE chimera screen (default `true`; set `false` to opt out, see [The chimera screen](#the-chimera-screen)). |
-| `chimera.star` | STAR chimeric-alignment detection params (`segment_min`, `overhang_min`, `score_drop_max`, `extra`) — defaults follow the TEtranscripts authors' recommendations for the gene-TE chimera context. |
-| `chimera.breakpoint_tolerance` | slack (bp) allowed when matching a STAR chimeric breakpoint to an exon/TE feature edge (default `0`). |
-| `chimera.require_canonical_junction` | require STAR junction type 1 (GT/AG) for a junction to count as gene-TE (default `false` — TE-involved splicing is often non-canonical). |
-| `chimera.qc.*` | sample-QC **view-only** filters: `min_samples_present`, `min_total_counts`, `min_events` and `pca_transform` (`vst`/`rlog`/`log2`). They never remove events from the catalog or counts matrix. |
-| `chimera.outputs.write_igv_bed` | also write a per-sample IGV BED track (`results/chimera/igv/`, default `false`). |
-| `chimera.outputs.write_counts_matrix` | write the chimera counts matrix + sample-QC view (`results/chimera/`, default `true`). |
+| `chimera.junction.enabled` | run the STAR-chimeric-junction-read gene-TE chimera screen (default `true`; set `false` to opt out, see [Chimera detection](#chimera-detection)). |
+| `chimera.junction.star` | STAR chimeric-alignment detection params (`segment_min`, `overhang_min`, `score_drop_max`, `extra`) — defaults follow the TEtranscripts authors' recommendations for the gene-TE chimera context. |
+| `chimera.junction.breakpoint_tolerance` | slack (bp) allowed when matching a STAR chimeric breakpoint to an exon/TE feature edge (default `0`). |
+| `chimera.junction.require_canonical_junction` | require STAR junction type 1 (GT/AG) for a junction to count as gene-TE (default `false` — TE-involved splicing is often non-canonical). |
+| `chimera.junction.qc.*` | sample-QC **view-only** filters: `min_samples_present`, `min_total_counts`, `min_events` and `pca_transform` (`vst`/`rlog`/`log2`). They never remove events from the catalog or counts matrix. |
+| `chimera.junction.outputs.write_igv_bed` | also write a per-sample IGV BED track (`results/chimera_junction/igv/`, default `false`). |
+| `chimera.junction.outputs.write_counts_matrix` | write the chimera counts matrix + sample-QC view (`results/chimera_junction/`, default `true`). |
+| `chimera.assembly.enabled` | run the StringTie-assembly gene-TE chimera screen (default `false` — newer and less validated than `chimera.junction`; catches ordinary-canonical-intron TE-initiated splices `chimera.junction` structurally cannot see, see [Chimera detection](#chimera-detection)). |
+| `chimera.assembly.breakpoint_tolerance` | slack (bp) allowed when matching an assembled transcript's exon to a TE/gene-exon feature edge (default `5` — more generous than `chimera.junction`'s, since StringTie's coverage-inferred exon boundaries are less precise, especially on single-end data). |
+| `chimera.assembly.min_transcript_tpm` | not applied automatically (candidates are always fully reported); documents the threshold used when reading `results/chimera_assembly/tpm_matrix.tsv.gz` yourself downstream (default `1`). |
 | `outputs.keep_merged_fastq` | keep the lane-concatenated fastqs (`results/fastq/`). `false` deletes them (temp()) once alignment is done. |
 | `outputs.keep_trimmed_fastq` | keep the trimmed fastqs (`results/trimming/`). `false` deletes them (temp()) once alignment is done. |
 | `outputs.keep_star_index` | keep the STAR genome index (`results/star_index/`). `false` deletes it (rm -rf) once alignment is done. |
@@ -663,20 +667,34 @@ annotation size.
 
 Set `telocal.enabled: false` to skip locus-level quantification entirely.
 
-## The chimera screen
+## Chimera detection
 
-> **Experimental.** This stage is a newer addition to the pipeline — the
-> junction classification and the sample-QC view may still change between
-> releases. Use it for exploration and validate the output before relying on
-> it for published results.
+> **Experimental.** Both stages below are newer additions to the pipeline —
+> classification and the sample-QC views may still change between releases.
+> Use them for exploration and validate the output before relying on it for
+> published results.
 
-On by default (`chimera.enabled: true`); set it to `false` to opt out and
-return to a plain quantification pipeline. When on, the
+Gene-TE chimeras are detected by two independent, complementary methods:
+**chimera.junction** (STAR chimeric-junction reads, on by default — the
+original screen, detailed below) and **chimera.assembly** (StringTie
+transcript-structure evidence, off by default — see
+[The chimera-assembly screen](#the-chimera-assembly-screen)). The junction
+screen only sees reads STAR can't explain as one linear alignment; a TE that
+splices into a gene via an ordinary, canonical, nearby intron aligns as a
+normal spliced read and never reaches it. The assembly screen exists
+specifically to catch that case instead. A candidate found by both is
+cross-referenced — see
+`results/chimera_assembly/candidates_with_junction_evidence.tsv.gz`.
+
+### The chimera-junction screen
+
+On by default (`chimera.junction.enabled: true`); set it to `false` to opt
+out and return to a plain quantification pipeline. When on, the
 **same** STAR alignment that feeds TEcount also detects gene-TE chimeric
 junctions (no separate alignment step). Per sample, STAR's chimeric junction
 records (`Chimeric.out.junction`, from `--chimOutType Junctions WithinBAM
 SoftClip`) are annotated against the gene (exon) and TE BED tracks and
-collapsed into an event table (`results/chimera/{sample}_junctions.tsv`). Each
+collapsed into an event table (`results/chimera_junction/{sample}_junctions.tsv`). Each
 row is one junction, classified by what its two breakpoint loci overlap:
 
 | direction | meaning |
@@ -705,51 +723,51 @@ cut before treating any call as confident.
 
 The per-sample tables then merge into:
 
-- `results/chimera/all_events.tsv` — every event across samples (with the
+- `results/chimera_junction/all_events.tsv` — every event across samples (with the
   per-sample supporting read counts and a total).
-- `results/chimera/te_chimeras.tsv` — the `all_events` catalog filtered to the
+- `results/chimera_junction/te_chimeras.tsv` — the `all_events` catalog filtered to the
   gene-TE chimeras only (`direction` `gene_to_te`/`te_to_gene`), same columns —
   the TE chimeras as their own table, no filtering needed.
-- `results/chimera/counts_matrix.tsv` — events x samples read counts.
-- `results/chimera/{sample}_te_chimeras.tsv` — per sample, the same gene-TE
+- `results/chimera_junction/counts_matrix.tsv` — events x samples read counts.
+- `results/chimera_junction/{sample}_te_chimeras.tsv` — per sample, the same gene-TE
   filter of `{sample}_junctions.tsv` (same columns, handy for per-sample
   inspection or IGV-style work).
-- `results/chimera/qc/{sample}_junction_qc.tsv` — per-sample summary
+- `results/chimera_junction/qc/{sample}_junction_qc.tsv` — per-sample summary
   (total junctions, gene-TE vs other, canonical/non-canonical split,
   repeat-flagged count, top families/classes).
-- `results/chimera/qc/junction_qc_mqc.json` — a **junction-QC barplot** for the
+- `results/chimera_junction/qc/junction_qc_mqc.json` — a **junction-QC barplot** for the
   report: per sample, junction counts (and % of total junctions) by direction
   (`gene_to_te`/`te_to_gene` first, then the other classes), switchable between
   counts and % in the interactive plot.
-- `results/chimera/qc/te_chimeras_mqc.json` — the **TE-chimeras barplot**: the
+- `results/chimera_junction/qc/te_chimeras_mqc.json` — the **TE-chimeras barplot**: the
   gene↔TE subset on its own (`gene_to_te` vs `te_to_gene`, counts and % of
   total junctions), the last chimera view in the report.
 
-If `chimera.outputs.write_counts_matrix` is on (default), a **sample-QC view**
+If `chimera.junction.outputs.write_counts_matrix` is on (default), a **sample-QC view**
 is produced with DESeq2 (nf-core/rnaseq style): the counts matrix is
-transformed (`vst`/`rlog`/`log2`, `chimera.qc.pca_transform`), and the
+transformed (`vst`/`rlog`/`log2`, `chimera.junction.qc.pca_transform`), and the
 transformed matrix drives a PCA scatter and a sample-to-sample distance
 heatmap, written as MultiQC custom-content JSON and rendered interactively
 inside `multiqc_report.html` (points colored by the sample sheet's
-`condition` column). The `chimera.qc` filters (`min_samples_present`,
+`condition` column). The `chimera.junction.qc` filters (`min_samples_present`,
 `min_total_counts`, `min_events`) apply **only to this QC view** — the event
 catalog and counts matrix are never reduced. If too few events pass the
 filters, the plot rule ships empty custom-content JSON (the report documents
 the skip) and a log message instead of failing.
 
-With `chimera.outputs.write_igv_bed: true`, each sample also gets a BED track
-of its gene-TE junctions (`results/chimera/igv/{sample}_junctions.bed`) for
+With `chimera.junction.outputs.write_igv_bed: true`, each sample also gets a BED track
+of its gene-TE junctions (`results/chimera_junction/igv/{sample}_junctions.bed`) for
 direct loading in IGV (optionally colored by direction).
 
-`chimera.require_canonical_junction: true` restricts the gene-TE classification
+`chimera.junction.require_canonical_junction: true` restricts the gene-TE classification
 to canonical (GT/AG) junctions; the default keeps everything and records the
-canonical flag in the table. The `chimera.star` parameters are passed through
+canonical flag in the table. The `chimera.junction.star` parameters are passed through
 to STAR's chimeric-alignment detection; the shipped defaults follow the
 TEtranscripts authors' recommendations for gene-TE chimeras. The screen calls
 for at least 2 samples (the PCA/heatmap view needs replicates); the QC-view
 `min_events` floor controls when the plots are drawn.
 
-## How chimeric TEs are detected
+### How chimeric TEs are detected (junction screen)
 
 The chimera screen reuses the **same STAR alignment** that feeds TEcount — no
 separate alignment step. STAR is asked for chimeric junction records
@@ -811,7 +829,7 @@ flowchart TD
    with breakpoint coordinates, strands, junction type and a repeat flag. The
    BAM's SA tags let any junction be re-inspected in IGV.
 3. **Annotation** — for every junction, the donor and acceptor breakpoints are
-   tested against the exon and TE tracks (within `chimera.breakpoint_tolerance`).
+   tested against the exon and TE tracks (within `chimera.junction.breakpoint_tolerance`).
    A gene exon joined to a TE gives `gene_to_te` / `te_to_gene` — the event of
    interest; the other overlaps are recorded but not discarded. Identical
    junctions across reads collapse into one event with a supporting-read count,
@@ -868,6 +886,51 @@ gene_strand_match: yes              (forward-stranded library)
 ```
 
 </details>
+
+### The chimera-assembly screen
+
+Off by default (`chimera.assembly.enabled: true` to turn on). Complements the
+junction screen above rather than replacing it: STAR only flags a junction as
+chimeric when a read can't be explained by one linear (possibly spliced)
+alignment, so a TE that splices into a gene via an ordinary, canonical,
+nearby intron aligns as a completely normal spliced read and never reaches
+the junction screen at all. This screen catches that case instead, from
+StringTie's assembled transcript structure rather than from split reads.
+
+Pipeline: per-sample StringTie assembly (`stringtie_assemble`, from a
+**dedicated** STAR alignment pass with `--outSAMstrandField intronMotif` —
+needed for StringTie's strand inference on unstranded data; this suppresses
+non-canonical-junction reads from that one private BAM only, not the main
+alignment everything else uses) → cross-sample structural union
+(`stringtie_merge`) → per-sample re-quantification (`stringtie_requantify`)
+→ classification against the same `genes.bed`/`exons.bed`/`te.bed` tracks the
+junction screen already builds (`chimera_assembly_classify`) → a
+candidate × sample TPM matrix (`chimera_assembly_quantify`) → cross-reference
+against the junction screen's calls (`chimera_assembly_cross_evidence`).
+
+For every multi-exon assembled transcript, exons are ordered 5′→3′ by strand,
+then:
+
+| condition | `chimera_type` |
+|-----------|-----------------|
+| first exon overlaps a TE, a downstream exon overlaps an annotated gene exon | `te_initiated` |
+| first exon overlaps a TE, no downstream exon matches any annotated gene | `te_initiated_intergenic` |
+| an internal exon (not first, not last) overlaps a TE | `te_exonized` |
+| the last exon overlaps a TE, an earlier exon matches an annotated gene | `te_terminated` |
+| single-exon transcript overlapping a TE (no splice evidence to confirm gene connectivity) | `unspliced_te_only`, reported separately at lower confidence |
+
+Like the junction screen, this is annotate-only — every candidate is written
+out, with the full TE/gene overlap set preserved (not just the first hit) for
+inspecting multi-copy/nested-TE loci; apply your own TPM/replicate cutoff
+downstream. Output:
+
+- `results/chimera_assembly/candidates.tsv.gz` — every classified transcript.
+- `results/chimera_assembly/tpm_matrix.tsv.gz` — candidate × sample TPM.
+- `results/chimera_assembly/candidates_with_junction_evidence.tsv.gz` — the
+  candidates table with `confirmed_by_junction_screen` and
+  `junction_supporting_reads` columns added: a candidate found by **both**
+  independent methods (assembly structure and chimeric-junction reads) is
+  materially higher confidence than either alone.
 
 ## Output layout
 

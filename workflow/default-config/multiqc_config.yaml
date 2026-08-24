@@ -56,6 +56,10 @@ module_order:
 #                (junction_qc_barplot / sample_qc rules)
 #   te_chimeras  Chimeric TEs: gene<->TE junction subset view
 #                (junction_qc_barplot rule)
+#   chimera_assembly  Chimera (assembly): candidates-by-class barplot + a
+#                "what to look at" guide with this run's top candidates
+#                (chimera_assembly_summary_mqc rule; off by default, config
+#                chimera.assembly.enabled)
 #   config_used  resolved run configuration (config_used rule)
 #   resource_usage  per-rule benchmark summary (benchmark_summary rule)
 # MultiQC silently skips ids that produced no data, so the ids are harmless
@@ -66,5 +70,6 @@ custom_content:
     - telocal
     - chimera
     - te_chimeras
+    - chimera_assembly
     - config_used
     - resource_usage

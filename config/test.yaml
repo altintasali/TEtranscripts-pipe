@@ -69,23 +69,28 @@ outputs:
 # the synthetic test data; the single test TE is enough for junction parsing
 # + counts + sample-QC to run.
 chimera:
-  enabled: true
-  star:
-    segment_min: 12
-    overhang_min: 12
-    score_drop_max: 20
-    extra: ""
-  breakpoint_tolerance: 0
-  require_canonical_junction: false
-  qc:
-    min_samples_present: 2
-    min_total_counts: 5
-    # 4 test samples, one TE: keep the floor low so the QC plots draw.
-    min_events: 2
-    pca_transform: vst
-  outputs:
-    write_igv_bed: true
-    write_counts_matrix: true
+  junction:
+    enabled: true
+    star:
+      segment_min: 12
+      overhang_min: 12
+      score_drop_max: 20
+      extra: ""
+    breakpoint_tolerance: 0
+    require_canonical_junction: false
+    qc:
+      min_samples_present: 2
+      min_total_counts: 5
+      # 4 test samples, one TE: keep the floor low so the QC plots draw.
+      min_events: 2
+      pca_transform: vst
+    outputs:
+      write_igv_bed: true
+      write_counts_matrix: true
+  assembly:
+    enabled: false
+    breakpoint_tolerance: 5
+    min_transcript_tpm: 1
 
 tetranscripts:
   mode: multi

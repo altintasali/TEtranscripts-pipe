@@ -1,6 +1,6 @@
 # -----------------------------------------------------------------------------
 # Chimera sample-QC: PCA / sample-distance views of the chimera counts
-# matrix (results/chimera/counts_matrix.tsv), DESeq2-normalized
+# matrix (results/chimera_junction/counts_matrix.tsv), DESeq2-normalized
 # (vst/rlog) or log2. The views are written as MultiQC custom-content JSON
 # (pca_{transform}_mqc.json, heatmap_{transform}_mqc.json) and rendered
 # interactively inside multiqc_report.html.
@@ -16,9 +16,9 @@
 # -----------------------------------------------------------------------------
 rule sample_qc_transform:
     input:
-        counts="results/chimera/counts_matrix.tsv.gz",
+        counts="results/chimera_junction/counts_matrix.tsv.gz",
     output:
-        "results/chimera/qc/{transform}_counts.tsv.gz",
+        "results/chimera_junction/qc/{transform}_counts.tsv.gz",
     params:
         samples=config["samples"],
         min_samples_present=CHIMERA_QC["min_samples_present"],
@@ -30,7 +30,7 @@ rule sample_qc_transform:
     benchmark:
         "results/pipeline_info/benchmarks/sample_qc_transform/{transform}.txt",
     log:
-        "results/pipeline_info/logs/chimera/sample_qc/transform_{transform}.log",
+        "results/pipeline_info/logs/chimera_junction/sample_qc/transform_{transform}.log",
     conda:
         CHIMERA_QC_ENV
     shell:
@@ -45,10 +45,10 @@ rule sample_qc:
     # counts, colored by condition (sample sheet's "condition" column; absent
     # -> one "all" group), emitted as MultiQC custom-content JSON.
     input:
-        transformed="results/chimera/qc/{transform}_counts.tsv.gz",
+        transformed="results/chimera_junction/qc/{transform}_counts.tsv.gz",
     output:
-        pca="results/chimera/qc/pca_{transform}_mqc.json",
-        heatmap="results/chimera/qc/heatmap_{transform}_mqc.json",
+        pca="results/chimera_junction/qc/pca_{transform}_mqc.json",
+        heatmap="results/chimera_junction/qc/heatmap_{transform}_mqc.json",
     params:
         samples=config["samples"],
         min_events=CHIMERA_QC["min_events"],
@@ -59,7 +59,7 @@ rule sample_qc:
     benchmark:
         "results/pipeline_info/benchmarks/sample_qc/{transform}.txt",
     log:
-        "results/pipeline_info/logs/chimera/sample_qc/plots_{transform}.log",
+        "results/pipeline_info/logs/chimera_junction/sample_qc/plots_{transform}.log",
     conda:
         CHIMERA_QC_ENV
     shell:

@@ -138,7 +138,7 @@ load_conditions <- function(samples_path) {
 
 # --- MultiQC custom-content JSON writers -------------------------------------
 # The plots mode emits two documents MultiQC picks up by the `_mqc.json`
-# suffix (results/chimera/qc/*_mqc.json) and renders as an interactive
+# suffix (results/chimera_junction/qc/*_mqc.json) and renders as an interactive
 # scatter (PCA) and heatmap (sample distances). Hand-built JSON: the payloads
 # are small and fixed, and the QC env needs no extra JSON dependency.
 

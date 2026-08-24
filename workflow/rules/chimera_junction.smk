@@ -10,8 +10,12 @@
 # gene/TE tracks and aggregates them into the all-events catalog and the
 # counts matrix the sample-QC stage (sample_qc.smk) consumes.
 #
+# The genes.bed/exons.bed/te.bed tracks this stage annotates against are
+# built by ref.smk's annotation_to_bed rule (shared with chimera_assembly.smk,
+# so it lives in ref.smk rather than here -- it must exist whenever EITHER
+# chimera screen is enabled, not just this one).
+#
 # Rules:
-#   annotation_to_bed        GTF + TE GTF -> BED tracks (once)
 #   parse_chimeric_junctions per-sample junction annotation (+ {sample}_te_chimeras)
 #   chimera_counts           merge per-sample tables -> all_events + counts + te_chimeras
 #   junction_qc              per-sample QC summary (MultiQC custom content)
@@ -19,19 +23,19 @@
 # -----------------------------------------------------------------------------
 import os
 
-WRITE_COUNTS = bool(config["chimera"]["outputs"]["write_counts_matrix"])
-WRITE_IGV_BED = bool(config["chimera"]["outputs"]["write_igv_bed"])
-CHIMERA_QC = config["chimera"]["qc"]
+WRITE_COUNTS = bool(config["chimera"]["junction"]["outputs"]["write_counts_matrix"])
+WRITE_IGV_BED = bool(config["chimera"]["junction"]["outputs"]["write_igv_bed"])
+CHIMERA_QC = config["chimera"]["junction"]["qc"]
 
 
 def chimera_counts_input():
     if TELOCAL_ENABLED:
         return [
-            f"results/chimera/{s}_junctions_telocal.tsv.gz"
+            f"results/chimera_junction/{s}_junctions_telocal.tsv.gz"
             for s in SAMPLES
         ]
     return [
-        f"results/chimera/{s}_junctions.tsv.gz"
+        f"results/chimera_junction/{s}_junctions.tsv.gz"
         for s in SAMPLES
     ]
 
@@ -39,34 +43,34 @@ def chimera_counts_input():
 def all_chimera_outputs():
     """Chimera artifacts for the `all` target (Snakefile)."""
     files = [
-        f"results/chimera/{s}_junctions.tsv.gz"
+        f"results/chimera_junction/{s}_junctions.tsv.gz"
         for s in SAMPLES
     ]
     if TELOCAL_ENABLED:
         files += [
-            f"results/chimera/{s}_junctions_telocal.tsv.gz"
+            f"results/chimera_junction/{s}_junctions_telocal.tsv.gz"
             for s in SAMPLES
         ]
     files += [
-        f"results/chimera/{s}_te_chimeras.tsv.gz"
+        f"results/chimera_junction/{s}_te_chimeras.tsv.gz"
         for s in SAMPLES
     ]
     files += [
-        "results/chimera/all_events.tsv.gz",
-        "results/chimera/te_chimeras.tsv.gz",
-        "results/chimera/counts_matrix.tsv.gz",
+        "results/chimera_junction/all_events.tsv.gz",
+        "results/chimera_junction/te_chimeras.tsv.gz",
+        "results/chimera_junction/counts_matrix.tsv.gz",
     ]
     files += [
-        f"results/chimera/qc/{s}_junction_qc.tsv.gz"
+        f"results/chimera_junction/qc/{s}_junction_qc.tsv.gz"
         for s in SAMPLES
     ]
     files += [
-        "results/chimera/qc/junction_qc_mqc.json",
-        "results/chimera/qc/te_chimeras_mqc.json",
+        "results/chimera_junction/qc/junction_qc_mqc.json",
+        "results/chimera_junction/qc/te_chimeras_mqc.json",
     ]
     if WRITE_IGV_BED:
         files += [
-            f"results/chimera/igv/{s}_junctions.bed"
+            f"results/chimera_junction/igv/{s}_junctions.bed"
             for s in SAMPLES
         ]
     return files
@@ -79,37 +83,10 @@ def all_sample_qc_outputs():
         return []
     transform = CHIMERA_QC["pca_transform"]
     return [
-        f"results/chimera/qc/{transform}_counts.tsv.gz",
-        f"results/chimera/qc/pca_{transform}_mqc.json",
-        f"results/chimera/qc/heatmap_{transform}_mqc.json",
+        f"results/chimera_junction/qc/{transform}_counts.tsv.gz",
+        f"results/chimera_junction/qc/pca_{transform}_mqc.json",
+        f"results/chimera_junction/qc/heatmap_{transform}_mqc.json",
     ]
-
-
-rule annotation_to_bed:
-    # Converts the gene GTF + the curated TE GTF into the BED tracks the
-    # breakpoint-overlap test runs against (genes.bed, exons.bed, te.bed).
-    # Pure-python (annotation_to_bed.py), so it runs in the base environment.
-    input:
-        gtf=GTF,
-        te_gtf=TE_GTF,
-    output:
-        genes="results/reference/genes.bed",
-        exons="results/reference/exons.bed",
-        te="results/reference/te.bed",
-    params:
-        outdir="results/reference",
-    threads: get_resources("annotation_to_bed")["threads"]
-    resources:
-        mem_mb=get_resources("annotation_to_bed")["mem_mb"],
-        runtime=get_resources("annotation_to_bed")["runtime"],
-    benchmark:
-        "results/pipeline_info/benchmarks/annotation_to_bed/annotation_to_bed.txt",
-    log:
-        "results/pipeline_info/logs/chimera/annotation_to_bed.log",
-    shell:
-        "python3 {SCRIPTS_DIR}/annotation_to_bed.py "
-        "--gtf {input.gtf} --te-gtf {input.te_gtf} "
-        "--outdir {params.outdir} > {log} 2>&1"
 
 
 rule parse_chimeric_junctions:
@@ -123,13 +100,13 @@ rule parse_chimeric_junctions:
         te="results/reference/te.bed",
         strandedness=strandedness_input,
     output:
-        junctions="results/chimera/{sample}_junctions.tsv.gz",
-        te_chimeras="results/chimera/{sample}_te_chimeras.tsv.gz",
+        junctions="results/chimera_junction/{sample}_junctions.tsv.gz",
+        te_chimeras="results/chimera_junction/{sample}_te_chimeras.tsv.gz",
     params:
-        tolerance=config["chimera"]["breakpoint_tolerance"],
+        tolerance=config["chimera"]["junction"]["breakpoint_tolerance"],
         canonical_flag=lambda wc: (
             "--require-canonical"
-            if config["chimera"]["require_canonical_junction"]
+            if config["chimera"]["junction"]["require_canonical_junction"]
             else ""
         ),
         library=get_strandedness_param,
@@ -140,7 +117,7 @@ rule parse_chimeric_junctions:
     benchmark:
         "results/pipeline_info/benchmarks/parse_chimeric_junctions/{sample}.txt",
     log:
-        "results/pipeline_info/logs/chimera/parse/{sample}.log",
+        "results/pipeline_info/logs/chimera_junction/parse/{sample}.log",
     shell:
         "python3 {SCRIPTS_DIR}/parse_chimeric_junctions.py "
         "--junctions {input.junctions} "
@@ -165,13 +142,13 @@ rule chimera_telocal_annotate:
     # Reads ALL samples' telocal tables to build a global interval index
     # (sparse loci won't overlap if a sample lacks them, which is fine).
     input:
-        junctions="results/chimera/{sample}_junctions.tsv.gz",
+        junctions="results/chimera_junction/{sample}_junctions.tsv.gz",
         telocal_tables=_telocal_counts_for_chimera,
     output:
-        "results/chimera/{sample}_junctions_telocal.tsv.gz",
+        "results/chimera_junction/{sample}_junctions_telocal.tsv.gz",
     params:
         sample_name=lambda wc: wc.sample,
-        tolerance=config["chimera"]["breakpoint_tolerance"],
+        tolerance=config["chimera"]["junction"]["breakpoint_tolerance"],
     threads: get_resources("chimera_telocal_annotate")["threads"]
     resources:
         mem_mb=get_scaled_mem_mb("chimera_telocal_annotate"),
@@ -179,7 +156,7 @@ rule chimera_telocal_annotate:
     benchmark:
         "results/pipeline_info/benchmarks/chimera_telocal_annotate/{sample}.txt",
     log:
-        "results/pipeline_info/logs/chimera/telocal_annotate/{sample}.log",
+        "results/pipeline_info/logs/chimera_junction/telocal_annotate/{sample}.log",
     shell:
         "python3 {SCRIPTS_DIR}/chimera_telocal_annotate.py "
         "--junctions {input.junctions} "
@@ -196,9 +173,9 @@ rule chimera_counts:
     input:
         tables=chimera_counts_input(),
     output:
-        events="results/chimera/all_events.tsv.gz",
-        counts="results/chimera/counts_matrix.tsv.gz",
-        te_events="results/chimera/te_chimeras.tsv.gz",
+        events="results/chimera_junction/all_events.tsv.gz",
+        counts="results/chimera_junction/counts_matrix.tsv.gz",
+        te_events="results/chimera_junction/te_chimeras.tsv.gz",
     params:
         sample_names=lambda wc, input: " ".join(SAMPLES),
     threads: get_resources("chimera_counts")["threads"]
@@ -208,7 +185,7 @@ rule chimera_counts:
     benchmark:
         "results/pipeline_info/benchmarks/chimera_counts/chimera_counts.txt",
     log:
-        "results/pipeline_info/logs/chimera/counts.log",
+        "results/pipeline_info/logs/chimera_junction/counts.log",
     shell:
         "python3 {SCRIPTS_DIR}/chimera_counts.py "
         "--tables {input.tables} "
@@ -222,9 +199,9 @@ rule junction_qc:
     # Per-sample junction QC summary (junction_qc.py) for the MultiQC custom
     # content table.
     input:
-        "results/chimera/{sample}_junctions.tsv.gz",
+        "results/chimera_junction/{sample}_junctions.tsv.gz",
     output:
-        "results/chimera/qc/{sample}_junction_qc.tsv.gz",
+        "results/chimera_junction/qc/{sample}_junction_qc.tsv.gz",
     params:
         sample=lambda wc: wc.sample,
     threads: get_resources("junction_qc")["threads"]
@@ -234,7 +211,7 @@ rule junction_qc:
     benchmark:
         "results/pipeline_info/benchmarks/junction_qc/{sample}.txt",
     log:
-        "results/pipeline_info/logs/chimera/junction_qc/{sample}.log",
+        "results/pipeline_info/logs/chimera_junction/junction_qc/{sample}.log",
     shell:
         "python3 {SCRIPTS_DIR}/junction_qc.py "
         "--table {input} --sample {params.sample} --out {output} > {log} 2>&1"
@@ -248,11 +225,11 @@ rule junction_qc_barplot:
     # the custom_content module.
     input:
         tables=lambda wc: [
-            f"results/chimera/qc/{s}_junction_qc.tsv.gz" for s in SAMPLES
+            f"results/chimera_junction/qc/{s}_junction_qc.tsv.gz" for s in SAMPLES
         ],
     output:
-        junction="results/chimera/qc/junction_qc_mqc.json",
-        te_chimeras="results/chimera/qc/te_chimeras_mqc.json",
+        junction="results/chimera_junction/qc/junction_qc_mqc.json",
+        te_chimeras="results/chimera_junction/qc/te_chimeras_mqc.json",
     params:
         samples=lambda wc, input: " ".join(SAMPLES),
     threads: get_resources("junction_qc_barplot")["threads"]
@@ -262,7 +239,7 @@ rule junction_qc_barplot:
     benchmark:
         "results/pipeline_info/benchmarks/junction_qc_barplot/junction_qc_barplot.txt",
     log:
-        "results/pipeline_info/logs/chimera/junction_qc_barplot.log",
+        "results/pipeline_info/logs/chimera_junction/junction_qc_barplot.log",
     shell:
         "python3 {SCRIPTS_DIR}/junction_qc_mqc.py "
         "--tables {input.tables} "
@@ -274,11 +251,11 @@ rule junction_qc_barplot:
 rule chimera_igv_bed:
     # Optional IGV track per sample (one BED12-style row per junction), so
     # candidates can be inspected visually. Gated by
-    # config["chimera"]["outputs"]["write_igv_bed"].
+    # config["chimera"]["junction"]["outputs"]["write_igv_bed"].
     input:
-        "results/chimera/{sample}_junctions.tsv.gz",
+        "results/chimera_junction/{sample}_junctions.tsv.gz",
     output:
-        "results/chimera/igv/{sample}_junctions.bed",
+        "results/chimera_junction/igv/{sample}_junctions.bed",
     params:
         sample=lambda wc: wc.sample,
     threads: get_resources("chimera_igv_bed")["threads"]
@@ -288,6 +265,6 @@ rule chimera_igv_bed:
     benchmark:
         "results/pipeline_info/benchmarks/chimera_igv_bed/{sample}.txt",
     log:
-        "results/pipeline_info/logs/chimera/igv/{sample}.log",
+        "results/pipeline_info/logs/chimera_junction/igv/{sample}.log",
     script:
         "../scripts/junctions_to_igv_bed.py"

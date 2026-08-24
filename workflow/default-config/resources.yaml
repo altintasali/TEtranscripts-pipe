@@ -308,3 +308,67 @@ resources:
     threads: 1
     mem_mb: 2000
     runtime: 10
+
+  # ---------------------------------------------------------------------------
+  # chimera_assembly.smk (off by default, config chimera.assembly.enabled).
+  # Unbenchmarked on real data at time of writing -- these are starting
+  # points, not measured values; retune once you have a real run's numbers
+  # (see the "chore: retune default resources" pattern elsewhere in this
+  # file for what that update should look like).
+  # ---------------------------------------------------------------------------
+  star_align_for_assembly:
+    # Same shape as star_align/star_align_pass1: STAR keeps the whole genome
+    # index in memory regardless of output type, so mem_mb matches those.
+    threads: 2
+    mem_mb: 32000
+    runtime: 600
+
+  stringtie_assemble:
+    # Single-sample de novo assembly; scales with read depth and splice
+    # complexity, not genome size the way STAR does.
+    threads: 2
+    mem_mb: 8000
+    runtime: 120
+
+  stringtie_merge:
+    # Aggregates over ALL samples' assemblies -- the DAG sync point for this
+    # screen (star_merge_junctions' shape). Base 4 GB + 300 MB per sample.
+    threads: 1
+    mem_mb: 4000
+    mem_per_sample: 300
+    runtime: 90
+
+  stringtie_requantify:
+    # Re-quantification against a fixed structure is lighter than de novo
+    # assembly.
+    threads: 2
+    mem_mb: 6000
+    runtime: 90
+
+  chimera_assembly_classify:
+    # Single-threaded python; loads the merged GTF + genes/exons/te BED
+    # tracks into memory once (not per sample).
+    threads: 1
+    mem_mb: 6000
+    runtime: 60
+
+  chimera_assembly_quantify:
+    # Reads every sample's requantified GTF once. Base 2 GB + 150 MB per
+    # sample.
+    threads: 1
+    mem_mb: 2000
+    mem_per_sample: 150
+    runtime: 30
+
+  chimera_assembly_cross_evidence:
+    # Single-threaded python; one table join, no per-sample scaling.
+    threads: 1
+    mem_mb: 2000
+    runtime: 15
+
+  chimera_assembly_summary_mqc:
+    # Single-threaded python; reads the candidates table + TPM matrix once,
+    # writes two small JSON files.
+    threads: 1
+    mem_mb: 2000
+    runtime: 15
