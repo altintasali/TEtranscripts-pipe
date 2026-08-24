@@ -533,23 +533,21 @@ jobs:
           printf "chr1\t1000\t1200\tGENE1\t.\t+\n" > "$T/genes.bed"
           printf "chr1\t1000\t1200\tGENE1\t.\t+\nchr1\t2000\t2200\tGENE1\t.\t+\n" > "$T/exons.bed"
           printf "chr1\t500\t700\tTE_A\t.\t+\tL1\tLINE\nchr1\t2600\t2800\tTE_B\t.\t+\tAluY\tSINE\nchr1\t9000\t9100\tTE_C\t.\t+\tL2\tLINE\nchr1\t1500\t1600\tTE_D\t.\t+\tERV1\tLTR\nchr1\t8700\t8800\tTE_E\t.\t+\tL1\tLINE\n" > "$T/te.bed"
-          cat > "$T/stringtie.gtf" <<'GTFEOF'
-chr1	StringTie	transcript	501	1200	.	+	.	transcript_id "T1"; gene_id "MSTRG.1";
-chr1	StringTie	exon	501	700	.	+	.	transcript_id "T1"; gene_id "MSTRG.1";
-chr1	StringTie	exon	1001	1200	.	+	.	transcript_id "T1"; gene_id "MSTRG.1";
-chr1	StringTie	transcript	1001	2800	.	+	.	transcript_id "T2"; gene_id "MSTRG.2";
-chr1	StringTie	exon	1001	1200	.	+	.	transcript_id "T2"; gene_id "MSTRG.2";
-chr1	StringTie	exon	2601	2800	.	+	.	transcript_id "T2"; gene_id "MSTRG.2";
-chr1	StringTie	transcript	1001	2200	.	+	.	transcript_id "T3"; gene_id "MSTRG.3";
-chr1	StringTie	exon	1001	1200	.	+	.	transcript_id "T3"; gene_id "MSTRG.3";
-chr1	StringTie	exon	1501	1600	.	+	.	transcript_id "T3"; gene_id "MSTRG.3";
-chr1	StringTie	exon	2001	2200	.	+	.	transcript_id "T3"; gene_id "MSTRG.3";
-chr1	StringTie	transcript	9001	9100	.	+	.	transcript_id "T4"; gene_id "MSTRG.4";
-chr1	StringTie	exon	9001	9100	.	+	.	transcript_id "T4"; gene_id "MSTRG.4";
-chr1	StringTie	transcript	8000	8800	.	+	.	transcript_id "T5"; gene_id "MSTRG.5";
-chr1	StringTie	exon	8000	8100	.	+	.	transcript_id "T5"; gene_id "MSTRG.5";
-chr1	StringTie	exon	8700	8800	.	+	.	transcript_id "T5"; gene_id "MSTRG.5";
-GTFEOF
+          printf 'chr1\tStringTie\ttranscript\t501\t1200\t.\t+\t.\ttranscript_id "T1"; gene_id "MSTRG.1";\n' > "$T/stringtie.gtf"
+          printf 'chr1\tStringTie\texon\t501\t700\t.\t+\t.\ttranscript_id "T1"; gene_id "MSTRG.1";\n' >> "$T/stringtie.gtf"
+          printf 'chr1\tStringTie\texon\t1001\t1200\t.\t+\t.\ttranscript_id "T1"; gene_id "MSTRG.1";\n' >> "$T/stringtie.gtf"
+          printf 'chr1\tStringTie\ttranscript\t1001\t2800\t.\t+\t.\ttranscript_id "T2"; gene_id "MSTRG.2";\n' >> "$T/stringtie.gtf"
+          printf 'chr1\tStringTie\texon\t1001\t1200\t.\t+\t.\ttranscript_id "T2"; gene_id "MSTRG.2";\n' >> "$T/stringtie.gtf"
+          printf 'chr1\tStringTie\texon\t2601\t2800\t.\t+\t.\ttranscript_id "T2"; gene_id "MSTRG.2";\n' >> "$T/stringtie.gtf"
+          printf 'chr1\tStringTie\ttranscript\t1001\t2200\t.\t+\t.\ttranscript_id "T3"; gene_id "MSTRG.3";\n' >> "$T/stringtie.gtf"
+          printf 'chr1\tStringTie\texon\t1001\t1200\t.\t+\t.\ttranscript_id "T3"; gene_id "MSTRG.3";\n' >> "$T/stringtie.gtf"
+          printf 'chr1\tStringTie\texon\t1501\t1600\t.\t+\t.\ttranscript_id "T3"; gene_id "MSTRG.3";\n' >> "$T/stringtie.gtf"
+          printf 'chr1\tStringTie\texon\t2001\t2200\t.\t+\t.\ttranscript_id "T3"; gene_id "MSTRG.3";\n' >> "$T/stringtie.gtf"
+          printf 'chr1\tStringTie\ttranscript\t9001\t9100\t.\t+\t.\ttranscript_id "T4"; gene_id "MSTRG.4";\n' >> "$T/stringtie.gtf"
+          printf 'chr1\tStringTie\texon\t9001\t9100\t.\t+\t.\ttranscript_id "T4"; gene_id "MSTRG.4";\n' >> "$T/stringtie.gtf"
+          printf 'chr1\tStringTie\ttranscript\t8000\t8800\t.\t+\t.\ttranscript_id "T5"; gene_id "MSTRG.5";\n' >> "$T/stringtie.gtf"
+          printf 'chr1\tStringTie\texon\t8000\t8100\t.\t+\t.\ttranscript_id "T5"; gene_id "MSTRG.5";\n' >> "$T/stringtie.gtf"
+          printf 'chr1\tStringTie\texon\t8700\t8800\t.\t+\t.\ttranscript_id "T5"; gene_id "MSTRG.5";\n' >> "$T/stringtie.gtf"
           if ! python3 workflow/scripts/classify_chimera_assembly.py \
                 --gtf "$T/stringtie.gtf" --genes "$T/genes.bed" --exons "$T/exons.bed" --te "$T/te.bed" \
                 --breakpoint-tolerance 0 --out "$T/candidates.tsv" > "$T/classify.log" 2>&1; then
@@ -563,7 +561,7 @@ GTFEOF
                 cat "$T/candidates.tsv"; FAIL=1
               fi
             done
-            if grep -q "^T5	" "$T/candidates.tsv"; then
+            if grep -qP "^T5\t" "$T/candidates.tsv"; then
               echo "ERROR: T5 (TE on last exon, no earlier gene match) should be dropped, not reported"
               cat "$T/candidates.tsv"; FAIL=1
             fi
