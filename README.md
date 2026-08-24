@@ -276,6 +276,7 @@ reference):
 | `chimera.assembly.enabled` | run the StringTie-assembly gene-TE chimera screen (default `false` — newer and less validated than `chimera.junction`; catches ordinary-canonical-intron TE-initiated splices `chimera.junction` structurally cannot see, see [Chimera detection](#chimera-detection)). |
 | `chimera.assembly.breakpoint_tolerance` | slack (bp) allowed when matching an assembled transcript's exon to a TE/gene-exon feature edge (default `5` — more generous than `chimera.junction`'s, since StringTie's coverage-inferred exon boundaries are less precise, especially on single-end data). |
 | `chimera.assembly.min_transcript_tpm` | not applied automatically (candidates are always fully reported); documents the threshold used when reading `results/chimera_assembly/tpm_matrix.tsv.gz` yourself downstream (default `1`). |
+| `chimera.assembly.outputs.write_igv_bed` | write a BED track of candidates' TE-overlapping exons, colored by `chimera_type` (`results/chimera_assembly/igv/`, default `false`). |
 | `outputs.keep_merged_fastq` | keep the lane-concatenated fastqs (`results/fastq/`). `false` deletes them (temp()) once alignment is done. |
 | `outputs.keep_trimmed_fastq` | keep the trimmed fastqs (`results/trimming/`). `false` deletes them (temp()) once alignment is done. |
 | `outputs.keep_star_index` | keep the STAR genome index (`results/star_index/`). `false` deletes it (rm -rf) once alignment is done. |
@@ -931,6 +932,10 @@ downstream. Output:
   `junction_supporting_reads` columns added: a candidate found by **both**
   independent methods (assembly structure and chimeric-junction reads) is
   materially higher confidence than either alone.
+- `results/chimera_assembly/igv/candidates.bed` — a BED track of each
+  candidate's TE-overlapping exon (not the whole transcript), colored by
+  `chimera_type`, for loading alongside `chimera.junction`'s own IGV track
+  (`chimera.assembly.outputs.write_igv_bed: true`, default `false`).
 
 ## Output layout
 

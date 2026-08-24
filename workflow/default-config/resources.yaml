@@ -372,3 +372,9 @@ resources:
     threads: 1
     mem_mb: 2000
     runtime: 15
+
+  chimera_assembly_igv_bed:
+    # Single-threaded python; one pass over the candidates table.
+    threads: 1
+    mem_mb: 2000
+    runtime: 15

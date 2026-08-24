@@ -91,6 +91,10 @@ chimera:
     enabled: false
     breakpoint_tolerance: 5
     min_transcript_tpm: 1
+    outputs:
+      # true (unlike the config.example.yaml default) so a guard flipping
+      # this screen on also exercises the IGV export path.
+      write_igv_bed: true
 
 tetranscripts:
   mode: multi

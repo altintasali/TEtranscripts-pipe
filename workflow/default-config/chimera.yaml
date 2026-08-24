@@ -40,3 +40,5 @@ chimera:
     enabled: false
     breakpoint_tolerance: 5
     min_transcript_tpm: 1
+    outputs:
+      write_igv_bed: false

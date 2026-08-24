@@ -39,7 +39,10 @@ overlap set is preserved in te_hits_all/gene_hits_all for inspection.
 
 Output columns (results/chimera_assembly/candidates.tsv):
     transcript_id, gtf_gene_id, chrom, strand, n_exons,
-    first_exon_start, first_exon_end,
+    transcript_start, transcript_end (the whole assembled transcript's span),
+    te_exon_start, te_exon_end (the SPECIFIC exon that overlaps the TE --
+        not always the first exon; use this, not transcript_start/end, to
+        jump straight to the breakpoint e.g. for an IGV track),
     te_id, te_family, te_class, te_overlap_exon_rank, te_hits_all,
     matched_gene_id, matched_gene_strand, gene_hits_all, strand_match,
     chimera_type
@@ -175,7 +178,8 @@ def main():
 
     header = [
         "transcript_id", "gtf_gene_id", "chrom", "strand", "n_exons",
-        "first_exon_start", "first_exon_end",
+        "transcript_start", "transcript_end",
+        "te_exon_start", "te_exon_end",
         "te_id", "te_family", "te_class", "te_overlap_exon_rank", "te_hits_all",
         "matched_gene_id", "matched_gene_strand", "gene_hits_all", "strand_match",
         "chimera_type",
@@ -187,6 +191,9 @@ def main():
         chrom, strand = t["chrom"], t["strand"]
         n_exons = len(ex)
 
+        transcript_start = min(s for s, _ in ex)
+        transcript_end = max(e for _, e in ex)
+
         if n_exons < args.min_exons_for_splice_call or strand not in ("+", "-"):
             for s, e in ex:
                 hits = overlapping(te, chrom, s - tol, e + tol)
@@ -195,7 +202,8 @@ def main():
                     te_all = sorted({h[2][0] for h in hits})
                     rows.append([
                         tid, t["gene_id"], chrom, strand or ".", n_exons,
-                        s, e, te_id, te_fam, te_cls, 1, ",".join(te_all),
+                        transcript_start, transcript_end, s, e,
+                        te_id, te_fam, te_cls, 1, ",".join(te_all),
                         ".", ".", "", "NA", "unspliced_te_only",
                     ])
                     break
@@ -211,11 +219,13 @@ def main():
         te_hits_all = []
         matched_gene_id = matched_gene_strand = "."
         gene_hits_all = []
+        te_exon_s = te_exon_e = None
 
         if te_first_hits:
             te_id, _, te_strand, te_fam, te_cls = te_first_hits[0][2]
             te_hits_all = sorted({h[2][0] for h in te_first_hits})
             te_rank = 1
+            te_exon_s, te_exon_e = first_s, first_e
             matched_gene_id, matched_gene_strand, gene_hits_all = find_gene_match(
                 ex, te_rank, exons_track, chrom, tol
             )
@@ -224,6 +234,7 @@ def main():
             te_id, _, te_strand, te_fam, te_cls = te_last_hits[0][2]
             te_hits_all = sorted({h[2][0] for h in te_last_hits})
             te_rank = n_exons
+            te_exon_s, te_exon_e = last_s, last_e
             matched_gene_id, matched_gene_strand, gene_hits_all = find_gene_match(
                 ex, te_rank, exons_track, chrom, tol
             )
@@ -238,6 +249,7 @@ def main():
                     te_id, _, te_strand, te_fam, te_cls = hits[0][2]
                     te_hits_all = sorted({h[2][0] for h in hits})
                     te_rank = rank
+                    te_exon_s, te_exon_e = s, e
                     chimera_type = "te_exonized"
                     break
             if chimera_type == "te_exonized":
@@ -254,7 +266,8 @@ def main():
 
         rows.append([
             tid, t["gene_id"], chrom, strand, n_exons,
-            first_s, first_e, te_id, te_fam, te_cls, te_rank, ",".join(te_hits_all),
+            transcript_start, transcript_end, te_exon_s, te_exon_e,
+            te_id, te_fam, te_cls, te_rank, ",".join(te_hits_all),
             matched_gene_id, matched_gene_strand, ",".join(gene_hits_all), strand_match,
             chimera_type,
         ])

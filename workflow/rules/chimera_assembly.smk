@@ -28,6 +28,8 @@
 # -----------------------------------------------------------------------------
 import os
 
+WRITE_IGV_BED_ASSEMBLY = bool(config["chimera"]["assembly"]["outputs"]["write_igv_bed"])
+
 
 def all_chimera_assembly_outputs():
     """Chimera-assembly artifacts for the `all` target (Snakefile)."""
@@ -39,6 +41,8 @@ def all_chimera_assembly_outputs():
     ]
     if CHIMERA_JUNCTION_ENABLED:
         files.append("results/chimera_assembly/candidates_with_junction_evidence.tsv.gz")
+    if WRITE_IGV_BED_ASSEMBLY:
+        files.append("results/chimera_assembly/igv/candidates.bed")
     return files
 
 
@@ -317,3 +321,26 @@ rule chimera_assembly_summary_mqc:
         "--candidates {input.candidates} --tpm-matrix {input.tpm_matrix} "
         "--out-classes {output.classes} --out-highlights {output.highlights} "
         "> {log} 2>&1"
+
+
+if WRITE_IGV_BED_ASSEMBLY:
+
+    rule chimera_assembly_igv_bed:
+        # BED track for IGV: one row per candidate, spanning the specific
+        # TE-overlapping exon (not the whole transcript -- see
+        # classify_chimera_assembly.py), colored by chimera_type. Uses the
+        # cross-referenced table when available so junction-confirmed
+        # candidates get a higher score (easy to filter/sort on in IGV).
+        input:
+            candidates=_chimera_assembly_summary_input(),
+        output:
+            "results/chimera_assembly/igv/candidates.bed",
+        threads: get_resources("chimera_assembly_igv_bed")["threads"]
+        resources:
+            mem_mb=get_resources("chimera_assembly_igv_bed")["mem_mb"],
+            runtime=get_resources("chimera_assembly_igv_bed")["runtime"],
+        log:
+            "results/pipeline_info/logs/chimera_assembly/igv_bed.log",
+        shell:
+            "python3 {SCRIPTS_DIR}/chimera_assembly_to_igv_bed.py "
+            "--candidates {input.candidates} --out {output} > {log} 2>&1"

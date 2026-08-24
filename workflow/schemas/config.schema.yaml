@@ -310,7 +310,19 @@ properties:
               -- this is the threshold the report/README examples use when
               reading results/chimera_assembly/tpm_matrix.tsv.gz. No rule
               currently filters on it automatically.
-        required: [enabled, breakpoint_tolerance, min_transcript_tpm]
+          outputs:
+            type: object
+            description: Which chimera-assembly artifacts to write.
+            properties:
+              write_igv_bed:
+                type: boolean
+                description: >-
+                  Write a BED track (results/chimera_assembly/igv/
+                  candidates.bed) spanning each candidate's TE-overlapping
+                  exon, colored by chimera_type, for loading alongside
+                  chimera.junction's own IGV track. Default false.
+            required: [write_igv_bed]
+        required: [enabled, breakpoint_tolerance, min_transcript_tpm, outputs]
     required: [junction, assembly]
 
   telocal:

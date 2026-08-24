@@ -256,6 +256,12 @@ chimera:
     # threshold used when reading results/chimera_assembly/tpm_matrix.tsv.gz
     # yourself downstream.
     min_transcript_tpm: 1
+    outputs:
+      # Write a BED track (results/chimera_assembly/igv/candidates.bed)
+      # spanning each candidate's TE-overlapping exon, colored by
+      # chimera_type, for loading alongside chimera.junction's own IGV
+      # track.
+      write_igv_bed: false
 
 # Locus-level TE quantification (TElocal) -- a complement to TEcount's
 # subfamily-level quantification. TElocal resolves TEs per genomic instance
