@@ -52,6 +52,8 @@ include: "rules/common.smk"
 include: "rules/ref.smk"
 include: "rules/fastq.smk"
 include: "rules/trimming.smk"
+if STAR_TWO_PASS == "cohort":
+    include: "rules/star_two_pass.smk"
 include: "rules/align.smk"
 include: "rules/strandedness.smk"
 include: "rules/tetranscripts.smk"

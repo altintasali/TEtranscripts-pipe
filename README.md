@@ -59,6 +59,10 @@ flowchart LR
         sample_qc_transform["sample-QC transform"]
         sample_qc["sample-QC plots"]
     end
+    subgraph other["Other"]
+        star_align_pass1["star_align_pass1"]
+        star_merge_junctions["star_merge_junctions"]
+    end
     annotation_to_bed --> parse_chimeric_junctions
     benchmark_summary --> multiqc
     cat_fastq --> fastqc_raw
@@ -88,7 +92,10 @@ flowchart LR
     star_align --> tecount
     star_align --> telocal
     star_align --> tetranscripts_diffexp
+    star_align_pass1 --> star_merge_junctions
     star_index --> star_align
+    star_index --> star_align_pass1
+    star_merge_junctions --> star_align
     tecount --> tecount_counts
     tecount --> tecount_summary
     tecount_counts --> tecount_qc_transform
@@ -101,7 +108,9 @@ flowchart LR
     telocal_locind --> telocal
     telocal_qc_transform --> telocal_qc
     trim_galore_pe --> star_align
+    trim_galore_pe --> star_align_pass1
     trim_galore_se --> star_align
+    trim_galore_se --> star_align_pass1
 ```
 <!-- flowchart:end -->
 
@@ -138,6 +147,7 @@ versions, and a per-rule resource-usage table.
 - [Tool versions](#tool-versions)
 - [Without conda](#without-conda)
 - [How strandedness is resolved](#how-strandedness-is-resolved)
+- [STAR 2-pass mapping](#star-2-pass-mapping)
 - [Automatic differential analysis](#automatic-differential-analysis)
 - [TEcounts sample-QC](#tecounts-sample-qc)
 - [The chimera screen](#the-chimera-screen)
@@ -244,6 +254,8 @@ reference):
 | `star.build_index` | `true` (default). Whether the workflow may build a STAR genome index. When `false`, the index must already exist at `star.index` or the workflow raises an error. |
 | `star.extra` | alignment flags; pre-set to the TEtranscripts authors' multi-mapper recommendations. |
 | `star.tmpdir` | STAR's per-run scratch dir (default: OS temp dir); set to big scratch on HPC. |
+| `star.two_pass` | STAR 2-pass mapping for more sensitive novel-junction detection: `none`, `per_sample` (`--twopassMode Basic`), or `cohort` (novel junctions pooled across every sample before any sample's final alignment; **default for now** -- see [STAR 2-pass mapping](#star-2-pass-mapping)). |
+| `star.two_pass_min_unique_reads` | Only used when `two_pass: cohort`. Minimum combined (summed across all samples) uniquely-mapping reads a novel junction needs to survive pooling (default `3`). |
 | `trimming.enabled` | run TrimGalore! before STAR (default `true`). `false` skips trimming — STAR reads merged/raw fastqs directly. While on, fastq names that already look trimmed (`*_trimmed*`, `*_val_[12]*`) are rejected at startup. |
 | `trimming.trim_nextseq` | `--nextseq=N` for NextSeq/NovaSeq poly-G trimming; `0` (default) disables it. |
 | `trimming.extra` | extra TrimGalore! flags passed verbatim. |
@@ -521,6 +533,44 @@ it automatically.
 
 TEcount always receives raw, unsorted STAR output, per the TEtranscripts
 authors' recommendation.
+
+## STAR 2-pass mapping
+
+With `star.two_pass: none`, STAR alignment is guided only by the junctions
+annotated in `ref.gtf` -- a read spanning a real but unannotated splice
+junction can end up soft-clipped or reported as a spurious chimeric split
+alignment instead of a clean spliced alignment. `star.two_pass` trades extra
+STAR compute for more sensitive novel-junction detection (STAR manual
+section 9):
+
+> **`cohort` is the default for now**, while this feature is being
+> evaluated -- set `star.two_pass: none` to opt out and get the original,
+> single-pass-only DAG.
+
+- **`per_sample`** -- STAR's own `--twopassMode Basic`. Each sample
+  independently discovers its own novel junctions in a first pass, inserts
+  them into its own genome index, then re-aligns in a second pass. No other
+  rules change; roughly doubles `star_align`'s runtime per sample.
+- **`cohort`** -- novel junctions are pooled across *every* sample before
+  any sample's final alignment (the STAR manual's "multi-sample 2-pass"
+  recipe). Adds two stages: `star_align_pass1` runs a throwaway,
+  BAM-less alignment per sample (`--outSAMtype None`) purely to collect
+  `results/star_pass1/{sample}_SJ.out.tab`; `star_merge_junctions` pools
+  every sample's novel (non-annotated) junctions, summing uniquely-mapping
+  read support across samples and keeping only those reaching
+  `star.two_pass_min_unique_reads` (default `3`) into
+  `results/star_pass1/merged_SJ.out.tab`. Every sample's final `star_align`
+  then passes that file to STAR via `--sjdbFileChrStartEnd`. A junction too
+  weakly supported in any single sample to be caught by `per_sample` mode
+  can still survive here if it recurs (even weakly) across the cohort --
+  the tradeoff is a DAG sync point (no sample's final alignment starts until
+  every sample's pass-1 has finished) and roughly 2x STAR compute plus the
+  pass-1 jobs themselves.
+
+Both modes only affect alignment sensitivity to unannotated splicing; they
+do not produce a transcript/exon annotation (unlike e.g. StringTie), so
+`exons.bed`/`genes.bed` for the chimera screen still come entirely from
+`ref.gtf` either way.
 
 ## Automatic differential analysis
 
@@ -832,6 +882,9 @@ results/
 │   ├── {sample}_*_fastqc.html/.zip                 #   FastQC (run inside TrimGalore!)
 │   └── {sample}_*_trimming_report.txt              #   TrimGalore! report
 ├── star_index/                                     # generated STAR genome index
+├── star_pass1/{sample}_SJ.out.tab                  # only if star.two_pass: cohort:
+│                                                    #   per-sample pass-1 junctions (BAM-less)
+├── star_pass1/merged_SJ.out.tab                    #   pooled/filtered novel junctions
 ├── reference/annotation.{genePred,bed12}           # generated RSeQC gene model (BED12)
 ├── star/{sample}_Aligned.out.bam                   # unsorted, fed to TEcount
 ├── star/{sample}_Aligned.sortedByCoord.out.bam(.bai)   # for RSeQC/QC

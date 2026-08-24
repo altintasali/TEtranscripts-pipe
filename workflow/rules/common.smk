@@ -435,6 +435,32 @@ with open("results/pipeline_info/logs/config_resolution.log", "w") as fh:
 _STAR_INDEX_RAW = (config["star"].get("index") or "").strip()
 STAR_BUILD_INDEX = config["star"].get("build_index", True)
 
+# -----------------------------------------------------------------------------
+# STAR 2-pass mapping (STAR manual section 9): "none" (single-pass),
+# "per_sample" (--twopassMode Basic, no other rules change), or "cohort"
+# (novel junctions pooled across all samples before any sample's final
+# alignment -- see rules/star_two_pass.smk, only included when this is
+# "cohort"). Schema enum already rejects any other value.
+#
+# Default is "cohort" FOR NOW while this feature is being evaluated -- set
+# star.two_pass: none explicitly to opt out and get the original,
+# single-pass-only DAG.
+# -----------------------------------------------------------------------------
+STAR_TWO_PASS = config["star"].get("two_pass", "cohort")
+if STAR_TWO_PASS in ("per_sample", "cohort"):
+    logger.warning(
+        f"star.two_pass is {STAR_TWO_PASS!r}. STAR 2-pass mapping roughly "
+        "doubles STAR's alignment runtime per sample -- if star_align jobs "
+        "start timing out, increase its runtime in input/resources.yaml."
+        + (
+            " Cohort mode also adds star_align_pass1/star_merge_junctions "
+            "jobs and a DAG sync point: no sample's final alignment starts "
+            "until every sample's pass-1 alignment has finished."
+            if STAR_TWO_PASS == "cohort"
+            else ""
+        )
+    )
+
 if STAR_BUILD_INDEX:
     # Index lives where the user says (or the default).
     STAR_INDEX_DIR = os.path.abspath(_STAR_INDEX_RAW or "results/star_index")

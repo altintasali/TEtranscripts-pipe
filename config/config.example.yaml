@@ -85,6 +85,24 @@ star:
   # On HPC, if node-local /tmp is small, point this at a scratch filesystem
   # with enough free space instead, e.g. /scratch/<user>/star_tmp.
   tmpdir: /tmp
+  # STAR 2-pass mapping (more sensitive novel-junction detection; STAR
+  # manual section 9). "none": single-pass, guided only by ref.gtf's
+  # annotated junctions -- fastest.
+  # "per_sample": --twopassMode Basic -- each sample discovers and
+  # re-aligns against its own novel junctions independently; no other
+  # rules change, roughly 2x STAR runtime.
+  # "cohort" (DEFAULT FOR NOW, while this feature is being evaluated --
+  # set to "none" to opt out): novel junctions are pooled across every
+  # sample (via a new star_align_pass1 + star_merge_junctions stage)
+  # before any sample's final alignment -- catches junctions too weak to
+  # see in any single sample alone, at the cost of a DAG sync point (every
+  # sample's pass-1 must finish before any final alignment starts) and
+  # roughly 2x STAR compute plus the pass-1 jobs themselves.
+  two_pass: cohort
+  # Only used when two_pass is "cohort": minimum combined (summed across
+  # all samples) uniquely-mapping reads a novel junction needs to be kept
+  # in the pooled set fed to every sample's final alignment.
+  two_pass_min_unique_reads: 3
 
 trimming:
   # Optional TrimGalore! adapter/quality trimming before STAR, mirroring the

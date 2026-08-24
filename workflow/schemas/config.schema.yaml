@@ -80,6 +80,35 @@ properties:
           roughly one BAM's worth of data). Defaults to the OS temp dir
           (/tmp) so the scratch never clutters results/. Point it at a big/
           fast scratch filesystem on HPC if node-local /tmp is small.
+      two_pass:
+        type: string
+        enum: [none, per_sample, cohort]
+        default: cohort
+        description: >-
+          STAR 2-pass mapping for more sensitive novel-junction detection
+          (STAR manual section 9). "none": single-pass, guided only by
+          ref.gtf's annotated junctions. "per_sample": STAR's
+          --twopassMode Basic -- each sample independently discovers and
+          re-aligns against its own novel junctions; no other rules change.
+          "cohort" (default FOR NOW, see README): novel junctions are
+          pooled across every sample before any sample's final alignment
+          (STAR manual's "multi-sample 2-pass" recipe) -- catches junctions
+          too weakly supported in any single sample to be caught alone, at
+          the cost of a DAG sync point (every sample's pass-1 must finish
+          before any sample's final alignment starts) and roughly 2x STAR
+          compute.
+      two_pass_min_unique_reads:
+        type: integer
+        minimum: 0
+        default: 3
+        description: >-
+          Only used when two_pass is "cohort". Minimum combined (summed
+          across all samples) uniquely-mapping reads a novel junction needs
+          to be kept in the pooled junction set fed to every sample's final
+          alignment (STAR manual's recommendation to filter out junctions
+          "supported by a few reads" before reuse). Annotated junctions
+          (already in ref.gtf) are always excluded from pooling -- they are
+          already used by every pass via the shared genome index.
   trimming:
     type: object
     description: >-

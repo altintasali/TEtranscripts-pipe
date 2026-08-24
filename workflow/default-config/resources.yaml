@@ -80,6 +80,26 @@ resources:
     mem_mb: 32000
     runtime: 600
 
+  star_align_pass1:
+    # Cohort-wide 2-pass mapping, stage 1 (star.two_pass: cohort) -- a
+    # throwaway per-sample alignment for splice-junction discovery only
+    # (--outSAMtype None, no BAM). Memory is still dominated by loading the
+    # whole genome index (same as star_align); runtime is lower since there
+    # is no BAM write/sort/chimeric-detection overhead, but unbenchmarked --
+    # kept equal to star_align's until measured on a real run.
+    threads: 2
+    mem_mb: 32000
+    runtime: 600
+
+  star_merge_junctions:
+    # Single-threaded python; reads every sample's pass-1 SJ.out.tab (small
+    # text files, not BAMs) and writes one filtered/merged file. Base 2 GB +
+    # 50 MB per sample.
+    threads: 1
+    mem_mb: 2000
+    mem_per_sample: 50
+    runtime: 30
+
   samtools_sort:
     # Coordinate sorting is I/O-bound in practice; measured runs used <=3
     # cores regardless of allocation, so 2 threads suffice. -m per-thread

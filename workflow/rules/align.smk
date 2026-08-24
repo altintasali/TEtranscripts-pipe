@@ -32,6 +32,12 @@ rule star_align:
     # chimera screen consumes is a side output of this same alignment, no
     # separate alignment step.
     #
+    # config star.two_pass controls STAR 2-pass mapping (see common.smk and
+    # the README): "none" (default) adds nothing; "per_sample" is STAR's own
+    # --twopassMode Basic; "cohort" additionally depends on
+    # results/star_pass1/merged_SJ.out.tab (rules/star_two_pass.smk), so this
+    # rule doesn't start for ANY sample until every sample's pass-1 has run.
+    #
     # STAR's scratch directory (default: prefix/_STARtmp) is redirected to
     # --outTmpDir under config["star"]["tmpdir"] (default: the OS temp dir)
     # so it never clutters results/ -- it holds ~a BAM's worth of per-thread
@@ -41,6 +47,11 @@ rule star_align:
     input:
         unpack(star_input),
         idx=STAR_INDEX_DIR,
+        # merged_SJ.out.tab (cohort-wide 2-pass only) is what makes this
+        # rule wait on every sample's star_align_pass1 + the
+        # star_merge_junctions aggregation -- see rules/star_two_pass.smk.
+        **({"merged_sj": "results/star_pass1/merged_SJ.out.tab"}
+           if STAR_TWO_PASS == "cohort" else {}),
     output:
         aln="results/star/{sample}_Aligned.out.bam",
         log_final="results/star/{sample}_Log.final.out",
@@ -58,6 +69,19 @@ rule star_align:
         chim=_chim_star_args,
         chim_out_type=(
             "--chimOutType Junctions WithinBAM SoftClip " if CHIMERA_ENABLED else ""
+        ),
+        # STAR 2-pass mapping (config star.two_pass, see common.smk and the
+        # README): "per_sample" is STAR's own --twopassMode Basic;
+        # "cohort" points STAR at the pooled novel-junction file built by
+        # star_merge_junctions (STAR accepts SJ.out.tab-formatted files
+        # directly via --sjdbFileChrStartEnd, no conversion needed -- STAR
+        # manual section 9.1); "none" adds nothing.
+        two_pass=lambda wc, input: (
+            "--twopassMode Basic"
+            if STAR_TWO_PASS == "per_sample"
+            else f"--sjdbFileChrStartEnd {input.merged_sj}"
+            if STAR_TWO_PASS == "cohort"
+            else ""
         ),
         extra=config["star"]["extra"],
     threads: get_resources("star_align")["threads"]
@@ -91,6 +115,7 @@ rule star_align:
         "--outSAMtype BAM Unsorted "
         "{params.chim_out_type}"
         "{params.chim} "
+        "{params.two_pass} "
         "{params.extra} "
         "> {log} 2>&1 "
         "|| (echo 'STAR exited non-zero; checking whether alignment output "
