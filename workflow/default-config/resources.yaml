@@ -123,9 +123,14 @@ resources:
     # TElocal_indexer builds the locus index from the TE GTF.  Memory is
     # dominated by loading the full TE annotation into a balanced binary tree;
     # ~30GB is typical for a human/mouse genome with a comprehensive TE GTF.
+    # Build time is pure-Python and single-threaded (one recursive AVL insert
+    # per 500bp bin an instance spans, no parallelism) -- a large annotation
+    # (e.g. a full RepeatMasker-derived GTF, millions of instances) can take
+    # well over 6h; bumped to 24h after 3 consecutive SLURM timeouts on a
+    # GRCm38 rmsk-derived TE GTF.
     threads: 1
     mem_mb: 32000
-    runtime: 360
+    runtime: 1440
 
   telocal_counts:
     # Merging per-sample TElocal cntTables into the counts matrix;
