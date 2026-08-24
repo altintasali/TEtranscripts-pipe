@@ -214,6 +214,18 @@ resources:
     mem_mb: 8000
     runtime: 120
 
+  chimera_telocal_annotate:
+    # Cross-references one sample's junction table against a TElocal
+    # interval index built from ALL samples' cntTables at once (same
+    # all-samples-in-memory shape as telocal_counts) -- single-threaded
+    # python (2nd core reserved as scheduler headroom).  Base 4 GB + 200 MB
+    # per sample (matching telocal_counts' per-sample allowance for the same
+    # locus-level tables).
+    threads: 2
+    mem_mb: 4000
+    mem_per_sample: 200
+    runtime: 120
+
   chimera_counts:
     # Merging per-sample junction tables; single-threaded python (2 threads
     # reserved as scheduler headroom).  Loads all unique events into a

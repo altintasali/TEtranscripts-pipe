@@ -579,6 +579,17 @@ TELOCAL_QC = config["telocal"].get(
 )
 TELOCAL_QC_ENABLED = bool(TELOCAL_QC["enabled"])
 
+if TELOCAL_ENABLED and TELOCAL_QC_ENABLED and TELOCAL_QC["pca_transform"] in ("vst", "rlog"):
+    logger.warning(
+        f"telocal.qc.pca_transform is {TELOCAL_QC['pca_transform']!r}. DESeq2's "
+        "vst/rlog on TElocal's locus-level matrix (one row per TE instance, "
+        "often millions) can be prohibitively slow -- the default is 'log2' "
+        "for this reason (see README). telocal_qc_transform's runtime "
+        "budget (workflow/default-config/resources.yaml, or your "
+        "input/resources.yaml override) may need increasing well beyond its "
+        "default if the job times out."
+    )
+
 
 def _telocal_locind_path():
     """Return the .locInd path for the telocal rule.

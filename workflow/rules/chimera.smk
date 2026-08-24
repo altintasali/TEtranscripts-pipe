@@ -172,10 +172,10 @@ rule chimera_telocal_annotate:
     params:
         sample_name=lambda wc: wc.sample,
         tolerance=config["chimera"]["breakpoint_tolerance"],
-    threads: get_resources("parse_chimeric_junctions")["threads"]
+    threads: get_resources("chimera_telocal_annotate")["threads"]
     resources:
-        mem_mb=get_resources("parse_chimeric_junctions")["mem_mb"],
-        runtime=get_resources("parse_chimeric_junctions")["runtime"],
+        mem_mb=get_scaled_mem_mb("chimera_telocal_annotate"),
+        runtime=get_resources("chimera_telocal_annotate")["runtime"],
     benchmark:
         "results/pipeline_info/benchmarks/chimera_telocal_annotate/{sample}.txt",
     log:

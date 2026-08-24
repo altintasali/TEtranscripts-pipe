@@ -73,8 +73,13 @@ def classify_telocal(key):
 def load_telocal_counts(paths):
     """Build a per-chromosome interval index from TElocal cntTables.
 
-    Returns {chrom: [(start, end, locus_key, family, cls, count), ...]} sorted
-    by start, where count is summed across all input files (samples).
+    Returns {chrom: (feats, max_end)}, where `feats` is a list of
+    (start, end, locus_key, family, cls, count) sorted by start, and
+    `max_end[i]` is the running maximum end coordinate over feats[0..i] --
+    used by overlapping_telocal() for a correct (not just "usually correct")
+    interval overlap query, mirroring parse_chimeric_junctions.py's
+    load_bed()/overlapping(). count is summed across all input files
+    (samples).
     """
     raw = {}
     for path in paths:
@@ -106,21 +111,26 @@ def load_telocal_counts(paths):
     tracks = {}
     for chrom, d in raw.items():
         feats = sorted(d.values(), key=lambda x: (x[0], x[1]))
-        tracks[chrom] = feats
+        running = float("-inf")
+        max_end = []
+        for f in feats:
+            running = max(running, f[1])
+            max_end.append(running)
+        tracks[chrom] = (feats, max_end)
     return tracks
 
 
 def overlapping_telocal(track, chrom, start0, end0):
-    """TElocal loci overlapping [start0, end0) on *chrom*."""
+    """TElocal loci overlapping [start0, end0) on *chrom*.
+
+    Correct for arbitrarily long/nested/overlapping loci, not just the
+    common case -- see parse_chimeric_junctions.py's overlapping() for the
+    rationale behind bisecting on the running max_end rather than start.
+    """
     if chrom not in track:
         return []
-    feats = track[chrom]
-    starts = [f[0] for f in feats]
-    lo = bisect.bisect_right(starts, start0) - 1
-    lo = max(lo, 0)
-    for i in range(lo, -1, -1):
-        if feats[i][1] > start0:
-            lo = i
+    feats, max_end = track[chrom]
+    lo = bisect.bisect_right(max_end, start0)
     hits = []
     for i in range(lo, len(feats)):
         s, e, key, family, cls, count = feats[i]
