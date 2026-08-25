@@ -56,6 +56,7 @@ if STAR_TWO_PASS == "cohort":
     include: "rules/star_two_pass.smk"
 include: "rules/align.smk"
 include: "rules/strandedness.smk"
+include: "rules/bam_qc.smk"
 include: "rules/tetranscripts.smk"
 include: "rules/tecount_qc.smk"
 if TELOCAL_ENABLED:
