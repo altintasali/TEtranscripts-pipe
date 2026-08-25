@@ -3,7 +3,7 @@
 Branch: `fix/fast-telocal-indexer` (based on `feature/telocal`, deliberately
 *not* on `feature/chimera-assembly` — keeps this fix scoped, no STAR
 two-pass / chimera work on this branch). Pushed to origin, up to date as of
-commit `ce6f221`.
+commit `9036153`.
 
 ## Problem
 
@@ -92,9 +92,49 @@ Wired through:
   cause and that this isn't yet re-benchmarked at full production scale,
   so there's headroom.
 
+## telocal_locations — TE key → genomic coordinates
+
+Separate follow-up, prompted by the user inspecting real TElocal output on
+their HPC run
+(`~/projects/20260805_ZPF68/.../results/telocal/2C_WT_09.cntTable.gz`):
+gene rows appeared first (`head`), TE-locus rows only showed up at the
+bottom (`tail`) — normal (TElocal's own output, gene rows sorted before TE
+rows). But the TE rows (e.g. `hAT-N1_Mam_dup95:hAT-N1_Mam:hAT:DNA`) carry no
+genomic coordinates — also normal, that's simply how TElocal's own cntTable
+is shaped; it was never a pipeline bug.
+
+Added `workflow/scripts/telocal_locations.py` + rule `telocal_locations` in
+`workflow/rules/telocal.smk`: one streaming pass over `TE_GTF` (no
+index/tree), emitting `results/telocal/telocal_locations.tsv.gz` — every TE
+key (`transcript_id:gene_id:family_id:class_id`) mapped to its
+`chrom`/`start`/`end`/`strand`, so cntTable rows can be joined against real
+coordinates. Always built when `telocal.enabled: true` (like
+`telocal_summary`), independent of whether `locind` is auto-built or
+user-supplied.
+
+Verification: read TElocal's own `bin/TElocal` source directly — cntTable's
+TE row keys come from the index's `getElements()`/`_elements`, built as
+`transcript_id:gene_id:family_id:class_id`. Built a real `.locInd` via the
+isolated venv (pinned `TElocal==1.1.3`) and confirmed `getElements()`
+matches `telocal_locations.py`'s output character-for-character on the same
+GTF (`TE1_dup1:TE1:TE1fam:TE1class`, `.tests/resources/te_annotation.gtf`
+fixture). Dry-run + real execution against `config/test.yaml` both pass.
+No new CI guard needed — it's a plain rule the existing `test` job already
+exercises end-to-end (unlike `telocal.indexer`, which needed explicit
+dual-path guards because it's a config-level behavior switch).
+
+Also fixed a doc gap while in there: README.md never mentioned
+`telocal.indexer: fast|legacy` even though the prior commit added it to the
+pipeline — now documented, plus a new "Locus coordinates" section and
+output-tree entry for `telocal_locations.tsv.gz`. Flowchart regenerated
+(`telocal_locations` has no rule dependencies either side, so it renders in
+its own "Other" subgraph).
+
 ## Status at end of this session
 
-- Commit `ce6f221` pushed to `origin/fix/fast-telocal-indexer`.
+- Commit `9036153` pushed to `origin/fix/fast-telocal-indexer` (2 commits
+  this session: `ce6f221` telocal.indexer toggle, `9036153`
+  telocal_locations + README/agent-log updates).
 - No PR opened yet for this branch (unlike `feature/chimera-assembly`,
   which has PR #1) — consider opening one for real CI validation.
 - User's real project config
