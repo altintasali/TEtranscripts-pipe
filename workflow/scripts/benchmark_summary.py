@@ -163,6 +163,7 @@ def main():
                 "description": "Max average CPU cores used across jobs (mean_load / 100)",
                 "format": "{:.3f}",
                 "min": 0,
+                "hidden": True,
             },
             "cpu_eff": {
                 "title": "CPU efficiency",
@@ -188,6 +189,7 @@ def main():
                 "description": "Max peak resident memory used across jobs (max_rss)",
                 "format": "{:.3f}",
                 "min": 0,
+                "hidden": True,
             },
             "ram_eff": {
                 "title": "RAM efficiency",

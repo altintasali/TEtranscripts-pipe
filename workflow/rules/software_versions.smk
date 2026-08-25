@@ -23,26 +23,36 @@ rule software_versions:
     run:
         import yaml
 
-        # Every pinned tool, under the pipeline's group name -- MultiQC
-        # renders the top-level YAML key as the group header in its Software
-        # Versions section. Tools whose versions MultiQC auto-detects from
-        # logs (STAR, FastQC, samtools...) are listed here too, so the
+        # Every pinned tool, grouped by pipeline stage -- MultiQC renders
+        # each top-level YAML key as its own header in the Software
+        # Versions section, so splitting into stage groups (instead of one
+        # flat "TEtranscripts-pipe" list) makes the section scannable as
+        # the tool count grows. Tools whose versions MultiQC auto-detects
+        # from logs (STAR, FastQC, samtools...) are listed here too, so the
         # section stays complete even when a log omits them.
         versions = {
-            "STAR": V["star"],
-            "samtools": V["samtools"],
-            "Trim Galore!": V["trim_galore"],
-            "FastQC": V["fastqc"],
-            "RSeQC": V["rseqc"],
-            "MultiQC": V["multiqc"],
-            "TEtranscripts": V["tetranscripts"],
-            "TElocal": V["telocal"],
-            "DESeq2": V["deseq2"],
-            "pheatmap": V["pheatmap"],
-            "R": V["r_base"],
-            "UCSC tools": f"{V['ucsc_gtftogenepred']}",
+            "Trimming & QC": {
+                "Trim Galore!": V["trim_galore"],
+                "FastQC": V["fastqc"],
+                "MultiQC": V["multiqc"],
+            },
+            "Alignment": {
+                "STAR": V["star"],
+                "samtools": V["samtools"],
+                "RSeQC": V["rseqc"],
+            },
+            "Annotation tools": {
+                "UCSC tools": f"{V['ucsc_gtftogenepred']}",
+            },
+            "TE / Gene Quantification": {
+                "TEtranscripts": V["tetranscripts"],
+                "TElocal": V["telocal"],
+            },
+            "Differential Expression & Stats": {
+                "DESeq2": V["deseq2"],
+                "pheatmap": V["pheatmap"],
+                "R": V["r_base"],
+            },
         }
         with open("results/versions/rnaseq_mqc_versions.yml", "w") as fh:
-            yaml.safe_dump(
-                {"TEtranscripts-pipe": versions}, fh, default_flow_style=False
-            )
+            yaml.safe_dump(versions, fh, default_flow_style=False, sort_keys=False)

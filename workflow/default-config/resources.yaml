@@ -118,6 +118,29 @@ resources:
     mem_mb: 4000
     runtime: 60
 
+  samtools_flagstat:
+    # Just tallies SAM flag bits over the sorted BAM; single-threaded aside
+    # from the -@ decompression helper, small and fast.
+    threads: 1
+    mem_mb: 1000
+    runtime: 15
+
+  rseqc_read_distribution:
+    # Same shape as rseqc_infer_experiment: one pass over the BAM against
+    # the BED12 gene model, single-threaded.
+    threads: 1
+    mem_mb: 4000
+    runtime: 60
+
+  rseqc_gene_body_coverage:
+    # Per-position depth across every transcript in the BED12 model over the
+    # whole BAM -- CPU/time heavier than infer_experiment/read_distribution's
+    # single streaming pass. Unbenchmarked on real data at time of writing;
+    # a starting point, not a measured value.
+    threads: 1
+    mem_mb: 8000
+    runtime: 120
+
   determine_strandedness:
     threads: 1
     mem_mb: 1000
@@ -134,9 +157,12 @@ resources:
   telocal:
     # TElocal is single-threaded like TEcount. Memory is dominated by the
     # .locInd index (a pickled balanced binary tree over 500-bp bins).
-    # ~8-12GB covers a human/mouse dataset.
+    # Measured on an 84-sample run: 158% RAM efficiency at 12 GB (~19 GB
+    # peak RSS) -- a full-genome TE annotation needs more than the
+    # "8-12GB" human/mouse estimate this default started from. Bumped to
+    # keep ~80% efficiency (~19GB / 0.8).
     threads: 1
-    mem_mb: 12000
+    mem_mb: 24000
     runtime: 240
 
   telocal_locind:
@@ -164,10 +190,13 @@ resources:
 
   telocal_qc_transform:
     # log2/vst/rlog on the TElocal counts matrix; R is single-threaded.
-    # Memory scales with sample count.  Base 4 GB + 250 MB per sample.
+    # Memory scales with sample count.  Measured on an 84-sample run: 120%
+    # RAM efficiency at base 4 GB + 250 MB/sample (~30GB peak RSS at 84
+    # samples). Scaled up 1.5x to keep ~80% efficiency: base 6 GB + 375 MB
+    # per sample (~37.5GB at 84 samples).
     threads: 1
-    mem_mb: 4000
-    mem_per_sample: 250
+    mem_mb: 6000
+    mem_per_sample: 375
     runtime: 120
 
   telocal_qc:
@@ -221,30 +250,48 @@ resources:
   # entries are inert otherwise.
 
   annotation_to_bed:
-    # Pure-python GTF->BED conversion; single-threaded, small. 2 threads
-    # reserved as scheduler headroom.
-    threads: 2
+    # Pure-python GTF->BED conversion; single-threaded, small.
+    threads: 1
     mem_mb: 2000
     runtime: 30
 
   parse_chimeric_junctions:
     # Annotating a junction file against the gene/TE tracks; single-threaded
-    # python (2nd core reserved as scheduler headroom).
-    threads: 2
+    # python.
+    threads: 1
     mem_mb: 8000
     runtime: 120
 
+  chimera_telocal_index:
+    # Builds the merged all-samples TElocal interval index ONCE (previously
+    # rebuilt from scratch in every chimera_telocal_annotate job -- see that
+    # rule's comment). Same TE-locus universe as telocal_locind, but reads
+    # already-computed cntTables rather than the raw TE GTF, and stores a
+    # compact columnar/vocab-deduped structure (chimera_telocal_index.py)
+    # rather than telocal_locind's balanced-tree pickle -- sized similarly
+    # to telocal_locind as a starting point pending a real measurement,
+    # since both index the same locus universe. Runs once per pipeline run,
+    # not once per sample, so a generous allocation here is far cheaper in
+    # aggregate than the old per-sample formula.
+    threads: 1
+    mem_mb: 32000
+    runtime: 180
+
   chimera_telocal_annotate:
-    # Cross-references one sample's junction table against a TElocal
-    # interval index built from ALL samples' cntTables at once (same
-    # all-samples-in-memory shape as telocal_counts) -- single-threaded
-    # python (2nd core reserved as scheduler headroom).  Base 4 GB + 200 MB
-    # per sample (matching telocal_counts' per-sample allowance for the same
-    # locus-level tables).
-    threads: 2
-    mem_mb: 4000
-    mem_per_sample: 200
-    runtime: 120
+    # Cross-references one sample's junction table against the shared
+    # TElocal interval index (chimera_telocal_index, built once) --
+    # single-threaded python. No longer scales with sample count: this job
+    # only deserializes the one fixed-size index and processes one sample's
+    # junctions, unlike the old per-job full-rebuild-from-text version that
+    # measured 563% RAM efficiency at "base 4GB + 200MB/sample" on an
+    # 84-sample run (~4000+200*84=20800MB request vs. ~117GB actual --
+    # rebuilding the index from raw text in every one of 84 jobs was both
+    # the redundant-work problem AND, we now believe, most of the memory
+    # problem). Flat allocation, generous pending a real measurement of the
+    # new pickle-deserialize-only shape.
+    threads: 1
+    mem_mb: 8000
+    runtime: 60
 
   chimera_counts:
     # Merging per-sample junction tables; single-threaded python (2 threads
@@ -259,7 +306,7 @@ resources:
     runtime: 30
 
   junction_qc:
-    threads: 2
+    threads: 1
     mem_mb: 2000
     runtime: 15
 
@@ -276,14 +323,15 @@ resources:
     runtime: 15
 
   sample_qc_transform:
-    # DESeq2 vst/rlog on the chimera counts matrix; R is single-threaded
-    # (2nd core reserved as scheduler headroom).  Memory scales with sample
-    # count.  Measured on an 84-sample run: >200% RAM efficiency at base
-    # 4 GB + 250 MB/sample, ~12 GB peak RSS.  Base 2 GB + 125 MB per sample
-    # (~12.5 GB at 84 samples).
-    threads: 2
-    mem_mb: 2000
-    mem_per_sample: 125
+    # DESeq2 vst/rlog on the chimera counts matrix; R is single-threaded.
+    # Memory scales with sample count.  Re-measured on an 84-sample run at
+    # the prior "base 2 GB + 125 MB/sample" setting: 442% RAM efficiency
+    # (~55 GB peak RSS) -- that retune undershot. Scaled up 5.5x to keep
+    # ~80% efficiency: base 11 GB + 700 MB per sample (~70 GB at 84
+    # samples).
+    threads: 1
+    mem_mb: 11000
+    mem_per_sample: 700
     runtime: 60
 
   sample_qc:

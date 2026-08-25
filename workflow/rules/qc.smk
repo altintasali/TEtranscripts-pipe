@@ -194,7 +194,9 @@ rule config_used:
 rule multiqc:
     # Aggregates STAR alignment logs, (if trimming is enabled) TrimGalore!
     # + FastQC reports, the always-on raw FastQC reports, (if strandedness
-    # auto-detection was used) RSeQC infer_experiment.py reports, the chimera
+    # auto-detection was used) RSeQC infer_experiment.py reports, the
+    # always-on samtools flagstat + RSeQC read_distribution/geneBody_coverage
+    # reports (all samples, not just AUTO_SAMPLES), the chimera
     # sample-QC (PCA + sample distances) and junction-QC barplot, the TEcounts
     # sample-QC (gated on tetranscripts.qc.enabled) and the always-on
     # per-sample summary barplots, the TElocal summary barplots + sample-QC
@@ -208,6 +210,9 @@ rule multiqc:
     input:
         expand("results/star/{sample}_Log.final.out", sample=SAMPLES),
         expand("results/rseqc/{sample}_infer_experiment.txt", sample=AUTO_SAMPLES),
+        expand("results/samtools/{sample}_flagstat.txt", sample=SAMPLES),
+        expand("results/rseqc/{sample}_read_distribution.txt", sample=SAMPLES),
+        expand("results/rseqc/{sample}.geneBodyCoverage.txt", sample=SAMPLES),
         all_fastqc_reports(),
         all_raw_fastqc_reports(),
         "results/pipeline_info/benchmark_summary_mqc.json",
