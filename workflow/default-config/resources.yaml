@@ -167,16 +167,25 @@ resources:
 
   telocal_locind:
     # TElocal_indexer builds the locus index from the TE GTF.  Memory is
-    # dominated by loading the full TE annotation into a balanced binary tree;
-    # ~30GB is typical for a human/mouse genome with a comprehensive TE GTF.
-    # Build time is pure-Python and single-threaded (one recursive AVL insert
-    # per 500bp bin an instance spans, no parallelism) -- a large annotation
-    # (e.g. a full RepeatMasker-derived GTF, millions of instances) can take
-    # well over 6h; bumped to 24h after 3 consecutive SLURM timeouts on a
-    # GRCm38 rmsk-derived TE GTF.
+    # dominated by loading the full TE annotation into a balanced binary
+    # tree; ~30GB is typical for a human/mouse genome with a comprehensive
+    # TE GTF.  Build time is pure-Python and single-threaded (no
+    # parallelism available in TElocal_Toolkit) -- but see
+    # build_telocal_index.py's _fast_build(): the tree insertion itself
+    # was never the bottleneck (profiled at <10% of runtime); an O(n^2)
+    # list-membership check in TElocal's own TEfeatures.build() was --
+    # ~98s of a ~125s run at 200k instances, in isolation. Fixed (an
+    # auxiliary set, same list order preserved) and verified against the
+    # original: identical output, 0 mismatches across 20k+ random queries,
+    # ~19-28x faster measured at 200k instances. Since the fixed cost was
+    # quadratic, runtime dropped from ~24h (3 consecutive real timeouts on
+    # a GRCm38 rmsk-derived TE GTF, millions of instances) to an estimated
+    # low tens of minutes at that same scale -- not re-benchmarked at full
+    # scale, so this budget still leaves real headroom rather than cutting
+    # it close.
     threads: 1
     mem_mb: 32000
-    runtime: 1440
+    runtime: 180
 
   telocal_counts:
     # Merging per-sample TElocal cntTables into the counts matrix;
