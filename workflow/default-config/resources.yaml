@@ -262,22 +262,36 @@ resources:
     mem_mb: 8000
     runtime: 120
 
-  chimera_telocal_annotate:
-    # Cross-references one sample's junction table against a TElocal
-    # interval index built from ALL samples' cntTables at once (same
-    # all-samples-in-memory shape as telocal_counts) -- single-threaded
-    # python.  Base 4 GB + 200 MB per sample (matching telocal_counts' per-
-    # sample allowance for the same locus-level tables).
-    # MEASURED 563% RAM efficiency on an 84-sample run -- see the open
-    # question flagged separately; not yet re-tuned here since a blind
-    # ~7x bump implies ~143GB/job, likely impractical, and the real fix is
-    # probably architectural (this rule re-parses ALL samples' TElocal
-    # tables from scratch in every one of N per-sample jobs instead of
-    # building the shared index once).
+  chimera_telocal_index:
+    # Builds the merged all-samples TElocal interval index ONCE (previously
+    # rebuilt from scratch in every chimera_telocal_annotate job -- see that
+    # rule's comment). Same TE-locus universe as telocal_locind, but reads
+    # already-computed cntTables rather than the raw TE GTF, and stores a
+    # compact columnar/vocab-deduped structure (chimera_telocal_index.py)
+    # rather than telocal_locind's balanced-tree pickle -- sized similarly
+    # to telocal_locind as a starting point pending a real measurement,
+    # since both index the same locus universe. Runs once per pipeline run,
+    # not once per sample, so a generous allocation here is far cheaper in
+    # aggregate than the old per-sample formula.
     threads: 1
-    mem_mb: 4000
-    mem_per_sample: 200
-    runtime: 120
+    mem_mb: 32000
+    runtime: 180
+
+  chimera_telocal_annotate:
+    # Cross-references one sample's junction table against the shared
+    # TElocal interval index (chimera_telocal_index, built once) --
+    # single-threaded python. No longer scales with sample count: this job
+    # only deserializes the one fixed-size index and processes one sample's
+    # junctions, unlike the old per-job full-rebuild-from-text version that
+    # measured 563% RAM efficiency at "base 4GB + 200MB/sample" on an
+    # 84-sample run (~4000+200*84=20800MB request vs. ~117GB actual --
+    # rebuilding the index from raw text in every one of 84 jobs was both
+    # the redundant-work problem AND, we now believe, most of the memory
+    # problem). Flat allocation, generous pending a real measurement of the
+    # new pickle-deserialize-only shape.
+    threads: 1
+    mem_mb: 8000
+    runtime: 60
 
   chimera_counts:
     # Merging per-sample junction tables; single-threaded python (2 threads

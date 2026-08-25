@@ -135,15 +135,43 @@ def _telocal_counts_for_chimera(wc=None):
     return [f"results/telocal/{s}.cntTable.gz" for s in SAMPLES]
 
 
+rule chimera_telocal_index:
+    # Builds the merged, all-samples TElocal interval index ONCE (sparse loci
+    # won't overlap if a sample lacks them, which is fine) instead of every
+    # per-sample chimera_telocal_annotate job re-parsing and re-summing all
+    # samples' cntTables from scratch -- an Nx redundant rebuild of the
+    # identical index for N samples.  Mirrors telocal_locind's
+    # build-once-reuse-everywhere shape.  See chimera_telocal_index.py /
+    # build_chimera_telocal_index.py for the compact columnar representation.
+    input:
+        telocal_tables=_telocal_counts_for_chimera,
+    output:
+        "results/chimera_junction/telocal_index.pkl.gz",
+    threads: get_resources("chimera_telocal_index")["threads"]
+    resources:
+        mem_mb=get_resources("chimera_telocal_index")["mem_mb"],
+        runtime=get_resources("chimera_telocal_index")["runtime"],
+    benchmark:
+        "results/pipeline_info/benchmarks/chimera_telocal_index/chimera_telocal_index.txt",
+    log:
+        "results/pipeline_info/logs/chimera_junction/telocal_index.log",
+    shell:
+        "python3 {SCRIPTS_DIR}/build_chimera_telocal_index.py "
+        "--telocal-tables {input.telocal_tables} "
+        "--out {output} > {log} 2>&1"
+
+
 rule chimera_telocal_annotate:
     # Enrich per-sample junction tables with TElocal locus-level expression.
     # Adds telocal_count, telocal_locus, telocal_active, te_refined_by_telocal
     # columns.  Only runs when both chimera and telocal are enabled.
-    # Reads ALL samples' telocal tables to build a global interval index
-    # (sparse loci won't overlap if a sample lacks them, which is fine).
+    # Consumes the shared index built once by chimera_telocal_index -- this
+    # job's own memory need no longer scales with sample count (it's the
+    # same fixed index regardless of cohort size), unlike the old
+    # per-sample-rebuild version.
     input:
         junctions="results/chimera_junction/{sample}_junctions.tsv.gz",
-        telocal_tables=_telocal_counts_for_chimera,
+        telocal_index="results/chimera_junction/telocal_index.pkl.gz",
     output:
         "results/chimera_junction/{sample}_junctions_telocal.tsv.gz",
     params:
@@ -151,7 +179,7 @@ rule chimera_telocal_annotate:
         tolerance=config["chimera"]["junction"]["breakpoint_tolerance"],
     threads: get_resources("chimera_telocal_annotate")["threads"]
     resources:
-        mem_mb=get_scaled_mem_mb("chimera_telocal_annotate"),
+        mem_mb=get_resources("chimera_telocal_annotate")["mem_mb"],
         runtime=get_resources("chimera_telocal_annotate")["runtime"],
     benchmark:
         "results/pipeline_info/benchmarks/chimera_telocal_annotate/{sample}.txt",
@@ -160,7 +188,7 @@ rule chimera_telocal_annotate:
     shell:
         "python3 {SCRIPTS_DIR}/chimera_telocal_annotate.py "
         "--junctions {input.junctions} "
-        "--telocal-tables {input.telocal_tables} "
+        "--telocal-index {input.telocal_index} "
         "--sample-name {params.sample_name} "
         "--breakpoint-tolerance {params.tolerance} "
         "--out {output} > {log} 2>&1"
