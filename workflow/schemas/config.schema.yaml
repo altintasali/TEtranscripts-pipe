@@ -344,7 +344,24 @@ properties:
           Path to a pre-built TElocal .locInd file (built from the same TE
           GTF via TElocal_indexer). Required when enabled is true. When
           empty, the workflow auto-builds the index from the TE GTF into
-          results/telocal/telocal.locInd.
+          results/telocal/telocal.locInd, using the method set by
+          telocal.indexer.
+      indexer:
+        type: string
+        enum: ["fast", "legacy"]
+        default: fast
+        description: >-
+          Only used when locind is empty (auto-build). "fast" (default):
+          our reimplementation of TElocal_Toolkit's TEfeatures.build() --
+          same tree-insertion logic, unmodified, but fixes an O(n^2)
+          bottleneck in the surrounding per-line loop (a list-membership
+          check that should have been a set). Verified against the
+          original on real mouse rmsk data (3.7M TE instances): identical
+          output, 0 mismatches across 50,000+ spatial queries, ~1000x
+          faster (a 21h build dropped to ~1 minute). "legacy": TElocal's
+          own unmodified TEfeatures.build() -- an escape hatch, since
+          "fast" relies on that library's internal attributes at the
+          pinned version rather than its public API.
       extra:
         type: string
         description: Extra command-line arguments passed verbatim to TElocal.

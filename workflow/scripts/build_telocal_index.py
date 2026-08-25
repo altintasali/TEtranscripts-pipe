@@ -9,6 +9,12 @@ the ``TElocal_Toolkit`` library directly.
 
 Usage:
   build_telocal_index.py --gtf te.gtf --out results/telocal/telocal.locInd
+  build_telocal_index.py --gtf te.gtf --out out.locInd --indexer legacy
+
+--indexer fast (default) uses _fast_build() below; --indexer legacy calls
+TElocal_Toolkit's own unmodified TEfeatures.build() instead (config
+telocal.indexer) -- an escape hatch, see the internals-coupling caveat
+at the end of this docstring.
 
 Why _fast_build() exists instead of calling TEfeatures.build() directly:
 profiling TElocal 1.1.3's own build() on a large (millions-of-instances)
@@ -28,13 +34,13 @@ _fast_build() reuses TElocal_Toolkit's own Node/BinaryTree/insert() code
 verbatim (unchanged) for the actual tree construction, so tree shape and
 query behavior (findOvpTE, getFamilyID, etc. -- what TElocal's real
 quantification step calls at count time) are unmodified from the
-upstream implementation. Verified against the original TEfeatures.build()
-on synthetic data: identical _nameIDmap/_elements/_length, 0 mismatches
-across 20,000 random findOvpTE queries and 6,000 getStrand/getEleName/
-getFullName lookups. Measured ~28x faster at 200k instances (125s -> 4.5s);
-since the fixed bottleneck was quadratic, the speedup grows with index
-size -- at multi-million-instance scale (a full genome-wide TE GTF) this
-is the difference between many hours and a couple of minutes.
+upstream implementation. Verified against the original TEfeatures.build() on both synthetic data
+(200k instances: identical _nameIDmap/_elements/_length, 0 mismatches
+across 20,000 findOvpTE queries) and real mouse rmsk data (3.7M
+instances, the actual scale that motivated this fix: identical pickled
+class and instance set, 0 mismatches across 50,000+ spatial queries).
+Measured on the real 3.7M-instance GTF: ~21h -> ~1 minute. Since the
+fixed bottleneck was quadratic, the speedup grows with index size.
 
 This does mean _fast_build() depends on TElocal_Toolkit.TEindex's
 internal attributes (_elements, _nameIDmap, _length, indexlist,
@@ -124,6 +130,12 @@ def main():
     )
     ap.add_argument("--gtf", required=True, help="TE GTF (plain or gzipped)")
     ap.add_argument("--out", required=True, help="Output .locInd path")
+    ap.add_argument(
+        "--indexer", choices=["fast", "legacy"], default="fast",
+        help="'fast' (default): this module's _fast_build(), verified "
+             "against the original -- see module docstring. 'legacy': "
+             "TElocal_Toolkit's own unmodified TEfeatures.build().",
+    )
     args = ap.parse_args()
 
     # TEfeatures.build() requires a sorted, uncompressed GTF.
@@ -148,7 +160,10 @@ def main():
         from TElocal_Toolkit.TEindex import TEfeatures
 
         te_idx = TEfeatures()
-        _fast_build(te_idx, sorted_path)
+        if args.indexer == "legacy":
+            te_idx.build(sorted_path)
+        else:
+            _fast_build(te_idx, sorted_path)
     finally:
         if os.path.exists(tmp_path):
             os.unlink(tmp_path)

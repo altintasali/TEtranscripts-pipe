@@ -11,6 +11,12 @@ rule telocal_locind:
         # Must end in .locInd -- TElocal rejects any --TE file whose path
         # does not have that suffix.
         "results/telocal/telocal.locInd",
+    params:
+        # "fast" (default): our reimplementation of TEfeatures.build(),
+        # verified against the original -- see build_telocal_index.py's
+        # module docstring. "legacy": TElocal_Toolkit's own unmodified
+        # build(), an escape hatch (config telocal.indexer).
+        indexer=config["telocal"].get("indexer", "fast"),
     threads: get_resources("telocal_locind")["threads"]
     resources:
         mem_mb=get_resources("telocal_locind")["mem_mb"],
@@ -24,6 +30,7 @@ rule telocal_locind:
     shell:
         "python3 {SCRIPTS_DIR}/build_telocal_index.py "
         "--gtf {input.te_gtf} "
+        "--indexer {params.indexer} "
         "--out {output} > {log} 2>&1"
 
 
