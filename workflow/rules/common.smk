@@ -889,6 +889,7 @@ def all_telocal_outputs():
     files += [
         "results/telocal/qc/telocal_assignment_mqc.json",
         "results/telocal/qc/telocal_te_class_mqc.json",
+        "results/telocal/telocal_locations.tsv.gz",
     ]
     return files
 
@@ -1036,6 +1037,7 @@ def all_benchmark_files():
         files += [
             "results/pipeline_info/benchmarks/telocal_locind/locind.txt",
             "results/pipeline_info/benchmarks/telocal_summary/telocal_summary.txt",
+            "results/pipeline_info/benchmarks/telocal_locations/locations.txt",
         ]
         for s in SAMPLES:
             files.append(f"results/pipeline_info/benchmarks/telocal/{s}.txt")

@@ -66,6 +66,7 @@ flowchart LR
         samtools_flagstat["samtools_flagstat"]
         star_align_pass1["star_align_pass1"]
         star_merge_junctions["star_merge_junctions"]
+        telocal_locations["telocal_locations"]
     end
     annotation_to_bed --> parse_chimeric_junctions
     benchmark_summary --> multiqc
@@ -676,10 +677,26 @@ into `results/telocal/telocal.locInd` (the `.locInd` suffix is mandatory —
 TElocal rejects any `--TE` file whose path lacks it). It is kept by default;
 `outputs.keep_telocal_index: false` deletes it once all TElocal runs finish
 (a user-provided `locind` path is never touched). Auto-building trades disk
-for convenience — rebuilding takes minutes to ~1 h depending on genome and TE
-annotation size.
+for convenience.
+
+Auto-building uses `telocal.indexer: fast` (default) — a drop-in
+reimplementation of `TElocal_Toolkit`'s own index builder that fixes an
+O(n²) bottleneck (a list-membership check that should have been a set),
+verified against the original on real mouse rmsk data (3.7M TE instances):
+identical output, ~1000x faster (a build that took ~21 h dropped to ~1 min).
+Set `telocal.indexer: legacy` to fall back to `TElocal_Toolkit`'s own
+unmodified builder if ever needed.
 
 Set `telocal.enabled: false` to skip locus-level quantification entirely.
+
+### Locus coordinates
+
+TElocal's cntTables key TE rows by
+`transcript_id:gene_id:family_id:class_id` but never include genomic
+coordinates. `results/telocal/telocal_locations.tsv.gz` maps every such key
+to its `chrom`/`start`/`end`/`strand` (one pass over the TE GTF, always
+built when `telocal.enabled` is true) so you can join cntTable output
+against real coordinates yourself.
 
 ## Chimera detection
 
@@ -985,6 +1002,7 @@ results/
 │   ├── locInd                                        #   auto-built TElocal index (if locind empty;
 │   │                                                 #   removed when outputs.keep_telocal_index: false)
 │   ├── {sample}.cntTable.gz                          #   per-sample locus-level TE counts
+│   ├── telocal_locations.tsv.gz                      #   TE key -> chrom/start/end/strand
 │   ├── counts_matrix.tsv.gz                          #   locus x samples (if telocal.qc.enabled)
 │   └── qc/
 │       ├── {pca_transform}_counts.tsv.gz             #   QC-view transformed matrix

@@ -187,6 +187,15 @@ resources:
     mem_mb: 32000
     runtime: 180
 
+  telocal_locations:
+    # Per-TE chrom/start/end/strand lookup table: one streaming pass over
+    # the TE GTF, no tree/index built. Memory is dominated by the
+    # dedup-by-key set (millions of TE keys); ~4GB covers a human/mouse
+    # TE GTF.
+    threads: 1
+    mem_mb: 4000
+    runtime: 30
+
   telocal_counts:
     # Merging per-sample TElocal cntTables into the counts matrix;
     # single-threaded.  Locus-level tables are much larger than TEcount's

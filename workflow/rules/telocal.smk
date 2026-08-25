@@ -72,6 +72,30 @@ rule telocal:
         " > {log} 2>&1"
 
 
+rule telocal_locations:
+    # Per-TE genomic coordinates (chrom/start/end/strand) for every key
+    # TElocal's cntTable reports -- TElocal's own output never includes
+    # coordinates (see telocal_locations.py). One pass over the TE GTF, no
+    # index/tree needed; independent of telocal_locind and safe to build
+    # even when a pre-built --TE index is supplied via config telocal.locind.
+    input:
+        te_gtf=TE_GTF,
+    output:
+        "results/telocal/telocal_locations.tsv.gz",
+    threads: get_resources("telocal_locations")["threads"]
+    resources:
+        mem_mb=get_resources("telocal_locations")["mem_mb"],
+        runtime=get_resources("telocal_locations")["runtime"],
+    benchmark:
+        "results/pipeline_info/benchmarks/telocal_locations/locations.txt",
+    log:
+        "results/pipeline_info/logs/telocal/locations.log",
+    shell:
+        "python3 {SCRIPTS_DIR}/telocal_locations.py "
+        "--gtf {input.te_gtf} "
+        "--out {output} > {log} 2>&1"
+
+
 def telocal_counts_input():
     return [
         f"results/telocal/{s}.cntTable.gz"
