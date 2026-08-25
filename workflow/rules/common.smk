@@ -435,6 +435,32 @@ with open("results/pipeline_info/logs/config_resolution.log", "w") as fh:
 _STAR_INDEX_RAW = (config["star"].get("index") or "").strip()
 STAR_BUILD_INDEX = config["star"].get("build_index", True)
 
+# -----------------------------------------------------------------------------
+# STAR 2-pass mapping (STAR manual section 9): "none" (single-pass),
+# "per_sample" (--twopassMode Basic, no other rules change), or "cohort"
+# (novel junctions pooled across all samples before any sample's final
+# alignment -- see rules/star_two_pass.smk, only included when this is
+# "cohort"). Schema enum already rejects any other value.
+#
+# Default is "cohort" FOR NOW while this feature is being evaluated -- set
+# star.two_pass: none explicitly to opt out and get the original,
+# single-pass-only DAG.
+# -----------------------------------------------------------------------------
+STAR_TWO_PASS = config["star"].get("two_pass", "cohort")
+if STAR_TWO_PASS in ("per_sample", "cohort"):
+    logger.warning(
+        f"star.two_pass is {STAR_TWO_PASS!r}. STAR 2-pass mapping roughly "
+        "doubles STAR's alignment runtime per sample -- if star_align jobs "
+        "start timing out, increase its runtime in input/resources.yaml."
+        + (
+            " Cohort mode also adds star_align_pass1/star_merge_junctions "
+            "jobs and a DAG sync point: no sample's final alignment starts "
+            "until every sample's pass-1 alignment has finished."
+            if STAR_TWO_PASS == "cohort"
+            else ""
+        )
+    )
+
 if STAR_BUILD_INDEX:
     # Index lives where the user says (or the default).
     STAR_INDEX_DIR = os.path.abspath(_STAR_INDEX_RAW or "results/star_index")
@@ -546,12 +572,23 @@ def _is_paired(sample):
 # -----------------------------------------------------------------------------
 TRIM_ENABLED = bool(config.get("trimming", {}).get("enabled", True))
 
-# Optional chimera screen (rules/chimera.smk + sample_qc.smk). When enabled
-# (the default), the STAR alignment emits chimeric junctions and the chimera
-# rules annotate them; set chimera.enabled: false to opt out -- no chimera
-# STAR flags are passed, the chimera rules are not included, and the workflow
-# behaves like the plain quantification pipeline.
-CHIMERA_ENABLED = bool(config.get("chimera", {}).get("enabled", True))
+# Optional chimera-junction screen (rules/chimera_junction.smk +
+# sample_qc.smk). When enabled (the default), the STAR alignment emits
+# chimeric junctions and the chimera rules annotate them; set
+# chimera.junction.enabled: false to opt out -- no chimera STAR flags are
+# passed, the chimera rules are not included, and the workflow behaves like
+# the plain quantification pipeline. See CHIMERA_ASSEMBLY_ENABLED below for
+# the complementary StringTie-assembly-based screen.
+CHIMERA_JUNCTION_ENABLED = bool(
+    config.get("chimera", {}).get("junction", {}).get("enabled", True)
+)
+
+# Optional chimera-assembly screen (rules/chimera_assembly.smk):
+# StringTie-assembly-based detection, complementing CHIMERA_JUNCTION_ENABLED
+# above. Off by default -- newer and less validated.
+CHIMERA_ASSEMBLY_ENABLED = bool(
+    config.get("chimera", {}).get("assembly", {}).get("enabled", False)
+)
 
 # TEcounts sample-QC (PCA + sample clustering, rules/tecount_qc.smk), built
 # from the per-sample TEcount tables. Defaults come from the built-in
@@ -562,17 +599,46 @@ TECOUNT_QC_ENABLED = bool(TECOUNT_QC["enabled"])
 
 # TElocal locus-level quantification (rules/telocal.smk). Requires a
 # pre-built .locInd file; disabled by default in older configs but enabled
-# in the built-in telocal.yaml defaults.
+# in the built-in telocal.yaml defaults.  When locind is empty, the
+# telocal_locind rule auto-builds from the TE GTF.
 TELOCAL_ENABLED = bool(config.get("telocal", {}).get("enabled", False))
-if TELOCAL_ENABLED:
-    _telocal_locind = config.get("telocal", {}).get("locind", "")
-    if not _telocal_locind:
-        raise RuntimeError(
-            "telocal.enabled is true but telocal.locind is empty. "
-            "Provide a path to a pre-built .locInd file "
-            "(build with: TElocal_indexer --afile TE.gtf --itype TE), "
-            "or set telocal.enabled: false to skip locus-level quantification."
-        )
+_telocal_locind_cfg = config.get("telocal", {}).get("locind", "")
+TELOCAL_QC = config["telocal"].get(
+    "qc",
+    {
+        "enabled": True,
+        "min_samples_present": 2,
+        "min_total_counts": 5,
+        "min_events": 10,
+        "pca_transform": "log2",
+        "feature_class": "TE",
+    },
+)
+TELOCAL_QC_ENABLED = bool(TELOCAL_QC["enabled"])
+
+if TELOCAL_ENABLED and TELOCAL_QC_ENABLED and TELOCAL_QC["pca_transform"] in ("vst", "rlog"):
+    logger.warning(
+        f"telocal.qc.pca_transform is {TELOCAL_QC['pca_transform']!r}. DESeq2's "
+        "vst/rlog on TElocal's locus-level matrix (one row per TE instance, "
+        "often millions) can be prohibitively slow -- the default is 'log2' "
+        "for this reason (see README). telocal_qc_transform's runtime "
+        "budget (workflow/default-config/resources.yaml, or your "
+        "input/resources.yaml override) may need increasing well beyond its "
+        "default if the job times out."
+    )
+
+
+def _telocal_locind_path():
+    """Return the .locInd path for the telocal rule.
+
+    When the user provides a path, use it directly.  When locind is empty,
+    auto-build from the TE GTF (telocal_locind rule) into results/telocal/.
+    The name must keep the .locInd suffix -- TElocal rejects any --TE file
+    whose path does not end in .locInd.
+    """
+    if _telocal_locind_cfg:
+        return _telocal_locind_cfg
+    return "results/telocal/telocal.locInd"
 
 # TrimGalore! always appends _trimmed (single-end) or _val_1/_val_2 (paired)
 # to the *input* basename, and its --basename normalization only strips a
@@ -611,6 +677,13 @@ if TRIM_ENABLED:
 KEEP_MERGED_FASTQ = bool(config.get("outputs", {}).get("keep_merged_fastq", True))
 KEEP_TRIMMED_FASTQ = bool(config.get("outputs", {}).get("keep_trimmed_fastq", True))
 KEEP_STAR_INDEX = bool(config.get("outputs", {}).get("keep_star_index", True))
+# Whether the auto-built TElocal .locInd index
+# (results/telocal/telocal.locInd) is
+# kept after all TElocal runs finish. Never applies to a user-provided
+# telocal.locind path -- that file is only ever read, never deleted.
+KEEP_TELOCAL_INDEX = bool(
+    config.get("outputs", {}).get("keep_telocal_index", True)
+)
 
 
 def _maybe_temp(path, keep):
@@ -800,9 +873,19 @@ def all_tecount_tables():
 
 
 def all_telocal_outputs():
-    """TElocal per-sample count tables and summary barplots for the `all`
-    target (Snakefile)."""
+    """TElocal per-sample count tables, counts matrix + sample-QC artifacts,
+    and summary barplots for the `all` target (Snakefile). The QC view only
+    runs when telocal.qc.enabled is true; the summary barplots always
+    render."""
     files = expand("results/telocal/{sample}.cntTable.gz", sample=SAMPLES)
+    if TELOCAL_QC_ENABLED:
+        transform = TELOCAL_QC["pca_transform"]
+        files += [
+            "results/telocal/counts_matrix.tsv.gz",
+            f"results/telocal/qc/{transform}_counts.tsv.gz",
+            f"results/telocal/qc/pca_{transform}_mqc.json",
+            f"results/telocal/qc/heatmap_{transform}_mqc.json",
+        ]
     files += [
         "results/telocal/qc/telocal_assignment_mqc.json",
         "results/telocal/qc/telocal_te_class_mqc.json",
@@ -914,7 +997,7 @@ def all_benchmark_files():
             f"results/pipeline_info/benchmarks/tetranscripts_diffexp/{contrast}.txt"
         )
     # Chimera-screen rules only run when the chimera stage is enabled.
-    if CHIMERA_ENABLED:
+    if CHIMERA_JUNCTION_ENABLED:
         files += [
             "results/pipeline_info/benchmarks/annotation_to_bed/annotation_to_bed.txt",
             "results/pipeline_info/benchmarks/chimera_counts/chimera_counts.txt",
@@ -924,12 +1007,12 @@ def all_benchmark_files():
                 f"results/pipeline_info/benchmarks/parse_chimeric_junctions/{s}.txt",
                 f"results/pipeline_info/benchmarks/junction_qc/{s}.txt",
             ]
-            if config["chimera"]["outputs"]["write_igv_bed"]:
+            if config["chimera"]["junction"]["outputs"]["write_igv_bed"]:
                 files.append(
                     f"results/pipeline_info/benchmarks/chimera_igv_bed/{s}.txt"
                 )
-        if config["chimera"]["outputs"]["write_counts_matrix"]:
-            transform = config["chimera"]["qc"]["pca_transform"]
+        if config["chimera"]["junction"]["outputs"]["write_counts_matrix"]:
+            transform = config["chimera"]["junction"]["qc"]["pca_transform"]
             files += [
                 f"results/pipeline_info/benchmarks/"
                 f"sample_qc_transform/{transform}.txt",
@@ -947,6 +1030,22 @@ def all_benchmark_files():
     files.append(
         "results/pipeline_info/benchmarks/tecount_summary/tecount_summary.txt"
     )
+    # TElocal rules only run when the telocal stage is enabled; its QC view
+    # additionally requires telocal.qc.enabled.
+    if TELOCAL_ENABLED:
+        files += [
+            "results/pipeline_info/benchmarks/telocal_locind/locind.txt",
+            "results/pipeline_info/benchmarks/telocal_summary/telocal_summary.txt",
+        ]
+        for s in SAMPLES:
+            files.append(f"results/pipeline_info/benchmarks/telocal/{s}.txt")
+        if TELOCAL_QC_ENABLED:
+            transform = TELOCAL_QC["pca_transform"]
+            files += [
+                "results/pipeline_info/benchmarks/telocal_counts/telocal_counts.txt",
+                f"results/pipeline_info/benchmarks/telocal_qc_transform/{transform}.txt",
+                f"results/pipeline_info/benchmarks/telocal_qc/{transform}.txt",
+            ]
     return sorted(set(files))
 
 
@@ -1007,6 +1106,7 @@ def _write_env(name, dependencies, pip_dependencies=None):
 
 STAR_ENV = _write_env("star", [f"star={V['star']}"])
 SAMTOOLS_ENV = _write_env("samtools", [f"samtools={V['samtools']}"])
+STRINGTIE_ENV = _write_env("stringtie", [f"stringtie={V['stringtie']}"])
 # trim-galore brings cutadapt (its core dependency) along automatically;
 # fastqc is added explicitly because trim_galore's --fastqc_args (nf-core/
 # rnaseq default) shells out to it, and its reports feed the MultiQC report.

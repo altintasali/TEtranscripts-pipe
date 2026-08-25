@@ -111,9 +111,11 @@ def main():
 
     assignment_doc = {
         "id": "tecount_assignment",
-        "parent_id": "tecounts",
-        "parent_name": "TEcounts",
-        "section_name": "TEcounts: Gene vs TE Assignment",
+        # Must match sample_qc.R's tecount view id -- a mismatch splits the
+        # TEcount group into two report sections.
+        "parent_id": "tecount",
+        "parent_name": "TEcount",
+        "section_name": "Gene vs. TE Assignment",
         "description": (
             "Per-sample read counts assigned by TEcount to genes vs TE "
             "subfamilies (counts and % of total assigned reads)."
@@ -133,9 +135,9 @@ def main():
     }
     class_doc = {
         "id": "tecount_te_class",
-        "parent_id": "tecounts",
-        "parent_name": "TEcounts",
-        "section_name": "TEcounts: TE Class Composition",
+        "parent_id": "tecount",
+        "parent_name": "TEcount",
+        "section_name": "TE Class Composition",
         "description": (
             "Per-sample TE-subfamily reads by repeat class (counts and % of "
             "TE reads); classes not in LINE/SINE/LTR/DNA/RC are grouped as "

@@ -2,14 +2,14 @@ import os
 
 
 def _chim_star_args(wildcards):
-    """STAR chimeric-alignment parameters from config["chimera"]["star"], or
+    """STAR chimeric-alignment parameters from config["chimera"]["junction"]["star"], or
     nothing when the chimera screen is disabled (chimera.enabled: false).
     --chimOutType stays fixed (Junctions + WithinBAM SoftClip): the junction
     file feeds the chimera screen and the SA tags embedded in the BAM let the
     same alignment be re-inspected in IGV."""
-    if not CHIMERA_ENABLED:
+    if not CHIMERA_JUNCTION_ENABLED:
         return ""
-    c = config["chimera"]["star"]
+    c = config["chimera"]["junction"]["star"]
     return " ".join(
         [
             f"--chimSegmentMin {c['segment_min']}",
@@ -26,11 +26,17 @@ rule star_align:
     # require either unsorted or queryname-sorted input, see
     # https://github.com/mhammell-laboratory/TEtranscripts#recommendations-for-tetranscripts-input-files
     # Runs the STAR version pinned in config["versions"]["star"].
-    # When the chimera stage is enabled (config["chimera"]["enabled"]), the
+    # When the chimera stage is enabled (config["chimera"]["junction"]["enabled"]), the
     # same run also detects chimeric junctions (--chimOutType Junctions
     # WithinBAM SoftClip) -- the {sample}_Chimeric.out.junction file that the
     # chimera screen consumes is a side output of this same alignment, no
     # separate alignment step.
+    #
+    # config star.two_pass controls STAR 2-pass mapping (see common.smk and
+    # the README): "none" (default) adds nothing; "per_sample" is STAR's own
+    # --twopassMode Basic; "cohort" additionally depends on
+    # results/star_pass1/merged_SJ.out.tab (rules/star_two_pass.smk), so this
+    # rule doesn't start for ANY sample until every sample's pass-1 has run.
     #
     # STAR's scratch directory (default: prefix/_STARtmp) is redirected to
     # --outTmpDir under config["star"]["tmpdir"] (default: the OS temp dir)
@@ -41,6 +47,11 @@ rule star_align:
     input:
         unpack(star_input),
         idx=STAR_INDEX_DIR,
+        # merged_SJ.out.tab (cohort-wide 2-pass only) is what makes this
+        # rule wait on every sample's star_align_pass1 + the
+        # star_merge_junctions aggregation -- see rules/star_two_pass.smk.
+        **({"merged_sj": "results/star_pass1/merged_SJ.out.tab"}
+           if STAR_TWO_PASS == "cohort" else {}),
     output:
         aln="results/star/{sample}_Aligned.out.bam",
         log_final="results/star/{sample}_Log.final.out",
@@ -49,7 +60,7 @@ rule star_align:
         # input) is only declared when the chimera stage is enabled;
         # otherwise it is not produced and not required.
         **({"chim": "results/star/{sample}_Chimeric.out.junction"}
-           if CHIMERA_ENABLED else {}),
+           if CHIMERA_JUNCTION_ENABLED else {}),
     params:
         reads=star_reads_param,
         read_command=star_read_command_param,
@@ -57,7 +68,20 @@ rule star_align:
         tmpdir=lambda wc: os.path.join(STAR_TMPDIR, f"star_{wc.sample}"),
         chim=_chim_star_args,
         chim_out_type=(
-            "--chimOutType Junctions WithinBAM SoftClip " if CHIMERA_ENABLED else ""
+            "--chimOutType Junctions WithinBAM SoftClip " if CHIMERA_JUNCTION_ENABLED else ""
+        ),
+        # STAR 2-pass mapping (config star.two_pass, see common.smk and the
+        # README): "per_sample" is STAR's own --twopassMode Basic;
+        # "cohort" points STAR at the pooled novel-junction file built by
+        # star_merge_junctions (STAR accepts SJ.out.tab-formatted files
+        # directly via --sjdbFileChrStartEnd, no conversion needed -- STAR
+        # manual section 9.1); "none" adds nothing.
+        two_pass=lambda wc, input: (
+            "--twopassMode Basic"
+            if STAR_TWO_PASS == "per_sample"
+            else f"--sjdbFileChrStartEnd {input.merged_sj}"
+            if STAR_TWO_PASS == "cohort"
+            else ""
         ),
         extra=config["star"]["extra"],
     threads: get_resources("star_align")["threads"]
@@ -91,6 +115,7 @@ rule star_align:
         "--outSAMtype BAM Unsorted "
         "{params.chim_out_type}"
         "{params.chim} "
+        "{params.two_pass} "
         "{params.extra} "
         "> {log} 2>&1 "
         "|| (echo 'STAR exited non-zero; checking whether alignment output "

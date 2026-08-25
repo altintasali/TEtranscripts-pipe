@@ -17,6 +17,32 @@ telocal:
   # Path to a pre-built TElocal .locInd file. Required when enabled.
   # Build with: TElocal_indexer --afile TE.gtf --itype TE
   # Or download prebuilt indices from https://www.mghlab.org/software/telocal
+  # When empty, the workflow auto-builds the index from the TE GTF into
+  # results/telocal/telocal.locInd (kept unless outputs.keep_telocal_index
+  # is false).
   locind: ""
   # Extra command-line arguments passed verbatim to TElocal.
   extra: ""
+  qc:
+    # Sample-QC view (PCA + sample clustering) of the per-sample TElocal
+    # tables, rendered inside multiqc_report.html -- mirrors the TEcount QC
+    # view (tetranscripts.qc) and shares its sample_qc.R machinery. On by
+    # default; set enabled: false to skip it entirely (no counts matrix, no
+    # plots). The summary barplots (telocal_assignment / telocal_te_class)
+    # always render.
+    enabled: true
+    # Filters applied to the counts matrix *for the PCA/clustering view only*.
+    # min_events is the floor for drawing the QC plots. They never remove
+    # features from the per-sample cntTables.
+    min_samples_present: 2
+    min_total_counts: 5
+    min_events: 10
+    # Count-matrix transformation for the QC view: log2 (log2(x+1), no
+    # DESeq2) or vst / rlog (DESeq2). Defaults to log2: locus-level matrices
+    # hold one row per TE instance (often millions), which makes vst/rlog
+    # prohibitively slow -- opt in deliberately if you want them.
+    pca_transform: log2
+    # Which features the QC-view matrix keeps: TE (TE loci only, the
+    # default), gene (gene ids only), or all (genes + loci, exactly what the
+    # TElocal cntTables report).
+    feature_class: TE

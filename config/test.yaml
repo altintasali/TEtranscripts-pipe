@@ -69,23 +69,32 @@ outputs:
 # the synthetic test data; the single test TE is enough for junction parsing
 # + counts + sample-QC to run.
 chimera:
-  enabled: true
-  star:
-    segment_min: 12
-    overhang_min: 12
-    score_drop_max: 20
-    extra: ""
-  breakpoint_tolerance: 0
-  require_canonical_junction: false
-  qc:
-    min_samples_present: 2
-    min_total_counts: 5
-    # 4 test samples, one TE: keep the floor low so the QC plots draw.
-    min_events: 2
-    pca_transform: vst
-  outputs:
-    write_igv_bed: true
-    write_counts_matrix: true
+  junction:
+    enabled: true
+    star:
+      segment_min: 12
+      overhang_min: 12
+      score_drop_max: 20
+      extra: ""
+    breakpoint_tolerance: 0
+    require_canonical_junction: false
+    qc:
+      min_samples_present: 2
+      min_total_counts: 5
+      # 4 test samples, one TE: keep the floor low so the QC plots draw.
+      min_events: 2
+      pca_transform: vst
+    outputs:
+      write_igv_bed: true
+      write_counts_matrix: true
+  assembly:
+    enabled: false
+    breakpoint_tolerance: 5
+    min_transcript_tpm: 1
+    outputs:
+      # true (unlike the config.example.yaml default) so a guard flipping
+      # this screen on also exercises the IGV export path.
+      write_igv_bed: true
 
 tetranscripts:
   mode: multi
@@ -104,10 +113,21 @@ tetranscripts:
     pca_transform: vst
     feature_class: all
 
-# TElocal: disabled in the test profile (no .locInd file in .tests/).
+# TElocal: enabled for the test profile; locind is empty so the
+# telocal_locind rule auto-builds from the test TE GTF (tiny, <1 min).
 telocal:
-  enabled: false
+  enabled: true
   locind: ""
+  # Sample-QC view: enabled so CI exercises the whole telocal sample-QC
+  # stage (counts matrix + PCA/clustering). feature_class: all keeps the
+  # test genes + TE loci (default TE would leave very few features).
+  qc:
+    enabled: true
+    min_samples_present: 2
+    min_total_counts: 5
+    min_events: 2
+    pca_transform: log2
+    feature_class: all
 
 # Tiny resource footprint so the test runs comfortably on a laptop or in CI
 # -- overrides the (much larger) built-in defaults in
@@ -136,6 +156,10 @@ resources:
   junction_qc: {threads: 1, mem_mb: 500, runtime: 5}
   junction_qc_barplot: {threads: 1, mem_mb: 500, runtime: 5}
   chimera_igv_bed: {threads: 1, mem_mb: 500, runtime: 5}
+  telocal_locind: {threads: 1, mem_mb: 500, runtime: 5}
+  telocal_counts: {threads: 1, mem_mb: 500, runtime: 5}
+  telocal_qc_transform: {threads: 1, mem_mb: 1000, runtime: 5}
+  telocal_qc: {threads: 1, mem_mb: 1000, runtime: 5}
   sample_qc_transform: {threads: 1, mem_mb: 1000, runtime: 5}
   sample_qc: {threads: 1, mem_mb: 1000, runtime: 5}
   software_versions: {threads: 1, mem_mb: 500, runtime: 5}

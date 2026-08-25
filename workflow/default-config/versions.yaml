@@ -27,6 +27,14 @@ versions:
   rseqc: "5.0.4"
   multiqc: "1.33"
   tetranscripts: "2.2.4"
+  # TElocal (locus-level TE quantification). Pinned here so the MultiQC
+  # Software Versions section can report it; the conda env pins the same
+  # version in workflow/environment.yaml (- TElocal==1.1.3) -- keep the two
+  # in sync when bumping.
+  telocal: "1.1.3"
+  # StringTie (chimera.assembly screen only; unused when disabled, the
+  # default).
+  stringtie: "2.2.1"
   deseq2: "1.46.0"
   # Chimera sample-QC (PCA / sample clustering), nf-core/rnaseq style.
   pheatmap: "1.0.12"

@@ -16,7 +16,7 @@ junction is enabled -- see the config schema; the default keeps everything).
 Filtering / evidence decisions are left to the user downstream -- the pipeline
 ships the full event table and the counts matrix instead.
 
-Output columns (results/chimera/{sample}.junctions.tsv):
+Output columns (results/chimera_junction/{sample}.junctions.tsv):
     event_id, sample, donor_chrom, donor_breakpoint, donor_strand,
     acceptor_chrom, acceptor_breakpoint, acceptor_strand, junction_type,
     canonical, repeat_flag, reads, donor_hits, acceptor_hits, direction,
@@ -61,8 +61,12 @@ from gz_io import open_write
 
 
 def load_bed(path, n_extra=0):
-    """Return {chrom: sorted list of (start, end, extras_tuple)}."""
-    tracks = {}
+    """Return {chrom: (feats, max_end)}, where `feats` is a list of
+    (start, end, extras_tuple) sorted by start, and `max_end[i]` is the
+    running maximum end coordinate over feats[0..i] -- used by overlapping()
+    for a correct (not just "usually correct") interval overlap query.
+    """
+    raw = {}
     with open(path) as fh:
         for line in fh:
             if not line.strip() or line.startswith("#"):
@@ -72,25 +76,34 @@ def load_bed(path, n_extra=0):
                 continue
             chrom, start, end = cols[0], int(cols[1]), int(cols[2])
             extras = tuple(cols[3 : 6 + n_extra])
-            tracks.setdefault(chrom, []).append((start, end, extras))
-    for lst in tracks.values():
-        lst.sort()
+            raw.setdefault(chrom, []).append((start, end, extras))
+
+    tracks = {}
+    for chrom, feats in raw.items():
+        feats.sort()  # by start (tuples compare element-wise)
+        running = float("-inf")
+        max_end = []
+        for _, e, _ in feats:
+            running = max(running, e)
+            max_end.append(running)
+        tracks[chrom] = (feats, max_end)
     return tracks
 
 
 def overlapping(track, chrom, start0, end0):
     """Features in `track` whose [start, end) overlaps [start0, end0).
-    `track` must be sorted by start. Returns list of (start, end, extras)."""
+
+    Correct for arbitrarily long/nested/overlapping features, not just the
+    common case: `max_end` (built in load_bed) is non-decreasing by
+    construction, so bisecting on it finds the leftmost feature whose span
+    -- or whose *any preceding* feature's span -- could possibly reach past
+    start0, without missing long features that start well before start0 or
+    short features sandwiched between them.
+    """
     if chrom not in track:
         return []
-    feats = track[chrom]
-    starts = [x[0] for x in feats]
-    lo = bisect.bisect_right(starts, start0) - 1
-    # Scan backward to catch long features that start before start0 but
-    # extend past it (e.g. large genes, nested TE annotations).
-    while lo > 0 and feats[lo - 1][1] > start0:
-        lo -= 1
-    lo = max(lo, 0)
+    feats, max_end = track[chrom]
+    lo = bisect.bisect_right(max_end, start0)
     hits = []
     for i in range(lo, len(feats)):
         s, e, extras = feats[i]
@@ -148,11 +161,11 @@ def main():
         lib = "no"
 
     gene_meta = {}
-    for chrom, feats in genes.items():
+    for chrom, (feats, _) in genes.items():
         for s, e, ex in feats:
             gene_meta.setdefault(ex[0], (chrom, s, e, ex[2]))
     te_meta = {}
-    for chrom, feats in te.items():
+    for chrom, (feats, _) in te.items():
         for s, e, ex in feats:
             te_meta.setdefault(ex[0], (chrom, s, e, ex[2], ex[3], ex[4]))
 
@@ -292,26 +305,34 @@ def main():
 
         chimera_type = "."
         antisense = "."
+        same_chrom = donor_chrom == acceptor_chrom
         if direction in ("gene_to_te", "te_to_gene") and gene_span and te_span:
-            gs, ge, gst = gene_span[0], gene_span[1], gene_strand
-            ts, te = te_span[0], te_span[1]
-            if gst == "+":
-                if te < gs:
-                    chimera_type = "te_initiated"
-                elif ts > ge:
-                    chimera_type = "te_terminated"
-                else:
-                    chimera_type = "te_exonized"
-            elif gst == "-":
-                if ts > ge:
-                    chimera_type = "te_initiated"
-                elif te < gs:
-                    chimera_type = "te_terminated"
-                else:
-                    chimera_type = "te_exonized"
+            if same_chrom:
+                gs, ge, gst = gene_span[0], gene_span[1], gene_strand
+                ts, te = te_span[0], te_span[1]
+                if gst == "+":
+                    if te < gs:
+                        chimera_type = "te_initiated"
+                    elif ts > ge:
+                        chimera_type = "te_terminated"
+                    else:
+                        chimera_type = "te_exonized"
+                elif gst == "-":
+                    if ts > ge:
+                        chimera_type = "te_initiated"
+                    elif te < gs:
+                        chimera_type = "te_terminated"
+                    else:
+                        chimera_type = "te_exonized"
+            # else: trans event (different chromosomes) -- chimera_type
+            # stays "." since te_initiated/terminated/exonized would require
+            # comparing coordinates across two different chromosomes.
+
             # antisense: annotated gene overlapping the TE insertion on the
             # strand opposite the assigned gene.  TE is on the acceptor side
-            # for gene_to_te, donor side for te_to_gene.
+            # for gene_to_te, donor side for te_to_gene -- te_chrom is
+            # always correct regardless of same_chrom, so this still runs
+            # for trans events too.
             te_chrom = acceptor_chrom if direction == "gene_to_te" else donor_chrom
             for s, e, ex in overlapping(genes, te_chrom, te_span[0], te_span[1]):
                 if ex[0] != gene_id and ex[2] == opp(gene_strand):

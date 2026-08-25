@@ -32,16 +32,15 @@ resources:
     runtime: 120
 
   # TrimGalore! + FastQC: TrimGalore! passes --cores {threads} through to
-  # cutadapt and runs FastQC inside, so both single-end (trim_galore_se) and
-  # paired-end (trim_galore_pe) rules are sized from 4 threads. Modest CPU;
-  # I/O bound.
+  # cutadapt and runs FastQC inside. Modest CPU; I/O bound. Paired-end keeps
+  # 4 threads; single-end runs with 2 (retuned after an 84-sample run).
   trim_galore_pe:
     threads: 4
     mem_mb: 8000
     runtime: 180
 
   trim_galore_se:
-    threads: 4
+    threads: 2
     mem_mb: 8000
     runtime: 180
 
@@ -55,9 +54,12 @@ resources:
   star_index:
     # Peak memory for STAR genome index generation scales with genome size;
     # ~32-40GB is typical for a human/mouse-sized genome (SA index).
-    threads: 8
+    # 2 threads: genome generation barely scales past a couple of cores, so
+    # the threads are spent on cluster throughput instead; runtime limit
+    # raised to compensate for the slower build.
+    threads: 2
     mem_mb: 40000
-    runtime: 180
+    runtime: 360
 
   gtf_to_genepred:
     threads: 1
@@ -71,16 +73,38 @@ resources:
 
   star_align:
     # STAR keeps the whole genome index in memory per job; ~2.5x the index's
-    # on-disk size is a safe estimate for human/mouse.
-    threads: 12
+    # on-disk size is a safe estimate for human/mouse. 2 threads per job
+    # trades wall time for cluster throughput (more samples aligned in
+    # parallel); the runtime limit is raised accordingly.
+    threads: 2
     mem_mb: 32000
-    runtime: 240
+    runtime: 600
+
+  star_align_pass1:
+    # Cohort-wide 2-pass mapping, stage 1 (star.two_pass: cohort) -- a
+    # throwaway per-sample alignment for splice-junction discovery only
+    # (--outSAMtype None, no BAM). Memory is still dominated by loading the
+    # whole genome index (same as star_align); runtime is lower since there
+    # is no BAM write/sort/chimeric-detection overhead, but unbenchmarked --
+    # kept equal to star_align's until measured on a real run.
+    threads: 2
+    mem_mb: 32000
+    runtime: 600
+
+  star_merge_junctions:
+    # Single-threaded python; reads every sample's pass-1 SJ.out.tab (small
+    # text files, not BAMs) and writes one filtered/merged file. Base 2 GB +
+    # 50 MB per sample.
+    threads: 1
+    mem_mb: 2000
+    mem_per_sample: 50
+    runtime: 30
 
   samtools_sort:
     # Coordinate sorting is I/O-bound in practice; measured runs used <=3
-    # cores regardless of allocation, so 4 threads suffice. -m per-thread
+    # cores regardless of allocation, so 2 threads suffice. -m per-thread
     # memory scales with threads (see align.smk), keeping total under mem_mb.
-    threads: 4
+    threads: 2
     mem_mb: 16000
     runtime: 120
 
@@ -114,6 +138,43 @@ resources:
     threads: 1
     mem_mb: 12000
     runtime: 240
+
+  telocal_locind:
+    # TElocal_indexer builds the locus index from the TE GTF.  Memory is
+    # dominated by loading the full TE annotation into a balanced binary tree;
+    # ~30GB is typical for a human/mouse genome with a comprehensive TE GTF.
+    # Build time is pure-Python and single-threaded (one recursive AVL insert
+    # per 500bp bin an instance spans, no parallelism) -- a large annotation
+    # (e.g. a full RepeatMasker-derived GTF, millions of instances) can take
+    # well over 6h; bumped to 24h after 3 consecutive SLURM timeouts on a
+    # GRCm38 rmsk-derived TE GTF.
+    threads: 1
+    mem_mb: 32000
+    runtime: 1440
+
+  telocal_counts:
+    # Merging per-sample TElocal cntTables into the counts matrix;
+    # single-threaded.  Locus-level tables are much larger than TEcount's
+    # (one row per TE instance), so the per-sample allowance is higher.
+    # Base 2 GB + 200 MB per sample.
+    threads: 1
+    mem_mb: 2000
+    mem_per_sample: 200
+    runtime: 60
+
+  telocal_qc_transform:
+    # log2/vst/rlog on the TElocal counts matrix; R is single-threaded.
+    # Memory scales with sample count.  Base 4 GB + 250 MB per sample.
+    threads: 1
+    mem_mb: 4000
+    mem_per_sample: 250
+    runtime: 120
+
+  telocal_qc:
+    # PCA + sample-distance heatmap in R; single-threaded.
+    threads: 1
+    mem_mb: 8000
+    runtime: 30
 
   tetranscripts_diffexp:
     # Pools every treatment/control BAM in a contrast at once, so scales
@@ -160,49 +221,69 @@ resources:
   # entries are inert otherwise.
 
   annotation_to_bed:
-    # Pure-python GTF->BED conversion; single-threaded, small.
-    threads: 1
+    # Pure-python GTF->BED conversion; single-threaded, small. 2 threads
+    # reserved as scheduler headroom.
+    threads: 2
     mem_mb: 2000
     runtime: 30
 
   parse_chimeric_junctions:
-    # Annotating a junction file against the gene/TE tracks; single-threaded.
-    threads: 1
+    # Annotating a junction file against the gene/TE tracks; single-threaded
+    # python (2nd core reserved as scheduler headroom).
+    threads: 2
     mem_mb: 8000
     runtime: 120
 
-  chimera_counts:
-    # Merging per-sample junction tables; single-threaded.  Loads all unique
-    # events into a single Python dict — peak RSS scales linearly with sample
-    # count.  Base 4 GB + 150 MB per sample.
-    threads: 1
+  chimera_telocal_annotate:
+    # Cross-references one sample's junction table against a TElocal
+    # interval index built from ALL samples' cntTables at once (same
+    # all-samples-in-memory shape as telocal_counts) -- single-threaded
+    # python (2nd core reserved as scheduler headroom).  Base 4 GB + 200 MB
+    # per sample (matching telocal_counts' per-sample allowance for the same
+    # locus-level tables).
+    threads: 2
     mem_mb: 4000
-    mem_per_sample: 150
+    mem_per_sample: 200
+    runtime: 120
+
+  chimera_counts:
+    # Merging per-sample junction tables; single-threaded python (2 threads
+    # reserved as scheduler headroom).  Loads all unique events into a
+    # single Python dict -- peak RSS scales linearly with sample count.
+    # Measured on an 84-sample run: >200% RAM efficiency at base 4 GB +
+    # 150 MB/sample, ~12 GB peak RSS.  Base 2 GB + 125 MB per sample
+    # (~12.5 GB at 84 samples).
+    threads: 2
+    mem_mb: 2000
+    mem_per_sample: 125
     runtime: 30
 
   junction_qc:
-    threads: 1
+    threads: 2
     mem_mb: 2000
     runtime: 15
 
   junction_qc_barplot:
     # Merging the per-sample junction QC tables into one MultiQC bar-plot
-    # JSON; single-threaded, small.
-    threads: 1
+    # JSON; single-threaded, small (2nd core reserved as scheduler headroom).
+    threads: 2
     mem_mb: 500
     runtime: 15
 
   chimera_igv_bed:
-    threads: 1
+    threads: 2
     mem_mb: 2000
     runtime: 15
 
   sample_qc_transform:
-    # DESeq2 vst/rlog on the chimera counts matrix; R is single-threaded.
-    # Memory scales with sample count.  Base 4 GB + 250 MB per sample.
-    threads: 1
-    mem_mb: 4000
-    mem_per_sample: 250
+    # DESeq2 vst/rlog on the chimera counts matrix; R is single-threaded
+    # (2nd core reserved as scheduler headroom).  Memory scales with sample
+    # count.  Measured on an 84-sample run: >200% RAM efficiency at base
+    # 4 GB + 250 MB/sample, ~12 GB peak RSS.  Base 2 GB + 125 MB per sample
+    # (~12.5 GB at 84 samples).
+    threads: 2
+    mem_mb: 2000
+    mem_per_sample: 125
     runtime: 60
 
   sample_qc:
@@ -227,3 +308,73 @@ resources:
     threads: 1
     mem_mb: 2000
     runtime: 10
+
+  # ---------------------------------------------------------------------------
+  # chimera_assembly.smk (off by default, config chimera.assembly.enabled).
+  # Unbenchmarked on real data at time of writing -- these are starting
+  # points, not measured values; retune once you have a real run's numbers
+  # (see the "chore: retune default resources" pattern elsewhere in this
+  # file for what that update should look like).
+  # ---------------------------------------------------------------------------
+  star_align_for_assembly:
+    # Same shape as star_align/star_align_pass1: STAR keeps the whole genome
+    # index in memory regardless of output type, so mem_mb matches those.
+    threads: 2
+    mem_mb: 32000
+    runtime: 600
+
+  stringtie_assemble:
+    # Single-sample de novo assembly; scales with read depth and splice
+    # complexity, not genome size the way STAR does.
+    threads: 2
+    mem_mb: 8000
+    runtime: 120
+
+  stringtie_merge:
+    # Aggregates over ALL samples' assemblies -- the DAG sync point for this
+    # screen (star_merge_junctions' shape). Base 4 GB + 300 MB per sample.
+    threads: 1
+    mem_mb: 4000
+    mem_per_sample: 300
+    runtime: 90
+
+  stringtie_requantify:
+    # Re-quantification against a fixed structure is lighter than de novo
+    # assembly.
+    threads: 2
+    mem_mb: 6000
+    runtime: 90
+
+  chimera_assembly_classify:
+    # Single-threaded python; loads the merged GTF + genes/exons/te BED
+    # tracks into memory once (not per sample).
+    threads: 1
+    mem_mb: 6000
+    runtime: 60
+
+  chimera_assembly_quantify:
+    # Reads every sample's requantified GTF once. Base 2 GB + 150 MB per
+    # sample.
+    threads: 1
+    mem_mb: 2000
+    mem_per_sample: 150
+    runtime: 30
+
+  chimera_assembly_cross_evidence:
+    # Single-threaded python; one table join, no per-sample scaling.
+    threads: 1
+    mem_mb: 2000
+    runtime: 15
+
+  chimera_assembly_summary_mqc:
+    # Single-threaded python; reads the candidates table + TPM matrix once,
+    # writes two small JSON files.
+    threads: 1
+    mem_mb: 2000
+    runtime: 15
+
+  chimera_assembly_igv_bed:
+    # Single-threaded python; one pass over the candidates table.
+    threads: 1
+    mem_mb: 2000
+    runtime: 15

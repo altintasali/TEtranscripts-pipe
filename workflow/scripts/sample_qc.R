@@ -1,12 +1,12 @@
 #!/usr/bin/env Rscript
-# Sample-QC: normalize a counts matrix (chimera junctions or TEcounts) and
-# produce the PCA + sample-distance views shipped by sample_qc.smk /
-# tecount_qc.smk.
+# Sample-QC: normalize a counts matrix (chimera junctions, TEcount features
+# or TElocal loci) and produce the PCA + sample-distance views shipped by
+# sample_qc.smk / tecount_qc.smk / telocal.smk.
 #
 # The first two arguments select the mode and the view being served:
-#   view   "chimera" or "tecount" -- namespaces the MultiQC custom-content
-#          ids/titles so both views can render in one report without
-#          colliding.
+#   view   "chimera", "tecount" or "telocal" -- namespaces the MultiQC
+#          custom-content ids/titles so all views can render in one report
+#          without colliding.
 # Two modes, selected by the script's argument vector:
 #   --transform view counts.tsv samples.csv transform min_samples_present \
 #                 min_total_counts out_matrix.tsv
@@ -33,8 +33,11 @@
 suppressMessages(library(DESeq2))
 
 # Per-view naming: the MultiQC custom-content ids, section names, plot titles
-# and descriptions are namespaced per view so the chimera and TEcounts QC views
-# can both render inside one multiqc_report.html without colliding.
+# and descriptions are namespaced per view so the chimera, TEcount and TElocal
+# QC views can all render inside one multiqc_report.html without colliding.
+# Section names are deliberately bare ("PCA", "Clusters"): MultiQC renders
+# them inside each view's parent group (parent_id), which supplies the
+# context.
 VIEWS <- list(
     chimera = list(
         id = "chimera",
@@ -44,15 +47,22 @@ VIEWS <- list(
     ),
     tecount = list(
         id = "tecount",
-        label = "TEcounts",
+        label = "TEcount",
         noun_plural = "features",
         noun_singular = "feature"
+    ),
+    telocal = list(
+        id = "telocal",
+        label = "TElocal",
+        noun_plural = "loci",
+        noun_singular = "locus"
     )
 )
 
 view_params <- function(view) {
     if (!view %in% names(VIEWS)) {
-        stop(paste("unknown view:", view, "(expected chimera or tecount)"))
+        stop(paste("unknown view:", view,
+                   "(expected chimera, tecount or telocal)"))
     }
     VIEWS[[view]]
 }
@@ -128,7 +138,7 @@ load_conditions <- function(samples_path) {
 
 # --- MultiQC custom-content JSON writers -------------------------------------
 # The plots mode emits two documents MultiQC picks up by the `_mqc.json`
-# suffix (results/chimera/qc/*_mqc.json) and renders as an interactive
+# suffix (results/chimera_junction/qc/*_mqc.json) and renders as an interactive
 # scatter (PCA) and heatmap (sample distances). Hand-built JSON: the payloads
 # are small and fixed, and the QC env needs no extra JSON dependency.
 
@@ -154,7 +164,7 @@ write_pca_mqc <- function(path, samples, x, y, colors, pc1, pc2, transform,
         sprintf('  "id": "%s_sample_qc_pca",\n', v$id),
         sprintf('  "parent_id": "%s",\n', v$id),
         sprintf('  "parent_name": "%s",\n', v$label),
-        sprintf('  "section_name": "%s: PCA",\n', v$label),
+        '  "section_name": "PCA",\n',
         sprintf('  "description": "%s",\n', json_escape(desc)),
         '  "plot_type": "scatter",\n',
         '  "pconfig": {\n',
@@ -183,7 +193,7 @@ write_heatmap_mqc <- function(path, samples, d, transform, v, note = NULL) {
         sprintf('  "id": "%s_sample_qc_heatmap",\n', v$id),
         sprintf('  "parent_id": "%s",\n', v$id),
         sprintf('  "parent_name": "%s",\n', v$label),
-        sprintf('  "section_name": "%s: Sample Distances",\n', v$label),
+        '  "section_name": "Clusters",\n',
         sprintf('  "description": "%s",\n', json_escape(desc)),
         '  "plot_type": "heatmap",\n',
         '  "pconfig": {\n',
@@ -209,7 +219,7 @@ write_empty_mqc <- function(path, kind, v) {
             sprintf('  "id": "%s_sample_qc_pca",\n', v$id),
             sprintf('  "parent_id": "%s",\n', v$id),
             sprintf('  "parent_name": "%s",\n', v$label),
-            sprintf('  "section_name": "%s: PCA",\n', v$label),
+            '  "section_name": "PCA",\n',
             sprintf('  "description": "%s",\n', json_escape(note)),
             '  "plot_type": "scatter",\n',
             sprintf('  "pconfig": {"id": "%s_pca_plot", "title": "%s counts: PCA"},\n',
@@ -223,7 +233,7 @@ write_empty_mqc <- function(path, kind, v) {
             sprintf('  "id": "%s_sample_qc_heatmap",\n', v$id),
             sprintf('  "parent_id": "%s",\n', v$id),
             sprintf('  "parent_name": "%s",\n', v$label),
-            sprintf('  "section_name": "%s: Sample Distances",\n', v$label),
+            '  "section_name": "Clusters",\n',
             sprintf('  "description": "%s",\n', json_escape(note)),
             '  "plot_type": "heatmap",\n',
             sprintf('  "pconfig": {"id": "%s_heatmap_plot", "title": "Euclidean distance between samples"},\n',

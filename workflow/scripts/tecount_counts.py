@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Merge the per-sample TEcount count tables (TEcount's {sample}.cntTable)
-into one feature x sample counts matrix for the sample-QC stage.
+"""Merge the per-sample TEcount/TElocal count tables into one feature x
+sample counts matrix for the sample-QC stage.
 
-The cntTable written by a per-sample TEcount run has a two-column layout:
-`gene/TE` (gene ids and TE subfamily names mixed) plus one count column whose
-header is the *input BAM path* -- not the sample name -- so samples are mapped
-positionally via --sample-names.
+The cntTable written by a per-sample TEcount/TElocal run has a two-column
+layout: `gene/TE` (gene ids and TE feature names mixed) plus one count column
+whose header is the *input BAM path* -- not the sample name -- so samples are
+mapped positionally via --sample-names.
 
 Output:
 
@@ -14,13 +14,20 @@ Output:
                      matrix layout so the shared sample_qc.R transform/plots
                      modes read it identically.
 
+--key-style selects how rows are classified for the --feature-class filter:
+  tecount  TEcount tables (the default). TE keys are `gene_id:family_id:
+           class_id` built from the TE GTF attributes, so the TE/gene key
+           sets are reconstructed from --te-gtf / --gtf.
+  telocal  TElocal tables. TE keys are locus keys of the form
+           `chr:start:end(family:strand):gene_id:family_id:class_id`
+           (>= 3 colon-separated fields; the transcript id itself embeds
+           colons), gene keys have none -- so classification needs no GTF
+           and --gtf/--te-gtf are ignored.
+
 --feature-class picks which features the matrix keeps (the QC-view scope):
-  TE    TE subfamily names only (the default) -- features whose name matches a
-        TE GTF element. TEcount builds these keys as `gene_id:family_id:class_id`
-        from the TE GTF attributes, so tecount_counts.py reconstructs the same
-        keys from --te-gtf.
-  gene  gene ids only (from the gene GTF's gene_id attributes).
-  all   everything the cntTable holds (genes + TEs, no GTF parsing needed).
+  TE    TE features only (the default).
+  gene  gene ids only.
+  all   everything the cntTable holds (genes + TEs, no classification).
 
 The filtering applies only to this QC-view matrix: the per-sample cntTables
 are never reduced.
@@ -63,6 +70,13 @@ def parse_gtf_keys(path):
     return keys
 
 
+def is_telocal_te(key):
+    """True when the key is a TElocal TE-locus key (>= 3 colon-separated,
+    non-empty fields), matching telocal_summary_mqc.py's classify()."""
+    parts = key.split(":")
+    return len(parts) >= 3 and all(parts)
+
+
 def load_counts(path, feature_keys):
     counts = {}
     with open_read(path) as fh:
@@ -84,6 +98,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--tables", required=True, nargs="+")
     ap.add_argument("--sample-names", required=True, nargs="+")
+    ap.add_argument("--key-style", default="tecount",
+                    choices=["tecount", "telocal"])
     ap.add_argument("--gtf", required=False)
     ap.add_argument("--te-gtf", required=False)
     ap.add_argument("--feature-class", required=True,
@@ -96,6 +112,9 @@ def main():
 
     if args.feature_class == "all":
         feature_keys = None
+    elif args.key_style == "telocal":
+        # TElocal keys classify by shape alone; no GTF parsing.
+        feature_keys = args.feature_class
     elif args.feature_class == "TE":
         if not args.te_gtf:
             sys.exit("error: --feature-class TE requires --te-gtf")
@@ -110,7 +129,16 @@ def main():
     for path, sample in zip(args.tables, args.sample_names):
         if not os.path.exists(path):
             sys.exit(f"error: missing count table for sample '{sample}': {path}")
-        counts = load_counts(path, feature_keys)
+        if isinstance(feature_keys, str):
+            # telocal shape-based filtering: keep TE loci or genes per flag
+            want_te = feature_keys == "TE"
+            counts = {
+                key: n
+                for key, n in load_counts(path, None).items()
+                if is_telocal_te(key) == want_te
+            }
+        else:
+            counts = load_counts(path, feature_keys)
         sample_counts.append((sample, counts))
         features.update(counts)
 
@@ -123,12 +151,15 @@ def main():
             ]
             fh.write(feature + "\t" + "\t".join(vals) + "\n")
 
-    source = (
-        "all"
-        if feature_keys is None
-        else f"{args.feature_class} ({len(feature_keys)} keys from "
-        f"{args.te_gtf if args.feature_class == 'TE' else args.gtf})"
-    )
+    if args.feature_class == "all":
+        source = "all"
+    elif args.key_style == "telocal":
+        source = f"{args.feature_class} ({'TE-local locus' if args.feature_class == 'TE' else 'gene'} keys by shape)"
+    else:
+        source = (
+            f"{args.feature_class} ({len(feature_keys)} keys from "
+            f"{args.te_gtf if args.feature_class == 'TE' else args.gtf})"
+        )
     print(f"{len(features)} {args.feature_class} features across "
           f"{len(args.sample_names)} samples ({source}) -> {args.out_counts}")
 
