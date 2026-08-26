@@ -534,7 +534,7 @@ jobs:
           # nothing to terminate, must be dropped, not just low-confidence).
           printf "chr1\t1000\t1200\tGENE1\t.\t+\n" > "$T/genes.bed"
           printf "chr1\t1000\t1200\tGENE1\t.\t+\nchr1\t2000\t2200\tGENE1\t.\t+\n" > "$T/exons.bed"
-          printf "chr1\t500\t700\tTE_A\t.\t+\tL1\tLINE\nchr1\t2600\t2800\tTE_B\t.\t+\tAluY\tSINE\nchr1\t9000\t9100\tTE_C\t.\t+\tL2\tLINE\nchr1\t1500\t1600\tTE_D\t.\t+\tERV1\tLTR\nchr1\t8700\t8800\tTE_E\t.\t+\tL1\tLINE\n" > "$T/te.bed"
+          printf "chr1\t500\t700\tTE_A\t.\t+\tL1\tLINE\tL1PA2\nchr1\t2600\t2800\tTE_B\t.\t+\tAluY\tSINE\tAluYa5\nchr1\t9000\t9100\tTE_C\t.\t+\tL2\tLINE\tL2a\nchr1\t1500\t1600\tTE_D\t.\t+\tERV1\tLTR\tMER41\nchr1\t8700\t8800\tTE_E\t.\t+\tL1\tLINE\tL1MA4\n" > "$T/te.bed"
           printf 'chr1\tStringTie\ttranscript\t501\t1200\t.\t+\t.\ttranscript_id "T1"; gene_id "MSTRG.1";\n' > "$T/stringtie.gtf"
           printf 'chr1\tStringTie\texon\t501\t700\t.\t+\t.\ttranscript_id "T1"; gene_id "MSTRG.1";\n' >> "$T/stringtie.gtf"
           printf 'chr1\tStringTie\texon\t1001\t1200\t.\t+\t.\ttranscript_id "T1"; gene_id "MSTRG.1";\n' >> "$T/stringtie.gtf"
