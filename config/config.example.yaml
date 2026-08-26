@@ -280,8 +280,20 @@ telocal:
   # from https://www.mghlab.org/software/telocal
   # When empty, the workflow auto-builds the index from the TE GTF into
   # results/telocal/telocal.locInd (kept unless
-  # outputs.keep_telocal_index: false).
+  # outputs.keep_telocal_index: false), using the method set by `indexer`.
   locind: ""
+  # Only used when locind is empty (auto-build).
+  # "fast" (default): our reimplementation of TElocal_Toolkit's
+  # TEfeatures.build() -- reuses its tree-insertion logic verbatim,
+  # unmodified, but fixes an O(n^2) list-membership-check bottleneck in
+  # the surrounding per-line loop. Verified against the original TElocal
+  # build() on real mouse rmsk data (3.7M TE instances): identical output
+  # (same pickled class, 0 mismatches across 50,000+ spatial queries),
+  # ~1000x faster (a 21h build dropped to ~1 minute).
+  # "legacy": TElocal's own unmodified build() -- an escape hatch, since
+  # "fast" relies on TElocal_Toolkit's internal attributes at the pinned
+  # version (versions.yaml) rather than its public API.
+  indexer: fast
   # Extra command-line arguments passed verbatim to TElocal.
   extra: ""
   qc:

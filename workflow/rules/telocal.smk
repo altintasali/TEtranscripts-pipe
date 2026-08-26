@@ -11,6 +11,12 @@ rule telocal_locind:
         # Must end in .locInd -- TElocal rejects any --TE file whose path
         # does not have that suffix.
         "results/telocal/telocal.locInd",
+    params:
+        # "fast" (default): our reimplementation of TEfeatures.build(),
+        # verified against the original -- see build_telocal_index.py's
+        # module docstring. "legacy": TElocal_Toolkit's own unmodified
+        # build(), an escape hatch (config telocal.indexer).
+        indexer=config["telocal"].get("indexer", "fast"),
     threads: get_resources("telocal_locind")["threads"]
     resources:
         mem_mb=get_resources("telocal_locind")["mem_mb"],
@@ -24,6 +30,7 @@ rule telocal_locind:
     shell:
         "python3 {SCRIPTS_DIR}/build_telocal_index.py "
         "--gtf {input.te_gtf} "
+        "--indexer {params.indexer} "
         "--out {output} > {log} 2>&1"
 
 
@@ -63,6 +70,30 @@ rule telocal:
         " && mv {wildcards.sample}.cntTable results/telocal/"
         " && gzip -f results/telocal/{wildcards.sample}.cntTable )"
         " > {log} 2>&1"
+
+
+rule telocal_locations:
+    # Per-TE genomic coordinates (chrom/start/end/strand) for every key
+    # TElocal's cntTable reports -- TElocal's own output never includes
+    # coordinates (see telocal_locations.py). One pass over the TE GTF, no
+    # index/tree needed; independent of telocal_locind and safe to build
+    # even when a pre-built --TE index is supplied via config telocal.locind.
+    input:
+        te_gtf=TE_GTF,
+    output:
+        "results/telocal/telocal_locations.tsv.gz",
+    threads: get_resources("telocal_locations")["threads"]
+    resources:
+        mem_mb=get_resources("telocal_locations")["mem_mb"],
+        runtime=get_resources("telocal_locations")["runtime"],
+    benchmark:
+        "results/pipeline_info/benchmarks/telocal_locations/locations.txt",
+    log:
+        "results/pipeline_info/logs/telocal/locations.log",
+    shell:
+        "python3 {SCRIPTS_DIR}/telocal_locations.py "
+        "--gtf {input.te_gtf} "
+        "--out {output} > {log} 2>&1"
 
 
 def telocal_counts_input():
