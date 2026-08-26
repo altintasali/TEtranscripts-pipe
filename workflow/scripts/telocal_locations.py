@@ -1,19 +1,27 @@
 #!/usr/bin/env python3
-"""Per-locus genomic coordinates for TElocal's TE keys.
+"""Per-locus genomic coordinates for TElocal's TE keys, as BED6.
 
 TElocal's cntTable reports TE counts keyed by
 `transcript_id:gene_id:family_id:class_id` (see build_telocal_index.py and
 telocal_summary_mqc.py), but the cntTable itself never includes genomic
 coordinates -- that's how TElocal's own output is shaped. This script does
-one pass over the same TE GTF used to build the .locInd index and writes
-each key's chrom/start/end/strand alongside it, so cntTable rows can be
-joined against real genomic coordinates (e.g. to plot or intersect with
-other data). No index/tree needed -- it just reads the GTF's own coordinate
-columns, so it works regardless of what naming convention a given TE GTF
-happens to use for transcript_id.
+one pass over the same TE GTF used to build the .locInd index and emits a
+standard BED6 file (chrom, start, end, name, score, strand) with that key as
+the `name` column, so cntTable rows can be joined against real genomic
+coordinates (e.g. to plot or intersect with other data) while also getting
+native bedtools/IGV compatibility for free -- joining on a named column
+costs nothing over joining on column 1. No index/tree needed -- it just
+reads the GTF's own coordinate columns, so it works regardless of what
+naming convention a given TE GTF happens to use for transcript_id.
+
+Follows the same BED conventions as annotation_to_bed.py's genes.bed/
+exons.bed/te.bed: 0-based half-open start, "." for the unused score field,
+no header line, uncompressed (plain gzip isn't random-access-indexed the
+way IGV needs -- it wants plain text or bgzip+tabix -- so gzipping here
+would break the exact IGV-loadable property this format switch is for).
 
 Usage:
-  telocal_locations.py --gtf te.gtf --out results/telocal/telocal_locations.tsv.gz
+  telocal_locations.py --gtf te.gtf --out results/telocal/telocal_locations.bed
 """
 import argparse
 import os
@@ -27,7 +35,6 @@ from gz_io import open_read, open_write
 def build_locations(gtf_path, out_path):
     seen = set()
     with open_read(gtf_path) as fh, open_write(out_path) as out:
-        out.write("TE\tchrom\tstart\tend\tstrand\n")
         linenum = 0
         for line in fh:
             line = line.strip()
@@ -35,7 +42,7 @@ def build_locations(gtf_path, out_path):
                 continue
             items = line.split("\t")
             chrom = items[0]
-            start = items[3]
+            start0 = int(items[3]) - 1  # GTF is 1-based inclusive; BED start is 0-based
             end = items[4]
             strand = items[6]
             linenum += 1
@@ -60,16 +67,16 @@ def build_locations(gtf_path, out_path):
                 # GTFs are expected to give every instance a unique key.
                 continue
             seen.add(ele_name)
-            out.write(f"{ele_name}\t{chrom}\t{start}\t{end}\t{strand}\n")
+            out.write(f"{chrom}\t{start0}\t{end}\t{ele_name}\t.\t{strand}\n")
 
 
 def main():
     ap = argparse.ArgumentParser(
-        description="Emit chrom/start/end/strand for every TElocal TE key."
+        description="Emit a BED6 of chrom/start/end/strand for every TElocal TE key."
     )
     ap.add_argument("--gtf", required=True, help="TE GTF (plain or gzipped)")
     ap.add_argument(
-        "--out", required=True, help="Output locations TSV (.gz supported)"
+        "--out", required=True, help="Output BED6 path (plain text, for IGV/bedtools)"
     )
     args = ap.parse_args()
 

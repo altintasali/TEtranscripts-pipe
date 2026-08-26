@@ -73,15 +73,15 @@ rule telocal:
 
 
 rule telocal_locations:
-    # Per-TE genomic coordinates (chrom/start/end/strand) for every key
-    # TElocal's cntTable reports -- TElocal's own output never includes
-    # coordinates (see telocal_locations.py). One pass over the TE GTF, no
-    # index/tree needed; independent of telocal_locind and safe to build
-    # even when a pre-built --TE index is supplied via config telocal.locind.
+    # Per-TE genomic coordinates, as BED6, for every key TElocal's cntTable
+    # reports -- TElocal's own output never includes coordinates (see
+    # telocal_locations.py). One pass over the TE GTF, no index/tree needed;
+    # independent of telocal_locind and safe to build even when a pre-built
+    # --TE index is supplied via config telocal.locind.
     input:
         te_gtf=TE_GTF,
     output:
-        "results/telocal/telocal_locations.tsv.gz",
+        "results/telocal/telocal_locations.bed",
     threads: get_resources("telocal_locations")["threads"]
     resources:
         mem_mb=get_resources("telocal_locations")["mem_mb"],

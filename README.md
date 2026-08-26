@@ -693,10 +693,14 @@ Set `telocal.enabled: false` to skip locus-level quantification entirely.
 
 TElocal's cntTables key TE rows by
 `transcript_id:gene_id:family_id:class_id` but never include genomic
-coordinates. `results/telocal/telocal_locations.tsv.gz` maps every such key
-to its `chrom`/`start`/`end`/`strand` (one pass over the TE GTF, always
-built when `telocal.enabled` is true) so you can join cntTable output
-against real coordinates yourself.
+coordinates. `results/telocal/telocal_locations.bed` maps every such key
+to its coordinates as a standard BED6 (`chrom, start, end, name, score,
+strand`, 0-based; `name` is the TE key, `score` unused) — one pass over the
+TE GTF, always built when `telocal.enabled` is true — so you can join
+cntTable output against `name` and also load the file directly into
+`bedtools`/IGV. Kept uncompressed (unlike most pipeline outputs) so IGV can
+load it directly — plain gzip isn't the random-access-indexed format IGV
+needs.
 
 ## Chimera detection
 
@@ -1002,7 +1006,7 @@ results/
 │   ├── locInd                                        #   auto-built TElocal index (if locind empty;
 │   │                                                 #   removed when outputs.keep_telocal_index: false)
 │   ├── {sample}.cntTable.gz                          #   per-sample locus-level TE counts
-│   ├── telocal_locations.tsv.gz                      #   TE key -> chrom/start/end/strand
+│   ├── telocal_locations.bed                         #   TE key -> coordinates, BED6
 │   ├── counts_matrix.tsv.gz                          #   locus x samples (if telocal.qc.enabled)
 │   └── qc/
 │       ├── {pca_transform}_counts.tsv.gz             #   QC-view transformed matrix

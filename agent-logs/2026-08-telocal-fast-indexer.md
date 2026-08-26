@@ -105,12 +105,42 @@ is shaped; it was never a pipeline bug.
 
 Added `workflow/scripts/telocal_locations.py` + rule `telocal_locations` in
 `workflow/rules/telocal.smk`: one streaming pass over `TE_GTF` (no
-index/tree), emitting `results/telocal/telocal_locations.tsv.gz` — every TE
+index/tree), emitting `results/telocal/telocal_locations.bed` — every TE
 key (`transcript_id:gene_id:family_id:class_id`) mapped to its
 `chrom`/`start`/`end`/`strand`, so cntTable rows can be joined against real
 coordinates. Always built when `telocal.enabled: true` (like
 `telocal_summary`), independent of whether `locind` is auto-built or
 user-supplied.
+
+**Follow-up: converted to BED6.** Originally a custom TSV
+(`TE\tchrom\tstart\tend\tstrand`, key first, header row,
+`.tsv.gz`). User asked whether this should have been BED format instead —
+correct call: joining on a named column (BED's `name`, 4th column) costs
+nothing over joining on column 1 (`pandas.merge(left_on=..., right_on=...)`
+and `join -1 1 -2 4` are both the same plain O(n) join), so BED6 is a
+strict improvement — same join cost, plus native `bedtools`/IGV
+compatibility. Converted to `chrom, start0, end, name=TE key, score=".",
+strand` (0-based half-open), matching the exact conventions the repo's own
+`annotation_to_bed.py` already uses for `genes.bed`/`exons.bed`/`te.bed` —
+no header line, `"."` score placeholder. Renamed to
+`results/telocal/telocal_locations.bed`, **uncompressed** — user caught
+that gzip would have silently broken the IGV-loadable half of the reason
+to switch to BED at all: IGV needs plain text or `bgzip`+`tabix`, not
+ordinary gzip (unlike the sibling `.bed` files' rationale, which are small
+enough that compression was never worth it anyway; this file can be
+millions of rows for a real genome, so the size/compatibility tradeoff was
+worth being explicit about in the README).
+
+A full-pipeline survey (Explore agent) confirmed no other output is a good
+BED candidate: junction/chimera tables have 2+ distinct point-breakpoints
+per row plus many essential annotation columns, count matrices have no
+per-row coordinates at all, and `merged_SJ.out.tab` is contractually
+STAR's own native format (fed back into STAR for cohort two-pass mapping)
+and must not be touched. `te.bed` (existing, from `annotation_to_bed.py`)
+looks similar but is a different artifact — one row per TE *subfamily*
+(bounding-box merged across all its instances), used for chimera
+junction/exon overlap tests, not a substitute for `telocal_locations`'
+per-*instance* coordinates.
 
 Verification: read TElocal's own `bin/TElocal` source directly — cntTable's
 TE row keys come from the index's `getElements()`/`_elements`, built as

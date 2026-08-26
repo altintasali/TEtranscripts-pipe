@@ -889,7 +889,7 @@ def all_telocal_outputs():
     files += [
         "results/telocal/qc/telocal_assignment_mqc.json",
         "results/telocal/qc/telocal_te_class_mqc.json",
-        "results/telocal/telocal_locations.tsv.gz",
+        "results/telocal/telocal_locations.bed",
     ]
     return files
 
