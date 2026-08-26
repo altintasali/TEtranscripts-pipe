@@ -60,6 +60,10 @@ flowchart LR
         sample_qc["sample-QC plots"]
     end
     subgraph other["Other"]
+        chimera_telocal_index["chimera_telocal_index"]
+        rseqc_gene_body_coverage["rseqc_gene_body_coverage"]
+        rseqc_read_distribution["rseqc_read_distribution"]
+        samtools_flagstat["samtools_flagstat"]
         star_align_pass1["star_align_pass1"]
         star_merge_junctions["star_merge_junctions"]
     end
@@ -70,11 +74,14 @@ flowchart LR
     cat_fastq --> trim_galore_se
     chimera_counts --> sample_qc_transform
     chimera_telocal_annotate --> chimera_counts
+    chimera_telocal_index --> chimera_telocal_annotate
     determine_strandedness --> parse_chimeric_junctions
     determine_strandedness --> tecount
     determine_strandedness --> telocal
     determine_strandedness --> tetranscripts_diffexp
+    genepred_to_bed12 --> rseqc_gene_body_coverage
     genepred_to_bed12 --> rseqc_infer_experiment
+    genepred_to_bed12 --> rseqc_read_distribution
     gtf_to_genepred --> genepred_to_bed12
     junction_qc --> junction_qc_barplot
     parse_chimeric_junctions --> chimera_igv_bed
@@ -82,8 +89,14 @@ flowchart LR
     parse_chimeric_junctions --> junction_qc
     rseqc_infer_experiment --> determine_strandedness
     sample_qc_transform --> sample_qc
+    samtools_index --> rseqc_gene_body_coverage
     samtools_index --> rseqc_infer_experiment
+    samtools_index --> rseqc_read_distribution
+    samtools_index --> samtools_flagstat
+    samtools_sort --> rseqc_gene_body_coverage
     samtools_sort --> rseqc_infer_experiment
+    samtools_sort --> rseqc_read_distribution
+    samtools_sort --> samtools_flagstat
     samtools_sort --> samtools_index
     software_versions --> multiqc
     star_align --> cleanup_star_index
@@ -100,7 +113,7 @@ flowchart LR
     tecount --> tecount_summary
     tecount_counts --> tecount_qc_transform
     tecount_qc_transform --> tecount_qc
-    telocal --> chimera_telocal_annotate
+    telocal --> chimera_telocal_index
     telocal --> cleanup_telocal_index
     telocal --> telocal_counts
     telocal --> telocal_summary
