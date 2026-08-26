@@ -1,23 +1,38 @@
 #!/usr/bin/env python3
-"""Generate the pipeline flowchart embedded in the README.
+"""Generate the full, rule-level pipeline flowchart.
 
 Reads the DOT graph emitted by `snakemake --rulegraph` from stdin and prints a
 Mermaid flowchart with one subgraph per workflow phase. Rule names are mapped
 to short friendly labels; any rule not in the map is rendered under its own
 name in an "Other" subgraph, so new rules never break the generator.
 
+This is the exhaustive, engineer-facing diagram (one node per rule) -- it
+lives in docs/pipeline-flowchart.md (mirrored by hand into the wiki's
+"Full Pipeline Flowchart" page) rather than the README, which instead has a
+small, hand-authored, conceptual diagram aimed at a general user.
+
 Usage:
     snakemake --configfile config/test.yaml --rulegraph | workflow/scripts/flowchart.py
-    snakemake --configfile config/test.yaml --rulegraph | workflow/scripts/flowchart.py --update-readme
+    snakemake --configfile config/test.yaml --rulegraph | workflow/scripts/flowchart.py --update-doc
 
---update-readme rewrites the block between the `<!-- flowchart:start -->` and
-`<!-- flowchart:end -->` markers in README.md in place. The CI workflow runs
-this and fails on a diff, so the committed diagram can't go stale.
+--update-doc rewrites the block between the `<!-- flowchart:start -->` and
+`<!-- flowchart:end -->` markers in docs/pipeline-flowchart.md in place. The
+CI workflow runs this and fails on a diff, so the committed diagram can't go
+stale (the wiki's copy of it is a manual refresh, same as the rest of the
+wiki -- not CI-enforced).
 """
+import os
 import re
 import sys
 
-README = "README.md"
+DOC = "docs/pipeline-flowchart.md"
+DOC_HEADER = (
+    "# Full Pipeline Flowchart\n\n"
+    "Auto-generated from `snakemake --rulegraph` by `workflow/scripts/"
+    "flowchart.py` -- do not hand-edit (regenerate instead, see the script's "
+    "docstring). One node per rule; for a simpler, conceptual diagram see the "
+    "main [README](https://github.com/altintasali/TEtranscripts-pipe#readme).\n\n"
+)
 FLOW_START = "<!-- flowchart:start -->"
 FLOW_END = "<!-- flowchart:end -->"
 
@@ -129,25 +144,30 @@ def mermaid_block(names, edges):
     return "\n".join(lines)
 
 
-def update_readme(block):
-    with open(README) as fh:
-        text = fh.read()
+def update_doc(block):
+    if os.path.isfile(DOC):
+        with open(DOC) as fh:
+            text = fh.read()
+    else:
+        text = DOC_HEADER + FLOW_START + "\n" + FLOW_END + "\n"
+        os.makedirs(os.path.dirname(DOC), exist_ok=True)
+
     start = text.find(FLOW_START)
     end = text.find(FLOW_END)
     if start == -1 or end == -1 or end <= start:
         sys.exit(
-            f"error: README.md is missing the {FLOW_START!r} / {FLOW_END!r} "
+            f"error: {DOC} is missing the {FLOW_START!r} / {FLOW_END!r} "
             "markers around the flowchart"
         )
     end = end + len(FLOW_END)
-    with open(README, "w") as fh:
+    with open(DOC, "w") as fh:
         fh.write(text[:start] + FLOW_START + "\n" + block + "\n" + FLOW_END + text[end:])
 
 
 def main():
     block = mermaid_block(*parse(sys.stdin.read()))
-    if "--update-readme" in sys.argv:
-        update_readme(block)
+    if "--update-doc" in sys.argv:
+        update_doc(block)
     else:
         print(block)
 

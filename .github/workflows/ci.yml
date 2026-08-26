@@ -7,9 +7,11 @@ on:
 
 jobs:
   flowchart:
-    # Keeps the README's Mermaid flowchart in sync with the actual rules: the
-    # generator is deterministic (rulegraph of the bundled test config), so a
-    # diff means the committed diagram is stale.
+    # Keeps docs/pipeline-flowchart.md (the full, rule-level Mermaid diagram
+    # -- README has a small hand-authored one instead) in sync with the
+    # actual rules: the generator is deterministic (rulegraph of the bundled
+    # test config), so a diff means the committed diagram is stale. The
+    # wiki's copy of this file is a manual refresh, not CI-enforced.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,8 +22,8 @@ jobs:
           channel-priority: flexible
       - shell: bash -l {0}
         run: |
-          snakemake --configfile config/test.yaml --rulegraph | python workflow/scripts/flowchart.py --update-readme
-          git diff --exit-code -- README.md
+          snakemake --configfile config/test.yaml --rulegraph | python workflow/scripts/flowchart.py --update-doc
+          git diff --exit-code -- docs/pipeline-flowchart.md
 
   test:
     runs-on: ubuntu-latest
