@@ -32,7 +32,7 @@ ANNOTATION_COLUMNS = [
     "acceptor_chrom", "acceptor_breakpoint", "acceptor_strand",
     "junction_type", "canonical",
     "repeat_flag", "direction", "direction_ambiguous",
-    "gene_id", "gene_strand", "te_id",
+    "gene_id", "gene_strand", "te_id", "te_subfamily",
     "te_family", "te_class", "chimera_type", "antisense_flag",
     "library_strand", "transcript_strand", "gene_strand_match",
     "telocal_count", "telocal_locus", "telocal_active",

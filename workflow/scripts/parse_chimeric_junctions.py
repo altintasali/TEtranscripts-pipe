@@ -20,9 +20,9 @@ Output columns (results/chimera_junction/{sample}_junctions.tsv.gz):
     event_id, sample, donor_chrom, donor_breakpoint, donor_strand,
     acceptor_chrom, acceptor_breakpoint, acceptor_strand, junction_type,
     canonical, repeat_flag, reads, donor_hits, acceptor_hits, direction,
-    direction_ambiguous, gene_id, gene_strand, te_id, te_family, te_class,
-    chimera_type, antisense_flag, library_strand, transcript_strand,
-    gene_strand_match
+    direction_ambiguous, gene_id, gene_strand, te_id, te_subfamily,
+    te_family, te_class, chimera_type, antisense_flag, library_strand,
+    transcript_strand, gene_strand_match
 
 When --te-out is given, the gene<->TE events (direction gene_to_te /
 te_to_gene) are additionally written to that path with the same columns,
@@ -166,7 +166,7 @@ def main():
 
     genes = load_bed(args.genes)
     exons = load_bed(args.exons)
-    te = load_bed(args.te, n_extra=2)
+    te = load_bed(args.te, n_extra=3)
 
     tol = max(args.breakpoint_tolerance, 0)
     lib = args.library_strandedness
@@ -180,7 +180,7 @@ def main():
     te_meta = {}
     for chrom, (feats, _) in te.items():
         for s, e, ex in feats:
-            te_meta.setdefault(ex[0], (chrom, s, e, ex[2], ex[3], ex[4]))
+            te_meta.setdefault(ex[0], (chrom, s, e, ex[2], ex[3], ex[4], ex[5]))
 
     def locus(bp):
         # STAR breakpoint columns are 1-based and inclusive: the donor's last
@@ -327,10 +327,10 @@ def main():
             _, gs, ge, gene_strand = gene_meta[gene_id]
             gene_span = (gs, ge)
 
-        te_family = te_class = "."
+        te_family = te_class = te_subfamily = "."
         te_span = None
         if te_id is not None and te_id in te_meta:
-            _, ts, tee, _, te_family, te_class = te_meta[te_id]
+            _, ts, tee, _, te_family, te_class, te_subfamily = te_meta[te_id]
             te_span = (ts, tee)
 
         chimera_type = "."
@@ -398,7 +398,7 @@ def main():
                 gene_id if gene_id is not None else ".",
                 gene_strand,
                 te_id if te_id is not None else ".",
-                te_family, te_class, chimera_type, antisense,
+                te_subfamily, te_family, te_class, chimera_type, antisense,
                 lib, transcript_strand, match,
             ]
         )
@@ -409,7 +409,8 @@ def main():
         "junction_type", "canonical",
         "repeat_flag", "reads", "donor_hits", "acceptor_hits", "direction",
         "direction_ambiguous",
-        "gene_id", "gene_strand", "te_id", "te_family", "te_class",
+        "gene_id", "gene_strand", "te_id", "te_subfamily", "te_family",
+        "te_class",
         "chimera_type", "antisense_flag", "library_strand", "transcript_strand",
         "gene_strand_match",
     ]

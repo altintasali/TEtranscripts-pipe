@@ -6,8 +6,13 @@ Three outputs (all BED, sorted, in --outdir):
 
   genes.bed   BED6 per gene:      chrom, start, end, gene_id, score, strand
   exons.bed   BED6 per exon:      chrom, start, end, gene_id, score, strand
-  te.bed      BED8 per TE locus:  chrom, start, end, te_id, score, strand,
-                                  family, class
+  te.bed      BED9 per TE INSERTION:
+                                  chrom, start, end, te_id, score, strand,
+                                  family, class, subfamily
+              te_id is the individual copy (transcript_id, e.g. L1PA2_dup1);
+              subfamily is gene_id (e.g. L1PA2) -- the level TEcount reports,
+              kept so chimera calls can still be tied back to a TEcount row.
+              Note subfamily != family (L1PA2 vs L1).
 
 Gene exons come from the annotation GTF (ref.gtf, the same file STAR's index
 uses). TE insertions come from ref.te_gtf -- the curated TE GTF (TEtranscripts
@@ -92,7 +97,19 @@ def main():
                 exons.append((chrom, s, e, gid, strand))
 
     # TE GTF: features are the insertion loci themselves (exon feature in the
-    # TEtranscripts rmsk-derived GTFs); keep family/class for the report.
+    # TEtranscripts rmsk-derived GTFs); keep subfamily/family/class for the
+    # report.
+    #
+    # Keyed by (chrom, transcript_id) -- the individual insertion -- NOT by
+    # gene_id.  In the TEtranscripts curated GTF convention gene_id is the
+    # SUBFAMILY (L1PA2) and transcript_id the individual copy (L1PA2_dup1),
+    # the same convention build_telocal_index.py relies on.  Keying by
+    # gene_id merged every copy of a subfamily into one min/max bounding
+    # box: on a real annotation that produced single intervals spanning
+    # ~192 Mb (whole chromosomes), so the breakpoint-overlap test could not
+    # fail and essentially every junction was called a TE hit.  Multiple
+    # rows sharing one transcript_id are still merged -- that is a
+    # fragmented single insertion, where min/max IS correct.
     te_loci = {}
     with open(args.te_gtf) as fh:
         for line in fh:
@@ -107,13 +124,18 @@ def main():
             except ValueError:
                 continue
             a = parse_attrs(attrs)
-            gid = a.get("gene_id")
-            if not gid:
+            subfamily = a.get("gene_id", ".")
+            # fall back to gene_id for non-TEtranscripts TE GTFs that carry
+            # no transcript_id (then it degrades to the old behaviour rather
+            # than dropping the feature entirely)
+            tid = a.get("transcript_id") or a.get("gene_id")
+            if not tid:
                 continue
             g = te_loci.setdefault(
-                gid,
+                (chrom, tid),
                 {
                     "chrom": chrom, "strand": strand, "start": s, "end": e,
+                    "name": tid, "subfamily": subfamily,
                     "family": a.get("family_id", "."), "class": a.get("class_id", "."),
                 },
             )
@@ -128,9 +150,9 @@ def main():
         (chrom, s - 1, e, gid, ".", strand) for chrom, s, e, gid, strand in exons
     )
     te_rows = sorted(
-        (g["chrom"], g["start"] - 1, g["end"], gid, ".", g["strand"],
-         g["family"], g["class"])
-        for gid, g in te_loci.items()
+        (g["chrom"], g["start"] - 1, g["end"], g["name"], ".", g["strand"],
+         g["family"], g["class"], g["subfamily"])
+        for g in te_loci.values()
     )
 
     emit(os.path.join(args.outdir, "genes.bed"), gene_rows)

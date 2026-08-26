@@ -7,6 +7,14 @@ STAR chimeric-junction reads), so a (gene_id, te_id) pair called by BOTH is
 materially higher confidence than either alone -- this just adds a boolean
 flag + the supporting junction-read count, it doesn't drop anything from
 either table.
+
+te_id is the individual TE insertion (transcript_id, e.g. L1PA2_dup1), so
+this join requires both screens to implicate the SAME copy, not merely the
+same subfamily.  That is stricter -- and reports fewer confirmations --
+than a subfamily-level join would, but "two methods hit this exact
+insertion" is the claim worth making.  (Before te.bed was keyed per
+insertion, te_id was the subfamily and this join was correspondingly
+loose.)
 """
 import argparse
 import gzip
