@@ -47,7 +47,20 @@ def main():
 
     junc_gene_idx = junc_header.index("gene_id")
     junc_te_idx = junc_header.index("te_id")
-    junc_reads_idx = junc_header.index("reads")
+    # --junction is the MERGED catalog (chimera_counts.py), whose read column
+    # is "total_reads" (summed across samples); a per-sample junction table
+    # calls the same thing "reads". This asked only for "reads" and so died
+    # with ValueError on the file the rule actually passes it -- latent until
+    # chimera.assembly became a default, since this rule never ran before.
+    for _col in ("total_reads", "reads"):
+        if _col in junc_header:
+            junc_reads_idx = junc_header.index(_col)
+            break
+    else:
+        raise SystemExit(
+            f"error: {args.junction} has neither a 'total_reads' nor a "
+            f"'reads' column (found: {', '.join(junc_header)})"
+        )
 
     # (gene_id, te_id) -> total supporting reads across all junction events
     junc_support = {}
