@@ -262,8 +262,15 @@ rule multiqc:
     conda:
         MULTIQC_ENV
     shell:
-        "multiqc {params.extra} --force "
+        # On failure, echo the log tail to stderr. MultiQC writes everything
+        # to {log}, so a CI failure otherwise shows only "check log file(s)
+        # for error details" -- and on a hosted runner that file is gone
+        # with the workspace, which made several real failures undiagnosable
+        # from the run output alone.
+        "( multiqc {params.extra} --force "
         "-c workflow/default-config/multiqc_config.yaml "
         "-o results/qc -n multiqc_report "
         "{params.indirs} "
-        "> {log} 2>&1\n"
+        "> {log} 2>&1 ) || "
+        "( echo '-- multiqc failed; log tail --' >&2; "
+        "tail -n 60 {log} >&2; exit 1 )\n"
