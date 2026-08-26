@@ -13,11 +13,22 @@ def _fastqc_base_name(fname):
 rule fastqc_raw:
     # Always-on FastQC of the raw (merged) input fastqs, independent of the
     # optional `trimming` step, so the MultiQC report covers the untrimmed
-    # input even when trimming is disabled. FastQC names its .zip after the
-    # input file's basename, which only matches the canonical
-    # {sample}_R{read} name for the merged results/fastq/ files -- a raw
-    # single-lane path would produce a differently-named zip, so it is
-    # renamed to the declared output here.
+    # input even when trimming is disabled.
+    #
+    # FastQC bakes the INPUT file's own basename into its report content --
+    # the "Filename" line inside fastqc_data.txt, packed into the zip -- and
+    # MultiQC's fastqc module unconditionally reads THAT to name the sample
+    # in General Stats, not the zip's own filename. merged_fastq_path()
+    # deliberately returns a single-lane sample's raw sample-sheet path
+    # unchanged (no unnecessary copy), which can have an arbitrary basename
+    # (e.g. from the sequencer), so without this, FastQC's embedded name --
+    # and therefore the MultiQC sample name -- would not match the
+    # {sample}_R{read} every other tool uses, breaking General Stats
+    # alignment. Renaming just the output .zip (still done below, now a
+    # no-op in the normal case) never touched this. Symlinking the input to
+    # a canonically-named path before running FastQC fixes it at the
+    # source -- verified empirically that FastQC's embedded Filename is the
+    # symlink's own name, not its target's.
     input:
         fq=lambda wc: merged_fastq_path(wc.sample, int(wc.read)),
     output:
@@ -36,12 +47,22 @@ rule fastqc_raw:
         FASTQC_ENV
     run:
         os.makedirs(params.outdir, exist_ok=True)
-        shell(
-            "fastqc -t {threads} -o {params.outdir} {input.fq} "
-            "> {log} 2>&1"
+        ext = os.path.basename(input.fq)[len(_fastqc_base_name(input.fq)) :]
+        canonical = os.path.join(
+            params.outdir, f"{wildcards.sample}_R{wildcards.read}{ext}"
         )
+        if os.path.lexists(canonical):
+            os.remove(canonical)
+        os.symlink(os.path.abspath(input.fq), canonical)
+        try:
+            shell(
+                "fastqc -t {threads} -o {params.outdir} {canonical} "
+                "> {log} 2>&1"
+            )
+        finally:
+            os.remove(canonical)
         produced = os.path.join(
-            params.outdir, _fastqc_base_name(input.fq) + "_fastqc.zip"
+            params.outdir, _fastqc_base_name(canonical) + "_fastqc.zip"
         )
         if os.path.abspath(produced) != os.path.abspath(output.zip):
             os.replace(produced, output.zip)

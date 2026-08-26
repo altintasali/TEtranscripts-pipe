@@ -61,7 +61,7 @@ jobs:
           set +e -uo pipefail
           T=$(mktemp -d)
           FAIL=0
-          echo "[guards] 1/31 missing reference"
+          echo "[guards] 1/32 missing reference"
 
           # --- a missing/typo'd reference is a hard parse-time error ---------
           sed 's|  fasta: .*|  fasta: /nonexistent/ref.fa|' config/test.yaml > "$T/missing_ref.yaml"
@@ -71,7 +71,7 @@ jobs:
             echo "ERROR: wrong failure message for missing reference"; FAIL=1
           fi
 
-          echo "[guards] 2/31 already-trimmed fastqs"
+          echo "[guards] 2/32 already-trimmed fastqs"
 
           # --- already-trimmed-looking fastqs are rejected while trimming on --
           printf 'sample,fastq_1,fastq_2,strandedness,condition\nzyg_wt_01,zyg_wt_01_trimmed.fq.gz,,auto,wt\n' > "$T/trimmed.csv"
@@ -82,7 +82,7 @@ jobs:
             echo "ERROR: wrong failure message for already-trimmed fastqs"; FAIL=1
           fi
 
-          echo "[guards] 3/31 node-local decompressed_dir, plain refs"
+          echo "[guards] 3/32 node-local decompressed_dir, plain refs"
 
           # --- node-local decompressed_dir is fine with plain refs ------------
           # (no gunzip_reference jobs run, so the setting is dead config)
@@ -91,7 +91,7 @@ jobs:
             echo "ERROR: node-local decompressed_dir with plain refs must still dry-run"; FAIL=1
           fi
 
-          echo "[guards] 4/31 gzipped refs, default decompressed_dir"
+          echo "[guards] 4/32 gzipped refs, default decompressed_dir"
 
           # --- gzipped references: make .gz copies of the test refs ------------
           gzip -c .tests/resources/genome.fa > "$T/genome.fa.gz"
@@ -107,7 +107,7 @@ jobs:
             echo "ERROR: gzipped refs with default decompressed_dir must dry-run"; FAIL=1
           fi
 
-          echo "[guards] 5/31 gz refs + node-local decompressed_dir"
+          echo "[guards] 5/32 gz refs + node-local decompressed_dir"
 
           # --- gz refs + node-local /tmp decompressed_dir: hard parse error ----
           sed 's|  sjdb_overhang: 49|  sjdb_overhang: 49\n  decompressed_dir: /tmp/rnaseq-decompressed|' "$T/gz.yaml" > "$T/gz_tmpdir.yaml"
@@ -117,7 +117,7 @@ jobs:
             echo "ERROR: wrong failure message for gz refs + node-local decompressed_dir"; FAIL=1
           fi
 
-          echo "[guards] 6/31 gz refs + empty decompressed_dir"
+          echo "[guards] 6/32 gz refs + empty decompressed_dir"
 
           # --- gz refs + empty decompressed_dir: hard parse error ---------------
           sed 's|  sjdb_overhang: 49|  sjdb_overhang: 49\n  decompressed_dir: ""|' "$T/gz.yaml" > "$T/gz_empty.yaml"
@@ -127,7 +127,7 @@ jobs:
             echo "ERROR: wrong failure message for gz refs + empty decompressed_dir"; FAIL=1
           fi
 
-          echo "[guards] 7/31 star.index omitted"
+          echo "[guards] 7/32 star.index omitted"
 
           # --- star.index omitted: defaults to generated results/star_index -----
           sed '/^  index: .*star_index$/d' config/test.yaml > "$T/no_index.yaml"
@@ -137,7 +137,7 @@ jobs:
             echo "ERROR: default star index path results/star_index not used"; FAIL=1
           fi
 
-          echo "[guards] 8/31 star.index empty"
+          echo "[guards] 8/32 star.index empty"
 
           # --- star.index empty string: same default applies --------------------
           sed 's|^  index: .*|  index: ""|' config/test.yaml > "$T/empty_index.yaml"
@@ -145,7 +145,7 @@ jobs:
             echo "ERROR: empty star.index must dry-run (default results/star_index)"; FAIL=1
           fi
 
-          echo "[guards] 9/31 CLI samples generator"
+          echo "[guards] 9/32 CLI samples generator"
 
           # --- the samples CLI must reproduce the committed fixture -----------
           # (same rows, order-insensitive; generated paths are absolute while
@@ -164,7 +164,7 @@ jobs:
             fi
           fi
 
-          echo "[guards] 10/31 CLI run --dry-run"
+          echo "[guards] 10/32 CLI run --dry-run"
 
           # --- CLI run must scaffold config + sheet and pass a real dry-run ---
           python workflow/scripts/tetranscripts-pipe run \
@@ -183,7 +183,7 @@ jobs:
             echo "ERROR: CLI run --dry-run planned no jobs (tecount missing from the DAG)"; tail -40 "$T/cli_run.log"; FAIL=1
           fi
 
-          echo "[guards] 11/31 MultiQC custom-content JSON format"
+          echo "[guards] 11/32 MultiQC custom-content JSON format"
 
           # --- the barplot emitters must render in the installed MultiQC ------
           # MultiQC's custom_content module only reads a top-level "data" key;
@@ -223,7 +223,7 @@ jobs:
             done
           fi
 
-          echo "[guards] 12/31 CLI run with an existing config (config-only)"
+          echo "[guards] 12/32 CLI run with an existing config (config-only)"
 
           # --- CLI run with an existing --config: no other flags needed -------
           # The sheet is taken from the config's 'samples:' key
@@ -240,7 +240,7 @@ jobs:
             echo "ERROR: CLI run --config-only planned no jobs (tecount_summary missing)"; tail -40 "$T/cli_config_only.log"; FAIL=1
           fi
 
-          echo "[guards] 13/31 qc-off keeps the summary barplots"
+          echo "[guards] 13/32 qc-off keeps the summary barplots"
 
           # --- tetranscripts.qc.enabled: false still plans the summary barplots
           # The assignment + TE-class barplots use the raw cntTables, so they
@@ -255,7 +255,7 @@ jobs:
             echo "ERROR: R-based tecount QC rules still planned with tetranscripts.qc.enabled false"; tail -40 "$T/qc_off.log"; FAIL=1
           fi
 
-          echo "[guards] 14/31 CLI with config in a different checkout (deployed split)"
+          echo "[guards] 14/32 CLI with config in a different checkout (deployed split)"
 
           # --- CLI installed elsewhere, config in an analysis checkout -------
           # The deployment runs this script from a shared apps/ copy while
@@ -279,7 +279,7 @@ jobs:
             echo "ERROR: run did not anchor to the config's checkout ($WD2)"; tail -40 "$T/deployed.log"; FAIL=1
           fi
 
-          echo "[guards] 15/31 build_index=false path collision"
+          echo "[guards] 15/32 build_index=false path collision"
 
           # --- build_index=false with star.index pointing to the default output
           # directory (results/star_index) is rejected at parse time.  The path
@@ -294,7 +294,7 @@ jobs:
           fi
           rmdir results/star_index
 
-          echo "[guards] 16/31 keep_star_index: false + build_index: false"
+          echo "[guards] 16/32 keep_star_index: false + build_index: false"
 
           # --- keep_star_index: false + build_index: false must dry-run and
           # plan the cleanup_star_index rule.  Create a temp dir as a fake
@@ -313,7 +313,7 @@ jobs:
             echo "ERROR: cleanup_star_index rule not planned"; FAIL=1
           fi
 
-          echo "[guards] 17/31 build_index=false without ref.fasta"
+          echo "[guards] 17/32 build_index=false without ref.fasta"
 
           # --- build_index=false: ref.fasta is optional.  Remove fasta from
           # the config and confirm the dry-run still passes.
@@ -328,7 +328,7 @@ jobs:
             echo "ERROR: build_index=false without ref.fasta raised missing reference error"; FAIL=1
           fi
 
-          echo "[guards] 18/31 empty GTF warning"
+          echo "[guards] 18/32 empty GTF warning"
 
           # --- an empty-but-existing GTF must produce a parse-time warning
           # (not an error) during dry-run.
@@ -341,7 +341,7 @@ jobs:
             echo "ERROR: empty GTF did not produce expected warning"; tail -20 "$T/empty_gtf.log"; FAIL=1
           fi
 
-          echo "[guards] 19/31 check_nonempty_fastq rejects empty file"
+          echo "[guards] 19/32 check_nonempty_fastq rejects empty file"
 
           # --- check_nonempty_fastq.py must exit 1 for an empty FASTQ
           echo -n "" | gzip > "$T/empty.fq.gz"
@@ -349,7 +349,7 @@ jobs:
             echo "ERROR: check_nonempty_fastq accepted an empty FASTQ"; FAIL=1
           fi
 
-          echo "[guards] 20/31 telocal enabled with empty locind auto-builds"
+          echo "[guards] 20/32 telocal enabled with empty locind auto-builds"
 
           # --- telocal.enabled: true with empty locind must now succeed
           # (auto-builds from TE GTF via telocal_locind rule)
@@ -364,7 +364,7 @@ jobs:
             FAIL=1
           fi
 
-          echo "[guards] 21/31 telocal_summary_mqc.py + telocal counts matrix"
+          echo "[guards] 21/32 telocal_summary_mqc.py + telocal counts matrix"
 
           # --- telocal_summary_mqc.py must render in MultiQC ------------------
           printf 'gene/TE\t/path/a.bam\nENSG0001\t80\nchr1:100:200(L1PA2:+):L1PA2:L1:LINE\t5\n' > "$T/tl_a.cntTable"
@@ -406,7 +406,7 @@ jobs:
             done
           fi
 
-          echo "[guards] 22/31 star.two_pass: none opts out of the pass1/merge stage"
+          echo "[guards] 22/32 star.two_pass: none opts out of the pass1/merge stage"
 
           # --- star.two_pass: none must plan the original, single-pass-only
           # DAG (star.two_pass defaults to "cohort" -- see common.smk -- so
@@ -420,7 +420,7 @@ jobs:
             tail -40 "$T/two_pass_none.log"; FAIL=1
           fi
 
-          echo "[guards] 23/31 star.two_pass: per_sample uses --twopassMode Basic only"
+          echo "[guards] 23/32 star.two_pass: per_sample uses --twopassMode Basic only"
 
           # --- per_sample must add --twopassMode Basic to star_align and add
           # no other rules (no pass1/merge stage -- that is cohort-only).
@@ -436,7 +436,7 @@ jobs:
             tail -40 "$T/two_pass_per_sample.log"; FAIL=1
           fi
 
-          echo "[guards] 24/31 star.two_pass default (cohort) pools junctions across samples"
+          echo "[guards] 24/32 star.two_pass default (cohort) pools junctions across samples"
 
           # --- default config/test.yaml (no override -- star.two_pass
           # defaults to "cohort") must plan star_align_pass1 for every
@@ -471,7 +471,7 @@ jobs:
             echo "-- got --"; cat "$T/merged_SJ.out.tab"; FAIL=1
           fi
 
-          echo "[guards] 25/31 chimera.assembly default (off) plans nothing"
+          echo "[guards] 25/32 chimera.assembly default (off) plans nothing"
 
           # --- chimera.assembly.enabled defaults to false in config/test.yaml
           # -- confirm none of its rules are planned as-is.
@@ -482,7 +482,7 @@ jobs:
             tail -40 "$T/assembly_off.log"; FAIL=1
           fi
 
-          echo "[guards] 26/31 chimera.assembly.enabled: true plans the full screen"
+          echo "[guards] 26/32 chimera.assembly.enabled: true plans the full screen"
 
           # --- flip assembly on (junction stays on, the test.yaml default) --
           # every chimera_assembly rule, including the dedicated STAR pass
@@ -503,7 +503,7 @@ jobs:
             done
           fi
 
-          echo "[guards] 27/31 chimera.assembly works independently of chimera.junction"
+          echo "[guards] 27/32 chimera.assembly works independently of chimera.junction"
 
           # --- assembly on, junction OFF: annotation_to_bed (moved to
           # ref.smk specifically so this works) must still run, and
@@ -525,7 +525,7 @@ jobs:
             tail -40 "$T/assembly_only.log"; FAIL=1
           fi
 
-          echo "[guards] 28/31 classify_chimera_assembly.py classification logic"
+          echo "[guards] 28/32 classify_chimera_assembly.py classification logic"
 
           # --- synthetic assembly covering all 5 output classes plus a
           # negative control (TE on the last exon, no earlier gene match --
@@ -572,7 +572,7 @@ jobs:
             fi
           fi
 
-          echo "[guards] 29/31 chimera_assembly_summary_mqc.py renders in MultiQC"
+          echo "[guards] 29/32 chimera_assembly_summary_mqc.py renders in MultiQC"
 
           printf "transcript_id\tgtf_gene_id\tchrom\tstrand\tn_exons\ttranscript_start\ttranscript_end\tte_exon_start\tte_exon_end\tte_id\tte_family\tte_class\tte_overlap_exon_rank\tte_hits_all\tmatched_gene_id\tmatched_gene_strand\tgene_hits_all\tstrand_match\tchimera_type\tconfirmed_by_junction_screen\tjunction_supporting_reads\n" > "$T/ca.tsv"
           printf "T1\tMSTRG.1\tchr1\t+\t2\t500\t1200\t500\t700\tTE_A\tL1\tLINE\t1\tTE_A\tGENE1\t+\tGENE1\tyes\tte_initiated\tyes\t7\n" >> "$T/ca.tsv"
@@ -604,7 +604,7 @@ jobs:
             fi
           fi
 
-          echo "[guards] 30/31 telocal.indexer defaults to fast"
+          echo "[guards] 30/32 telocal.indexer defaults to fast"
 
           # --- default config/test.yaml (no override) must plan
           # build_telocal_index.py with --indexer fast.
@@ -615,7 +615,7 @@ jobs:
             tail -40 "$T/indexer_default.log"; FAIL=1
           fi
 
-          echo "[guards] 31/31 telocal.indexer: legacy opts into TElocal's own build()"
+          echo "[guards] 31/32 telocal.indexer: legacy opts into TElocal's own build()"
 
           sed '/^  locind: ""$/a\  indexer: legacy' config/test.yaml > "$T/indexer_legacy.yaml"
           if ! snakemake --configfile "$T/indexer_legacy.yaml" -n -p --cores 1 --until telocal_locind >"$T/indexer_legacy.log" 2>&1; then
@@ -644,6 +644,32 @@ jobs:
               echo "ERROR: fast and legacy indexers produced different output"; FAIL=1
             else
               echo "fast/legacy indexer output: IDENTICAL"
+            fi
+          fi
+
+          echo "[guards] 32/32 raw FastQC gets a canonical sample name even for oddly-named single-lane fastqs"
+
+          # A single-lane sample's raw fastq keeps its own (possibly
+          # arbitrary) basename -- merged_fastq_path() skips the merge step
+          # to avoid an unnecessary copy for the common case. FastQC bakes
+          # the INPUT's own basename into its report content (the
+          # "Filename" line in fastqc_data.txt), which is what MultiQC's
+          # fastqc module uses for the sample name, not the renamed output
+          # .zip's filename. This checks fastqc_raw's fix (symlink to a
+          # canonical name before running fastqc) actually lands in the
+          # report content, not just the DAG -- a dry-run wouldn't catch
+          # this, since the bug was in report content, not the output path.
+          mkdir -p "$T/weird_reads"
+          ln -sf "$(pwd)/.tests/reads/control_rep2_R1.fastq.gz" "$T/weird_reads/SampleA_S1_L001_R1_001.fastq.gz"
+          { head -1 .tests/samples.csv; echo "guardsample,$T/weird_reads/SampleA_S1_L001_R1_001.fastq.gz,,auto,control"; } > "$T/weird_samples.csv"
+          if ! snakemake --configfile config/test.yaml --config samples="$T/weird_samples.csv" --cores 1 \
+                results/fastqc/raw/guardsample_R1_fastqc.zip >"$T/weird_fastqc.log" 2>&1; then
+            echo "ERROR: fastqc_raw failed for the oddly-named-fastq sample"; tail -40 "$T/weird_fastqc.log"; FAIL=1
+          else
+            FN=$(unzip -p results/fastqc/raw/guardsample_R1_fastqc.zip "*/fastqc_data.txt" | awk -F'\t' '$1=="Filename"{print $2}')
+            if [ "$FN" != "guardsample_R1.fastq.gz" ]; then
+              echo "ERROR: FastQC's embedded Filename is '$FN', not the canonical guardsample_R1.fastq.gz -- MultiQC General Stats would mismatch"
+              FAIL=1
             fi
           fi
 
