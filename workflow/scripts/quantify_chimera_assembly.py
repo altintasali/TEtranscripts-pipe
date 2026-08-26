@@ -52,11 +52,16 @@ def main():
     ap.add_argument("--candidates", required=True)
     ap.add_argument("--quant", nargs="+", required=True,
                      help="Per-sample requantified GTFs, same order as --sample-names")
-    ap.add_argument("--sample-names", required=True)
+    # nargs="+" like chimera_counts.py / tecount_counts.py: the rule
+    # interpolates the names unquoted, so the shell hands us N argv entries,
+    # not one space-joined string. Without it argparse consumed only the
+    # first name and exited 2 on the rest -- latent because this rule never
+    # ran while chimera.assembly was off by default.
+    ap.add_argument("--sample-names", required=True, nargs="+")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
-    samples = args.sample_names.split()
+    samples = args.sample_names
     if len(samples) != len(args.quant):
         sys.exit("--sample-names and --quant must have the same length/order")
 
