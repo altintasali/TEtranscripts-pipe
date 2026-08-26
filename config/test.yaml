@@ -88,7 +88,8 @@ chimera:
       write_igv_bed: true
       write_counts_matrix: true
   assembly:
-    enabled: false
+    # matches the shipped default, so CI exercises the default DAG
+    enabled: true
     breakpoint_tolerance: 5
     min_transcript_tpm: 1
     outputs:

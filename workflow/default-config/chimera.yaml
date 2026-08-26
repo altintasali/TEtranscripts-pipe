@@ -7,9 +7,11 @@
 # Two independent, complementary detection methods live under chimera.*:
 #   chimera.junction -- STAR chimeric-junction reads (on by default). Only
 #     sees reads STAR can't explain as one linear alignment.
-#   chimera.assembly -- StringTie assembly structure (off by default, newer
-#     and less validated). Catches ordinary-canonical-intron TE-initiated
-#     splices that chimera.junction structurally cannot see.
+#   chimera.assembly -- StringTie assembly structure (also on by default;
+#     newer and less validated than chimera.junction). Catches
+#     ordinary-canonical-intron TE-initiated splices that chimera.junction
+#     structurally cannot see. Costs a second, dedicated STAR pass per
+#     sample -- set enabled: false if you don't need it.
 # A candidate found by both is cross-referenced -- see
 # results/chimera_assembly/candidates_with_junction_evidence.tsv.gz.
 #
@@ -37,7 +39,7 @@ chimera:
       write_igv_bed: false
       write_counts_matrix: true
   assembly:
-    enabled: false
+    enabled: true
     breakpoint_tolerance: 5
     min_transcript_tpm: 1
     outputs:

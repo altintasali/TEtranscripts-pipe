@@ -11,7 +11,8 @@ regenerate/resize the test data:
 Layout produced:
     .tests/resources/genome.fa           one 50kb contig "chrT"
     .tests/resources/genome.gtf          100 genes, "chrT" 1001-31000 (+)
-    .tests/resources/te_annotation.gtf   one TE,   "chrT" 40001-46000 (+)
+    .tests/resources/te_annotation.gtf   two copies of ONE TE subfamily:
+                                         "chrT" 40001-46001 and 48001-49000 (+)
     .tests/reads/{sample}_R{1,2}.fastq.gz            paired-end samples
     .tests/reads/{sample}_R1.fastq.gz                single-end samples
     .tests/reads/treatment_rep1_L{001,002}_R{1,2}.fastq.gz   (paired-end, lane-split)
@@ -60,6 +61,15 @@ GENE_LEN = 300  # per-gene length; must stay > FRAGMENT_LEN for sampling
 GENE_START = 1_001  # 1-based, inclusive start of the gene block
 GENE_END = GENE_START + N_GENES * GENE_LEN - 1  # 1-based, inclusive
 TE_START, TE_END = 40_001, 46_001
+# A SECOND copy of the same subfamily (gene_id "TE1", transcript_id
+# "TE1_dup2"), deliberately separated from the first by a ~2 kb gap.
+# annotation_to_bed.py used to key te.bed by gene_id and take
+# min(start)/max(end), which collapsed every copy of a subfamily into one
+# bounding box -- with a single TE in the fixture that bug was invisible,
+# and it reached a tagged release. With two copies, te.bed must contain two
+# intervals; if the collapse ever comes back it becomes one interval
+# spanning TE_START..TE2_END, swallowing the non-TE gap between them.
+TE2_START, TE2_END = 48_001, 49_000
 READ_LEN = 50
 FRAGMENT_LEN = 200  # insert size for paired-end reads
 
@@ -290,7 +300,20 @@ def main():
                 ".",
                 'gene_id "TE1"; transcript_id "TE1_dup1"; '
                 'family_id "TE1fam"; class_id "TE1class";',
-            )
+            ),
+            (
+                CONTIG,
+                "test",
+                "exon",
+                str(TE2_START),
+                str(TE2_END),
+                ".",
+                "+",
+                ".",
+                # same gene_id (subfamily), different transcript_id (copy)
+                'gene_id "TE1"; transcript_id "TE1_dup2"; '
+                'family_id "TE1fam"; class_id "TE1class";',
+            ),
         ],
     )
 

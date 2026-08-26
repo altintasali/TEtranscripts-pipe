@@ -53,23 +53,41 @@ flowchart LR
         sample_qc["sample-QC plots"]
     end
     subgraph other["Other"]
+        chimera_assembly_classify["chimera_assembly_classify"]
+        chimera_assembly_cross_evidence["chimera_assembly_cross_evidence"]
+        chimera_assembly_igv_bed["chimera_assembly_igv_bed"]
+        chimera_assembly_quantify["chimera_assembly_quantify"]
+        chimera_assembly_summary_mqc["chimera_assembly_summary_mqc"]
         chimera_telocal_index["chimera_telocal_index"]
         rseqc_gene_body_coverage["rseqc_gene_body_coverage"]
         rseqc_read_distribution["rseqc_read_distribution"]
         samtools_flagstat["samtools_flagstat"]
+        star_align_for_assembly["star_align_for_assembly"]
         star_align_pass1["star_align_pass1"]
         star_merge_junctions["star_merge_junctions"]
+        stringtie_assemble["stringtie_assemble"]
+        stringtie_merge["stringtie_merge"]
+        stringtie_requantify["stringtie_requantify"]
         telocal_locations["telocal_locations"]
     end
+    annotation_to_bed --> chimera_assembly_classify
     annotation_to_bed --> parse_chimeric_junctions
     benchmark_summary --> multiqc
     cat_fastq --> fastqc_raw
     cat_fastq --> trim_galore_pe
     cat_fastq --> trim_galore_se
+    chimera_assembly_classify --> chimera_assembly_cross_evidence
+    chimera_assembly_classify --> chimera_assembly_quantify
+    chimera_assembly_cross_evidence --> chimera_assembly_igv_bed
+    chimera_assembly_cross_evidence --> chimera_assembly_summary_mqc
+    chimera_assembly_quantify --> chimera_assembly_summary_mqc
+    chimera_counts --> chimera_assembly_cross_evidence
     chimera_counts --> sample_qc_transform
     chimera_telocal_annotate --> chimera_counts
     chimera_telocal_index --> chimera_telocal_annotate
     determine_strandedness --> parse_chimeric_junctions
+    determine_strandedness --> stringtie_assemble
+    determine_strandedness --> stringtie_requantify
     determine_strandedness --> tecount
     determine_strandedness --> telocal
     determine_strandedness --> tetranscripts_diffexp
@@ -99,10 +117,18 @@ flowchart LR
     star_align --> tecount
     star_align --> telocal
     star_align --> tetranscripts_diffexp
+    star_align_for_assembly --> stringtie_assemble
+    star_align_for_assembly --> stringtie_requantify
     star_align_pass1 --> star_merge_junctions
     star_index --> star_align
+    star_index --> star_align_for_assembly
     star_index --> star_align_pass1
     star_merge_junctions --> star_align
+    star_merge_junctions --> star_align_for_assembly
+    stringtie_assemble --> stringtie_merge
+    stringtie_merge --> chimera_assembly_classify
+    stringtie_merge --> stringtie_requantify
+    stringtie_requantify --> chimera_assembly_quantify
     tecount --> tecount_counts
     tecount --> tecount_summary
     tecount_counts --> tecount_qc_transform
@@ -115,8 +141,10 @@ flowchart LR
     telocal_locind --> telocal
     telocal_qc_transform --> telocal_qc
     trim_galore_pe --> star_align
+    trim_galore_pe --> star_align_for_assembly
     trim_galore_pe --> star_align_pass1
     trim_galore_se --> star_align
+    trim_galore_se --> star_align_for_assembly
     trim_galore_se --> star_align_pass1
 ```
 <!-- flowchart:end -->

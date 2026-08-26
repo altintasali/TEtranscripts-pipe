@@ -236,14 +236,16 @@ chimera:
     # both is cross-referenced in
     # results/chimera_assembly/candidates_with_junction_evidence.tsv.gz.
     #
-    # Off by default -- newer and less validated than chimera.junction.
+    # On by default, but newer and less validated than chimera.junction --
+    # validate its output before relying on it. Set enabled: false to skip
+    # it (and save the extra alignment below).
     # Uses its own dedicated STAR alignment pass (--outSAMstrandField
     # intronMotif, needed for StringTie's strand inference on unstranded
     # data) which suppresses non-canonical-junction reads from that one
     # private BAM only -- the main alignment everything else uses is
     # untouched, so this is a sensitivity tradeoff scoped to this screen
     # alone, not the rest of the pipeline.
-    enabled: false
+    enabled: true
     # Slack (bp) allowed when matching an assembled transcript's exon to a
     # TE/gene-exon feature edge. StringTie's exon boundaries (especially
     # the first exon's 5' end, which has no upstream junction to anchor
