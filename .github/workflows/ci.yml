@@ -473,36 +473,40 @@ jobs:
             echo "-- got --"; cat "$T/merged_SJ.out.tab"; FAIL=1
           fi
 
-          echo "[guards] 25/33 chimera.assembly default (off) plans nothing"
+          echo "[guards] 25/33 chimera.assembly default (on) plans the full screen"
 
-          # --- chimera.assembly.enabled defaults to false in config/test.yaml
-          # -- confirm none of its rules are planned as-is.
-          if ! snakemake --configfile config/test.yaml -n --cores 1 >"$T/assembly_off.log" 2>&1; then
-            echo "ERROR: default config must dry-run"; tail -40 "$T/assembly_off.log"; FAIL=1
-          elif grep -qE "stringtie_assemble|chimera_assembly_classify|star_align_for_assembly" "$T/assembly_off.log"; then
-            echo "ERROR: chimera_assembly rules planned with chimera.assembly.enabled: false (default)"
-            tail -40 "$T/assembly_off.log"; FAIL=1
-          fi
-
-          echo "[guards] 26/33 chimera.assembly.enabled: true plans the full screen"
-
-          # --- flip assembly on (junction stays on, the test.yaml default) --
-          # every chimera_assembly rule, including the dedicated STAR pass
-          # and (test.yaml sets write_igv_bed: true) the IGV export, must be
-          # planned.
-          sed '/^  assembly:$/{n;s/enabled: false/enabled: true/}' \
-              config/test.yaml > "$T/assembly_on.yaml"
-          if ! snakemake --configfile "$T/assembly_on.yaml" -n --cores 1 >"$T/assembly_on.log" 2>&1; then
-            echo "ERROR: chimera.assembly.enabled: true must dry-run"; tail -40 "$T/assembly_on.log"; FAIL=1
+          # --- chimera.assembly.enabled defaults to TRUE as of 0.10.1, and
+          # config/test.yaml matches the shipped default on purpose so CI
+          # exercises the DAG users actually get. Every chimera_assembly
+          # rule, including its dedicated STAR pass and (test.yaml sets
+          # write_igv_bed: true) the IGV export, must be planned as-is.
+          if ! snakemake --configfile config/test.yaml -n --cores 1 >"$T/assembly_on.log" 2>&1; then
+            echo "ERROR: default config must dry-run"; tail -40 "$T/assembly_on.log"; FAIL=1
           else
             for rule in star_align_for_assembly stringtie_assemble stringtie_merge \
                         stringtie_requantify chimera_assembly_classify chimera_assembly_quantify \
                         chimera_assembly_cross_evidence chimera_assembly_summary_mqc chimera_assembly_igv_bed; do
               if ! grep -q "$rule" "$T/assembly_on.log"; then
-                echo "ERROR: $rule not planned with chimera.assembly.enabled: true"
+                echo "ERROR: $rule not planned with the default chimera.assembly.enabled: true"
                 tail -40 "$T/assembly_on.log"; FAIL=1
               fi
             done
+          fi
+
+          echo "[guards] 26/33 chimera.assembly.enabled: false plans nothing"
+
+          # --- the opt-out direction: turning the screen off must remove
+          # every one of its rules from the DAG, not merely skip them.
+          sed '/^  assembly:$/{n;n;s/enabled: true/enabled: false/}' \
+              config/test.yaml > "$T/assembly_off.yaml"
+          if ! grep -qE "^    enabled: false" "$T/assembly_off.yaml"; then
+            echo "ERROR: guard 26 sed did not flip assembly.enabled to false"
+            sed -n '/^  assembly:/,+3p' "$T/assembly_off.yaml"; FAIL=1
+          elif ! snakemake --configfile "$T/assembly_off.yaml" -n --cores 1 >"$T/assembly_off.log" 2>&1; then
+            echo "ERROR: chimera.assembly.enabled: false must dry-run"; tail -40 "$T/assembly_off.log"; FAIL=1
+          elif grep -qE "stringtie_assemble|chimera_assembly_classify|star_align_for_assembly" "$T/assembly_off.log"; then
+            echo "ERROR: chimera_assembly rules still planned with enabled: false"
+            tail -40 "$T/assembly_off.log"; FAIL=1
           fi
 
           echo "[guards] 27/33 chimera.assembly works independently of chimera.junction"
