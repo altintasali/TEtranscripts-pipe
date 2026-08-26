@@ -110,19 +110,43 @@ def main():
         "parent_id": "chimera_assembly",
         "parent_name": "Chimera (assembly)",
         "section_name": "Candidates by class",
-        "description": (
-            "StringTie-assembly chimera candidates by chimera_type. " + data_labels_note
-        ),
-        "plot_type": "bar",
-        "pconfig": {
-            "id": "chimera_assembly_classes_plot",
-            "title": "Chimera-assembly candidates by class",
-            "ylab": "candidates",
-            "cpswitch": False,
-            "use_legend": True,
-        },
-        "data": {CLASS_LABEL.get(c, c): v for c, v in counts.items()},
     }
+    # counts values are {"count": N} or {"confirmed": N, "unconfirmed": N}
+    # depending on whether the junction screen ran, so sum values rather
+    # than assuming either key.
+    if any(sum(v.values()) for v in counts.values()):
+        classes_doc.update({
+            "description": (
+                "StringTie-assembly chimera candidates by chimera_type. "
+                + data_labels_note
+            ),
+            "plot_type": "bar",
+            "pconfig": {
+                "id": "chimera_assembly_classes_plot",
+                "title": "Chimera-assembly candidates by class",
+                "ylab": "candidates",
+                "cpswitch": False,
+                "use_legend": True,
+            },
+            "data": {CLASS_LABEL.get(c, c): v for c, v in counts.items()},
+        })
+    else:
+        # MultiQC's bargraph raises "No datasets to plot" on an all-zero
+        # bar document and takes the whole report down with it, so document
+        # the empty result as html instead of shipping an unplottable bar.
+        # A run with no assembled TE candidates is normal (small genome, low
+        # depth, or genuinely nothing there) -- it must not fail the report.
+        classes_doc.update({
+            "description": "StringTie-assembly chimera candidates by chimera_type.",
+            "plot_type": "html",
+            "data": (
+                "<p>No gene-TE chimera candidates were assembled in this run, "
+                "so there is nothing to plot here. This is not an error: it "
+                "means StringTie found no transcript whose structure implicates "
+                "a TE. The junction screen is independent and may still have "
+                "calls.</p>"
+            ),
+        })
     os.makedirs(os.path.dirname(args.out_classes), exist_ok=True)
     with open_write(args.out_classes) as fh:
         json.dump(classes_doc, fh, indent=2)
