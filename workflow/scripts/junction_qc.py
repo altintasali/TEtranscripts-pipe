@@ -36,6 +36,7 @@ def main():
     n = len(rows)
     gene_te = [r for r in rows if r.get("direction") in ("gene_to_te", "te_to_gene")]
     direction = collections.Counter(r.get("direction", ".") for r in rows)
+    ambiguous = collections.Counter(r.get("direction_ambiguous", "no") for r in rows)
     chimera_type = collections.Counter(r.get("chimera_type", ".") for r in gene_te)
     canonical = collections.Counter(r.get("canonical", "no") for r in rows)
     antisense = collections.Counter(r.get("antisense_flag", ".") for r in gene_te)
@@ -47,8 +48,12 @@ def main():
         ("events_gene_te", str(len(gene_te))),
     ]
     for key in ("gene_to_te", "te_to_gene", "gene_to_gene", "te_to_te",
-                "gene_to_other", "other_to_gene", "te_to_other", "other"):
+                "gene_to_other", "other_to_gene", "te_to_other",
+                "other_to_te", "other"):
         lines.append((f"direction_{key}", str(direction.get(key, 0))))
+    # Deliberately NOT "direction_ambiguous": every direction_* row above is
+    # a direction *category*, so that name would read as a ninth class.
+    lines.append(("ambiguous_direction", str(ambiguous.get("yes", 0))))
     for key in ("te_initiated", "te_terminated", "te_exonized", "trans", "."):
         lines.append((f"chimera_type_{key}", str(chimera_type.get(key, 0))))
     lines.append(("canonical_yes", str(canonical.get("yes", 0))))

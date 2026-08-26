@@ -111,7 +111,7 @@ def _chimera_qc_mqc_inputs():
 
 def _junction_qc_mqc_inputs():
     """MultiQC custom-content JSONs from the chimera junction-QC barplot
-    (per-sample direction composition) and the TE-chimeras barplot (the
+    (per-sample direction composition) and the gene-TE chimeras barplot (the
     gene<->TE subset). Only when the chimera stage is enabled; independent of
     write_counts_matrix, since junction QC runs for every sample the annotator
     produces."""
@@ -119,7 +119,7 @@ def _junction_qc_mqc_inputs():
         return []
     return [
         "results/chimera_junction/qc/junction_qc_mqc.json",
-        "results/chimera_junction/qc/te_chimeras_mqc.json",
+        "results/chimera_junction/qc/te_gene_chimeras_mqc.json",
     ]
 
 

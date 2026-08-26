@@ -58,7 +58,7 @@ module_order:
 #   telocal      TElocal: same section set (telocal_summary / telocal_qc)
 #   chimera      Chimera: Junction QC barplot + PCA + Clusters
 #                (junction_qc_barplot / sample_qc rules)
-#   te_chimeras  Chimeric TEs: gene<->TE junction subset view
+#   te_gene_chimeras  Gene-TE chimeras: gene<->TE junction subset view
 #                (junction_qc_barplot rule)
 #   chimera_assembly  Chimera (assembly): candidates-by-class barplot + a
 #                "what to look at" guide with this run's top candidates
@@ -73,7 +73,7 @@ custom_content:
     - tecount
     - telocal
     - chimera
-    - te_chimeras
+    - te_gene_chimeras
     - chimera_assembly
     - config_used
     - resource_usage

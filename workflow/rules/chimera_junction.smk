@@ -15,9 +15,18 @@
 # so it lives in ref.smk rather than here -- it must exist whenever EITHER
 # chimera screen is enabled, not just this one).
 #
+# Per-sample tables are two row-sets (all junctions / the gene-TE chimera
+# subset) x two column-sets (without / with TElocal columns):
+#   {sample}_junctions.tsv.gz                              base
+#   {sample}_junctions_te-gene-chimeras.tsv.gz             fewer rows
+#   {sample}_junctions_with-telocal.tsv.gz                 more columns
+#   {sample}_junctions_te-gene-chimeras_with-telocal.tsv.gz  both
+# (the two _with-telocal ones only when telocal is enabled).
+#
 # Rules:
-#   parse_chimeric_junctions per-sample junction annotation (+ {sample}_te_chimeras)
-#   chimera_counts           merge per-sample tables -> all_events + counts + te_chimeras
+#   parse_chimeric_junctions per-sample junction annotation (+ the gene-TE subset)
+#   chimera_counts           merge per-sample tables -> all_events + counts
+#                            + te-gene-chimeras
 #   junction_qc              per-sample QC summary (MultiQC custom content)
 #   chimera_igv_bed          per-sample IGV track (config-gated)
 # -----------------------------------------------------------------------------
@@ -31,7 +40,7 @@ CHIMERA_QC = config["chimera"]["junction"]["qc"]
 def chimera_counts_input():
     if TELOCAL_ENABLED:
         return [
-            f"results/chimera_junction/{s}_junctions_telocal.tsv.gz"
+            f"results/chimera_junction/{s}_junctions_with-telocal.tsv.gz"
             for s in SAMPLES
         ]
     return [
@@ -48,16 +57,21 @@ def all_chimera_outputs():
     ]
     if TELOCAL_ENABLED:
         files += [
-            f"results/chimera_junction/{s}_junctions_telocal.tsv.gz"
+            f"results/chimera_junction/{s}_junctions_with-telocal.tsv.gz"
+            for s in SAMPLES
+        ]
+        files += [
+            f"results/chimera_junction/"
+            f"{s}_junctions_te-gene-chimeras_with-telocal.tsv.gz"
             for s in SAMPLES
         ]
     files += [
-        f"results/chimera_junction/{s}_te_chimeras.tsv.gz"
+        f"results/chimera_junction/{s}_junctions_te-gene-chimeras.tsv.gz"
         for s in SAMPLES
     ]
     files += [
         "results/chimera_junction/all_events.tsv.gz",
-        "results/chimera_junction/te_chimeras.tsv.gz",
+        "results/chimera_junction/te-gene-chimeras.tsv.gz",
         "results/chimera_junction/counts_matrix.tsv.gz",
     ]
     files += [
@@ -66,7 +80,7 @@ def all_chimera_outputs():
     ]
     files += [
         "results/chimera_junction/qc/junction_qc_mqc.json",
-        "results/chimera_junction/qc/te_chimeras_mqc.json",
+        "results/chimera_junction/qc/te_gene_chimeras_mqc.json",
     ]
     if WRITE_IGV_BED:
         files += [
@@ -101,7 +115,7 @@ rule parse_chimeric_junctions:
         strandedness=strandedness_input,
     output:
         junctions="results/chimera_junction/{sample}_junctions.tsv.gz",
-        te_chimeras="results/chimera_junction/{sample}_te_chimeras.tsv.gz",
+        te_gene_chimeras="results/chimera_junction/{sample}_junctions_te-gene-chimeras.tsv.gz",
     params:
         tolerance=config["chimera"]["junction"]["breakpoint_tolerance"],
         canonical_flag=lambda wc: (
@@ -127,7 +141,7 @@ rule parse_chimeric_junctions:
         "{params.canonical_flag} "
         "--library-strandedness {params.library} "
         "--out {output.junctions} "
-        "--te-out {output.te_chimeras} > {log} 2>&1"
+        "--te-out {output.te_gene_chimeras} > {log} 2>&1"
 
 
 def _telocal_counts_for_chimera(wc=None):
@@ -173,7 +187,11 @@ rule chimera_telocal_annotate:
         junctions="results/chimera_junction/{sample}_junctions.tsv.gz",
         telocal_index="results/chimera_junction/telocal_index.pkl.gz",
     output:
-        "results/chimera_junction/{sample}_junctions_telocal.tsv.gz",
+        junctions="results/chimera_junction/{sample}_junctions_with-telocal.tsv.gz",
+        te_gene_chimeras=(
+            "results/chimera_junction/"
+            "{sample}_junctions_te-gene-chimeras_with-telocal.tsv.gz"
+        ),
     params:
         sample_name=lambda wc: wc.sample,
         tolerance=config["chimera"]["junction"]["breakpoint_tolerance"],
@@ -191,7 +209,8 @@ rule chimera_telocal_annotate:
         "--telocal-index {input.telocal_index} "
         "--sample-name {params.sample_name} "
         "--breakpoint-tolerance {params.tolerance} "
-        "--out {output} > {log} 2>&1"
+        "--out {output.junctions} "
+        "--te-out {output.te_gene_chimeras} > {log} 2>&1"
 
 
 rule chimera_counts:
@@ -203,7 +222,7 @@ rule chimera_counts:
     output:
         events="results/chimera_junction/all_events.tsv.gz",
         counts="results/chimera_junction/counts_matrix.tsv.gz",
-        te_events="results/chimera_junction/te_chimeras.tsv.gz",
+        te_events="results/chimera_junction/te-gene-chimeras.tsv.gz",
     params:
         sample_names=lambda wc, input: " ".join(SAMPLES),
     threads: get_resources("chimera_counts")["threads"]
@@ -249,7 +268,7 @@ rule junction_qc_barplot:
     # Merges the per-sample junction QC tables into two MultiQC bar-plot
     # custom-content documents (junction_qc_mqc.py): per-sample direction
     # composition as counts and % of total junctions, plus the gene<->TE
-    # subset (the TE-chimeras view), rendered inside multiqc_report.html in
+    # subset (the gene-TE chimeras view), rendered inside multiqc_report.html in
     # the custom_content module.
     input:
         tables=lambda wc: [
@@ -257,7 +276,7 @@ rule junction_qc_barplot:
         ],
     output:
         junction="results/chimera_junction/qc/junction_qc_mqc.json",
-        te_chimeras="results/chimera_junction/qc/te_chimeras_mqc.json",
+        te_gene_chimeras="results/chimera_junction/qc/te_gene_chimeras_mqc.json",
     params:
         samples=lambda wc, input: " ".join(SAMPLES),
     threads: get_resources("junction_qc_barplot")["threads"]
@@ -273,7 +292,7 @@ rule junction_qc_barplot:
         "--tables {input.tables} "
         "--samples {params.samples} "
         "--out {output.junction} "
-        "--out-te-chimeras {output.te_chimeras} > {log} 2>&1"
+        "--out-te-gene-chimeras {output.te_gene_chimeras} > {log} 2>&1"
 
 
 rule chimera_igv_bed:

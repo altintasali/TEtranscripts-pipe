@@ -3,10 +3,10 @@
 custom-content bar plots:
   junction_qc_mqc.json      per-sample chimeric-junction composition by
                             direction (counts and % of total junctions).
-  te_chimeras_mqc.json      the gene<->TE subset by direction (gene_to_te /
+  te_gene_chimeras_mqc.json the gene<->TE subset by direction (gene_to_te /
                             te_to_gene, counts and % of total junctions) --
-                            the TE-chimeras view, written when --out-te-chimeras
-                            is given.
+                            the gene-TE chimeras view, written when
+                            --out-te-gene-chimeras is given.
 
 Reads every results/chimera_junction/qc/{sample}_junction_qc.tsv (metric/value pairs)
 and writes the JSONs above. MultiQC renders them inside multiqc_report.html in
@@ -23,7 +23,7 @@ from gz_io import open_read, open_write
 
 DIRECTIONS = [
     "gene_to_te", "te_to_gene", "gene_to_gene", "te_to_te",
-    "gene_to_other", "other_to_gene", "te_to_other", "other",
+    "gene_to_other", "other_to_gene", "te_to_other", "other_to_te", "other",
 ]
 
 
@@ -47,7 +47,7 @@ def main():
     ap.add_argument("--samples", required=True, nargs="+")
     ap.add_argument("--out", required=True)
     ap.add_argument(
-        "--out-te-chimeras", required=False,
+        "--out-te-gene-chimeras", required=False,
         help="Optional second output: the gene<->TE subset (direction "
         "gene_to_te / te_to_gene) as its own bar plot.",
     )
@@ -109,7 +109,7 @@ def main():
         fh.write("\n")
     print(f"junction QC barplot ({len(samples)} samples) -> {args.out}")
 
-    if args.out_te_chimeras:
+    if args.out_te_gene_chimeras:
         te_dirs = ["gene_to_te", "te_to_gene"]
         te_counts = {}
         metrics_by_sample = {}
@@ -139,33 +139,33 @@ def main():
                 }
 
         te_doc = {
-            "id": "chimera_te_chimeras",
-            "parent_id": "te_chimeras",
-            "parent_name": "Chimeric TEs",
-            "section_name": "Chimeric TEs",
+            "id": "chimera_te_gene_chimeras",
+            "parent_id": "te_gene_chimeras",
+            "parent_name": "Gene-TE chimeras",
+            "section_name": "Gene-TE chimeras",
             "description": (
                 "Per-sample gene\u2194TE chimeric junctions (direction "
                 "gene_to_te / te_to_gene), as counts and % of total junctions."
             ),
             "plot_type": "bar",
             "pconfig": {
-                "id": "chimera_te_chimeras_plot",
+                "id": "chimera_te_gene_chimeras_plot",
                 "title": "Gene-TE chimeras by direction",
                 "ylab": "junctions",
                 "cpswitch": True,
                 "data_labels": [
-                    {"name": "TE-chimera junctions"},
+                    {"name": "Gene-TE chimeric junctions"},
                     {"name": "% of total junctions"},
                 ],
             },
             "data": [te_counts, te_pct],
         }
 
-        os.makedirs(os.path.dirname(args.out_te_chimeras), exist_ok=True)
-        with open_write(args.out_te_chimeras) as fh:
+        os.makedirs(os.path.dirname(args.out_te_gene_chimeras), exist_ok=True)
+        with open_write(args.out_te_gene_chimeras) as fh:
             json.dump(te_doc, fh, indent=2)
             fh.write("\n")
-        print(f"TE-chimeras barplot ({len(samples)} samples) -> {args.out_te_chimeras}")
+        print(f"Gene-TE chimeras barplot ({len(samples)} samples) -> {args.out_te_gene_chimeras}")
 
 
 if __name__ == "__main__":

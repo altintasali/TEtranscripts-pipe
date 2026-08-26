@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Cross-check assembly-based chimera candidates against the junction
-screen's read-level gene<->TE calls (results/chimera_junction/te_chimeras.tsv.gz).
+screen's read-level gene<->TE calls (results/chimera_junction/te-gene-chimeras.tsv.gz).
 
 The two screens use independent evidence (StringTie transcript structure vs.
 STAR chimeric-junction reads), so a (gene_id, te_id) pair called by BOTH is
@@ -30,7 +30,7 @@ def main():
     ap.add_argument("--candidates", required=True,
                      help="results/chimera_assembly/candidates.tsv.gz")
     ap.add_argument("--junction", required=True,
-                     help="results/chimera_junction/te_chimeras.tsv.gz")
+                     help="results/chimera_junction/te-gene-chimeras.tsv.gz")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 

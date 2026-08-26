@@ -16,24 +16,37 @@ junction is enabled -- see the config schema; the default keeps everything).
 Filtering / evidence decisions are left to the user downstream -- the pipeline
 ships the full event table and the counts matrix instead.
 
-Output columns (results/chimera_junction/{sample}.junctions.tsv):
+Output columns (results/chimera_junction/{sample}_junctions.tsv.gz):
     event_id, sample, donor_chrom, donor_breakpoint, donor_strand,
     acceptor_chrom, acceptor_breakpoint, acceptor_strand, junction_type,
     canonical, repeat_flag, reads, donor_hits, acceptor_hits, direction,
-    gene_id, gene_strand, te_id, te_family, te_class, chimera_type,
-    antisense_flag, library_strand, transcript_strand, gene_strand_match
+    direction_ambiguous, gene_id, gene_strand, te_id, te_family, te_class,
+    chimera_type, antisense_flag, library_strand, transcript_strand,
+    gene_strand_match
 
 When --te-out is given, the gene<->TE events (direction gene_to_te /
 te_to_gene) are additionally written to that path with the same columns,
-so the TE chimeras are available as their own table.
+so the gene-TE chimeras are available as their own table.
 
 junction_type/canonical: STAR's column-6 value (0 non-canonical .. 6) and a
 derived GT/AG-ish yes/no. TE-involved splicing is often non-canonical, so
 this is reported but never filtered (see require_canonical_junction config
 for the opt-in).
 
-direction: gene_to_te / te_to_gene (the two primary classes), or one of
-gene_to_other / te_to_other / te_to_te / gene_to_gene / other.
+direction: gene_to_te / te_to_gene (the two primary classes -- the gene-TE
+chimeras), or one of gene_to_gene / te_to_te / gene_to_other /
+other_to_gene / te_to_other / other_to_te / other.  Note that STAR's
+"chimeric" is a purely structural call (a read that cannot be explained by
+one linear alignment), so the non-gene-TE classes are not just noise: they
+also collect circRNA back-splices, read-through transcripts and PCR
+chimeras.
+
+direction_ambiguous: "yes" when at least one breakpoint overlaps BOTH a
+gene exon and a TE -- TEs sit inside gene bodies routinely, and in that
+case several of the direction branches match and the first simply wins.
+The reported direction (and the chimera_type derived from it) is then one
+defensible reading, not the only one; donor_hits/acceptor_hits carry the
+full gene+TE sets for those rows.
 
 chimera_type (only for gene<->TE events where donor and acceptor are on the
 same chromosome): te_initiated (TE upstream of the gene's TSS on the gene
@@ -247,11 +260,27 @@ def main():
                 gene_id = None
                 te_id = donor_te_ids[0]
                 gene_side_strand = donor_strand
+            elif acceptor_te_hit:
+                direction = "other_to_te"
+                gene_id = None
+                te_id = acceptor_te_ids[0]
+                gene_side_strand = acceptor_strand
             else:
                 direction = "other"
                 gene_id = None
                 te_id = None
                 gene_side_strand = "."
+
+            # A single breakpoint can overlap BOTH a gene exon and a TE
+            # (TEs sit inside gene bodies all the time), in which case more
+            # than one branch above would have matched and the first one
+            # simply won.  Flag those rows: `direction` (and the
+            # chimera_type derived from it) is then one defensible reading
+            # of an ambiguous locus, not the only one -- check
+            # donor_hits/acceptor_hits, which carry the full gene+TE sets.
+            ambiguous = (donor_gene_hit and donor_te_hit) or (
+                acceptor_gene_hit and acceptor_te_hit
+            )
 
             key = (donor_chrom, donor_bp, donor_strand, acceptor_chrom,
                    acceptor_bp, acceptor_strand, direction)
@@ -268,6 +297,7 @@ def main():
                         "junction_type": jtype,
                         "repeat_flag": repeat_flag,
                         "gene_side_strand": gene_side_strand,
+                        "ambiguous": "yes" if ambiguous else "no",
                     }
                 )
             else:
@@ -364,6 +394,7 @@ def main():
                 f"gene:{ev['donor_hits']}|te:{ev['donor_te_hits']}",
                 f"gene:{ev['acceptor_hits']}|te:{ev['acceptor_te_hits']}",
                 direction,
+                ev["ambiguous"],
                 gene_id if gene_id is not None else ".",
                 gene_strand,
                 te_id if te_id is not None else ".",
@@ -377,6 +408,7 @@ def main():
         "acceptor_chrom", "acceptor_breakpoint", "acceptor_strand",
         "junction_type", "canonical",
         "repeat_flag", "reads", "donor_hits", "acceptor_hits", "direction",
+        "direction_ambiguous",
         "gene_id", "gene_strand", "te_id", "te_family", "te_class",
         "chimera_type", "antisense_flag", "library_strand", "transcript_strand",
         "gene_strand_match",

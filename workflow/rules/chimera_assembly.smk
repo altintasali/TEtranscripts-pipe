@@ -276,13 +276,13 @@ if CHIMERA_JUNCTION_ENABLED:
 
     rule chimera_assembly_cross_evidence:
         # Cross-checks this screen's calls against the junction screen's
-        # te_chimeras.tsv.gz (STAR chimeric-junction-read-based): a
+        # te-gene-chimeras.tsv.gz (STAR chimeric-junction-read-based): a
         # candidate backed by BOTH the read-level evidence AND the assembly
         # structure is much higher confidence than either alone. Only
         # meaningful (and only included) when the junction screen also runs.
         input:
             candidates="results/chimera_assembly/candidates.tsv.gz",
-            te_chimeras="results/chimera_junction/te_chimeras.tsv.gz",
+            te_gene_chimeras="results/chimera_junction/te-gene-chimeras.tsv.gz",
         output:
             "results/chimera_assembly/candidates_with_junction_evidence.tsv.gz",
         threads: get_resources("chimera_assembly_cross_evidence")["threads"]
@@ -293,7 +293,7 @@ if CHIMERA_JUNCTION_ENABLED:
             "results/pipeline_info/logs/chimera_assembly/cross_evidence.log",
         shell:
             "python3 {SCRIPTS_DIR}/cross_evidence_chimera_assembly.py "
-            "--candidates {input.candidates} --junction {input.te_chimeras} "
+            "--candidates {input.candidates} --junction {input.te_gene_chimeras} "
             "--out {output} > {log} 2>&1"
 
 

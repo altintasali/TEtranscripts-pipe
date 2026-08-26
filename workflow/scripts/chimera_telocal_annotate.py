@@ -21,7 +21,14 @@ Usage:
       --telocal-index telocal_index.pkl.gz \\
       --sample-name {sample} \\
       --breakpoint-tolerance 0 \\
-      --out {sample}_junctions_telocal.tsv.gz
+      --out {sample}_junctions_with-telocal.tsv.gz \\
+      --te-out {sample}_junctions_te-gene-chimeras_with-telocal.tsv.gz
+
+--out keeps every junction (same rows as --junctions, plus the four columns
+above).  --te-out is the optional gene<->TE subset of that same table --
+same filter parse_chimeric_junctions.py's own --te-out applies, so the four
+per-sample tables are the two row-sets (all / gene-TE) x the two column-sets
+(without / with TElocal).
 
 The interval index (--telocal-index) is built ONCE for the whole cohort by
 build_chimera_telocal_index.py (chimera_telocal_index rule) -- see that
@@ -127,6 +134,11 @@ def main():
     ap.add_argument("--sample-name", required=True)
     ap.add_argument("--breakpoint-tolerance", type=int, default=0)
     ap.add_argument("--out", required=True)
+    ap.add_argument(
+        "--te-out", required=False,
+        help="Optional second output: the gene<->TE subset (direction "
+        "gene_to_te / te_to_gene) of --out, same columns.",
+    )
     args = ap.parse_args()
 
     telocal_index = TelocalIndex.load(args.telocal_index)
@@ -152,6 +164,21 @@ def main():
         fh.write("\t".join(out_header) + "\n")
         for row in rows:
             fh.write("\t".join(row.get(c, ".") for c in out_header) + "\n")
+
+    if args.te_out:
+        # Same gene<->TE filter parse_chimeric_junctions.py's --te-out uses,
+        # so the subset is defined identically on both sides.
+        te_rows = [
+            r for r in rows
+            if r.get("direction") in ("gene_to_te", "te_to_gene")
+        ]
+        os.makedirs(os.path.dirname(args.te_out), exist_ok=True)
+        with open_write(args.te_out) as fh:
+            fh.write("\t".join(out_header) + "\n")
+            for row in te_rows:
+                fh.write("\t".join(row.get(c, ".") for c in out_header) + "\n")
+        print(f"{args.sample_name}: {len(te_rows)} gene-TE chimeras -> "
+              f"{args.te_out}")
 
     n_active = sum(1 for r in rows if r["telocal_active"] == "yes")
     n_refined = sum(1 for r in rows if r["te_refined_by_telocal"] == "yes")

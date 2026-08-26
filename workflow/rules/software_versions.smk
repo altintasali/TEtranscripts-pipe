@@ -43,6 +43,10 @@ rule software_versions:
             },
             "Annotation tools": {
                 "UCSC tools": f"{V['ucsc_gtftogenepred']}",
+                # Only runs when chimera.assembly is enabled, but listed
+                # unconditionally like every other entry here -- the section
+                # documents what this pipeline pins, not what this run used.
+                "StringTie": V["stringtie"],
             },
             "TE / Gene Quantification": {
                 "TEtranscripts": V["tetranscripts"],

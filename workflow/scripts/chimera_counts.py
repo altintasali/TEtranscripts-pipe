@@ -11,7 +11,7 @@ Outputs:
   counts_matrix.tsv  event_id x sample read-count matrix (0 where a sample has
                    no reads supporting the event). Written only when the
                    chimera.outputs.write_counts_matrix config is true.
-  te_chimeras.tsv   the all_events catalog filtered to gene<->TE events
+  te-gene-chimeras.tsv  the all_events catalog filtered to gene<->TE events
                    (direction gene_to_te / te_to_gene), written when
                    --out-te-events is given -- the TE chimeras as their own
                    table.
@@ -31,7 +31,8 @@ ANNOTATION_COLUMNS = [
     "event_id", "donor_chrom", "donor_breakpoint", "donor_strand",
     "acceptor_chrom", "acceptor_breakpoint", "acceptor_strand",
     "junction_type", "canonical",
-    "repeat_flag", "direction", "gene_id", "gene_strand", "te_id",
+    "repeat_flag", "direction", "direction_ambiguous",
+    "gene_id", "gene_strand", "te_id",
     "te_family", "te_class", "chimera_type", "antisense_flag",
     "library_strand", "transcript_strand", "gene_strand_match",
     "telocal_count", "telocal_locus", "telocal_active",
@@ -74,9 +75,14 @@ def main():
             ev = events.setdefault(eid, {"sample": sample, "counts": {}})
             ev["counts"][sample] = int(row["reads"])
             if ev["sample"] == sample:
-                # first-seen annotations (event_id is breakpoint-deterministic)
+                # first-seen annotations (event_id is breakpoint-deterministic).
+                # .get(): the telocal_* columns only exist when telocal is
+                # enabled (chimera_counts_input() then feeds the
+                # _with-telocal tables); with telocal off the plain junction
+                # tables legitimately lack them, and strict indexing here
+                # crashed the whole merge.
                 for col in ANNOTATION_COLUMNS:
-                    ev[col] = row[col]
+                    ev[col] = row.get(col, ".")
     # keep the first sample that saw each event (stable order)
     order = sorted(events, key=lambda e: (events[e]["sample"], e))
 
