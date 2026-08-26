@@ -3,7 +3,7 @@
 ![CI](https://img.shields.io/github/actions/workflow/status/altintasali/TEtranscripts-pipe/ci.yml?label=CI)
 ![License](https://img.shields.io/github/license/altintasali/TEtranscripts-pipe?color=blue)
 ![Platform](https://img.shields.io/badge/platform-Python-blue)
-![Version](https://img.shields.io/badge/version-0.8.2-blue)
+![Version](https://img.shields.io/badge/version-0.10.0-blue)
 
 A Snakemake workflow that quantifies genes **and** transposable elements (TEs)
 from RNA-seq data with [TEtranscripts/TEcount](https://github.com/mhammell-laboratory/TEtranscripts),
