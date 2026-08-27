@@ -148,6 +148,7 @@ flowchart LR
     telocal --> telocal_counts
     telocal --> telocal_summary
     telocal_counts --> telocal_qc_transform
+    telocal_locations --> chimera_telocal_index
     telocal_locind --> telocal
     telocal_qc_transform --> telocal_qc
     trim_galore_pe --> star_align

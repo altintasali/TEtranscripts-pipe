@@ -162,6 +162,10 @@ rule chimera_telocal_index:
     # build_chimera_telocal_index.py for the compact columnar representation.
     input:
         telocal_tables=_telocal_counts_for_chimera,
+        # The coordinate source. A TElocal cntTable key carries coordinates
+        # only when the TE GTF's transcript_id happens to be a coordinate
+        # string; otherwise this BED is the only way to place a locus.
+        locations="results/telocal/telocal_locations.bed",
     output:
         "results/chimera_junction/telocal_index.pkl.gz",
     threads: get_resources("chimera_telocal_index")["threads"]
@@ -175,6 +179,7 @@ rule chimera_telocal_index:
     shell:
         "python3 {SCRIPTS_DIR}/build_chimera_telocal_index.py "
         "--telocal-tables {input.telocal_tables} "
+        "--locations {input.locations} "
         "--out {output} > {log} 2>&1"
 
 

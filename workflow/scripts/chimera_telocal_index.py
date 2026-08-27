@@ -41,16 +41,42 @@ def parse_telocal_locus(key):
     return m.group(1), int(m.group(2)), int(m.group(3))
 
 
+def telocal_te_id(key):
+    """The individual TE insertion a TElocal key refers to, or None.
+
+    This is the id te.bed and the chimera tables use as `te_id`, i.e. the TE
+    GTF's transcript_id -- the FIRST colon field of a
+    transcript_id:gene_id:family_id:class_id key. For a coordinate-style key
+    (mghlab prebuilt annotations) the transcript_id is itself the
+    `chrom:start:end(family:strand)` string, so that whole prefix is the id.
+    """
+    m = _LOCUS_RE.match(key)
+    if m:
+        close = key.find(")", m.end())
+        return key[: close + 1] if close != -1 else None
+    parts = key.split(":")
+    return parts[0] if len(parts) >= 4 else None
+
+
 def classify_telocal(key):
     """Return (family, class) from a TElocal TE key, or (None, None) for genes.
 
-    TElocal TE keys have the form:
-      chrom:start:end(family:strand):gene_id:family:class
-    The last two colon-separated fields after the locus coordinates are
-    family and class. Gene entries (no parentheses) return (None, None).
+    Handles both key shapes TElocal produces (see TelocalIndex.build):
+      chrom:start:end(family:strand):gene_id:family:class   (coordinate-style)
+      transcript_id:gene_id:family_id:class_id              (the common case)
+    In both, the last two colon-separated fields are family and class. Gene
+    rows carry no colons and return (None, None).
     """
     m = _LOCUS_RE.match(key)
     if not m:
+        # No coordinate prefix: the key is
+        # transcript_id:gene_id:family_id:class_id (the common case -- see
+        # TelocalIndex.build). The last two fields are still family and
+        # class, so the same rule applies; anything with too few fields is a
+        # gene row, which has no colons at all.
+        parts = key.split(":")
+        if len(parts) >= 4:
+            return parts[-2], parts[-1]
         return None, None
     suffix = key[m.end():]
     # suffix is like "):L1PA2:L1:LINE/L1" or "):AluYb:SINE"
@@ -80,10 +106,29 @@ class TelocalIndex:
         self.vocab = []
 
     @classmethod
-    def build(cls, paths, open_read):
+    def build(cls, paths, open_read, locations=None):
         """Build from TElocal cntTables (paths), summing counts for the same
-        locus key across all input files (samples)."""
+        locus key across all input files (samples).
+
+        `locations` maps a cntTable row key to (chrom, start, end), read from
+        telocal_locations.bed. It is the authoritative coordinate source
+        because a TElocal key does NOT generally carry coordinates: the key
+        is `transcript_id:gene_id:family_id:class_id`, and only when the TE
+        GTF's transcript_id happens to be a coordinate string (the mghlab
+        prebuilt annotations, e.g. `chr1:564318:564741(L1PA2:+)`) can they be
+        parsed back out of it. An rmsk-derived GTF naming its insertions
+        `L1PA2_dup1` -- which is the common case, and what our own
+        build_telocal_index.py produces -- yields keys with no coordinates at
+        all, so parse_telocal_locus returned None for every row, every row
+        was skipped, and the index came out EMPTY. That made telocal_active
+        "no" for every junction and the "TE locus is expressed" evidence tier
+        silently unreachable. parse_telocal_locus is kept as a fallback for
+        keys absent from the BED (a user-supplied .locInd built from a
+        different annotation than ref.te_gtf).
+        """
+        locations = locations or {}
         raw = {}  # chrom -> {key: [start, end, key, family, cls, count]}
+        n_rows = n_placed = 0
         for path in paths:
             with open_read(path) as fh:
                 fh.readline()  # header: gene/TE \t <bam path>
@@ -98,9 +143,11 @@ class TelocalIndex:
                         count = int(parts[1])
                     except ValueError:
                         count = 0
-                    coords = parse_telocal_locus(key)
+                    n_rows += 1
+                    coords = locations.get(key) or parse_telocal_locus(key)
                     if coords is None:
                         continue
+                    n_placed += 1
                     chrom, start, end = coords
                     family, cls_ = classify_telocal(key)
                     bucket = raw.setdefault(chrom, {})
@@ -109,6 +156,20 @@ class TelocalIndex:
                         bucket[key] = [start, end, key, family, cls_, count]
                     else:
                         row[5] += count
+
+        if n_rows and not n_placed:
+            raise SystemExit(
+                "error: none of the "
+                f"{n_rows} TElocal rows could be given genomic coordinates, "
+                "so the chimera TElocal index would be empty and every "
+                "junction would be annotated telocal_active=no.\n"
+                "This means the cntTable keys do not match any name in "
+                "telocal_locations.bed and carry no coordinates themselves. "
+                "The usual cause is a telocal.locind built from a DIFFERENT "
+                "TE annotation than ref.te_gtf -- both must describe the "
+                "same insertions, since the key "
+                "(transcript_id:gene_id:family_id:class_id) is the join."
+            )
 
         index = cls()
         vocab_ids = {}

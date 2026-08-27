@@ -14,6 +14,7 @@ lightweight per-sample annotate job to pay for it.
 Usage:
   build_chimera_telocal_index.py \\
       --telocal-tables {sample1}.cntTable.gz {sample2}.cntTable.gz ... \\
+      --locations telocal_locations.bed \\
       --out telocal_index.pkl.gz
 """
 import argparse
@@ -30,10 +31,27 @@ def main():
         description="Build the merged TElocal interval index for the chimera screen."
     )
     ap.add_argument("--telocal-tables", required=True, nargs="+")
+    ap.add_argument(
+        "--locations", required=True,
+        help="telocal_locations.bed -- BED6 whose name column is the "
+             "cntTable row key. The coordinate source: a TElocal key does "
+             "not generally carry coordinates (see chimera_telocal_index.py).",
+    )
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
-    index = TelocalIndex.build(args.telocal_tables, open_read)
+    locations = {}
+    with open_read(args.locations) as fh:
+        for line in fh:
+            if not line.strip() or line.startswith(("#", "track", "browser")):
+                continue
+            f = line.rstrip("\n").split("\t")
+            if len(f) < 4:
+                continue
+            locations[f[3]] = (f[0], int(f[1]), int(f[2]))
+    print(f"{len(locations)} TE locus coordinates from {args.locations}")
+
+    index = TelocalIndex.build(args.telocal_tables, open_read, locations)
 
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
     index.save(args.out)

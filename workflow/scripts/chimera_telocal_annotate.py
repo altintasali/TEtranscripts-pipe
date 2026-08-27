@@ -41,7 +41,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from chimera_telocal_index import TelocalIndex, classify_telocal
+from chimera_telocal_index import TelocalIndex, telocal_te_id
 from gz_io import open_read, open_write
 
 
@@ -113,9 +113,14 @@ def annotate_event(row, telocal_index, breakpoint_tolerance):
         for h in hits:
             candidate_key, candidate_count = h[2], h[5]
             if candidate_count > 0:
-                cand_family = classify_telocal(candidate_key)[0]
-                if cand_family and cand_family in all_te_ids:
-                    row["te_id"] = cand_family
+                # Compare INSERTION ids. This used to take
+                # classify_telocal()[0], which is the family ("L1"), and
+                # test it against a set of te_ids ("L1PA2_dup1") -- the two
+                # vocabularies never intersect, so the refinement could
+                # never fire on any key format.
+                cand_te_id = telocal_te_id(candidate_key)
+                if cand_te_id and cand_te_id in all_te_ids:
+                    row["te_id"] = cand_te_id
                     row["telocal_count"] = str(candidate_count)
                     row["telocal_locus"] = candidate_key
                     row["telocal_active"] = "yes"
