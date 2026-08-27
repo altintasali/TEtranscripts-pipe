@@ -1,4 +1,5 @@
 import os
+import re
 
 from snakemake.utils import min_version
 
@@ -49,6 +50,24 @@ if os.path.exists("input/resources.yaml"):
 
 
 include: "rules/common.smk"
+
+
+# Pin the shared wildcards to what they can actually be.  Without this,
+# {sample} matches anything, so star_align_pass1's
+# results/star_pass1/{sample}_SJ.out.tab also matches
+# star_merge_junctions' results/star_pass1/merged_SJ.out.tab -- Snakemake
+# tries the per-sample rule with sample="merged", the input function raises
+# KeyError, and every dry-run logs a stack trace it then silently recovers
+# from.  Recovery only happens in Snakemake's non-strict DAG mode:
+# --strict-dag-evaluation turns the same ambiguity into a hard failure.
+#
+# re.escape because sample names come from the sample sheet and routinely
+# contain regex metacharacters (dots in particular).
+wildcard_constraints:
+    sample="|".join(re.escape(s) for s in SAMPLES),
+    read="[12]",
+
+
 include: "rules/ref.smk"
 include: "rules/fastq.smk"
 include: "rules/trimming.smk"
