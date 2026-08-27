@@ -130,6 +130,12 @@ strandedness:
   # of reads supporting the called strand is below this value, the library
   # is called "no" (unstranded) rather than guessing.
   min_fraction: 0.6
+  # Also run RSeQC on samples whose strandedness you set explicitly, purely
+  # so the MultiQC "Strandedness check" table can flag a sample sheet that
+  # disagrees with the data. Your explicit value is still what gets used --
+  # a mismatch is reported, never silently overridden. Set false to skip the
+  # extra RSeQC jobs on a large cohort.
+  check_provided: true
 
 tetranscripts:
   # TE counting mode: "multi" distributes multi-mapping reads across all their

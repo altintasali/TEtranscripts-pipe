@@ -399,6 +399,12 @@ resources:
     mem_mb: 2000
     runtime: 10
 
+  strandedness_check:
+    # Parses one small RSeQC report per sample into a table.
+    threads: 1
+    mem_mb: 500
+    runtime: 10
+
   evidence_overview:
     # Writes one small HTML section from params only -- no inputs.
     threads: 1

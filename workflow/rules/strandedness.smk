@@ -1,9 +1,14 @@
 rule rseqc_infer_experiment:
     # Infers library strandedness from a sample of aligned reads against the
-    # BED12 gene model. Only requested for samples whose effective
-    # strandedness mode resolves to "auto" (see SAMPLE_STRANDED_MODE in
-    # common.smk). Runs the RSeQC version pinned in
+    # BED12 gene model. Runs the RSeQC version pinned in
     # config["versions"]["rseqc"].
+    #
+    # Requested for every sample in STRAND_CHECK_SAMPLES (common.smk): the
+    # "auto" ones, which need the inference, plus -- under
+    # strandedness.check_provided, the default -- the ones that declared a
+    # value, so the report can flag a sample sheet that disagrees with the
+    # data. For a declared sample the result is REPORTED ONLY; the sample
+    # sheet still decides what TEcount is run with.
     input:
         aln="results/star/{sample}_Aligned.sortedByCoord.out.bam",
         bai="results/star/{sample}_Aligned.sortedByCoord.out.bam.bai",
@@ -48,3 +53,39 @@ rule determine_strandedness:
         "results/pipeline_info/logs/rseqc/determine_strandedness/{sample}.log",
     script:
         "../scripts/determine_strandedness.py"
+
+
+rule strandedness_check:
+    # Compares each sample's declared strandedness against what RSeQC
+    # inferred, as a MultiQC table with mismatches flagged
+    # (strandedness_check_mqc.py). Modelled on nf-core/rnaseq's strandedness
+    # check.
+    #
+    # Worth a dedicated section because strandedness is the one setting that
+    # is both easy to get wrong (kit docs say "stranded" without saying which
+    # direction) and completely silent when wrong -- no job fails, the counts
+    # are just wrong.
+    input:
+        reports=expand(
+            "results/rseqc/{sample}_infer_experiment.txt",
+            sample=STRAND_CHECK_SAMPLES,
+        ),
+        calls=expand(
+            "results/rseqc/{sample}_strandedness.txt",
+            sample=STRAND_CHECK_SAMPLES,
+        ),
+    output:
+        "results/rseqc/strandedness_check_mqc.json",
+    params:
+        samples=STRAND_CHECK_SAMPLES,
+        declared={s: SAMPLE_STRANDED_MODE[s] for s in STRAND_CHECK_SAMPLES},
+    threads: get_resources("strandedness_check")["threads"]
+    resources:
+        mem_mb=get_resources("strandedness_check")["mem_mb"],
+        runtime=get_resources("strandedness_check")["runtime"],
+    benchmark:
+        "results/pipeline_info/benchmarks/strandedness_check/strandedness_check.txt",
+    log:
+        "results/pipeline_info/logs/rseqc/strandedness_check.log",
+    script:
+        "../scripts/strandedness_check_mqc.py"

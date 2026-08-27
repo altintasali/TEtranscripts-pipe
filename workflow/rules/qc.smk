@@ -256,7 +256,9 @@ rule multiqc:
     # in General Stats.
     input:
         expand("results/star/{sample}_Log.final.out", sample=SAMPLES),
-        expand("results/rseqc/{sample}_infer_experiment.txt", sample=AUTO_SAMPLES),
+        expand("results/rseqc/{sample}_infer_experiment.txt",
+               sample=STRAND_CHECK_SAMPLES),
+        "results/rseqc/strandedness_check_mqc.json",
         expand("results/samtools/{sample}_flagstat.txt", sample=SAMPLES),
         expand("results/rseqc/{sample}_read_distribution.txt", sample=SAMPLES),
         expand("results/rseqc/{sample}.geneBodyCoverage.txt", sample=SAMPLES),

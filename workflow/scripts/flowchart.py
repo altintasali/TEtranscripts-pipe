@@ -81,6 +81,7 @@ LABELS = {
     "software_versions": ("software versions", "Quantification + QC"),
     "config_used": ("config used", "Quantification + QC"),
     "evidence_overview": ("evidence overview ('start here')", "Quantification + QC"),
+    "strandedness_check": ("strandedness check (declared vs inferred)", "Quantification + QC"),
     "benchmark_summary": ("resource-usage summary", "Quantification + QC"),
     "multiqc": ("MultiQC", "Quantification + QC"),
 }

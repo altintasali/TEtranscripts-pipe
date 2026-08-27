@@ -143,6 +143,16 @@ properties:
         type: number
         minimum: 0
         maximum: 1
+      check_provided:
+        type: boolean
+        default: true
+        description: >-
+          Also run RSeQC on samples whose strandedness is given explicitly in
+          samples.csv, so the report can compare what you declared against
+          what the data says and flag disagreements. The inferred value is
+          only ever reported -- an explicit sample sheet value still wins for
+          quantification. Set false to run RSeQC only where it is actually
+          needed (samples set to "auto").
     required: [min_fraction]
   tetranscripts:
     type: object

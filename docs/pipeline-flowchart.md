@@ -39,6 +39,7 @@ flowchart LR
         software_versions["software versions"]
         config_used["config used"]
         evidence_overview["evidence overview ('start here')"]
+        strandedness_check["strandedness check (declared vs inferred)"]
         benchmark_summary["resource-usage summary"]
         multiqc["MultiQC"]
     end
@@ -92,6 +93,7 @@ flowchart LR
     chimera_telocal_annotate --> chimera_counts
     chimera_telocal_index --> chimera_telocal_annotate
     determine_strandedness --> parse_chimeric_junctions
+    determine_strandedness --> strandedness_check
     determine_strandedness --> stringtie_assemble
     determine_strandedness --> stringtie_requantify
     determine_strandedness --> tecount
@@ -106,6 +108,7 @@ flowchart LR
     parse_chimeric_junctions --> chimera_telocal_annotate
     parse_chimeric_junctions --> junction_qc
     rseqc_infer_experiment --> determine_strandedness
+    rseqc_infer_experiment --> strandedness_check
     sample_qc_transform --> sample_qc
     samtools_index --> rseqc_gene_body_coverage
     samtools_index --> rseqc_infer_experiment

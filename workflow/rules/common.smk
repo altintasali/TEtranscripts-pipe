@@ -549,6 +549,22 @@ def _sample_effective_mode(sample):
 SAMPLE_STRANDED_MODE = {s: _sample_effective_mode(s) for s in SAMPLES}
 AUTO_SAMPLES = [s for s in SAMPLES if SAMPLE_STRANDED_MODE[s] == "auto"]
 
+# Samples RSeQC actually runs on. AUTO_SAMPLES are the ones that NEED it --
+# their --stranded value comes from the inference. With check_provided (the
+# default) it runs on the rest too, purely so the report can compare a
+# declared strandedness against the data and flag a disagreement: an
+# explicitly set sample sheet value is never overridden by the inference
+# (see get_strandedness_param, which dispatches on SAMPLE_STRANDED_MODE and
+# does not look at the RSeQC call for a non-auto sample).
+#
+# A wrong strandedness silently halves or inverts every count downstream
+# without failing anything, which is exactly the class of error worth
+# spending a cheap extra job to catch.
+STRAND_CHECK_PROVIDED = bool(
+    config.get("strandedness", {}).get("check_provided", True)
+)
+STRAND_CHECK_SAMPLES = SAMPLES if STRAND_CHECK_PROVIDED else AUTO_SAMPLES
+
 
 def _is_paired(sample):
     """A sample is paired-end if it has at least one non-empty fastq_2 value.
@@ -964,6 +980,11 @@ def all_benchmark_files():
         )
     # BED12 gene-model conversion only runs when RSeQC strandedness
     # auto-detection actually needs it.
+    if STRAND_CHECK_SAMPLES:
+        files.append(
+            "results/pipeline_info/benchmarks/strandedness_check/"
+            "strandedness_check.txt"
+        )
     if AUTO_SAMPLES:
         files += [
             "results/pipeline_info/benchmarks/gtf_to_genepred/gtf_to_genepred.txt",
@@ -992,7 +1013,7 @@ def all_benchmark_files():
                 f"results/pipeline_info/benchmarks/"
                 f"{'trim_galore_pe' if _is_paired(s) else 'trim_galore_se'}/{s}.txt"
             )
-    for s in AUTO_SAMPLES:
+    for s in STRAND_CHECK_SAMPLES:
         files += [
             f"results/pipeline_info/benchmarks/rseqc_infer_experiment/{s}.txt",
             f"results/pipeline_info/benchmarks/determine_strandedness/{s}.txt",

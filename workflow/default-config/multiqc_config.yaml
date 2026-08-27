@@ -54,6 +54,10 @@ module_order:
 #   evidence_overview  "Start here": which evidence layers this run
 #                produced and which are independent (evidence_overview rule).
 #                Deliberately FIRST -- it is the report's reading guide.
+#   strandedness_check  declared vs. RSeQC-inferred strandedness per
+#                sample, mismatches flagged (strandedness_check rule).
+#                Sits right after the guide: a wrong strandedness invalidates
+#                every number below it, so it is checked before they are read.
 #   tecount      TEcount: assignment + TE-class barplots, PCA, Clusters
 #                (tecount_summary / tecount_qc rules)
 #                NOTE: must match sample_qc.R's tecount view id exactly --
@@ -79,6 +83,7 @@ module_order:
 custom_content:
   order:
     - evidence_overview
+    - strandedness_check
     - tecount
     - telocal
     - chimera

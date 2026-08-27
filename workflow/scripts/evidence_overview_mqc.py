@@ -106,9 +106,10 @@ def main():
         )
 
     # --- reading order ---------------------------------------------------
-    steps = ["<li>Check the QC first: FastQC, STAR alignment rates, and the "
-             "strandedness call. A wrong strandedness call silently distorts "
-             "every count downstream.</li>",
+    steps = ["<li>Check the QC first: FastQC and STAR alignment rates, then "
+             "<em>Strandedness check</em> \u2014 a wrong strandedness call "
+             "silently distorts every count below, so it is worth confirming "
+             "before reading any of them.</li>",
              "<li>Read expression: <em>TEcount</em> for which subfamilies "
              "move" + (", then <em>TElocal</em> for which copy is "
                        "responsible" if telocal else "") + ".</li>"]
