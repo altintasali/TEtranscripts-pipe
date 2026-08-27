@@ -264,7 +264,7 @@ else:
             f"to suppress this warning.",
             stacklevel=2,
         )
-    FASTA = None  # not needed; star_index copies the external index
+    FASTA = None  # not needed; the external index is used as-is
 
 GTF = _resolve_ref_path("gtf")
 TE_GTF = _resolve_ref_path("te_gtf")
@@ -425,12 +425,9 @@ with open("results/pipeline_info/logs/config_resolution.log", "w") as fh:
 #   present) at the path given by star.index, or results/star_index if unset.
 #
 # build_index=false: the user provides a pre-built external index via
-#   star.index.  Instead of pointing Snakemake directly at the external
-#   directory (which it would "own" as a directory() output and could
-#   destroy on --rerun-incomplete), we COPY it into results/star_index/
-#   on the first run.  The copy is persistent (not temp()-wrapped) so
-#   Snakemake never deletes the original.  Validation below ensures the
-#   source and destination do not overlap.
+#   star.index and it is used in place, as a plain rule INPUT.  No rule
+#   declares it as an output, so Snakemake never owns -- and never deletes
+#   -- it.  See the longer note at the else: branch below.
 # -----------------------------------------------------------------------------
 _STAR_INDEX_RAW = (config["star"].get("index") or "").strip()
 STAR_BUILD_INDEX = config["star"].get("build_index", True)
@@ -462,49 +459,50 @@ if STAR_TWO_PASS in ("per_sample", "cohort"):
     )
 
 if STAR_BUILD_INDEX:
-    # Index lives where the user says (or the default).
+    # We build it, so the workflow owns the directory: it is a rule OUTPUT.
     STAR_INDEX_DIR = os.path.abspath(_STAR_INDEX_RAW or "results/star_index")
-    STAR_INDEX_SOURCE = ""
 else:
-    # External index -- copy it to results/ so Snakemake never touches the
-    # original.  The copy is persistent (not temp()-wrapped) so the original
-    # index is never at risk of accidental deletion.
-    STAR_INDEX_SOURCE = os.path.abspath(_STAR_INDEX_RAW) if _STAR_INDEX_RAW else ""
-    STAR_INDEX_DIR = os.path.abspath("results/star_index")
+    # External, pre-built index: used directly, as a rule INPUT.
+    #
+    # It is deliberately NOT a rule output. Snakemake deletes a rule's
+    # directory() output before running the job, so while star_index
+    # declared this path as its output, pointing star.index at a real index
+    # meant Snakemake owned -- and wiped -- it. The previous workaround was
+    # to copy the whole index into results/ so the rule's output always sat
+    # inside the workflow; that cost a full copy of a multi-GB index on
+    # every run, and made safety positional (get the variable wrong and it
+    # is rm -rf again) rather than structural.
+    #
+    # Now star_index is simply not defined when build_index is false (see
+    # ref.smk), so no rule produces this path and Snakemake treats it as a
+    # required pre-existing input. Inputs are never deleted, so the original
+    # cannot be touched by any code path -- and there is no copy.
+    STAR_INDEX_DIR = os.path.abspath(_STAR_INDEX_RAW) if _STAR_INDEX_RAW else ""
 
-    if not STAR_INDEX_SOURCE:
+    if not STAR_INDEX_DIR:
         raise WorkflowError(
             "star.build_index is false but no star.index path was provided. "
             "Set star.index in config.yaml to the directory containing the "
             "pre-built STAR index."
         )
-    if not os.path.isdir(STAR_INDEX_SOURCE):
+    if not os.path.isdir(STAR_INDEX_DIR):
         raise WorkflowError(
             f"star.build_index is false but star.index path does not exist: "
-            f"{STAR_INDEX_SOURCE}. Either build the index beforehand or set "
+            f"{STAR_INDEX_DIR}. Either build the index beforehand or set "
             f"star.build_index: true in config.yaml."
         )
-    # Guard against the source index and the workflow's internal copy
-    # directory overlapping -- Snakemake would "own" the output directory
-    # and could destroy the original on cleanup or re-run.
-    _src = os.path.normpath(STAR_INDEX_SOURCE)
-    _dst = os.path.normpath(STAR_INDEX_DIR)
-    if _src == _dst:
+    # STAR needs these three to load a genome; catching it here beats a
+    # cryptic STAR failure once jobs are already queued.
+    _missing = [
+        f for f in ("SA", "SAindex", "Genome")
+        if not os.path.isfile(os.path.join(STAR_INDEX_DIR, f))
+    ]
+    if _missing:
         raise WorkflowError(
-            f"star.build_index is false but star.index ({STAR_INDEX_SOURCE}) "
-            f"resolves to the same directory as the workflow's internal "
-            f"star_index output ({STAR_INDEX_DIR}). Set star.index to the "
-            f"actual pre-built index location (a different path), or remove "
-            f"the star.index line to let the workflow copy the index to "
-            f"{STAR_INDEX_DIR} automatically."
-        )
-    if _src.startswith(_dst + os.sep) or _dst.startswith(_src + os.sep):
-        raise WorkflowError(
-            f"star.build_index is false but the star.index path "
-            f"({STAR_INDEX_SOURCE}) and the internal star_index output "
-            f"({STAR_INDEX_DIR}) overlap (one is inside the other). "
-            f"Move one of them outside the other's tree to prevent "
-            f"accidental data loss."
+            f"star.index ({STAR_INDEX_DIR}) does not look like a STAR index: "
+            f"missing {', '.join(_missing)}. Point star.index at the "
+            f"directory produced by STAR --runMode genomeGenerate, or set "
+            f"star.build_index: true to build one."
         )
 
 # -----------------------------------------------------------------------------
@@ -956,8 +954,14 @@ def all_benchmark_files():
     avoid a cyclic dependency (their resource use is negligible)."""
     files = [
         "results/pipeline_info/benchmarks/software_versions/software_versions.txt",
-        "results/pipeline_info/benchmarks/star_index/star_index.txt",
     ]
+    # The star_index rule only exists when we build the index ourselves; with
+    # star.build_index: false the external index is a plain input and no such
+    # job (or benchmark) is ever produced.
+    if STAR_BUILD_INDEX:
+        files.append(
+            "results/pipeline_info/benchmarks/star_index/star_index.txt"
+        )
     # BED12 gene-model conversion only runs when RSeQC strandedness
     # auto-detection actually needs it.
     if AUTO_SAMPLES:

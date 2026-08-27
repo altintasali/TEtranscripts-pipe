@@ -281,38 +281,62 @@ jobs:
             echo "ERROR: run did not anchor to the config's checkout ($WD2)"; tail -40 "$T/deployed.log"; FAIL=1
           fi
 
-          echo "[guards] 15/35 build_index=false path collision"
+          echo "[guards] 15/35 build_index=false: index must look like an index"
 
-          # --- build_index=false with star.index pointing to the default output
-          # directory (results/star_index) is rejected at parse time.  The path
-          # must exist for the containment check to fire.
-          mkdir -p results/star_index
-          sed -e 's|^  index: .*|  index: results/star_index\n  build_index: false|' \
-              config/test.yaml > "$T/collision.yaml"
-          if snakemake --configfile "$T/collision.yaml" -n --cores 1 >"$T/collision.log" 2>&1; then
-            echo "ERROR: build_index=false with star.index == results/star_index did not fail"; FAIL=1
-          elif ! grep -q "same directory" "$T/collision.log"; then
-            echo "ERROR: wrong failure message for path collision"; FAIL=1
+          # --- build_index=false pointing at a directory that exists but has
+          # no STAR index in it is rejected at parse time, not hours later
+          # when the first alignment job fails inside STAR.
+          mkdir -p "$T/empty_index"
+          sed -e 's|^  index: .*|  index: '"$T"'/empty_index\n  build_index: false|' \
+              config/test.yaml > "$T/notanindex.yaml"
+          if snakemake --configfile "$T/notanindex.yaml" -n --cores 1 \
+              >"$T/notanindex.log" 2>&1; then
+            echo "ERROR: build_index=false with an empty index dir did not fail"; FAIL=1
+          elif ! grep -q "does not look like a STAR index" "$T/notanindex.log"; then
+            echo "ERROR: wrong failure message for non-index directory"; FAIL=1
           fi
-          rmdir results/star_index
 
-          echo "[guards] 16/35 keep_star_index: false + build_index: false"
+          echo "[guards] 16/35 external STAR index is used in place, never deleted"
 
-          # --- keep_star_index: false + build_index: false must dry-run and
-          # plan the cleanup_star_index rule.  Create a temp dir as a fake
-          # external STAR index (the real .tests/resources/star_index is not
-          # tracked by git and does not exist on CI).
+          # --- The core safety property of build_index: false -- the user's
+          # external index is a plain INPUT.  No rule may declare it as an
+          # output (Snakemake wipes a directory() output before the job runs)
+          # and cleanup_star_index must not touch it even with
+          # keep_star_index: false.  Fake index: STAR loads SA/SAindex/Genome,
+          # and those are what common.smk checks for.
           mkdir -p "$T/fake_star_index"
+          touch "$T/fake_star_index/SA" "$T/fake_star_index/SAindex" \
+                "$T/fake_star_index/Genome"
           sed -e 's|^  index: .*|  index: '"$T"'/fake_star_index|' \
               config/test.yaml > "$T/ksif.yaml"
           sed -e '/^  index: /a\  build_index: false' "$T/ksif.yaml" > "$T/ksif2.yaml"
           mv "$T/ksif2.yaml" "$T/ksif.yaml"
           sed -e '/^outputs:/a\'$'\n''  keep_star_index: false' "$T/ksif.yaml" > "$T/ksif2.yaml"
           mv "$T/ksif2.yaml" "$T/ksif.yaml"
-          if ! snakemake --configfile "$T/ksif.yaml" -n --cores 1 >"$T/ksif.log" 2>&1; then
+          if ! snakemake --configfile "$T/ksif.yaml" -n --cores 1 -p \
+              >"$T/ksif.log" 2>&1; then
             echo "ERROR: keep_star_index=false dry-run failed"; tail -20 "$T/ksif.log"; FAIL=1
-          elif ! grep -q "cleanup_star_index" "$T/ksif.log"; then
-            echo "ERROR: cleanup_star_index rule not planned"; FAIL=1
+          elif grep -q "^rule star_index:" "$T/ksif.log"; then
+            echo "ERROR: star_index rule planned although build_index=false"; FAIL=1
+          elif grep -qE "rm -rf '?[^ ']*fake_star_index" "$T/ksif.log"; then
+            # Deliberately anchored to the token right after rm -rf: a loose
+            # "rm -rf.*fake_star_index" also matches STAR's own
+            # "rm -rf <outTmpDir> ... --genomeDir <index>" command line.
+            echo "ERROR: external STAR index reached an rm -rf"; FAIL=1
+          elif ! grep -q "fake_star_index" "$T/ksif.log"; then
+            echo "ERROR: external STAR index not used by the alignment jobs"; FAIL=1
+          fi
+
+          # --- ...and with build_index: true the index we built ourselves IS
+          # cleaned up, so the knob still does what it says.
+          sed -e '/^outputs:/a\'$'\n''  keep_star_index: false' \
+              config/test.yaml > "$T/ksit.yaml"
+          if ! snakemake --configfile "$T/ksit.yaml" -n --cores 1 -p \
+              >"$T/ksit.log" 2>&1; then
+            echo "ERROR: build_index=true keep_star_index=false dry-run failed"
+            tail -20 "$T/ksit.log"; FAIL=1
+          elif ! grep -q "cleanup_star_index" "$T/ksit.log"; then
+            echo "ERROR: cleanup_star_index rule not planned when we built the index"; FAIL=1
           fi
 
           echo "[guards] 17/35 build_index=false without ref.fasta"

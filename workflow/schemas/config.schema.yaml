@@ -70,8 +70,11 @@ properties:
         description: >-
           Whether the workflow may build a STAR genome index. When true
           (default), the index is built automatically if missing. When false,
-          an existing index must already be present at star.index; the
-          workflow raises an error if it is missing.
+          a complete index must already be present at star.index; it is then
+          read in place and never written to or deleted (outputs.keep_star_index
+          only ever removes an index the workflow built itself). The workflow
+          raises an error at startup if the directory is missing or does not
+          contain a STAR index.
       index_extra: {type: string}
       extra: {type: string}
       tmpdir:
