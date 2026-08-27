@@ -90,6 +90,32 @@ if STAR_BUILD_INDEX:
             "fi"
 
 
+rule gene_name_lookup:
+    # gene_id -> gene_name, pulled once out of the gene GTF
+    # (gene_name_lookup.py).  Every table this pipeline writes is keyed by
+    # gene_id, so with an Ensembl/GENCODE annotation they are full of
+    # accessions and no symbol -- this makes the symbol available with a
+    # join, without changing the key of any existing file.
+    #
+    # Always built (not gated on the chimera screens like annotation_to_bed),
+    # because it is just as useful for annotating TEcount/TElocal output.
+    # Pure-python, so it runs in the base environment.
+    input:
+        gtf=GTF,
+    output:
+        "results/reference/gene_id_to_name.tsv.gz",
+    threads: get_resources("gene_name_lookup")["threads"]
+    resources:
+        mem_mb=get_resources("gene_name_lookup")["mem_mb"],
+        runtime=get_resources("gene_name_lookup")["runtime"],
+    benchmark:
+        "results/pipeline_info/benchmarks/gene_name_lookup/gene_name_lookup.txt",
+    log:
+        "results/pipeline_info/logs/reference/gene_name_lookup.log",
+    script:
+        "../scripts/gene_name_lookup.py"
+
+
 rule cleanup_star_index:
     # Removes the STAR genome index after alignment is done, when the user
     # sets outputs.keep_star_index: false.  Saves disk on big runs at the

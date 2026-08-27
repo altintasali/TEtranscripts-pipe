@@ -97,6 +97,9 @@ rule all:
         all_diffexp_outputs(),
         "results/qc/multiqc_report.html",
         "results/pipeline_info/.star_index_cleaned",
+        # gene_id -> gene_name sidecar; every output is gene_id-keyed, so
+        # this is how a symbol gets onto any of them.
+        "results/reference/gene_id_to_name.tsv.gz",
         # The chimera helper functions live in rules/chimera_junction.smk, only
         # included when the chimera stage is enabled.
         **({"chimera": all_chimera_outputs(),

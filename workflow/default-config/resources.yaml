@@ -399,6 +399,12 @@ resources:
     mem_mb: 2000
     runtime: 10
 
+  gene_name_lookup:
+    # One streaming pass over the gene GTF, holding one entry per gene.
+    threads: 1
+    mem_mb: 2000
+    runtime: 15
+
   strandedness_check:
     # Parses one small RSeQC report per sample into a table.
     threads: 1

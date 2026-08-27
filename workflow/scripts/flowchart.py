@@ -67,6 +67,7 @@ LABELS = {
     "telocal_summary": ("telocal summary barplots (assignment + TE class)", "Quantification + QC"),
     "cleanup_star_index": ("remove STAR index (if keep: false)", "Reference (once)"),
     "cleanup_telocal_index": ("remove TElocal index (if keep: false)", "Quantification + QC"),
+    "gene_name_lookup": ("gene_id -> gene_name lookup", "Reference (once)"),
     "annotation_to_bed": ("annotation -> BED tracks", "Chimera screen"),
     "parse_chimeric_junctions": ("parse chimeric junctions", "Chimera screen"),
     "chimera_telocal_annotate": ("annotate junctions with TElocal counts", "Chimera screen"),

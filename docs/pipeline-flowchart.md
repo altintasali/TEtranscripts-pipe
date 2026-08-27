@@ -11,6 +11,7 @@ flowchart LR
         genepred_to_bed12["genePred -> BED12"]
         telocal_locind["TElocal locus index"]
         cleanup_star_index["remove STAR index (if keep: false)"]
+        gene_name_lookup["gene_id -> gene_name lookup"]
     end
     subgraph per_sample["Per sample"]
         cat_fastq["concat lanes"]

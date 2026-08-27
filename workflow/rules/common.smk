@@ -970,6 +970,7 @@ def all_benchmark_files():
     avoid a cyclic dependency (their resource use is negligible)."""
     files = [
         "results/pipeline_info/benchmarks/software_versions/software_versions.txt",
+        "results/pipeline_info/benchmarks/gene_name_lookup/gene_name_lookup.txt",
     ]
     # The star_index rule only exists when we build the index ourselves; with
     # star.build_index: false the external index is a plain input and no such
