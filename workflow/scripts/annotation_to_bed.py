@@ -124,23 +124,33 @@ def main():
             except ValueError:
                 continue
             a = parse_attrs(attrs)
-            subfamily = a.get("gene_id", ".")
             # fall back to gene_id for non-TEtranscripts TE GTFs that carry
             # no transcript_id (then it degrades to the old behaviour rather
             # than dropping the feature entirely)
             tid = a.get("transcript_id") or a.get("gene_id")
             if not tid:
                 continue
-            g = te_loci.setdefault(
-                (chrom, tid),
-                {
-                    "chrom": chrom, "strand": strand, "start": s, "end": e,
-                    "name": tid, "subfamily": subfamily,
-                    "family": a.get("family_id", "."), "class": a.get("class_id", "."),
-                },
-            )
-            g["start"] = min(g["start"], s)
-            g["end"] = max(g["end"], e)
+            # A real TE GTF has millions of insertions, so this dict is the
+            # rule's whole memory footprint. Store a plain list (far lighter
+            # than a per-row dict) and intern the handful of repeated
+            # strings -- chrom, strand, subfamily, family, class have a few
+            # dozen to ~1k distinct values across millions of rows, so
+            # interning collapses them to one object each. Only tid is
+            # genuinely unique per row.
+            key = (sys.intern(chrom), tid)
+            g = te_loci.get(key)
+            if g is None:
+                te_loci[key] = [
+                    s, e, sys.intern(strand),
+                    sys.intern(a.get("gene_id", ".")),
+                    sys.intern(a.get("family_id", ".")),
+                    sys.intern(a.get("class_id", ".")),
+                ]
+            else:
+                if s < g[0]:
+                    g[0] = s
+                if e > g[1]:
+                    g[1] = e
 
     gene_rows = sorted(
         (g["chrom"], g["start"] - 1, g["end"], gid, ".", g["strand"])
@@ -149,18 +159,29 @@ def main():
     exon_rows = sorted(
         (chrom, s - 1, e, gid, ".", strand) for chrom, s, e, gid, strand in exons
     )
-    te_rows = sorted(
-        (g["chrom"], g["start"] - 1, g["end"], g["name"], ".", g["strand"],
-         g["family"], g["class"], g["subfamily"])
-        for g in te_loci.values()
+    # Sort the keys in place and write directly: building a second list of
+    # 3.7M formatted tuples doubled peak RSS for no benefit.
+    # key mirrors the old (chrom, start, end, name) ordering exactly, so
+    # te.bed stays byte-identical to what the previous implementation
+    # produced rather than merely equivalent.
+    te_order = sorted(
+        te_loci, key=lambda k: (k[0], te_loci[k][0], te_loci[k][1], k[1])
     )
+    n_te = len(te_order)
 
     emit(os.path.join(args.outdir, "genes.bed"), gene_rows)
     emit(os.path.join(args.outdir, "exons.bed"), exon_rows)
-    emit(os.path.join(args.outdir, "te.bed"), te_rows)
+    with open(os.path.join(args.outdir, "te.bed"), "w") as fh:
+        for k in te_order:
+            chrom, tid = k
+            start, end, strand, subfamily, family, cls = te_loci[k]
+            fh.write(
+                f"{chrom}\t{start - 1}\t{end}\t{tid}\t.\t{strand}\t"
+                f"{family}\t{cls}\t{subfamily}\n"
+            )
     print(
         f"wrote {len(gene_rows)} genes, {len(exon_rows)} exons, "
-        f"{len(te_rows)} TE loci to {args.outdir}"
+        f"{n_te} TE loci to {args.outdir}"
     )
 
 

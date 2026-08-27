@@ -268,9 +268,16 @@ resources:
   # entries are inert otherwise.
 
   annotation_to_bed:
-    # Pure-python GTF->BED conversion; single-threaded, small.
+    # Pure-python GTF->BED conversion; single-threaded. NOT small: te.bed
+    # holds one row per TE INSERTION (not per subfamily), so the parse
+    # accumulates one entry per insertion -- millions on a real annotation.
+    # Measured 1.8 GB peak RSS on GRCm38 rmsk (3.7M instances) after the
+    # storage was made lean (plain lists + interned repeated strings); it
+    # was 3.3 GB before that, which OOM'd against the old 2 GB allowance.
+    # 6 GB leaves real headroom for a larger annotation (e.g. human, or a
+    # more comprehensive rmsk set) rather than sitting just above mouse.
     threads: 1
-    mem_mb: 2000
+    mem_mb: 6000
     runtime: 30
 
   parse_chimeric_junctions:
