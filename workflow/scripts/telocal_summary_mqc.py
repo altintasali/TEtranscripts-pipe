@@ -123,7 +123,13 @@ def main():
         "section_name": "Gene vs. TE Assignment",
         "description": (
             "Per-sample read counts assigned by TElocal to genes vs TE "
-            "loci (counts and % of total assigned reads)."
+            "loci (counts and % of total assigned reads). "
+            "<br><br><em>How to read this:</em> TElocal resolves each TE "
+            "insertion separately, where TEcount pools all copies of a "
+            "subfamily into a single row. A subfamily that looks uniformly "
+            "expressed in TEcount is often one or two highly-expressed "
+            "copies here, with the rest silent \u2014 which is the reason "
+            "to run both."
         ),
         "plot_type": "bar",
         "pconfig": {

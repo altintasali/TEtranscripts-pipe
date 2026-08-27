@@ -81,6 +81,7 @@ def all_chimera_outputs():
     files += [
         "results/chimera_junction/qc/junction_qc_mqc.json",
         "results/chimera_junction/qc/te_gene_chimeras_mqc.json",
+        "results/chimera_junction/qc/canonical_rate_mqc.json",
     ]
     if WRITE_IGV_BED:
         files += [
@@ -277,6 +278,7 @@ rule junction_qc_barplot:
     output:
         junction="results/chimera_junction/qc/junction_qc_mqc.json",
         te_gene_chimeras="results/chimera_junction/qc/te_gene_chimeras_mqc.json",
+        canonical="results/chimera_junction/qc/canonical_rate_mqc.json",
     params:
         samples=lambda wc, input: " ".join(SAMPLES),
     threads: get_resources("junction_qc_barplot")["threads"]
@@ -292,7 +294,8 @@ rule junction_qc_barplot:
         "--tables {input.tables} "
         "--samples {params.samples} "
         "--out {output.junction} "
-        "--out-te-gene-chimeras {output.te_gene_chimeras} > {log} 2>&1"
+        "--out-te-gene-chimeras {output.te_gene_chimeras} "
+        "--out-canonical {output.canonical} > {log} 2>&1"
 
 
 rule chimera_igv_bed:

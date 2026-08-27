@@ -118,7 +118,14 @@ def main():
         "section_name": "Gene vs. TE Assignment",
         "description": (
             "Per-sample read counts assigned by TEcount to genes vs TE "
-            "subfamilies (counts and % of total assigned reads)."
+            "subfamilies (counts and % of total assigned reads). "
+            "<br><br><em>How to read this:</em> the gene/TE split should be "
+            "broadly consistent across samples of the same type \u2014 an "
+            "outlier usually reflects library quality or rRNA/intronic "
+            "carry-over rather than TE biology, so check it before "
+            "interpreting a TE effect. TEcount pools every copy of a "
+            "subfamily into one row; see the TElocal sections for the "
+            "per-copy view."
         ),
         "plot_type": "bar",
         "pconfig": {

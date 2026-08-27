@@ -120,6 +120,7 @@ def _junction_qc_mqc_inputs():
     return [
         "results/chimera_junction/qc/junction_qc_mqc.json",
         "results/chimera_junction/qc/te_gene_chimeras_mqc.json",
+        "results/chimera_junction/qc/canonical_rate_mqc.json",
     ]
 
 

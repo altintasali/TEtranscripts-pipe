@@ -39,6 +39,16 @@ def main():
     ambiguous = collections.Counter(r.get("direction_ambiguous", "no") for r in rows)
     chimera_type = collections.Counter(r.get("chimera_type", ".") for r in gene_te)
     canonical = collections.Counter(r.get("canonical", "no") for r in rows)
+    # Canonical rate PER DIRECTION. "canonical" here means STAR reported any
+    # recognised splice motif (GT/AG, GC/AG, AT/AC + reverse complements);
+    # only motif-less junctions score 0. Real introns are ~100% canonical,
+    # so this is the single best signal-vs-artifact discriminator in the
+    # screen -- template switching, ligation and PCR chimeras carry no
+    # motif. Measured globally before, which hid that the gene-TE classes
+    # are several-fold enriched over the unannotated background.
+    canon_by_dir = collections.Counter(
+        r.get("direction", ".") for r in rows if r.get("canonical") == "yes"
+    )
     antisense = collections.Counter(r.get("antisense_flag", ".") for r in gene_te)
     strand_match = collections.Counter(r.get("gene_strand_match", "NA") for r in gene_te)
 
@@ -58,6 +68,12 @@ def main():
         lines.append((f"chimera_type_{key}", str(chimera_type.get(key, 0))))
     lines.append(("canonical_yes", str(canonical.get("yes", 0))))
     lines.append(("canonical_no", str(canonical.get("no", 0))))
+    # per-direction canonical counts; the report derives the % from the
+    # matching direction_<key> total.
+    for key in ("gene_to_te", "te_to_gene", "gene_to_gene", "te_to_te",
+                "gene_to_other", "other_to_gene", "te_to_other",
+                "other_to_te", "other"):
+        lines.append((f"canonical_{key}", str(canon_by_dir.get(key, 0))))
     lines.append(("antisense_yes", str(antisense.get("yes", 0))))
     for key in ("yes", "no", "NA"):
         lines.append((f"strand_match_{key}", str(strand_match.get(key, 0))))
