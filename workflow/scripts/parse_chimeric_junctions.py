@@ -182,11 +182,28 @@ def main():
         for s, e, ex in feats:
             te_meta.setdefault(ex[0], (chrom, s, e, ex[2], ex[3], ex[4], ex[5]))
 
-    def locus(bp):
-        # STAR breakpoint columns are 1-based and inclusive: the donor's last
-        # base is at donor_bp, the acceptor's first base at acceptor_bp.
-        # Half-open interval [bp-1-tol, bp+1+tol) covers that base.
-        return (bp - 1 - tol, bp + 1 + tol)
+    def _window(base):
+        """Half-open 0-based interval covering the 1-based `base`, +/- tol."""
+        return (base - 1 - tol, base + tol)
+
+    def donor_locus(bp, strand):
+        """Genomic window of the donor segment's LAST ALIGNED base.
+
+        STAR's Chimeric.out.junction column 2 is the first base of the
+        DONOR'S INTRON -- not the last base of the aligned segment. The
+        aligned base is therefore one step back along the transcript, which
+        on a '-' segment means one step forward in genomic coordinates.
+        """
+        return _window(bp + 1 if strand == "-" else bp - 1)
+
+    def acceptor_locus(bp, strand):
+        """Genomic window of the acceptor segment's FIRST ALIGNED base.
+
+        Column 5 is the last base of the ACCEPTOR'S INTRON, so the aligned
+        base is one step forward along the transcript (one step back in
+        genomic coordinates on a '-' segment).
+        """
+        return _window(bp - 1 if strand == "-" else bp + 1)
 
     events = {}
 
@@ -207,8 +224,8 @@ def main():
             jtype = cols[6]
             repeat_flag = cols[7]
 
-            d0, d1 = locus(donor_bp)
-            a0, a1 = locus(acceptor_bp)
+            d0, d1 = donor_locus(donor_bp, donor_strand)
+            a0, a1 = acceptor_locus(acceptor_bp, acceptor_strand)
 
             donor_exons = overlapping(exons, donor_chrom, d0, d1)
             donor_tes = overlapping(te, donor_chrom, d0, d1)
