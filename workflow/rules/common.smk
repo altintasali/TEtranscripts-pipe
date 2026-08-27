@@ -1006,6 +1006,10 @@ def all_benchmark_files():
         files += [
             "results/pipeline_info/benchmarks/annotation_to_bed/annotation_to_bed.txt",
             "results/pipeline_info/benchmarks/chimera_counts/chimera_counts.txt",
+            "results/pipeline_info/benchmarks/junction_highlights/"
+            "junction_highlights.txt",
+            "results/pipeline_info/benchmarks/chimera_evidence/"
+            "chimera_evidence.txt",
         ]
         for s in SAMPLES:
             files += [

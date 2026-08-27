@@ -38,6 +38,7 @@ flowchart LR
         cleanup_telocal_index["remove TElocal index (if keep: false)"]
         software_versions["software versions"]
         config_used["config used"]
+        evidence_overview["evidence overview ('start here')"]
         benchmark_summary["resource-usage summary"]
         multiqc["MultiQC"]
     end
@@ -47,6 +48,8 @@ flowchart LR
         chimera_telocal_annotate["annotate junctions with TElocal counts"]
         junction_qc["junction QC"]
         junction_qc_barplot["junction QC barplot"]
+        junction_highlights["ranked gene-TE junctions ('what to look at')"]
+        chimera_evidence["unified gene-TE evidence + confidence tier"]
         chimera_igv_bed["IGV BED track"]
         chimera_counts["chimera counts matrix"]
         sample_qc_transform["sample-QC transform"]
@@ -78,10 +81,13 @@ flowchart LR
     cat_fastq --> trim_galore_se
     chimera_assembly_classify --> chimera_assembly_cross_evidence
     chimera_assembly_classify --> chimera_assembly_quantify
+    chimera_assembly_classify --> chimera_evidence
     chimera_assembly_cross_evidence --> chimera_assembly_igv_bed
     chimera_assembly_cross_evidence --> chimera_assembly_summary_mqc
     chimera_assembly_quantify --> chimera_assembly_summary_mqc
     chimera_counts --> chimera_assembly_cross_evidence
+    chimera_counts --> chimera_evidence
+    chimera_counts --> junction_highlights
     chimera_counts --> sample_qc_transform
     chimera_telocal_annotate --> chimera_counts
     chimera_telocal_index --> chimera_telocal_annotate

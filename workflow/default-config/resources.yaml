@@ -342,6 +342,23 @@ resources:
     mem_mb: 500
     runtime: 15
 
+  chimera_evidence:
+    # Collapses both screens' tables to one row per (gene, TE) pair; holds
+    # both in memory, so it scales with event count -> with cohort size.
+    threads: 2
+    mem_mb: 1000
+    mem_per_sample: 60
+    runtime: 15
+
+  junction_highlights:
+    # Ranks the merged gene<->TE table for the report's "what to look at"
+    # section.  Holds that table in memory, so it scales with the number of
+    # events -- which scales with cohort size, hence mem_per_sample.
+    threads: 2
+    mem_mb: 1000
+    mem_per_sample: 60
+    runtime: 15
+
   chimera_igv_bed:
     threads: 2
     mem_mb: 2000
@@ -380,6 +397,12 @@ resources:
   config_used:
     threads: 1
     mem_mb: 2000
+    runtime: 10
+
+  evidence_overview:
+    # Writes one small HTML section from params only -- no inputs.
+    threads: 1
+    mem_mb: 500
     runtime: 10
 
   # ---------------------------------------------------------------------------

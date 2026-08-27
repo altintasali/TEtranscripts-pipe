@@ -73,6 +73,7 @@ def all_chimera_outputs():
         "results/chimera_junction/all_events.tsv.gz",
         "results/chimera_junction/te-gene-chimeras.tsv.gz",
         "results/chimera_junction/counts_matrix.tsv.gz",
+        "results/chimera_junction/chimera_evidence.tsv.gz",
     ]
     files += [
         f"results/chimera_junction/qc/{s}_junction_qc.tsv.gz"
@@ -82,6 +83,7 @@ def all_chimera_outputs():
         "results/chimera_junction/qc/junction_qc_mqc.json",
         "results/chimera_junction/qc/te_gene_chimeras_mqc.json",
         "results/chimera_junction/qc/canonical_rate_mqc.json",
+        "results/chimera_junction/qc/junction_highlights_mqc.json",
     ]
     if WRITE_IGV_BED:
         files += [
@@ -263,6 +265,68 @@ rule junction_qc:
     shell:
         "python3 {SCRIPTS_DIR}/junction_qc.py "
         "--table {input} --sample {params.sample} --out {output} > {log} 2>&1"
+
+
+rule chimera_evidence:
+    # The unified gene-TE candidate table: one row per (gene, TE insertion)
+    # pair with every line of evidence and a confidence tier
+    # (chimera_evidence.py).  The two screens key their output differently
+    # -- junction rows are breakpoint-keyed, assembly rows transcript-keyed
+    # -- so this is the only place they can be read side by side.
+    #
+    # Lives in the junction rule file (rather than the assembly one) because
+    # the junction screen is the anchor: it always runs when chimera
+    # detection is on, while the assembly screen is a separate switch.  Its
+    # candidates.tsv.gz is therefore an OPTIONAL input, and the table simply
+    # reports found_by: junction for everything when it is absent.
+    input:
+        junction="results/chimera_junction/te-gene-chimeras.tsv.gz",
+        **({"assembly": "results/chimera_assembly/candidates.tsv.gz"}
+           if CHIMERA_ASSEMBLY_ENABLED else {}),
+    output:
+        "results/chimera_junction/chimera_evidence.tsv.gz",
+    params:
+        assembly=(
+            "--assembly results/chimera_assembly/candidates.tsv.gz"
+            if CHIMERA_ASSEMBLY_ENABLED else ""
+        ),
+    threads: get_resources("chimera_evidence")["threads"]
+    resources:
+        mem_mb=get_scaled_mem_mb("chimera_evidence"),
+        runtime=get_resources("chimera_evidence")["runtime"],
+    benchmark:
+        "results/pipeline_info/benchmarks/chimera_evidence/chimera_evidence.txt",
+    log:
+        "results/pipeline_info/logs/chimera_junction/chimera_evidence.log",
+    shell:
+        "python3 {SCRIPTS_DIR}/chimera_evidence.py "
+        "--junction {input.junction} {params.assembly} "
+        "--out {output} > {log} 2>&1"
+
+
+rule junction_highlights:
+    # The junction screen's "what to look at first" guide + ranked top-N
+    # table (junction_highlights_mqc.py) -- the mirror of the assembly
+    # screen's highlights section, so a default run's report has a guided
+    # entry point for BOTH screens rather than only the assembly one.
+    # Reads the merged gene<->TE table (not the per-sample QC metrics),
+    # because the ranking needs per-event annotation columns.
+    input:
+        te_events="results/chimera_junction/te-gene-chimeras.tsv.gz",
+    output:
+        "results/chimera_junction/qc/junction_highlights_mqc.json",
+    threads: get_resources("junction_highlights")["threads"]
+    resources:
+        mem_mb=get_scaled_mem_mb("junction_highlights"),
+        runtime=get_resources("junction_highlights")["runtime"],
+    benchmark:
+        "results/pipeline_info/benchmarks/junction_highlights/junction_highlights.txt",
+    log:
+        "results/pipeline_info/logs/chimera_junction/junction_highlights.log",
+    shell:
+        "python3 {SCRIPTS_DIR}/junction_highlights_mqc.py "
+        "--te-events {input.te_events} "
+        "--out {output} > {log} 2>&1"
 
 
 rule junction_qc_barplot:

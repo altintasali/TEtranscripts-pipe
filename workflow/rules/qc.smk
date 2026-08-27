@@ -121,6 +121,7 @@ def _junction_qc_mqc_inputs():
         "results/chimera_junction/qc/junction_qc_mqc.json",
         "results/chimera_junction/qc/te_gene_chimeras_mqc.json",
         "results/chimera_junction/qc/canonical_rate_mqc.json",
+        "results/chimera_junction/qc/junction_highlights_mqc.json",
     ]
 
 
@@ -181,6 +182,30 @@ def _telocal_qc_mqc_inputs():
     return files
 
 
+rule evidence_overview:
+    # The report's "Start here" section: which evidence layers this run
+    # actually produced and which of them are independent of each other.
+    # Reads the resolved switches from params (like config_used) rather than
+    # re-deriving them, so it cannot drift from what really ran.
+    output:
+        "results/pipeline_info/evidence_overview_mqc.json",
+    threads: get_resources("evidence_overview")["threads"]
+    resources:
+        mem_mb=get_resources("evidence_overview")["mem_mb"],
+        runtime=get_resources("evidence_overview")["runtime"],
+    log:
+        "results/pipeline_info/logs/multiqc/evidence_overview.log",
+    params:
+        _sample_count=len(SAMPLES),
+        _has_condition=HAS_CONDITION,
+        _telocal_enabled=TELOCAL_ENABLED,
+        _chimera_junction_enabled=CHIMERA_JUNCTION_ENABLED,
+        _chimera_assembly_enabled=CHIMERA_ASSEMBLY_ENABLED,
+        _two_pass=STAR_TWO_PASS,
+    script:
+        "../scripts/evidence_overview_mqc.py"
+
+
 rule config_used:
     # The resolved run config, written as a MultiQC custom-content table so
     # the report records exactly which settings were used.
@@ -239,6 +264,7 @@ rule multiqc:
         all_raw_fastqc_reports(),
         "results/pipeline_info/benchmark_summary_mqc.json",
         "results/pipeline_info/config_used_mqc.json",
+        "results/pipeline_info/evidence_overview_mqc.json",
         "results/versions/rnaseq_mqc_versions.yml",
         chimera_qc=_chimera_qc_mqc_inputs(),
         junction_qc=_junction_qc_mqc_inputs(),
