@@ -811,5 +811,29 @@ jobs:
             fi
           fi
 
+          # ...and the ALL-ZERO case, which is what the synthetic fixture
+          # actually produces (its chimeric reads are random sequence, so no
+          # junction carries a splice motif). An all-zero bar document makes
+          # MultiQC raise "No datasets to plot" and fails the whole report,
+          # so it must degrade to html. The fixture above has canonical hits
+          # and therefore could not catch this.
+          mkdir -p "$T/canon0/qc"
+          { printf 'event_id\tsample\tdirection\tdirection_ambiguous\tcanonical\tchimera_type\tantisense_flag\tgene_strand_match\n'
+            for i in $(seq 1 30); do printf 'e%s\ts\tgene_to_te\tno\tno\tte_initiated\tno\tyes\n' "$i"; done
+          } | gzip -c > "$T/canon0/j.tsv.gz"
+          python3 workflow/scripts/junction_qc.py --table "$T/canon0/j.tsv.gz" \
+            --sample s --out "$T/canon0/qc.tsv.gz" > /dev/null 2>&1
+          if ! python3 workflow/scripts/junction_qc_mqc.py --tables "$T/canon0/qc.tsv.gz" \
+                --samples s --out "$T/canon0/qc/junction_qc_mqc.json" \
+                --out-canonical "$T/canon0/qc/canonical_rate_mqc.json" > "$T/canon0/mqc.log" 2>&1; then
+            echo "ERROR: junction_qc_mqc.py failed on all-zero canonical"; cat "$T/canon0/mqc.log"; FAIL=1
+          elif ! python3 -c "import json,sys; sys.exit(0 if json.load(open('$T/canon0/qc/canonical_rate_mqc.json'))['plot_type']=='html' else 1)"; then
+            echo "ERROR: all-zero canonical must degrade to plot_type html"; FAIL=1
+          elif ! multiqc --force --no-ansi -c workflow/default-config/multiqc_config.yaml \
+                -o "$T/canon0/mqc_out" -n r "$T/canon0/qc" > "$T/canon0/render.log" 2>&1; then
+            echo "ERROR: multiqc failed on an all-zero canonical rate"
+            tail -30 "$T/canon0/render.log"; FAIL=1
+          fi
+
           echo "[guards] done, FAIL=$FAIL"
           exit $FAIL

@@ -27,6 +27,25 @@ DIRECTIONS = [
 ]
 
 
+def _finalise(doc, datasets, empty_html):
+    """Attach bar datasets, or fall back to html when everything is zero.
+
+    MultiQC's bargraph raises "No datasets to plot" on an all-zero document
+    and takes the whole report down with it. A run with no junctions -- or,
+    for the canonical plot, no junction carrying a splice motif -- is a
+    perfectly normal outcome (small genome, shallow data, synthetic reads),
+    so it must be documented rather than fatal.
+    """
+    if any(v for row in datasets[0].values() for v in row.values()):
+        doc["plot_type"] = "bar"
+        doc["data"] = datasets
+    else:
+        doc["plot_type"] = "html"
+        doc["data"] = empty_html
+        doc.pop("pconfig", None)
+    return doc
+
+
 def load_metrics(path):
     """metric/value pairs from a junction_qc.tsv."""
     metrics = {}
@@ -114,8 +133,11 @@ def main():
                 {"name": "% of total junctions"},
             ],
         },
-        "data": [counts, pct],
     }
+    _finalise(doc, [counts, pct],
+              "<p>No chimeric junctions were annotated in this run, so there "
+              "is nothing to plot. This is not an error \u2014 STAR found no "
+              "chimeric reads, or none survived annotation.</p>")
 
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
     with open_write(args.out) as fh:
@@ -172,8 +194,13 @@ def main():
                     {"name": "canonical junctions"},
                 ],
             },
-            "data": [canon_pct, canon_n],
         }
+        _finalise(canon_doc, [canon_pct, canon_n],
+                  "<p>No chimeric junction in this run carried a recognised "
+                  "splice motif, so there is no canonical rate to plot. That "
+                  "is expected on synthetic or very shallow data; on a real "
+                  "library it means the chimeric calls are dominated by "
+                  "motif-less artifacts.</p>")
         os.makedirs(os.path.dirname(args.out_canonical), exist_ok=True)
         with open_write(args.out_canonical) as fh:
             json.dump(canon_doc, fh, indent=2)
@@ -236,8 +263,10 @@ def main():
                     {"name": "% of total junctions"},
                 ],
             },
-            "data": [te_counts, te_pct],
         }
+        _finalise(te_doc, [te_counts, te_pct],
+                  "<p>No gene\u2013TE chimeric junctions were found in this "
+                  "run, so there is nothing to plot.</p>")
 
         os.makedirs(os.path.dirname(args.out_te_gene_chimeras), exist_ok=True)
         with open_write(args.out_te_gene_chimeras) as fh:
