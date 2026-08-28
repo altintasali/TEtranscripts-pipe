@@ -107,8 +107,8 @@ def main():
 
     classes_doc = {
         "id": "chimera_assembly_classes",
-        "parent_id": "chimera_assembly",
-        "parent_name": "Chimera (assembly)",
+        "parent_id": "chimera_transcripts",
+        "parent_name": "Gene-TE chimeras: transcript evidence",
         "section_name": "Candidates by class",
     }
     # counts values are {"count": N} or {"confirmed": N, "unconfirmed": N}
@@ -249,8 +249,8 @@ for manual triage, not for a confident call on their own.</li>
 
     highlights_doc = {
         "id": "chimera_assembly_highlights",
-        "parent_id": "chimera_assembly",
-        "parent_name": "Chimera (assembly)",
+        "parent_id": "chimera_transcripts",
+        "parent_name": "Gene-TE chimeras: transcript evidence",
         "section_name": "What to look at",
         "description": "How to read the chimera-assembly output, and this run's top candidates.",
         "plot_type": "html",

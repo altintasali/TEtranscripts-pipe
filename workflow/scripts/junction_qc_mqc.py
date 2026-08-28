@@ -105,9 +105,9 @@ def main():
 
     doc = {
         "id": "chimera_junction_qc",
-        "parent_id": "chimera",
-        "parent_name": "Chimera",
-        "section_name": "Junction QC",
+        "parent_id": "chimera_reads",
+        "parent_name": "Gene-TE chimeras: read evidence",
+        "section_name": "Events by direction",
         "description": (
             "Per-sample composition of annotated chimeric junctions by "
             "direction (the gene\u2194TE event classes first), as counts and "
@@ -162,9 +162,9 @@ def main():
 
         canon_doc = {
             "id": "chimera_canonical_rate",
-            "parent_id": "chimera",
-            "parent_name": "Chimera",
-            "section_name": "Canonical rate by direction",
+            "parent_id": "chimera_reads",
+            "parent_name": "Gene-TE chimeras: read evidence",
+            "section_name": "Splice-motif rate by direction",
             "description": (
                 "Share of each direction's junctions for which STAR reported a "
                 "recognised splice motif (GT/AG, GC/AG, AT/AC and reverse "
@@ -246,9 +246,9 @@ def main():
 
         te_doc = {
             "id": "chimera_te_gene_chimeras",
-            "parent_id": "te_gene_chimeras",
-            "parent_name": "Gene-TE chimeras",
-            "section_name": "Gene-TE chimeras",
+            "parent_id": "chimera_reads",
+            "parent_name": "Gene-TE chimeras: read evidence",
+            "section_name": "Gene-TE subset",
             "description": (
                 "Per-sample gene\u2194TE chimeric junctions (direction "
                 "gene_to_te / te_to_gene), as counts and % of total junctions. "

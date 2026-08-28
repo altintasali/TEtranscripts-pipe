@@ -180,11 +180,13 @@ support, then strand match, then reads). Full table:
 """
 
     doc = {
-        # parent_id must match junction_qc_mqc.py's "chimera" group exactly
-        # -- a mismatch splits the Chimera section in two in the report.
+        # parent_id must match junction_qc_mqc.py, chimera_evidence_heatmap.py
+        # and sample_qc.R's chimera view EXACTLY -- every view of this screen
+        # shares one group, and a mismatch silently splits it into two report
+        # sections.
         "id": "junction_highlights",
-        "parent_id": "chimera",
-        "parent_name": "Chimera",
+        "parent_id": "chimera_reads",
+        "parent_name": "Gene-TE chimeras: read evidence",
         "section_name": "What to look at",
         "description": (
             "How to read the chimera-junction output, and this run's "

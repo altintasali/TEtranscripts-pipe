@@ -39,9 +39,12 @@ suppressMessages(library(DESeq2))
 # them inside each view's parent group (parent_id), which supplies the
 # context.
 VIEWS <- list(
+    # NB: the list KEY stays "chimera" -- it is the CLI selector passed by
+    # sample_qc.smk (--transform chimera / --plots chimera). Only id/label
+    # are report-facing, and id must match the Python emitters' parent_id.
     chimera = list(
-        id = "chimera",
-        label = "Chimera",
+        id = "chimera_reads",
+        label = "Gene-TE chimeras: read evidence",
         noun_plural = "chimeric events",
         noun_singular = "event"
     ),

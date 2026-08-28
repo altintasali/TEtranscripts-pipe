@@ -4,8 +4,9 @@ it into one number.
 
 Why this exists: chimera_evidence.tsv.gz carries several independent
 measurements per (gene, TE) pair -- breakpoint reads, replicate support, a
-splice motif, assembled transcripts, TE-locus expression, agreement between
-the two screens. Reducing those to a single ordinal tier hides whether any
+splice motif, assembled transcripts, TE-locus expression. Each screen's
+measurements are shown as its own columns, never merged into an "agreement"
+flag. Reducing them to a single ordinal tier hides whether any
 of them actually carries information, and twice it hid the opposite of what
 was assumed: TElocal expression turned out ANTI-correlated with the splice
 motif, and screen agreement turned out to sit at roughly its chance rate.
@@ -37,6 +38,14 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from gz_io import open_read
 
 # (column, short label, how to read a row's value)
+#
+# Each screen contributes its own columns and there is deliberately NO
+# combined "both screens" column. It used to be here, derived as
+# (junction_events > 0 and assembly_transcripts > 0) -- but it is a function
+# of the columns either side of it, so it added no information while looking
+# like an independent line of evidence. Collapsing two screens into one
+# boolean is the same premature aggregation that hid the tier-4 problem: read
+# the two screens' columns and judge the agreement yourself.
 DIMENSIONS = [
     ("junction_reads", "Junction reads", "num"),
     ("junction_events", "Breakpoints", "num"),
@@ -45,7 +54,6 @@ DIMENSIONS = [
     ("assembly_transcripts", "Assembly transcripts", "num"),
     ("assembly_strand_match", "Assembly strand match", "yes"),
     ("telocal_active", "TE locus expressed", "yes"),
-    ("__both", "Both screens", "both"),
 ]
 
 
@@ -57,8 +65,6 @@ def value(row, col, kind):
             return 0.0
     if kind == "yes":
         return 1.0 if row.get(col) == "yes" else 0.0
-    if kind == "both":
-        return 1.0 if row.get("found_by") == "both" else 0.0
     return 0.0
 
 
@@ -106,8 +112,9 @@ def load(path):
 def heatmap_doc(doc_id, section, description, xcats, ycats, data, title):
     return {
         "id": doc_id,
-        "parent_id": "chimera_evidence",
-        "parent_name": "Chimera evidence",
+        # Same group as every other view of the read-evidence screen.
+        "parent_id": "chimera_reads",
+        "parent_name": "Gene-TE chimeras: read evidence",
         "section_name": section,
         "description": description,
         "plot_type": "heatmap",

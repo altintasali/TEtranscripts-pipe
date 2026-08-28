@@ -154,7 +154,7 @@ def main():
     doc = {
         "id": "sample_evidence_status",
         "parent_id": "evidence_status",
-        "parent_name": "Evidence status",
+        "parent_name": "Per-sample evidence status",
         "section_name": "Per-sample status",
         "description": (
             "Which evidence layers each sample contributed to, in the shape "
