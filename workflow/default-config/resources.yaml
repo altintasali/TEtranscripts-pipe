@@ -15,6 +15,24 @@
 # below are reasonable starting points for a human genome / typical bulk
 # RNA-seq run -- adjust to your organism, read depth, and cluster.
 # =============================================================================
+# Runtime floor for trivial rules
+# ------------------------------
+# A cluster job's wall clock is its WORK plus its OVERHEAD -- SLURM start-up,
+# the python/snakemake import, and conda activation, all over shared NFS.
+# For the rules that just read a handful of small files and write one JSON,
+# the work is a fraction of a second and the overhead is everything, and it
+# is not bounded by anything this workflow controls.
+#
+# benchmark_summary proved that the hard way: it aggregates ~75 tiny
+# benchmark files, measured at 0.3 s of actual work, and still hit SLURM
+# TIMEOUT at runtime: 10. Every rule below that did seconds of work had the
+# same 10-15 minute limit and the same exposure, so the floor for all of them
+# is now 30 minutes. Runtime is a limit, not a reservation -- an unused 30
+# minutes costs nothing, while a job killed at 10 costs a re-run.
+#
+# This floor is NOT for rules that do real work; those keep limits sized from
+# measurement (see star_index, telocal_locind, chimera_telocal_index).
+
 resources:
   _default:
     threads: 1
@@ -123,7 +141,7 @@ resources:
     # from the -@ decompression helper, small and fast.
     threads: 1
     mem_mb: 1000
-    runtime: 15
+    runtime: 30
 
   rseqc_read_distribution:
     # Same shape as rseqc_infer_experiment: one pass over the BAM against
@@ -144,7 +162,7 @@ resources:
   determine_strandedness:
     threads: 1
     mem_mb: 1000
-    runtime: 10
+    runtime: 30
 
   tecount:
     # TEcount/TEtranscripts is single-threaded (no --threads flag), so a
@@ -333,14 +351,14 @@ resources:
   junction_qc:
     threads: 1
     mem_mb: 2000
-    runtime: 15
+    runtime: 30
 
   junction_qc_barplot:
     # Merging the per-sample junction QC tables into one MultiQC bar-plot
     # JSON; single-threaded, small (2nd core reserved as scheduler headroom).
     threads: 2
     mem_mb: 500
-    runtime: 15
+    runtime: 30
 
   chimera_evidence:
     # Collapses both screens' tables to one row per (gene, TE) pair; holds
@@ -348,13 +366,13 @@ resources:
     threads: 2
     mem_mb: 1000
     mem_per_sample: 60
-    runtime: 15
+    runtime: 30
 
   sample_evidence_status:
     # Reads one tiny metrics table per sample into a status grid.
     threads: 1
     mem_mb: 500
-    runtime: 10
+    runtime: 30
 
   chimera_evidence_heatmap:
     # Ranks every evidence column of chimera_evidence.tsv.gz; holds the table
@@ -362,7 +380,7 @@ resources:
     threads: 2
     mem_mb: 1000
     mem_per_sample: 60
-    runtime: 15
+    runtime: 30
 
   junction_highlights:
     # Ranks the merged gene<->TE table for the report's "what to look at"
@@ -371,12 +389,12 @@ resources:
     threads: 2
     mem_mb: 1000
     mem_per_sample: 60
-    runtime: 15
+    runtime: 30
 
   chimera_igv_bed:
     threads: 2
     mem_mb: 2000
-    runtime: 15
+    runtime: 30
 
   sample_qc_transform:
     # DESeq2 vst/rlog on the chimera counts matrix; R is single-threaded.
@@ -406,30 +424,30 @@ resources:
   benchmark_summary:
     threads: 1
     mem_mb: 2000
-    runtime: 10
+    runtime: 30
 
   config_used:
     threads: 1
     mem_mb: 2000
-    runtime: 10
+    runtime: 30
 
   gene_name_lookup:
     # One streaming pass over the gene GTF, holding one entry per gene.
     threads: 1
     mem_mb: 2000
-    runtime: 15
+    runtime: 30
 
   strandedness_check:
     # Parses one small RSeQC report per sample into a table.
     threads: 1
     mem_mb: 500
-    runtime: 10
+    runtime: 30
 
   evidence_overview:
     # Writes one small HTML section from params only -- no inputs.
     threads: 1
     mem_mb: 500
-    runtime: 10
+    runtime: 30
 
   # ---------------------------------------------------------------------------
   # chimera_assembly.smk (off by default, config chimera.assembly.enabled).
@@ -486,17 +504,17 @@ resources:
     # Single-threaded python; one table join, no per-sample scaling.
     threads: 1
     mem_mb: 2000
-    runtime: 15
+    runtime: 30
 
   chimera_assembly_summary_mqc:
     # Single-threaded python; reads the candidates table + TPM matrix once,
     # writes two small JSON files.
     threads: 1
     mem_mb: 2000
-    runtime: 15
+    runtime: 30
 
   chimera_assembly_igv_bed:
     # Single-threaded python; one pass over the candidates table.
     threads: 1
     mem_mb: 2000
-    runtime: 15
+    runtime: 30
