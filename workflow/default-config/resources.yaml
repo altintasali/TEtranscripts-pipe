@@ -350,6 +350,20 @@ resources:
     mem_per_sample: 60
     runtime: 15
 
+  sample_evidence_status:
+    # Reads one tiny metrics table per sample into a status grid.
+    threads: 1
+    mem_mb: 500
+    runtime: 10
+
+  chimera_evidence_heatmap:
+    # Ranks every evidence column of chimera_evidence.tsv.gz; holds the table
+    # plus one rank vector per dimension, so it scales with cohort size.
+    threads: 2
+    mem_mb: 1000
+    mem_per_sample: 60
+    runtime: 15
+
   junction_highlights:
     # Ranks the merged gene<->TE table for the report's "what to look at"
     # section.  Holds that table in memory, so it scales with the number of

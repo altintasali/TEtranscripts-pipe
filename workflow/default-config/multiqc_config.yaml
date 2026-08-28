@@ -58,6 +58,8 @@ module_order:
 #                sample, mismatches flagged (strandedness_check rule).
 #                Sits right after the guide: a wrong strandedness invalidates
 #                every number below it, so it is checked before they are read.
+#   evidence_status  FastQC-style per-sample status grid: which evidence
+#                layers each sample contributed to (sample_evidence_status)
 #   tecount      TEcount: assignment + TE-class barplots, PCA, Clusters
 #                (tecount_summary / tecount_qc rules)
 #                NOTE: must match sample_qc.R's tecount view id exactly --
@@ -69,6 +71,9 @@ module_order:
 #                (junction_highlights / junction_qc_barplot / sample_qc rules)
 #   te_gene_chimeras  Gene-TE chimeras: gene<->TE junction subset view
 #                (junction_qc_barplot rule)
+#   chimera_evidence  Chimera evidence: dimension-vs-dimension correlation
+#                and the per-dimension leaders, both as heatmaps and with no
+#                combined score (chimera_evidence_heatmap rule)
 #   chimera_assembly  Chimera (assembly): candidates-by-class barplot + a
 #                "what to look at" guide with this run's top candidates
 #                (chimera_assembly_summary_mqc rule; off by default, config
@@ -84,10 +89,12 @@ custom_content:
   order:
     - evidence_overview
     - strandedness_check
+    - evidence_status
     - tecount
     - telocal
     - chimera
     - te_gene_chimeras
+    - chimera_evidence
     - chimera_assembly
     - config_used
     - resource_usage

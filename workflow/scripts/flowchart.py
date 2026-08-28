@@ -75,6 +75,8 @@ LABELS = {
     "junction_qc_barplot": ("junction QC barplot", "Chimera screen"),
     "junction_highlights": ("ranked gene-TE junctions ('what to look at')", "Chimera screen"),
     "chimera_evidence": ("unified gene-TE evidence + confidence tier", "Chimera screen"),
+    "chimera_evidence_heatmap": ("evidence correlation + candidate heatmaps", "Chimera screen"),
+    "sample_evidence_status": ("per-sample evidence status grid", "Chimera screen"),
     "chimera_igv_bed": ("IGV BED track", "Chimera screen"),
     "chimera_counts": ("chimera counts matrix", "Chimera screen"),
     "sample_qc_transform": ("sample-QC transform", "Chimera screen"),

@@ -1032,6 +1032,10 @@ def all_benchmark_files():
             "junction_highlights.txt",
             "results/pipeline_info/benchmarks/chimera_evidence/"
             "chimera_evidence.txt",
+            "results/pipeline_info/benchmarks/chimera_evidence_heatmap/"
+            "chimera_evidence_heatmap.txt",
+            "results/pipeline_info/benchmarks/sample_evidence_status/"
+            "sample_evidence_status.txt",
         ]
         for s in SAMPLES:
             files += [

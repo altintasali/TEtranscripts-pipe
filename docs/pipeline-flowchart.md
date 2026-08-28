@@ -52,6 +52,8 @@ flowchart LR
         junction_qc_barplot["junction QC barplot"]
         junction_highlights["ranked gene-TE junctions ('what to look at')"]
         chimera_evidence["unified gene-TE evidence + confidence tier"]
+        chimera_evidence_heatmap["evidence correlation + candidate heatmaps"]
+        sample_evidence_status["per-sample evidence status grid"]
         chimera_igv_bed["IGV BED track"]
         chimera_counts["chimera counts matrix"]
         sample_qc_transform["sample-QC transform"]
@@ -91,6 +93,7 @@ flowchart LR
     chimera_counts --> chimera_evidence
     chimera_counts --> junction_highlights
     chimera_counts --> sample_qc_transform
+    chimera_evidence --> chimera_evidence_heatmap
     chimera_telocal_annotate --> chimera_counts
     chimera_telocal_index --> chimera_telocal_annotate
     determine_strandedness --> parse_chimeric_junctions
@@ -100,11 +103,13 @@ flowchart LR
     determine_strandedness --> tecount
     determine_strandedness --> telocal
     determine_strandedness --> tetranscripts_diffexp
+    gene_name_lookup --> chimera_evidence_heatmap
     genepred_to_bed12 --> rseqc_gene_body_coverage
     genepred_to_bed12 --> rseqc_infer_experiment
     genepred_to_bed12 --> rseqc_read_distribution
     gtf_to_genepred --> genepred_to_bed12
     junction_qc --> junction_qc_barplot
+    junction_qc --> sample_evidence_status
     parse_chimeric_junctions --> chimera_igv_bed
     parse_chimeric_junctions --> chimera_telocal_annotate
     parse_chimeric_junctions --> junction_qc
@@ -135,6 +140,7 @@ flowchart LR
     star_index --> star_align_pass1
     star_merge_junctions --> star_align
     star_merge_junctions --> star_align_for_assembly
+    strandedness_check --> sample_evidence_status
     stringtie_assemble --> stringtie_merge
     stringtie_merge --> chimera_assembly_classify
     stringtie_merge --> stringtie_requantify

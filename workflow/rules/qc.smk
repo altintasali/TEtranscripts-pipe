@@ -122,6 +122,9 @@ def _junction_qc_mqc_inputs():
         "results/chimera_junction/qc/te_gene_chimeras_mqc.json",
         "results/chimera_junction/qc/canonical_rate_mqc.json",
         "results/chimera_junction/qc/junction_highlights_mqc.json",
+        "results/chimera_junction/qc/chimera_evidence_correlation_mqc.json",
+        "results/chimera_junction/qc/chimera_evidence_candidates_mqc.json",
+        "results/chimera_junction/qc/sample_evidence_status_mqc.json",
     ]
 
 

@@ -63,7 +63,7 @@ jobs:
           set +e -uo pipefail
           T=$(mktemp -d)
           FAIL=0
-          echo "[guards] 1/43 missing reference"
+          echo "[guards] 1/45 missing reference"
 
           # --- a missing/typo'd reference is a hard parse-time error ---------
           sed 's|  fasta: .*|  fasta: /nonexistent/ref.fa|' config/test.yaml > "$T/missing_ref.yaml"
@@ -73,7 +73,7 @@ jobs:
             echo "ERROR: wrong failure message for missing reference"; FAIL=1
           fi
 
-          echo "[guards] 2/43 already-trimmed fastqs"
+          echo "[guards] 2/45 already-trimmed fastqs"
 
           # --- already-trimmed-looking fastqs are rejected while trimming on --
           printf 'sample,fastq_1,fastq_2,strandedness,condition\nzyg_wt_01,zyg_wt_01_trimmed.fq.gz,,auto,wt\n' > "$T/trimmed.csv"
@@ -84,7 +84,7 @@ jobs:
             echo "ERROR: wrong failure message for already-trimmed fastqs"; FAIL=1
           fi
 
-          echo "[guards] 3/43 node-local decompressed_dir, plain refs"
+          echo "[guards] 3/45 node-local decompressed_dir, plain refs"
 
           # --- node-local decompressed_dir is fine with plain refs ------------
           # (no gunzip_reference jobs run, so the setting is dead config)
@@ -93,7 +93,7 @@ jobs:
             echo "ERROR: node-local decompressed_dir with plain refs must still dry-run"; FAIL=1
           fi
 
-          echo "[guards] 4/43 gzipped refs, default decompressed_dir"
+          echo "[guards] 4/45 gzipped refs, default decompressed_dir"
 
           # --- gzipped references: make .gz copies of the test refs ------------
           gzip -c .tests/resources/genome.fa > "$T/genome.fa.gz"
@@ -109,7 +109,7 @@ jobs:
             echo "ERROR: gzipped refs with default decompressed_dir must dry-run"; FAIL=1
           fi
 
-          echo "[guards] 5/43 gz refs + node-local decompressed_dir"
+          echo "[guards] 5/45 gz refs + node-local decompressed_dir"
 
           # --- gz refs + node-local /tmp decompressed_dir: hard parse error ----
           sed 's|  sjdb_overhang: 49|  sjdb_overhang: 49\n  decompressed_dir: /tmp/rnaseq-decompressed|' "$T/gz.yaml" > "$T/gz_tmpdir.yaml"
@@ -119,7 +119,7 @@ jobs:
             echo "ERROR: wrong failure message for gz refs + node-local decompressed_dir"; FAIL=1
           fi
 
-          echo "[guards] 6/43 gz refs + empty decompressed_dir"
+          echo "[guards] 6/45 gz refs + empty decompressed_dir"
 
           # --- gz refs + empty decompressed_dir: hard parse error ---------------
           sed 's|  sjdb_overhang: 49|  sjdb_overhang: 49\n  decompressed_dir: ""|' "$T/gz.yaml" > "$T/gz_empty.yaml"
@@ -129,7 +129,7 @@ jobs:
             echo "ERROR: wrong failure message for gz refs + empty decompressed_dir"; FAIL=1
           fi
 
-          echo "[guards] 7/43 star.index omitted"
+          echo "[guards] 7/45 star.index omitted"
 
           # --- star.index omitted: defaults to generated results/star_index -----
           sed '/^  index: .*star_index$/d' config/test.yaml > "$T/no_index.yaml"
@@ -139,7 +139,7 @@ jobs:
             echo "ERROR: default star index path results/star_index not used"; FAIL=1
           fi
 
-          echo "[guards] 8/43 star.index empty"
+          echo "[guards] 8/45 star.index empty"
 
           # --- star.index empty string: same default applies --------------------
           sed 's|^  index: .*|  index: ""|' config/test.yaml > "$T/empty_index.yaml"
@@ -147,7 +147,7 @@ jobs:
             echo "ERROR: empty star.index must dry-run (default results/star_index)"; FAIL=1
           fi
 
-          echo "[guards] 9/43 CLI samples generator"
+          echo "[guards] 9/45 CLI samples generator"
 
           # --- the samples CLI must reproduce the committed fixture -----------
           # (same rows, order-insensitive; generated paths are absolute while
@@ -166,7 +166,7 @@ jobs:
             fi
           fi
 
-          echo "[guards] 10/43 CLI run --dry-run"
+          echo "[guards] 10/45 CLI run --dry-run"
 
           # --- CLI run must scaffold config + sheet and pass a real dry-run ---
           python workflow/scripts/tetranscripts-pipe run \
@@ -185,7 +185,7 @@ jobs:
             echo "ERROR: CLI run --dry-run planned no jobs (tecount missing from the DAG)"; tail -40 "$T/cli_run.log"; FAIL=1
           fi
 
-          echo "[guards] 11/43 MultiQC custom-content JSON format"
+          echo "[guards] 11/45 MultiQC custom-content JSON format"
 
           # --- the barplot emitters must render in the installed MultiQC ------
           # MultiQC's custom_content module only reads a top-level "data" key;
@@ -225,7 +225,7 @@ jobs:
             done
           fi
 
-          echo "[guards] 12/43 CLI run with an existing config (config-only)"
+          echo "[guards] 12/45 CLI run with an existing config (config-only)"
 
           # --- CLI run with an existing --config: no other flags needed -------
           # The sheet is taken from the config's 'samples:' key
@@ -242,7 +242,7 @@ jobs:
             echo "ERROR: CLI run --config-only planned no jobs (tecount_summary missing)"; tail -40 "$T/cli_config_only.log"; FAIL=1
           fi
 
-          echo "[guards] 13/43 qc-off keeps the summary barplots"
+          echo "[guards] 13/45 qc-off keeps the summary barplots"
 
           # --- tetranscripts.qc.enabled: false still plans the summary barplots
           # The assignment + TE-class barplots use the raw cntTables, so they
@@ -257,7 +257,7 @@ jobs:
             echo "ERROR: R-based tecount QC rules still planned with tetranscripts.qc.enabled false"; tail -40 "$T/qc_off.log"; FAIL=1
           fi
 
-          echo "[guards] 14/43 CLI with config in a different checkout (deployed split)"
+          echo "[guards] 14/45 CLI with config in a different checkout (deployed split)"
 
           # --- CLI installed elsewhere, config in an analysis checkout -------
           # The deployment runs this script from a shared apps/ copy while
@@ -281,7 +281,7 @@ jobs:
             echo "ERROR: run did not anchor to the config's checkout ($WD2)"; tail -40 "$T/deployed.log"; FAIL=1
           fi
 
-          echo "[guards] 15/43 build_index=false: index must look like an index"
+          echo "[guards] 15/45 build_index=false: index must look like an index"
 
           # --- build_index=false pointing at a directory that exists but has
           # no STAR index in it is rejected at parse time, not hours later
@@ -296,7 +296,7 @@ jobs:
             echo "ERROR: wrong failure message for non-index directory"; FAIL=1
           fi
 
-          echo "[guards] 16/43 external STAR index is used in place, never deleted"
+          echo "[guards] 16/45 external STAR index is used in place, never deleted"
 
           # --- The core safety property of build_index: false -- the user's
           # external index is a plain INPUT.  No rule may declare it as an
@@ -339,7 +339,7 @@ jobs:
             echo "ERROR: cleanup_star_index rule not planned when we built the index"; FAIL=1
           fi
 
-          echo "[guards] 17/43 build_index=false without ref.fasta"
+          echo "[guards] 17/45 build_index=false without ref.fasta"
 
           # --- build_index=false: ref.fasta is optional.  Remove fasta from
           # the config and confirm the dry-run still passes.
@@ -354,7 +354,7 @@ jobs:
             echo "ERROR: build_index=false without ref.fasta raised missing reference error"; FAIL=1
           fi
 
-          echo "[guards] 18/43 empty GTF warning"
+          echo "[guards] 18/45 empty GTF warning"
 
           # --- an empty-but-existing GTF must produce a parse-time warning
           # (not an error) during dry-run.
@@ -367,7 +367,7 @@ jobs:
             echo "ERROR: empty GTF did not produce expected warning"; tail -20 "$T/empty_gtf.log"; FAIL=1
           fi
 
-          echo "[guards] 19/43 check_nonempty_fastq rejects empty file"
+          echo "[guards] 19/45 check_nonempty_fastq rejects empty file"
 
           # --- check_nonempty_fastq.py must exit 1 for an empty FASTQ
           echo -n "" | gzip > "$T/empty.fq.gz"
@@ -375,7 +375,7 @@ jobs:
             echo "ERROR: check_nonempty_fastq accepted an empty FASTQ"; FAIL=1
           fi
 
-          echo "[guards] 20/43 telocal enabled with empty locind auto-builds"
+          echo "[guards] 20/45 telocal enabled with empty locind auto-builds"
 
           # --- telocal.enabled: true with empty locind must now succeed
           # (auto-builds from TE GTF via telocal_locind rule)
@@ -390,7 +390,7 @@ jobs:
             FAIL=1
           fi
 
-          echo "[guards] 21/43 telocal_summary_mqc.py + telocal counts matrix"
+          echo "[guards] 21/45 telocal_summary_mqc.py + telocal counts matrix"
 
           # --- telocal_summary_mqc.py must render in MultiQC ------------------
           printf 'gene/TE\t/path/a.bam\nENSG0001\t80\nchr1:100:200(L1PA2:+):L1PA2:L1:LINE\t5\n' > "$T/tl_a.cntTable"
@@ -432,7 +432,7 @@ jobs:
             done
           fi
 
-          echo "[guards] 22/43 star.two_pass: none opts out of the pass1/merge stage"
+          echo "[guards] 22/45 star.two_pass: none opts out of the pass1/merge stage"
 
           # --- star.two_pass: none must plan the original, single-pass-only
           # DAG (star.two_pass defaults to "cohort" -- see common.smk -- so
@@ -446,7 +446,7 @@ jobs:
             tail -40 "$T/two_pass_none.log"; FAIL=1
           fi
 
-          echo "[guards] 23/43 star.two_pass: per_sample uses --twopassMode Basic only"
+          echo "[guards] 23/45 star.two_pass: per_sample uses --twopassMode Basic only"
 
           # --- per_sample must add --twopassMode Basic to star_align and add
           # no other rules (no pass1/merge stage -- that is cohort-only).
@@ -462,7 +462,7 @@ jobs:
             tail -40 "$T/two_pass_per_sample.log"; FAIL=1
           fi
 
-          echo "[guards] 24/43 star.two_pass default (cohort) pools junctions across samples"
+          echo "[guards] 24/45 star.two_pass default (cohort) pools junctions across samples"
 
           # --- default config/test.yaml (no override -- star.two_pass
           # defaults to "cohort") must plan star_align_pass1 for every
@@ -497,7 +497,7 @@ jobs:
             echo "-- got --"; cat "$T/merged_SJ.out.tab"; FAIL=1
           fi
 
-          echo "[guards] 25/43 chimera.assembly default (on) plans the full screen"
+          echo "[guards] 25/45 chimera.assembly default (on) plans the full screen"
 
           # --- chimera.assembly.enabled defaults to TRUE as of 0.10.1, and
           # config/test.yaml matches the shipped default on purpose so CI
@@ -517,7 +517,7 @@ jobs:
             done
           fi
 
-          echo "[guards] 26/43 chimera.assembly.enabled: false plans nothing"
+          echo "[guards] 26/45 chimera.assembly.enabled: false plans nothing"
 
           # --- the opt-out direction: turning the screen off must remove
           # every one of its rules from the DAG, not merely skip them.
@@ -533,7 +533,7 @@ jobs:
             tail -40 "$T/assembly_off.log"; FAIL=1
           fi
 
-          echo "[guards] 27/43 chimera.assembly works independently of chimera.junction"
+          echo "[guards] 27/45 chimera.assembly works independently of chimera.junction"
 
           # --- assembly on, junction OFF: annotation_to_bed (moved to
           # ref.smk specifically so this works) must still run, and
@@ -560,7 +560,7 @@ jobs:
             tail -40 "$T/assembly_only.log"; FAIL=1
           fi
 
-          echo "[guards] 28/43 classify_chimera_assembly.py classification logic"
+          echo "[guards] 28/45 classify_chimera_assembly.py classification logic"
 
           # --- synthetic assembly covering all 5 output classes plus a
           # negative control (TE on the last exon, no earlier gene match --
@@ -607,7 +607,7 @@ jobs:
             fi
           fi
 
-          echo "[guards] 29/43 chimera_assembly_summary_mqc.py renders in MultiQC"
+          echo "[guards] 29/45 chimera_assembly_summary_mqc.py renders in MultiQC"
 
           printf "transcript_id\tgtf_gene_id\tchrom\tstrand\tn_exons\ttranscript_start\ttranscript_end\tte_exon_start\tte_exon_end\tte_id\tte_family\tte_class\tte_overlap_exon_rank\tte_hits_all\tmatched_gene_id\tmatched_gene_strand\tgene_hits_all\tstrand_match\tchimera_type\tconfirmed_by_junction_screen\tjunction_supporting_reads\n" > "$T/ca.tsv"
           printf "T1\tMSTRG.1\tchr1\t+\t2\t500\t1200\t500\t700\tTE_A\tL1\tLINE\t1\tTE_A\tGENE1\t+\tGENE1\tyes\tte_initiated\tyes\t7\n" >> "$T/ca.tsv"
@@ -639,7 +639,7 @@ jobs:
             fi
           fi
 
-          echo "[guards] 30/43 telocal.indexer defaults to fast"
+          echo "[guards] 30/45 telocal.indexer defaults to fast"
 
           # --- default config/test.yaml (no override) must plan
           # build_telocal_index.py with --indexer fast.
@@ -650,7 +650,7 @@ jobs:
             tail -40 "$T/indexer_default.log"; FAIL=1
           fi
 
-          echo "[guards] 31/43 telocal.indexer: legacy opts into TElocal's own build()"
+          echo "[guards] 31/45 telocal.indexer: legacy opts into TElocal's own build()"
 
           sed '/^  locind: ""$/a\  indexer: legacy' config/test.yaml > "$T/indexer_legacy.yaml"
           if ! snakemake --configfile "$T/indexer_legacy.yaml" -n -p --cores 1 --until telocal_locind >"$T/indexer_legacy.log" 2>&1; then
@@ -682,7 +682,7 @@ jobs:
             fi
           fi
 
-          echo "[guards] 32/43 raw FastQC gets a canonical sample name even for oddly-named single-lane fastqs"
+          echo "[guards] 32/45 raw FastQC gets a canonical sample name even for oddly-named single-lane fastqs"
 
           # A single-lane sample's raw fastq keeps its own (possibly
           # arbitrary) basename -- merged_fastq_path() skips the merge step
@@ -708,7 +708,7 @@ jobs:
             fi
           fi
 
-          echo "[guards] 33/43 te.bed is per TE INSERTION, not per subfamily"
+          echo "[guards] 33/45 te.bed is per TE INSERTION, not per subfamily"
 
           # annotation_to_bed.py used to key TE loci by gene_id -- the
           # SUBFAMILY in the TEtranscripts GTF convention -- and take
@@ -750,7 +750,7 @@ jobs:
             fi
           fi
 
-          echo "[guards] 34/43 chimeric breakpoints resolve on BOTH strands at tolerance 0"
+          echo "[guards] 34/45 chimeric breakpoints resolve on BOTH strands at tolerance 0"
 
           # STAR's Chimeric.out.junction reports the first base of the DONOR'S
           # INTRON (col 2) and the last base of the ACCEPTOR'S INTRON (col 5)
@@ -793,7 +793,7 @@ jobs:
             fi
           fi
 
-          echo "[guards] 35/43 per-direction canonical rate reaches the report"
+          echo "[guards] 35/45 per-direction canonical rate reaches the report"
 
           # "canonical" = STAR reported any recognised splice motif. Real
           # introns are ~100% canonical, so this is the main signal-vs-
@@ -859,7 +859,7 @@ jobs:
             tail -30 "$T/canon0/render.log"; FAIL=1
           fi
 
-          echo "[guards] 36/43 unified chimera_evidence table + confidence tiers"
+          echo "[guards] 36/45 unified chimera_evidence table + confidence tiers"
 
           # --- The unified table is the one place the two screens can be
           # compared, so its tier ladder is worth pinning: depth must NOT
@@ -919,7 +919,7 @@ jobs:
             echo "ERROR: without --assembly every pair must be found_by junction"; FAIL=1
           fi
 
-          echo "[guards] 37/43 junction 'what to look at' section renders"
+          echo "[guards] 37/45 junction 'what to look at' section renders"
 
           # --- The junction screen's guided entry point.  Ranking must put a
           # canonical, low-depth event above a non-canonical, high-depth one
@@ -957,7 +957,7 @@ jobs:
             cat "$T/hl/empty.log"; FAIL=1
           fi
 
-          echo "[guards] 38/43 'Start here' evidence overview reflects what ran"
+          echo "[guards] 38/45 'Start here' evidence overview reflects what ran"
 
           # --- The report's reading guide is generated from the resolved
           # switches, so its central claim -- that the two chimera screens
@@ -999,7 +999,7 @@ jobs:
             echo "ERROR: 'Start here' section not rendered"; FAIL=1
           fi
 
-          echo "[guards] 39/43 wildcards are pinned to real sample names"
+          echo "[guards] 39/45 wildcards are pinned to real sample names"
 
           # --- Without a {sample} constraint, star_align_pass1's
           # results/star_pass1/{sample}_SJ.out.tab also matches
@@ -1021,7 +1021,7 @@ jobs:
             tail -20 "$T/wc_strict.log"; FAIL=1
           fi
 
-          echo "[guards] 40/43 strandedness check: declared vs inferred"
+          echo "[guards] 40/45 strandedness check: declared vs inferred"
 
           # --- strandedness.check_provided (default true) runs RSeQC on
           # samples that DECLARED a value too, so a sample sheet that
@@ -1117,7 +1117,7 @@ jobs:
             echo "ERROR: built-in RSeQC infer_experiment plot missing"; FAIL=1
           fi
 
-          echo "[guards] 41/43 gene_id -> gene_name lookup"
+          echo "[guards] 41/45 gene_id -> gene_name lookup"
 
           # --- Every output table is gene_id-keyed, so with an Ensembl or
           # GENCODE GTF none of them carry a readable symbol. The lookup is
@@ -1161,7 +1161,7 @@ jobs:
           sys.exit(0 if ok else 1)
           PY
 
-          echo "[guards] 42/43 TElocal chimera index places loci without coords in the key"
+          echo "[guards] 42/45 TElocal chimera index places loci without coords in the key"
 
           # --- A TElocal cntTable key is
           # transcript_id:gene_id:family_id:class_id and carries NO
@@ -1219,7 +1219,7 @@ jobs:
           sys.exit(0 if ok else 1)
           PY
 
-          echo "[guards] 43/43 index pickles are written atomically"
+          echo "[guards] 43/45 index pickles are written atomically"
 
           # --- A real run died with a bare "EOFError: Ran out of input" from
           # inside pickle.load: the chimera TElocal index on disk was 0 bytes,
@@ -1283,6 +1283,165 @@ jobs:
           check(not [f for f in os.listdir(T) if ".tmp." in f], "interrupted save left a temp file")
           sys.exit(0 if ok else 1)
           PY
+
+          echo "[guards] 44/45 evidence heatmaps show dimensions side by side"
+
+          # --- The whole point of these plots is that they expose a
+          # dimension pointing the WRONG way, which a combined score hides.
+          # Fixture bakes in the anti-correlation measured on real data (TE
+          # locus expression vs splice motif); the correlation heatmap must
+          # recover it as a clearly negative cell.
+          mkdir -p "$T/hm/qc"
+          python3 - "$T/hm" <<'PY'
+          import gzip, random, sys
+          T = sys.argv[1]; random.seed(7)
+          cols = ["gene_id","te_id","te_subfamily","te_family","te_class","found_by",
+                "confidence_tier","junction_events","junction_reads","junction_max_samples",
+                "junction_canonical","junction_chimera_types","telocal_active",
+                "assembly_transcripts","assembly_chimera_types","assembly_strand_match",
+                "assembly_transcript_ids"]
+          with gzip.open(f"{T}/ev.tsv.gz","wt") as fh:
+            fh.write("\t".join(cols)+"\n")
+            for i in range(3000):
+                canon = random.random() < 0.086
+                active = "yes" if random.random() < (0.80 if canon else 0.93) else "no"
+                fb = "both" if random.random() < 0.0042 else ("junction" if random.random() < 0.6 else "assembly")
+                asm = random.randint(1,14) if fb in ("both","assembly") else 0
+                jr = random.randint(1,40) if fb in ("both","junction") else 0
+                r = {"gene_id":f"ENSMUSG{i:011d}","te_id":f"L1x_dup{i}","te_subfamily":"L1x",
+                     "te_family":"L1","te_class":"LINE","found_by":fb,"confidence_tier":"1",
+                     "junction_events":random.randint(1,3) if jr else 0,"junction_reads":jr,
+                     "junction_max_samples":random.choice([1,1,1,1,2,3]) if jr else 0,
+                     "junction_canonical":"yes" if canon else "no",
+                     "junction_chimera_types":"te_exonized","telocal_active":active if jr else ".",
+                     "assembly_transcripts":asm,"assembly_chimera_types":"te_exonized",
+                     "assembly_strand_match":"yes" if asm and random.random()<0.7 else ".",
+                     "assembly_transcript_ids":"MSTRG.1"}
+                fh.write("\t".join(str(r[c]) for c in cols)+"\n")
+          with gzip.open(f"{T}/sym.tsv.gz","wt") as fh:
+            fh.write("gene_id\tgene_name\n")
+            for i in range(3000): fh.write(f"ENSMUSG{i:011d}\tGene{i}\n")
+          PY
+          if ! python3 workflow/scripts/chimera_evidence_heatmap.py \
+            --evidence "$T/hm/ev.tsv.gz" --gene-names "$T/hm/sym.tsv.gz" \
+            --out-correlation "$T/hm/qc/chimera_evidence_correlation_mqc.json" \
+            --out-candidates "$T/hm/qc/chimera_evidence_candidates_mqc.json" \
+            > "$T/hm/log" 2>&1; then
+          echo "ERROR: chimera_evidence_heatmap.py failed"; cat "$T/hm/log"; FAIL=1
+          else
+          python3 - "$T/hm" <<'PY' || FAIL=1
+          import json, sys
+          T = sys.argv[1]
+          ok = True
+          def check(c, m):
+              global ok
+              if not c:
+                  print("ERROR:", m); ok = False
+          d = json.load(open(f"{T}/qc/chimera_evidence_correlation_mqc.json"))
+          check(d["plot_type"] == "heatmap", "correlation must be a heatmap")
+          check("data" in d and "xcats" in d and "ycats" in d, "heatmap needs data/xcats/ycats")
+          labs = d["xcats"]
+          n = len(labs)
+          check(len(d["data"]) == n and all(len(r) == n for r in d["data"]), "matrix not square")
+          check(all(abs(d["data"][i][i] - 1.0) < 1e-6 for i in range(n)), "diagonal must be 1.0")
+          i, j = labs.index("Splice motif"), labs.index("TE locus expressed")
+          check(abs(d["data"][i][j] - d["data"][j][i]) < 1e-9, "matrix must be symmetric")
+          check(d["data"][i][j] < -0.05,
+                f"anti-correlation baked into the fixture not recovered: {d['data'][i][j]}")
+          c = json.load(open(f"{T}/qc/chimera_evidence_candidates_mqc.json"))
+          check(c["plot_type"] == "heatmap", "candidates must be a heatmap")
+          check(len(c["ycats"]) == len(c["data"]), "row labels and rows disagree")
+          check(all(len(r) == n for r in c["data"]), "candidate rows must cover every dimension")
+          check(all(0 <= v <= 100 for r in c["data"] for v in r), "cells must be percentiles")
+          check(any("/" in y for y in c["ycats"]), "rows must be labelled gene / te_id")
+          sys.exit(0 if ok else 1)
+          PY
+          fi
+          if ! multiqc --force --no-ansi -c workflow/default-config/multiqc_config.yaml \
+            -o "$T/hm/out" -n r "$T/hm/qc" > "$T/hm/render.log" 2>&1; then
+          echo "ERROR: multiqc failed on the evidence heatmaps"
+          tail -30 "$T/hm/render.log"; FAIL=1
+          elif ! grep -q "Evidence correlation" "$T/hm/out/r.html"; then
+          echo "ERROR: evidence correlation heatmap not rendered"; FAIL=1
+          elif ! grep -q "Candidates by evidence type" "$T/hm/out/r.html"; then
+          echo "ERROR: candidate heatmap not rendered"; FAIL=1
+          fi
+
+          echo "[guards] 45/45 per-sample evidence status grid flags an outlier"
+
+          # --- The cohort-level heatmaps cannot answer "is ONE sample
+          # different"; a replicate at a tenth of its peers' yield is absorbed
+          # by any summary. Fixture makes GV_WT_01 exactly that, and the grid
+          # must flag it while leaving the other three green. Thresholds are
+          # relative to the cohort median, so this also pins that absolute
+          # cut-offs are not being used.
+          mkdir -p "$T/st/qc"
+          python3 - "$T/st" <<'PY'
+          import gzip, json, sys
+          T = sys.argv[1]
+          def qc(sample, scale):
+              m = {"events_total": 118000*scale, "events_gene_te": 5300*scale,
+                   "canonical_gene_to_te": 530*scale, "canonical_te_to_gene": 220*scale,
+                   "ambiguous_direction": 400*scale,
+                   "chimera_type_te_initiated": 900*scale,
+                   "chimera_type_te_exonized": 3500*scale,
+                   "chimera_type_te_terminated": 700*scale,
+                   "strand_match_yes": 2600*scale}
+              with gzip.open(f"{T}/{sample}_junction_qc.tsv.gz", "wt") as fh:
+                  fh.write("metric\tvalue\n")
+                  fh.write(f"sample\t{sample}\n")
+                  for k, v in m.items():
+                      fh.write(f"{k}\t{int(v)}\n")
+          for s, sc in [("GV_KO_01",1.0),("GV_KO_02",1.1),("GV_WT_01",0.1),("GV_WT_02",0.95)]:
+              qc(s, sc)
+          json.dump({"data": {s: {"status": "OK"} for s in
+                              ["GV_KO_01","GV_KO_02","GV_WT_01","GV_WT_02"]}},
+                    open(f"{T}/strand.json", "w"))
+          PY
+          if ! python3 workflow/scripts/sample_evidence_status_mqc.py \
+              --qc-tables "$T/st"/GV_KO_01_junction_qc.tsv.gz \
+                          "$T/st"/GV_KO_02_junction_qc.tsv.gz \
+                          "$T/st"/GV_WT_01_junction_qc.tsv.gz \
+                          "$T/st"/GV_WT_02_junction_qc.tsv.gz \
+              --samples GV_KO_01 GV_KO_02 GV_WT_01 GV_WT_02 \
+              --strandedness "$T/st/strand.json" \
+              --out "$T/st/qc/sample_evidence_status_mqc.json" \
+              > "$T/st/log" 2>&1; then
+            echo "ERROR: sample_evidence_status_mqc.py failed"; cat "$T/st/log"; FAIL=1
+          else
+            python3 - "$T/st" <<'PY' || FAIL=1
+          import json, sys
+          d = json.load(open(f"{sys.argv[1]}/qc/sample_evidence_status_mqc.json"))
+          ok = True
+          def check(c, m):
+              global ok
+              if not c:
+                  print("ERROR:", m); ok = False
+          check(d["plot_type"] == "heatmap", "status grid must be a heatmap")
+          check(d["ycats"] == ["GV_KO_01","GV_KO_02","GV_WT_01","GV_WT_02"], "rows must be samples")
+          check("Strandedness" in d["xcats"], "strandedness column missing")
+          check(len(d["data"]) == 4 and all(len(r) == len(d["xcats"]) for r in d["data"]),
+                "grid shape does not match its labels")
+          check(all(v in (0.0, 0.5, 1.0) for r in d["data"] for v in r), "cells must be pass/warn/fail")
+          i = d["ycats"].index("GV_WT_01")
+          yield_cols = [c for c, n in enumerate(d["xcats"]) if n != "Strandedness"]
+          check(all(d["data"][i][c] == 0.0 for c in yield_cols),
+                "the 10x-low sample must fail every yield layer")
+          for good in ("GV_KO_01", "GV_KO_02", "GV_WT_02"):
+              g = d["ycats"].index(good)
+              check(all(d["data"][g][c] == 1.0 for c in yield_cols),
+                    f"{good} is within 2x of the median and must pass")
+          check("cohort median" in d["description"], "description must say the scale is relative")
+          sys.exit(0 if ok else 1)
+          PY
+          fi
+          if ! multiqc --force --no-ansi -c workflow/default-config/multiqc_config.yaml \
+              -o "$T/st/out" -n r "$T/st/qc" > "$T/st/render.log" 2>&1; then
+            echo "ERROR: multiqc failed on the status grid"
+            tail -30 "$T/st/render.log"; FAIL=1
+          elif ! grep -q "Per-sample status" "$T/st/out/r.html"; then
+            echo "ERROR: per-sample status grid not rendered"; FAIL=1
+          fi
 
           echo "[guards] done, FAIL=$FAIL"
           exit $FAIL

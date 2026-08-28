@@ -84,6 +84,9 @@ def all_chimera_outputs():
         "results/chimera_junction/qc/te_gene_chimeras_mqc.json",
         "results/chimera_junction/qc/canonical_rate_mqc.json",
         "results/chimera_junction/qc/junction_highlights_mqc.json",
+        "results/chimera_junction/qc/chimera_evidence_correlation_mqc.json",
+        "results/chimera_junction/qc/chimera_evidence_candidates_mqc.json",
+        "results/chimera_junction/qc/sample_evidence_status_mqc.json",
     ]
     if WRITE_IGV_BED:
         files += [
@@ -307,6 +310,71 @@ rule chimera_evidence:
         "python3 {SCRIPTS_DIR}/chimera_evidence.py "
         "--junction {input.junction} {params.assembly} "
         "--out {output} > {log} 2>&1"
+
+
+rule sample_evidence_status:
+    # FastQC-style status grid: samples down the side, evidence layers
+    # across the top (sample_evidence_status_mqc.py).
+    #
+    # The other two evidence heatmaps are cohort-level and cannot answer the
+    # first question after a run: is ONE of my samples different? A replicate
+    # contributing a tenth of the gene-TE junctions its peers do is absorbed
+    # by any cohort summary. Scored against the cohort median rather than
+    # absolute cut-offs, since chimeric yield varies by orders of magnitude
+    # with depth and library prep.
+    input:
+        qc_tables=lambda wc: [
+            f"results/chimera_junction/qc/{s}_junction_qc.tsv.gz" for s in SAMPLES
+        ],
+        strandedness="results/rseqc/strandedness_check_mqc.json",
+    output:
+        "results/chimera_junction/qc/sample_evidence_status_mqc.json",
+    params:
+        samples=lambda wc, input: " ".join(SAMPLES),
+    threads: get_resources("sample_evidence_status")["threads"]
+    resources:
+        mem_mb=get_resources("sample_evidence_status")["mem_mb"],
+        runtime=get_resources("sample_evidence_status")["runtime"],
+    benchmark:
+        "results/pipeline_info/benchmarks/sample_evidence_status/sample_evidence_status.txt",
+    log:
+        "results/pipeline_info/logs/chimera_junction/sample_evidence_status.log",
+    shell:
+        "python3 {SCRIPTS_DIR}/sample_evidence_status_mqc.py "
+        "--qc-tables {input.qc_tables} --samples {params.samples} "
+        "--strandedness {input.strandedness} "
+        "--out {output} > {log} 2>&1"
+
+
+rule chimera_evidence_heatmap:
+    # Two heatmaps over chimera_evidence.tsv.gz and NO score
+    # (chimera_evidence_heatmap.py): dimension x dimension correlation, and
+    # the union of the per-dimension leaders as a candidate view.
+    #
+    # Exists because collapsing these measurements into one ordinal tier hid
+    # the opposite of what was assumed, twice -- TElocal expression is
+    # anti-correlated with the splice motif, and screen agreement sits near
+    # its chance rate. Both were plain the moment the dimensions were shown
+    # against each other. Judge the evidence, then decide on a ranking.
+    input:
+        evidence="results/chimera_junction/chimera_evidence.tsv.gz",
+        gene_names="results/reference/gene_id_to_name.tsv.gz",
+    output:
+        correlation="results/chimera_junction/qc/chimera_evidence_correlation_mqc.json",
+        candidates="results/chimera_junction/qc/chimera_evidence_candidates_mqc.json",
+    threads: get_resources("chimera_evidence_heatmap")["threads"]
+    resources:
+        mem_mb=get_scaled_mem_mb("chimera_evidence_heatmap"),
+        runtime=get_resources("chimera_evidence_heatmap")["runtime"],
+    benchmark:
+        "results/pipeline_info/benchmarks/chimera_evidence_heatmap/chimera_evidence_heatmap.txt",
+    log:
+        "results/pipeline_info/logs/chimera_junction/evidence_heatmap.log",
+    shell:
+        "python3 {SCRIPTS_DIR}/chimera_evidence_heatmap.py "
+        "--evidence {input.evidence} --gene-names {input.gene_names} "
+        "--out-correlation {output.correlation} "
+        "--out-candidates {output.candidates} > {log} 2>&1"
 
 
 rule junction_highlights:
