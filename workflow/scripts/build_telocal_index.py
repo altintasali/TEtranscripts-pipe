@@ -171,8 +171,19 @@ def main():
             os.unlink(sorted_path)
 
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
-    with open(args.out, "wb") as fh:
-        pickle.dump(te_idx, fh)
+    # Atomic: write in full to a temp name, then rename. An interrupted
+    # in-place write leaves a truncated .locInd that TElocal only rejects
+    # much later, with an unpickling error that names the reader rather than
+    # the write that failed -- and rebuilding this index is not cheap.
+    tmp_out = f"{args.out}.tmp.{os.getpid()}"
+    try:
+        with open(tmp_out, "wb") as fh:
+            pickle.dump(te_idx, fh)
+        os.replace(tmp_out, args.out)
+    except BaseException:
+        if os.path.exists(tmp_out):
+            os.remove(tmp_out)
+        raise
 
     print(f"Built {args.out} with {te_idx.numInstances()} TE instances")
 

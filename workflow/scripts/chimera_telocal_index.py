@@ -21,6 +21,7 @@ inherently unique per row and kept as a plain string list.
 """
 import bisect
 import gzip
+import os
 import pickle
 import re
 from array import array as int_array
@@ -211,13 +212,43 @@ class TelocalIndex:
         return index
 
     def save(self, path):
-        with gzip.open(path, "wb") as fh:
-            pickle.dump(self, fh, protocol=pickle.HIGHEST_PROTOCOL)
+        """Write atomically: full file to a temp name, then rename.
+
+        A plain in-place write leaves a readable-but-TRUNCATED file if the
+        job dies mid-write -- scheduler kill, quota, full filesystem. gzip
+        and pickle have no length header, so nothing detects that until a
+        downstream job calls pickle.load and gets a bare
+        "EOFError: Ran out of input" from inside the stdlib, pointing at the
+        reader rather than at the write that actually failed.
+        os.replace is atomic within a filesystem, so the final path either
+        does not exist or is a complete index -- never half of one.
+        """
+        tmp = f"{path}.tmp.{os.getpid()}"
+        try:
+            with gzip.open(tmp, "wb") as fh:
+                pickle.dump(self, fh, protocol=pickle.HIGHEST_PROTOCOL)
+            os.replace(tmp, path)
+        except BaseException:
+            if os.path.exists(tmp):
+                os.remove(tmp)
+            raise
 
     @classmethod
     def load(cls, path):
-        with gzip.open(path, "rb") as fh:
-            return pickle.load(fh)
+        try:
+            with gzip.open(path, "rb") as fh:
+                return pickle.load(fh)
+        except (EOFError, pickle.UnpicklingError, gzip.BadGzipFile, OSError) as exc:
+            size = os.path.getsize(path) if os.path.exists(path) else 0
+            raise SystemExit(
+                f"error: {path} is not a readable TElocal index "
+                f"({type(exc).__name__}: {exc}); it is {size} bytes.\n"
+                "The file is corrupt or truncated -- most likely a previous "
+                "chimera_telocal_index job was killed or ran out of disk "
+                "part-way through writing it.\n"
+                "Delete it and re-run so it is rebuilt:\n"
+                f"  rm {path}"
+            ) from None
 
     def overlapping(self, chrom, start0, end0):
         """TE loci overlapping [start0, end0) on *chrom*.
