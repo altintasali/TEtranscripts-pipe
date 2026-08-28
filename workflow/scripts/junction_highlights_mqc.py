@@ -20,12 +20,19 @@ Ranking, strongest signal first:
                               ligation and PCR chimeras carry no motif, so
                               this is the single best artifact discriminator
                               in the screen.
-  2. telocal_active == yes -- the TE locus is independently expressed.
-  3. n_samples             -- reproducibility across the cohort.
-  4. gene_strand_match     -- consistent transcript connectivity.
-  5. total_reads           -- depth, deliberately last: read count alone is
+  2. n_samples             -- reproducibility across the cohort.
+  3. gene_strand_match     -- consistent transcript connectivity.
+  4. total_reads           -- depth, deliberately last: read count alone is
                               the metric most inflated by artifacts (a hot
                               PCR chimera can be the deepest event in a run).
+
+telocal_active is displayed but NOT ranked on.  It was originally the second
+key, on the assumption that an independently expressed TE locus corroborates
+the chimera.  On a real 4-sample mouse run it does the opposite: 91% of
+gene-TE junctions had an expressed locus, and the canonical rate was LOWER
+where the TE was expressed (6.7% at telocal_count > 10 vs 10.2% at <= 10,
+n = 19,503).  A highly expressed locus yields more reads and so more chances
+for template switching, so expression is context, not support.
 """
 import argparse
 import html
@@ -74,7 +81,6 @@ def main():
     def rank_key(r):
         return (
             1 if r.get("canonical") == "yes" else 0,
-            1 if (has_telocal and r.get("telocal_active") == "yes") else 0,
             _int(r.get("n_samples")),
             1 if r.get("gene_strand_match") == "yes" else 0,
             _int(r.get("total_reads")),
@@ -114,13 +120,17 @@ def main():
         trows = [f"<tr><td colspan={len(cols)}>No gene-TE junctions.</td></tr>"]
 
     pct = (100.0 * n_canonical / n_total) if n_total else 0.0
+    pct_active = (100.0 * n_active / n_total) if n_total else 0.0
     telocal_line = (
-        f"<li><strong>{n_active}</strong> involve a TE locus that TElocal also "
-        "finds expressed (<code>telocal_active: yes</code>) -- independent "
-        "evidence that the TE side is real and not just a mapping artifact.</li>"
+        f"<li><strong>{n_active}</strong> ({pct_active:.0f}%) involve a TE "
+        "locus TElocal finds expressed (<code>telocal_active</code>). Read "
+        "this as <em>context, not support</em>: on real data an expressed "
+        "locus is the common case and its junctions are <em>less</em> likely "
+        "to carry a splice motif, since more reads means more chances for "
+        "template switching. It is shown, not ranked on.</li>"
         if has_telocal else
-        "<li>TElocal is disabled, so there is no independent check that the TE "
-        "side is expressed -- enabling <code>telocal</code> adds one.</li>"
+        "<li>TElocal is disabled, so no per-locus expression context is "
+        "available for the TE side.</li>"
     )
 
     body = f"""
@@ -144,9 +154,10 @@ enrichment, and the honest comparison is <em>within a donor group</em>:
 <code>gene_to_other</code>, not against <code>other</code>. See the
 "Canonical rate by direction" plot.</li>
 {telocal_line}
-<li><strong>{n_multi}</strong> events are seen in more than one sample. A
-one-sample event with high read count is more likely a library artifact than
-a rare biological one -- prefer reproducibility over depth.</li>
+<li><strong>{n_multi}</strong> events are seen in more than one sample.
+Prefer reproducibility over depth -- though note it is weaker than a splice
+motif here, because a sequence-driven template switch recurs across
+libraries too.</li>
 <li><code>direction_ambiguous: yes</code> means the breakpoint hit a gene
 <em>and</em> a TE (common -- TEs sit inside gene bodies), so the reported
 direction was decided by branch order, not by evidence. Treat the call as
@@ -163,8 +174,8 @@ looks expressed in TEcount, this is how you find which copy.</li>
 </tbody>
 </table>
 <p style="font-size: 85%; color: #888;">Showing the top {len(top)} of
-{n_total} gene-TE junctions (ranked: splice motif first, then TE expressed,
-then replicate support, then strand match, then reads). Full table:
+{n_total} gene-TE junctions (ranked: splice motif first, then replicate
+support, then strand match, then reads). Full table:
 <code>results/chimera_junction/te-gene-chimeras.tsv.gz</code>.</p>
 """
 

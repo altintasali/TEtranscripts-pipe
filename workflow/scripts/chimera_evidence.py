@@ -19,15 +19,32 @@ te-gene-chimeras.tsv.gz / candidates.tsv.gz using the same pair.
 Confidence tiers mirror the ladder documented in the wiki's "Interpreting
 Your Results" page, and are the MAXIMUM level a pair reaches:
 
-  2  a gene-TE call exists at all (the floor for any row here)
+  1  a gene-TE call exists at all (the floor for any row here)
+  2  + seen in more than one sample
   3  + a recognised splice motif on at least one junction (canonical)
-  4  + seen in more than one sample
-  5  + TElocal independently finds that TE locus expressed
-  6  + called by BOTH screens (methods with opposite blind spots agree)
+  4  + called by BOTH screens (methods with opposite blind spots agree)
 
-Read depth is deliberately absent from the ladder: it is the metric most
-inflated by artifacts (a hot PCR chimera is often the deepest event in a
-run).  It is still reported, as a column, for ranking within a tier.
+Two things are deliberately NOT on the ladder, both because they look like
+support and are not:
+
+Read depth.  It is the metric most inflated by artifacts -- a hot PCR
+chimera is often the deepest event in a run.
+
+TElocal expression of the TE locus.  This WAS a tier, on the assumption
+that independent evidence the TE is transcribed corroborates the chimera.
+Measured on a real 4-sample mouse run it does the opposite: 91% of
+junction-side pairs had an expressed locus, so it discriminated nothing,
+and the canonical rate was LOWER where the TE was expressed (6.7% at
+telocal_count > 10 vs 10.2% at <= 10, n = 19,503 events).  That is
+mechanistically unsurprising -- a highly expressed locus yields more reads
+and so more chances for template switching -- but it means expression is
+context, not support.  telocal_count/telocal_active are still reported;
+they just no longer promote anything.
+
+Ordering note: canonical outranks reproducibility because the dominant
+artifact mode here is sequence-driven template switching, which recurs
+across libraries -- so being seen in several samples does not rule it out,
+while a splice motif does.
 """
 import argparse
 import os
@@ -142,15 +159,13 @@ def main():
             else "junction" if in_junction
             else "assembly"
         )
-        tier = 2
+        tier = 1
+        if p["junction_max_samples"] > 1:
+            tier = max(tier, 2)
         if p["junction_canonical"] == "yes":
             tier = max(tier, 3)
-        if p["junction_max_samples"] > 1:
-            tier = max(tier, 4)
-        if p["telocal_active"] == "yes":
-            tier = max(tier, 5)
         if found_by == "both":
-            tier = max(tier, 6)
+            tier = max(tier, 4)
 
         rows.append({
             "gene_id": gene, "te_id": te,
