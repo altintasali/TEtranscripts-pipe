@@ -67,6 +67,10 @@ extra_fn_clean_exts:
   - "_trimmed"
   - "_R1"
   - "_R2"
+  # samtools flagstat writes {sample}_flagstat.txt; without this MultiQC
+  # derives "{sample}_flagstat" and the mapped-read counts land in their own
+  # General Statistics row instead of the sample's.
+  - "_flagstat"
 
 # Order report sections by the analysis flow: raw QC -> trimming -> alignment
 # -> strandedness -> quantification/versions. FastQC appears twice (raw input

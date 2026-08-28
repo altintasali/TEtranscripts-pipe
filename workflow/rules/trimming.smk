@@ -38,12 +38,46 @@ def _trim_outdir(wildcards):
 
 
 _TRIM_SHELL = (
+    # TrimGalore! records the INPUT FILE NAME inside its trimming report
+    # ("Input filename: ..."), and MultiQC's cutadapt module takes the sample
+    # name from that line -- not from the report's filename. --basename fixes
+    # the trimmed fastqs and their FastQC zips but has no effect on it.
+    #
+    # A single-lane sample is handed its RAW fastq path (see
+    # merged_fastq_path), so on real data the report recorded the sequencing
+    # facility's name and MultiQC grew an extra General Statistics row per
+    # sample -- carrying only "Trimmed bases", never merging with that
+    # sample's other rows. Multi-lane samples were unaffected (their input is
+    # already {sample}_R{read}.fastq.gz), which is why the test data never
+    # showed it.
+    #
+    # So the input is symlinked to a canonical {sample}_R{n} name first and
+    # TrimGalore! is run on the symlink -- the same fix fastqc_raw uses, and
+    # for the same reason: renaming the output cannot correct a name the tool
+    # has already written inside the file. The _R1/_R2 suffix is in
+    # extra_fn_clean_exts, so MultiQC resolves it to {sample}.
     "mkdir -p {params.outdir} && "
+    "stage={params.outdir}/.stage_{wildcards.sample} && "
+    "rm -rf \"$stage\" && mkdir -p \"$stage\" && "
+    "trap 'rm -rf \"$stage\"' EXIT && "
+    # Positional parameters rather than a string accumulator: TrimGalore!
+    # aborts on a filename list with leading whitespace, which is exactly what
+    # "$acc $next" produces on the first iteration.
+    "set --; i=1; "
+    "for f in {params.reads}; do "
+    # keep the original compression: a .gz symlinked as plain (or vice
+    # versa) makes TrimGalore! misread the stream.
+    "  case \"$f\" in *.gz) ext=.fastq.gz;; *) ext=.fastq;; esac; "
+    "  ln -s \"$(cd \"$(dirname \"$f\")\" && pwd)/$(basename \"$f\")\" "
+    "    \"$stage/{wildcards.sample}_R${{i}}$ext\"; "
+    "  set -- \"$@\" \"$stage/{wildcards.sample}_R${{i}}$ext\"; "
+    "  i=$((i+1)); "
+    "done && "
     "trim_galore {params.paired} --gzip --cores {threads} "
     "{params.nextseq} {params.extra} "
     "--fastqc_args '-t {threads}' "
     "--basename {wildcards.sample} --output_dir {params.outdir} "
-    "{params.reads} "
+    "\"$@\" "
     "> {log} 2>&1 && "
     "python3 workflow/scripts/check_nonempty_fastq.py "
     "{params.outdir}/{wildcards.sample}_val_1.fq.gz "
