@@ -1,7 +1,21 @@
 # =============================================================================
 # Custom MultiQC configuration, passed to every multiqc run via `-c`.
 #
-# The key setting is extra_fn_clean_exts: TrimGalore! names its trimmed/fastqc
+# The key setting is # Software Versions comes from ONE source: the curated
+# results/versions/rnaseq_mqc_versions.yml that software_versions.smk writes
+# from the pinned versions in versions.yaml. MultiQC otherwise also
+# auto-detects versions from module output and groups them BY MODULE, which
+# duplicated FastQC into three rows -- "FastQC (raw input)" and "FastQC
+# (trimmed)" from the two renamed fastqc instances in module_order below,
+# plus the real curated entry under "Trimming & QC".
+#
+# Note this also drops the auto-detected Cutadapt row. Cutadapt is not pinned
+# by this pipeline (it arrives as a TrimGalore! dependency), so its version
+# was only ever knowable by detection; pin it in versions.yaml +
+# environment.yaml if you want it back in the table.
+disable_version_detection: true
+
+extra_fn_clean_exts: TrimGalore! names its trimmed/fastqc
 # files {sample}_val_{1,2}_... / {sample}_trimmed_... (see trimming.smk), and
 # raw FastQC zips carry the read suffix {sample}_R{read}_fastqc.zip.  Without
 # cleaning those suffixes MultiQC would derive FastQC sample names like
