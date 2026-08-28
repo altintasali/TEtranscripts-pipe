@@ -15,6 +15,37 @@
 # environment.yaml if you want it back in the table.
 disable_version_detection: true
 
+# Files MultiQC must not open.
+# ----------------------------
+# The search directories are results/* subtrees that also hold the pipeline's
+# actual data: trimmed FASTQs, BAMs, gzipped counts matrices, and every
+# per-rule log. MultiQC cannot parse any of those, but it still walks into
+# them, and on a real run the search phase stalled long enough to look like a
+# hang (the log lists the search paths and then sits there before any module
+# reports). Excluding them can only lose things MultiQC was never going to
+# read.
+#
+# Deliberately NOT excluded: results/pipeline_info itself, which holds the
+# *_mqc.json custom content (benchmark_summary, config_used,
+# evidence_overview); only its logs/ and benchmarks/ subtrees are skipped.
+# The benchmark files are already aggregated into benchmark_summary_mqc.json
+# by the benchmark_summary rule, so nothing is lost by not re-walking them.
+# Note the missing trailing "/*": MultiQC matches fn_ignore_paths against the
+# DIRECTORY path, so "*/pipeline_info/logs/*" silently never fires while
+# "*/pipeline_info/logs" does. Verified both ways -- see the guard.
+fn_ignore_paths:
+  - "*/pipeline_info/logs"
+  - "*/pipeline_info/benchmarks"
+fn_ignore_files:
+  - "*.bam"
+  - "*.bai"
+  - "*.fq.gz"
+  - "*.fastq.gz"
+  - "*_counts.tsv"
+  - "*_counts.tsv.gz"
+  - "*.cntTable"
+  - "*.cntTable.gz"
+
 extra_fn_clean_exts: TrimGalore! names its trimmed/fastqc
 # files {sample}_val_{1,2}_... / {sample}_trimmed_... (see trimming.smk), and
 # raw FastQC zips carry the read suffix {sample}_R{read}_fastqc.zip.  Without
