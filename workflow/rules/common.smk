@@ -1167,6 +1167,13 @@ MULTIQC_ENV = _write_env("multiqc", [f"multiqc={V['multiqc']}", "python>=3.9"])
 # directory (the repo root) as the included rules file is parsed from.
 SCRIPTS_DIR = os.path.abspath("workflow/scripts")
 
+# The MultiQC custom config, resolved the same way. Declared as a rule INPUT
+# (not just interpolated into the shell command) so editing it re-runs the
+# report: it controls section order, module naming and version detection, so
+# a change to it changes the output, and an untracked change silently did
+# not. Excluded from the rule's search directories -- see the multiqc rule.
+MULTIQC_CONFIG = os.path.abspath("workflow/default-config/multiqc_config.yaml")
+
 # Chimera sample-QC (PCA / sample clustering) runs in R with DESeq2
 # (nf-core/rnaseq style); deseq2 + r-base come from conda. A python>=3.9
 # floor guards the solver against ancient, mutually-incompatible builds.

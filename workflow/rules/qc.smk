@@ -277,12 +277,19 @@ rule multiqc:
         tecount_summary=_tecount_summary_mqc_inputs(),
         telocal=_telocal_qc_mqc_inputs(),
         chimera_assembly=_chimera_assembly_mqc_inputs(),
+        # Tracked so that editing it rebuilds the report (see common.smk).
+        multiqc_config=MULTIQC_CONFIG,
     output:
         html="results/qc/multiqc_report.html",
         data=directory("results/qc/multiqc_report_data"),
     params:
         extra="",
-        indirs=lambda wc, input: sorted({os.path.dirname(f) for f in input}),
+        # Search directories come from the data inputs only. The config is an
+        # input so its edits are tracked, but its directory holds the
+        # workflow's own default-config YAMLs and must never be scanned.
+        indirs=lambda wc, input: sorted(
+            {os.path.dirname(f) for f in input if f != MULTIQC_CONFIG}
+        ),
     threads: get_resources("multiqc")["threads"]
     resources:
         mem_mb=get_resources("multiqc")["mem_mb"],
@@ -300,7 +307,7 @@ rule multiqc:
         # with the workspace, which made several real failures undiagnosable
         # from the run output alone.
         "( multiqc {params.extra} --force "
-        "-c workflow/default-config/multiqc_config.yaml "
+        "-c {input.multiqc_config} "
         "-o results/qc -n multiqc_report "
         "{params.indirs} "
         "> {log} 2>&1 ) || "
