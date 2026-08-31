@@ -65,6 +65,11 @@ rule star_merge_junctions:
     # sample, but recurrently so across many samples, survives here even
     # though no single sample's pass-1 alone would have kept it.
     input:
+        # Declared so that EDITING the script re-runs the rule.
+        # Snakemake's code trigger hashes the shell command STRING,
+        # not the file it names, so without this an edit to the
+        # script leaves stale outputs in place silently.
+        script=f"{SCRIPTS_DIR}/merge_splice_junctions.py",
         sj=expand("results/star_pass1/{sample}_SJ.out.tab", sample=SAMPLES),
     output:
         merged="results/star_pass1/merged_SJ.out.tab",
@@ -79,7 +84,7 @@ rule star_merge_junctions:
     log:
         "results/pipeline_info/logs/star/merge_junctions.log",
     shell:
-        "python3 {SCRIPTS_DIR}/merge_splice_junctions.py "
+        "python3 {input.script} "
         "--sj-tables {input.sj} "
         "--min-unique-reads {params.min_reads} "
         "--out {output.merged} > {log} 2>&1"

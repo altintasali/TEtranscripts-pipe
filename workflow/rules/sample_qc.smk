@@ -16,6 +16,11 @@
 # -----------------------------------------------------------------------------
 rule sample_qc_transform:
     input:
+        # Declared so that EDITING the script re-runs the rule.
+        # Snakemake's code trigger hashes the shell command STRING,
+        # not the file it names, so without this an edit to the
+        # script leaves stale outputs in place silently.
+        script=f"{SCRIPTS_DIR}/sample_qc.R",
         counts="results/chimera/counts_matrix.tsv.gz",
     output:
         "results/chimera/qc/{transform}_counts.tsv.gz",
@@ -34,7 +39,7 @@ rule sample_qc_transform:
     conda:
         CHIMERA_QC_ENV
     shell:
-        "Rscript {SCRIPTS_DIR}/sample_qc.R "
+        "Rscript {input.script} "
         "--transform chimera {input.counts} {params.samples} {wildcards.transform} "
         "{params.min_samples_present} {params.min_total_counts} "
         "{output} > {log} 2>&1"
@@ -45,6 +50,11 @@ rule sample_qc:
     # counts, colored by condition (sample sheet's "condition" column; absent
     # -> one "all" group), emitted as MultiQC custom-content JSON.
     input:
+        # Declared so that EDITING the script re-runs the rule.
+        # Snakemake's code trigger hashes the shell command STRING,
+        # not the file it names, so without this an edit to the
+        # script leaves stale outputs in place silently.
+        script=f"{SCRIPTS_DIR}/sample_qc.R",
         transformed="results/chimera/qc/{transform}_counts.tsv.gz",
     output:
         pca="results/chimera/qc/pca_{transform}_mqc.json",
@@ -63,6 +73,6 @@ rule sample_qc:
     conda:
         CHIMERA_QC_ENV
     shell:
-        "Rscript {SCRIPTS_DIR}/sample_qc.R "
+        "Rscript {input.script} "
         "--plots chimera {input.transformed} {params.samples} {params.min_events} "
         "{wildcards.transform} {output.pca} {output.heatmap} > {log} 2>&1"

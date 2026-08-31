@@ -227,6 +227,11 @@ rule chimera_assembly_classify:
     # the junction screen uses (ref.smk's annotation_to_bed) -- no separate
     # reference-track build needed.
     input:
+        # Declared so that EDITING the script re-runs the rule.
+        # Snakemake's code trigger hashes the shell command STRING,
+        # not the file it names, so without this an edit to the
+        # script leaves stale outputs in place silently.
+        script=f"{SCRIPTS_DIR}/classify_chimera_assembly.py",
         gtf="results/chimera/transcript_evidence/stringtie_merge.gtf",
         genes="results/reference/genes.bed",
         exons="results/reference/exons.bed",
@@ -244,7 +249,7 @@ rule chimera_assembly_classify:
     log:
         "results/pipeline_info/logs/chimera_assembly/classify.log",
     shell:
-        "python3 {SCRIPTS_DIR}/classify_chimera_assembly.py "
+        "python3 {input.script} "
         "--gtf {input.gtf} --genes {input.genes} --exons {input.exons} --te {input.te} "
         "--breakpoint-tolerance {params.tolerance} "
         "--out {output.candidates} > {log} 2>&1"
@@ -256,6 +261,11 @@ rule chimera_assembly_quantify:
     # downstream (min TPM, min replicates), same "annotate-only, filter
     # later" philosophy as the junction screen.
     input:
+        # Declared so that EDITING the script re-runs the rule.
+        # Snakemake's code trigger hashes the shell command STRING,
+        # not the file it names, so without this an edit to the
+        # script leaves stale outputs in place silently.
+        script=f"{SCRIPTS_DIR}/quantify_chimera_assembly.py",
         candidates="results/chimera/transcript_evidence/transcripts.tsv.gz",
         quant=expand("results/chimera/transcript_evidence/per_sample/quant/{sample}.transcripts.gtf", sample=SAMPLES),
     output:
@@ -271,7 +281,7 @@ rule chimera_assembly_quantify:
     log:
         "results/pipeline_info/logs/chimera_assembly/quantify.log",
     shell:
-        "python3 {SCRIPTS_DIR}/quantify_chimera_assembly.py "
+        "python3 {input.script} "
         "--candidates {input.candidates} --quant {input.quant} "
         "--sample-names {params.sample_names} --out {output.matrix} > {log} 2>&1"
 
@@ -285,6 +295,11 @@ if CHIMERA_JUNCTION_ENABLED:
         # structure is much higher confidence than either alone. Only
         # meaningful (and only included) when the junction screen also runs.
         input:
+            # Declared so that EDITING the script re-runs the rule.
+            # Snakemake's code trigger hashes the shell command STRING,
+            # not the file it names, so without this an edit to the
+            # script leaves stale outputs in place silently.
+            script=f"{SCRIPTS_DIR}/cross_evidence_chimera_assembly.py",
             candidates="results/chimera/transcript_evidence/transcripts.tsv.gz",
             te_gene_chimeras="results/chimera/read_evidence/te-gene-chimeras.tsv.gz",
         output:
@@ -296,7 +311,7 @@ if CHIMERA_JUNCTION_ENABLED:
         log:
             "results/pipeline_info/logs/chimera_assembly/cross_evidence.log",
         shell:
-            "python3 {SCRIPTS_DIR}/cross_evidence_chimera_assembly.py "
+            "python3 {input.script} "
             "--candidates {input.candidates} --junction {input.te_gene_chimeras} "
             "--out {output} > {log} 2>&1"
 
@@ -312,6 +327,11 @@ rule chimera_assembly_summary_mqc:
     # a ranked top-N table here, and the pipeline no longer ranks candidates
     # anywhere (see chimera_evidence_guide_mqc.py).
     input:
+        # Declared so that EDITING the script re-runs the rule.
+        # Snakemake's code trigger hashes the shell command STRING,
+        # not the file it names, so without this an edit to the
+        # script leaves stale outputs in place silently.
+        script=f"{SCRIPTS_DIR}/chimera_assembly_summary_mqc.py",
         candidates=_chimera_assembly_summary_input(),
     output:
         classes="results/chimera/qc/chimera_assembly_classes_mqc.json",
@@ -324,7 +344,7 @@ rule chimera_assembly_summary_mqc:
     log:
         "results/pipeline_info/logs/chimera_assembly/summary_mqc.log",
     shell:
-        "python3 {SCRIPTS_DIR}/chimera_assembly_summary_mqc.py "
+        "python3 {input.script} "
         "--candidates {input.candidates} "
         "--out-classes {output.classes} --out-highlights {output.highlights} "
         "--out-strand-rate {output.strand_rate} "
@@ -340,6 +360,11 @@ if WRITE_IGV_BED_ASSEMBLY:
         # cross-referenced table when available so junction-confirmed
         # candidates get a higher score (easy to filter/sort on in IGV).
         input:
+            # Declared so that EDITING the script re-runs the rule.
+            # Snakemake's code trigger hashes the shell command STRING,
+            # not the file it names, so without this an edit to the
+            # script leaves stale outputs in place silently.
+            script=f"{SCRIPTS_DIR}/chimera_assembly_to_igv_bed.py",
             candidates=_chimera_assembly_summary_input(),
         output:
             "results/chimera/transcript_evidence/igv/transcripts.bed",
@@ -350,7 +375,7 @@ if WRITE_IGV_BED_ASSEMBLY:
         log:
             "results/pipeline_info/logs/chimera_assembly/igv_bed.log",
         shell:
-            "python3 {SCRIPTS_DIR}/chimera_assembly_to_igv_bed.py "
+            "python3 {input.script} "
             "--candidates {input.candidates} --out {output} > {log} 2>&1"
 
 
@@ -371,6 +396,11 @@ if WRITE_IGV_BED_ASSEMBLY:
 # -----------------------------------------------------------------------------
 rule chimera_assembly_qc_transform:
     input:
+        # Declared so that EDITING the script re-runs the rule.
+        # Snakemake's code trigger hashes the shell command STRING,
+        # not the file it names, so without this an edit to the
+        # script leaves stale outputs in place silently.
+        script=f"{SCRIPTS_DIR}/sample_qc.R",
         tpm="results/chimera/transcript_evidence/tpm_matrix.tsv.gz",
     output:
         "results/chimera/qc/assembly_log2_counts.tsv.gz",
@@ -387,7 +417,7 @@ rule chimera_assembly_qc_transform:
     conda:
         CHIMERA_QC_ENV
     shell:
-        "Rscript {SCRIPTS_DIR}/sample_qc.R "
+        "Rscript {input.script} "
         "--transform assembly {input.tpm} {params.samples} log2 "
         "{params.min_samples_present} {params.min_total_counts} "
         "{output} > {log} 2>&1"
@@ -395,6 +425,11 @@ rule chimera_assembly_qc_transform:
 
 rule chimera_assembly_qc:
     input:
+        # Declared so that EDITING the script re-runs the rule.
+        # Snakemake's code trigger hashes the shell command STRING,
+        # not the file it names, so without this an edit to the
+        # script leaves stale outputs in place silently.
+        script=f"{SCRIPTS_DIR}/sample_qc.R",
         transformed="results/chimera/qc/assembly_log2_counts.tsv.gz",
     output:
         pca="results/chimera/qc/assembly_pca_log2_mqc.json",
@@ -411,6 +446,6 @@ rule chimera_assembly_qc:
     conda:
         CHIMERA_QC_ENV
     shell:
-        "Rscript {SCRIPTS_DIR}/sample_qc.R "
+        "Rscript {input.script} "
         "--plots assembly {input.transformed} {params.samples} "
         "{params.min_events} log2 {output.pca} {output.heatmap} > {log} 2>&1"

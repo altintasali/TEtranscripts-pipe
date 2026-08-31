@@ -196,6 +196,11 @@ if CHIMERA_JUNCTION_ENABLED or CHIMERA_ASSEMBLY_ENABLED:
         # Pure-python (annotation_to_bed.py), so it runs in the base
         # environment.
         input:
+            # Declared so that EDITING the script re-runs the rule.
+            # Snakemake's code trigger hashes the shell command STRING,
+            # not the file it names, so without this an edit to the
+            # script leaves stale outputs in place silently.
+            script=f"{SCRIPTS_DIR}/annotation_to_bed.py",
             gtf=GTF,
             te_gtf=TE_GTF,
         output:
@@ -213,6 +218,6 @@ if CHIMERA_JUNCTION_ENABLED or CHIMERA_ASSEMBLY_ENABLED:
         log:
             "results/pipeline_info/logs/reference/annotation_to_bed.log",
         shell:
-            "python3 {SCRIPTS_DIR}/annotation_to_bed.py "
+            "python3 {input.script} "
             "--gtf {input.gtf} --te-gtf {input.te_gtf} "
             "--outdir {params.outdir} > {log} 2>&1"

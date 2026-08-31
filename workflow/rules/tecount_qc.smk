@@ -61,6 +61,11 @@ rule tecount_counts:
     # or all features; only this QC-view matrix is filtered, never the
     # per-sample cntTables.
     input:
+        # Declared so that EDITING the script re-runs the rule.
+        # Snakemake's code trigger hashes the shell command STRING,
+        # not the file it names, so without this an edit to the
+        # script leaves stale outputs in place silently.
+        script=f"{SCRIPTS_DIR}/tecount_counts.py",
         tables=tecount_counts_input(),
         gtf=GTF,
         te_gtf=TE_GTF,
@@ -78,7 +83,7 @@ rule tecount_counts:
     log:
         "results/pipeline_info/logs/tecount/counts.log",
     shell:
-        "python3 {SCRIPTS_DIR}/tecount_counts.py "
+        "python3 {input.script} "
         "--tables {input.tables} "
         "--sample-names {params.sample_names} "
         "--gtf {input.gtf} --te-gtf {input.te_gtf} "
@@ -92,6 +97,11 @@ rule tecount_qc_transform:
     # log2(x + 1) without DESeq2. Filters in tetranscripts.qc apply only to
     # this view.
     input:
+        # Declared so that EDITING the script re-runs the rule.
+        # Snakemake's code trigger hashes the shell command STRING,
+        # not the file it names, so without this an edit to the
+        # script leaves stale outputs in place silently.
+        script=f"{SCRIPTS_DIR}/sample_qc.R",
         counts="results/tecount/counts_matrix.tsv.gz",
     output:
         "results/tecount/qc/{transform}_counts.tsv.gz",
@@ -110,7 +120,7 @@ rule tecount_qc_transform:
     conda:
         TETRANSCRIPTS_ENV
     shell:
-        "Rscript {SCRIPTS_DIR}/sample_qc.R "
+        "Rscript {input.script} "
         "--transform tecount {input.counts} {params.samples} {wildcards.transform} "
         "{params.min_samples_present} {params.min_total_counts} "
         "{output} > {log} 2>&1"
@@ -123,6 +133,11 @@ rule tecount_qc:
     # JSON (ids tecount_sample_qc_pca / tecount_sample_qc_heatmap, ordered
     # inside the custom_content module by multiqc_config.yaml).
     input:
+        # Declared so that EDITING the script re-runs the rule.
+        # Snakemake's code trigger hashes the shell command STRING,
+        # not the file it names, so without this an edit to the
+        # script leaves stale outputs in place silently.
+        script=f"{SCRIPTS_DIR}/sample_qc.R",
         transformed="results/tecount/qc/{transform}_counts.tsv.gz",
     output:
         pca="results/tecount/qc/pca_{transform}_mqc.json",
@@ -141,7 +156,7 @@ rule tecount_qc:
     conda:
         TETRANSCRIPTS_ENV
     shell:
-        "Rscript {SCRIPTS_DIR}/sample_qc.R "
+        "Rscript {input.script} "
         "--plots tecount {input.transformed} {params.samples} {params.min_events} "
         "{wildcards.transform} {output.pca} {output.heatmap} > {log} 2>&1"
 
@@ -154,6 +169,11 @@ rule tecount_summary:
     # tetranscripts.qc.enabled and .feature_class, and needs no R env --
     # always produced.
     input:
+        # Declared so that EDITING the script re-runs the rule.
+        # Snakemake's code trigger hashes the shell command STRING,
+        # not the file it names, so without this an edit to the
+        # script leaves stale outputs in place silently.
+        script=f"{SCRIPTS_DIR}/tecount_summary_mqc.py",
         tables=tecount_counts_input(),
     output:
         assignment="results/tecount/qc/tecount_assignment_mqc.json",
@@ -169,7 +189,7 @@ rule tecount_summary:
     log:
         "results/pipeline_info/logs/tecount/qc/summary.log",
     shell:
-        "python3 {SCRIPTS_DIR}/tecount_summary_mqc.py "
+        "python3 {input.script} "
         "--tables {input.tables} "
         "--samples {params.samples} "
         "--out-assignment {output.assignment} "

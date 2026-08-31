@@ -6,6 +6,11 @@ rule telocal_locind:
     # tables it feeds; deleted after the last TElocal run when the user sets
     # outputs.keep_telocal_index: false (cleanup_telocal_index below).
     input:
+        # Declared so that EDITING the script re-runs the rule.
+        # Snakemake's code trigger hashes the shell command STRING,
+        # not the file it names, so without this an edit to the
+        # script leaves stale outputs in place silently.
+        script=f"{SCRIPTS_DIR}/build_telocal_index.py",
         te_gtf=TE_GTF,
     output:
         # Must end in .locInd -- TElocal rejects any --TE file whose path
@@ -28,7 +33,7 @@ rule telocal_locind:
     conda:
         TETRANSCRIPTS_ENV
     shell:
-        "python3 {SCRIPTS_DIR}/build_telocal_index.py "
+        "python3 {input.script} "
         "--gtf {input.te_gtf} "
         "--indexer {params.indexer} "
         "--out {output} > {log} 2>&1"
@@ -79,6 +84,11 @@ rule telocal_locations:
     # independent of telocal_locind and safe to build even when a pre-built
     # --TE index is supplied via config telocal.locind.
     input:
+        # Declared so that EDITING the script re-runs the rule.
+        # Snakemake's code trigger hashes the shell command STRING,
+        # not the file it names, so without this an edit to the
+        # script leaves stale outputs in place silently.
+        script=f"{SCRIPTS_DIR}/telocal_locations.py",
         te_gtf=TE_GTF,
     output:
         "results/telocal/telocal_locations.bed",
@@ -91,7 +101,7 @@ rule telocal_locations:
     log:
         "results/pipeline_info/logs/telocal/locations.log",
     shell:
-        "python3 {SCRIPTS_DIR}/telocal_locations.py "
+        "python3 {input.script} "
         "--gtf {input.te_gtf} "
         "--out {output} > {log} 2>&1"
 
@@ -108,6 +118,11 @@ rule telocal_summary:
     # content): gene-vs-TE assignment and TE class composition as counts and
     # percentages (telocal_summary_mqc.py). Uses the RAW cntTables.
     input:
+        # Declared so that EDITING the script re-runs the rule.
+        # Snakemake's code trigger hashes the shell command STRING,
+        # not the file it names, so without this an edit to the
+        # script leaves stale outputs in place silently.
+        script=f"{SCRIPTS_DIR}/telocal_summary_mqc.py",
         tables=telocal_counts_input(),
     output:
         assignment="results/telocal/qc/telocal_assignment_mqc.json",
@@ -123,7 +138,7 @@ rule telocal_summary:
     log:
         "results/pipeline_info/logs/telocal/summary.log",
     shell:
-        "python3 {SCRIPTS_DIR}/telocal_summary_mqc.py "
+        "python3 {input.script} "
         "--tables {input.tables} "
         "--samples {params.samples} "
         "--out-assignment {output.assignment} "
@@ -160,6 +175,11 @@ rule telocal_counts:
     # (default), genes, or all features; only this QC-view matrix is
     # filtered, never the per-sample cntTables.
     input:
+        # Declared so that EDITING the script re-runs the rule.
+        # Snakemake's code trigger hashes the shell command STRING,
+        # not the file it names, so without this an edit to the
+        # script leaves stale outputs in place silently.
+        script=f"{SCRIPTS_DIR}/tecount_counts.py",
         tables=telocal_counts_input(),
     output:
         counts="results/telocal/counts_matrix.tsv.gz",
@@ -175,7 +195,7 @@ rule telocal_counts:
     log:
         "results/pipeline_info/logs/telocal/counts.log",
     shell:
-        "python3 {SCRIPTS_DIR}/tecount_counts.py "
+        "python3 {input.script} "
         "--tables {input.tables} "
         "--sample-names {params.sample_names} "
         "--key-style telocal "
@@ -189,6 +209,11 @@ rule telocal_qc_transform:
     # too large for vst/rlog); vst/rlog remain selectable.  Filters in
     # telocal.qc apply only to this view.
     input:
+        # Declared so that EDITING the script re-runs the rule.
+        # Snakemake's code trigger hashes the shell command STRING,
+        # not the file it names, so without this an edit to the
+        # script leaves stale outputs in place silently.
+        script=f"{SCRIPTS_DIR}/sample_qc.R",
         counts="results/telocal/counts_matrix.tsv.gz",
     output:
         "results/telocal/qc/{transform}_counts.tsv.gz",
@@ -207,7 +232,7 @@ rule telocal_qc_transform:
     conda:
         TETRANSCRIPTS_ENV
     shell:
-        "Rscript {SCRIPTS_DIR}/sample_qc.R "
+        "Rscript {input.script} "
         "--transform telocal {input.counts} {params.samples} {wildcards.transform} "
         "{params.min_samples_present} {params.min_total_counts} "
         "{output} > {log} 2>&1"
@@ -220,6 +245,11 @@ rule telocal_qc:
     # JSON (ids telocal_sample_qc_pca / telocal_sample_qc_heatmap, ordered
     # inside the custom_content module by multiqc_config.yaml).
     input:
+        # Declared so that EDITING the script re-runs the rule.
+        # Snakemake's code trigger hashes the shell command STRING,
+        # not the file it names, so without this an edit to the
+        # script leaves stale outputs in place silently.
+        script=f"{SCRIPTS_DIR}/sample_qc.R",
         transformed="results/telocal/qc/{transform}_counts.tsv.gz",
     output:
         pca="results/telocal/qc/pca_{transform}_mqc.json",
@@ -238,6 +268,6 @@ rule telocal_qc:
     conda:
         TETRANSCRIPTS_ENV
     shell:
-        "Rscript {SCRIPTS_DIR}/sample_qc.R "
+        "Rscript {input.script} "
         "--plots telocal {input.transformed} {params.samples} {params.min_events} "
         "{wildcards.transform} {output.pca} {output.heatmap} > {log} 2>&1"

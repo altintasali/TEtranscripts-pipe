@@ -117,6 +117,11 @@ rule chimera_junction_classify:
     # tracks. See classify_chimera_junctions.py for the full column spec.
     # Pure-python, so it runs in the base environment.
     input:
+        # Declared so that EDITING the script re-runs the rule.
+        # Snakemake's code trigger hashes the shell command STRING,
+        # not the file it names, so without this an edit to the
+        # script leaves stale outputs in place silently.
+        script=f"{SCRIPTS_DIR}/classify_chimera_junctions.py",
         junctions="results/star/{sample}_Chimeric.out.junction",
         genes="results/reference/genes.bed",
         exons="results/reference/exons.bed",
@@ -142,7 +147,7 @@ rule chimera_junction_classify:
     log:
         "results/pipeline_info/logs/chimera_junction/classify/{sample}.log",
     shell:
-        "python3 {SCRIPTS_DIR}/classify_chimera_junctions.py "
+        "python3 {input.script} "
         "--junctions {input.junctions} "
         "--genes {input.genes} --exons {input.exons} --te {input.te} "
         "--sample {wildcards.sample} "
@@ -167,6 +172,11 @@ rule chimera_telocal_index:
     # build-once-reuse-everywhere shape.  See chimera_telocal_index.py /
     # build_chimera_telocal_index.py for the compact columnar representation.
     input:
+        # Declared so that EDITING the script re-runs the rule.
+        # Snakemake's code trigger hashes the shell command STRING,
+        # not the file it names, so without this an edit to the
+        # script leaves stale outputs in place silently.
+        script=f"{SCRIPTS_DIR}/build_chimera_telocal_index.py",
         telocal_tables=_telocal_counts_for_chimera,
         # The coordinate source. A TElocal cntTable key carries coordinates
         # only when the TE GTF's transcript_id happens to be a coordinate
@@ -183,7 +193,7 @@ rule chimera_telocal_index:
     log:
         "results/pipeline_info/logs/chimera_junction/telocal_index.log",
     shell:
-        "python3 {SCRIPTS_DIR}/build_chimera_telocal_index.py "
+        "python3 {input.script} "
         "--telocal-tables {input.telocal_tables} "
         "--locations {input.locations} "
         "--out {output} > {log} 2>&1"
@@ -198,6 +208,11 @@ rule chimera_telocal_annotate:
     # same fixed index regardless of cohort size), unlike the old
     # per-sample-rebuild version.
     input:
+        # Declared so that EDITING the script re-runs the rule.
+        # Snakemake's code trigger hashes the shell command STRING,
+        # not the file it names, so without this an edit to the
+        # script leaves stale outputs in place silently.
+        script=f"{SCRIPTS_DIR}/chimera_telocal_annotate.py",
         junctions="results/chimera/read_evidence/per_sample/{sample}_junctions.tsv.gz",
         telocal_index="results/chimera/read_evidence/telocal_index.pkl.gz",
     output:
@@ -217,7 +232,7 @@ rule chimera_telocal_annotate:
     log:
         "results/pipeline_info/logs/chimera_junction/telocal_annotate/{sample}.log",
     shell:
-        "python3 {SCRIPTS_DIR}/chimera_telocal_annotate.py "
+        "python3 {input.script} "
         "--junctions {input.junctions} "
         "--telocal-index {input.telocal_index} "
         "--sample-name {params.sample_name} "
@@ -231,6 +246,11 @@ rule chimera_counts:
     # the event x sample counts matrix (chimera_counts.py). The counts matrix
     # feeds the sample-QC PCA/clustering stage.
     input:
+        # Declared so that EDITING the script re-runs the rule.
+        # Snakemake's code trigger hashes the shell command STRING,
+        # not the file it names, so without this an edit to the
+        # script leaves stale outputs in place silently.
+        script=f"{SCRIPTS_DIR}/chimera_counts.py",
         tables=chimera_counts_input(),
     output:
         events="results/chimera/read_evidence/all_events.tsv.gz",
@@ -247,7 +267,7 @@ rule chimera_counts:
     log:
         "results/pipeline_info/logs/chimera_junction/counts.log",
     shell:
-        "python3 {SCRIPTS_DIR}/chimera_counts.py "
+        "python3 {input.script} "
         "--tables {input.tables} "
         "--sample-names {params.sample_names} "
         "--out-events {output.events} "
@@ -259,7 +279,12 @@ rule junction_qc:
     # Per-sample junction QC summary (junction_qc.py) for the MultiQC custom
     # content table.
     input:
-        "results/chimera/read_evidence/per_sample/{sample}_junctions.tsv.gz",
+        # Declared so that EDITING the script re-runs the rule.
+        # Snakemake's code trigger hashes the shell command STRING,
+        # not the file it names, so without this an edit to the
+        # script leaves stale outputs in place silently.
+        script=f"{SCRIPTS_DIR}/junction_qc.py",
+        table="results/chimera/read_evidence/per_sample/{sample}_junctions.tsv.gz",
     output:
         "results/chimera/read_evidence/per_sample/{sample}_junction_qc.tsv.gz",
     params:
@@ -273,8 +298,8 @@ rule junction_qc:
     log:
         "results/pipeline_info/logs/chimera_junction/junction_qc/{sample}.log",
     shell:
-        "python3 {SCRIPTS_DIR}/junction_qc.py "
-        "--table {input} --sample {params.sample} --out {output} > {log} 2>&1"
+        "python3 {input.script} "
+        "--table {input.table} --sample {params.sample} --out {output} > {log} 2>&1"
 
 
 rule chimera_evidence:
@@ -292,6 +317,11 @@ rule chimera_evidence:
     # candidates.tsv.gz is therefore an OPTIONAL input, and the table simply
     # reports found_by: junction for everything when it is absent.
     input:
+        # Declared so that EDITING the script re-runs the rule.
+        # Snakemake's code trigger hashes the shell command STRING,
+        # not the file it names, so without this an edit to the
+        # script leaves stale outputs in place silently.
+        script=f"{SCRIPTS_DIR}/chimera_evidence.py",
         junction="results/chimera/read_evidence/te-gene-chimeras.tsv.gz",
         **({"assembly": "results/chimera/transcript_evidence/transcripts.tsv.gz"}
            if CHIMERA_ASSEMBLY_ENABLED else {}),
@@ -311,7 +341,7 @@ rule chimera_evidence:
     log:
         "results/pipeline_info/logs/chimera_junction/chimera_evidence.log",
     shell:
-        "python3 {SCRIPTS_DIR}/chimera_evidence.py "
+        "python3 {input.script} "
         "--junction {input.junction} {params.assembly} "
         "--out {output} > {log} 2>&1"
 
@@ -324,6 +354,11 @@ rule chimera_te_type:
     # structure there -- and one shared plot invites reading agreement as
     # corroboration. Each section says so.
     input:
+        # Declared so that EDITING the script re-runs the rule.
+        # Snakemake's code trigger hashes the shell command STRING,
+        # not the file it names, so without this an edit to the
+        # script leaves stale outputs in place silently.
+        script=f"{SCRIPTS_DIR}/chimera_te_type_mqc.py",
         qc_tables=expand("results/chimera/read_evidence/per_sample/"
                          "{sample}_junction_qc.tsv.gz", sample=SAMPLES),
     output:
@@ -339,7 +374,7 @@ rule chimera_te_type:
     log:
         "results/pipeline_info/logs/chimera_junction/te_type.log",
     shell:
-        "python3 {SCRIPTS_DIR}/chimera_te_type_mqc.py "
+        "python3 {input.script} "
         "--qc-tables {input.qc_tables} --samples {params.samples} "
         "--out {output} > {log} 2>&1"
 
@@ -350,6 +385,11 @@ rule chimera_candidates_table:
     # pipeline deliberately does not
     # (chimera_candidates_table_mqc.py explains why).
     input:
+        # Declared so that EDITING the script re-runs the rule.
+        # Snakemake's code trigger hashes the shell command STRING,
+        # not the file it names, so without this an edit to the
+        # script leaves stale outputs in place silently.
+        script=f"{SCRIPTS_DIR}/chimera_candidates_table_mqc.py",
         evidence="results/chimera/candidates.tsv.gz",
         gene_names="results/reference/gene_id_to_name.tsv.gz",
     output:
@@ -366,7 +406,7 @@ rule chimera_candidates_table:
     log:
         "results/pipeline_info/logs/chimera_junction/candidates_table.log",
     shell:
-        "python3 {SCRIPTS_DIR}/chimera_candidates_table_mqc.py "
+        "python3 {input.script} "
         "--evidence {input.evidence} --gene-names {input.gene_names} "
         "--top-n {params.top_n} --source-path {params.source_path} "
         "--out {output} > {log} 2>&1"
@@ -385,6 +425,11 @@ rule chimera_evidence_guide:
     #
     # No gene_id -> gene_name input: with no table there is nothing to label.
     input:
+        # Declared so that EDITING the script re-runs the rule.
+        # Snakemake's code trigger hashes the shell command STRING,
+        # not the file it names, so without this an edit to the
+        # script leaves stale outputs in place silently.
+        script=f"{SCRIPTS_DIR}/chimera_evidence_guide_mqc.py",
         evidence="results/chimera/candidates.tsv.gz",
     output:
         guide="results/chimera/qc/chimera_evidence_guide_mqc.json",
@@ -398,7 +443,7 @@ rule chimera_evidence_guide:
     log:
         "results/pipeline_info/logs/chimera_junction/evidence_guide.log",
     shell:
-        "python3 {SCRIPTS_DIR}/chimera_evidence_guide_mqc.py "
+        "python3 {input.script} "
         "--evidence {input.evidence} "
         "--out-guide {output.guide} "
         "--out-composition {output.composition} > {log} 2>&1"
@@ -415,6 +460,11 @@ rule chimera_evidence_heatmap:
     # its chance rate. Both were plain the moment the dimensions were shown
     # against each other. Judge the evidence, then decide on a ranking.
     input:
+        # Declared so that EDITING the script re-runs the rule.
+        # Snakemake's code trigger hashes the shell command STRING,
+        # not the file it names, so without this an edit to the
+        # script leaves stale outputs in place silently.
+        script=f"{SCRIPTS_DIR}/chimera_evidence_heatmap.py",
         evidence="results/chimera/candidates.tsv.gz",
         gene_names="results/reference/gene_id_to_name.tsv.gz",
     output:
@@ -429,7 +479,7 @@ rule chimera_evidence_heatmap:
     log:
         "results/pipeline_info/logs/chimera_junction/evidence_heatmap.log",
     shell:
-        "python3 {SCRIPTS_DIR}/chimera_evidence_heatmap.py "
+        "python3 {input.script} "
         "--evidence {input.evidence} --gene-names {input.gene_names} "
         "--out-correlation {output.correlation} "
         "--out-candidates {output.candidates} > {log} 2>&1"
@@ -443,6 +493,11 @@ rule junction_highlights:
     # Reads the merged gene<->TE table (not the per-sample QC metrics),
     # because the ranking needs per-event annotation columns.
     input:
+        # Declared so that EDITING the script re-runs the rule.
+        # Snakemake's code trigger hashes the shell command STRING,
+        # not the file it names, so without this an edit to the
+        # script leaves stale outputs in place silently.
+        script=f"{SCRIPTS_DIR}/junction_highlights_mqc.py",
         te_events="results/chimera/read_evidence/te-gene-chimeras.tsv.gz",
     output:
         "results/chimera/qc/junction_highlights_mqc.json",
@@ -455,7 +510,7 @@ rule junction_highlights:
     log:
         "results/pipeline_info/logs/chimera_junction/junction_highlights.log",
     shell:
-        "python3 {SCRIPTS_DIR}/junction_highlights_mqc.py "
+        "python3 {input.script} "
         "--te-events {input.te_events} "
         "--out {output} > {log} 2>&1"
 
@@ -467,6 +522,11 @@ rule junction_qc_barplot:
     # subset (the gene-TE chimeras view), rendered inside multiqc_report.html in
     # the custom_content module.
     input:
+        # Declared so that EDITING the script re-runs the rule.
+        # Snakemake's code trigger hashes the shell command STRING,
+        # not the file it names, so without this an edit to the
+        # script leaves stale outputs in place silently.
+        script=f"{SCRIPTS_DIR}/junction_qc_mqc.py",
         tables=lambda wc: [
             f"results/chimera/read_evidence/per_sample/{s}_junction_qc.tsv.gz" for s in SAMPLES
         ],
@@ -485,7 +545,7 @@ rule junction_qc_barplot:
     log:
         "results/pipeline_info/logs/chimera_junction/junction_qc_barplot.log",
     shell:
-        "python3 {SCRIPTS_DIR}/junction_qc_mqc.py "
+        "python3 {input.script} "
         "--tables {input.tables} "
         "--samples {params.samples} "
         "--out {output.junction} "
