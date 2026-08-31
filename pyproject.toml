@@ -1,0 +1,63 @@
+# Tool configuration only. This project is not a Python package -- it is a
+# Snakemake workflow whose scripts are invoked by path -- so there is no
+# [project] table and nothing here is installable.
+
+[tool.ruff]
+line-length = 100
+# Generated per-tool conda envs and snakemake's own scratch are not ours.
+extend-exclude = ["workflow/envs/generated", ".snakemake", "results"]
+# `snakemake` is injected into the namespace by the script: directive; it is
+# not an import and never will be.
+builtins = ["snakemake"]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "F",      # pyflakes: undefined names, unused imports/variables
+    "W",      # pycodestyle warnings
+    "I",      # import sorting
+    "B",      # bugbear: likely bugs
+    "C4",     # comprehension clarity
+    "SIM",    # simplifications that genuinely read better
+    "RUF",    # ruff's own checks
+]
+ignore = [
+    # The scripts use implicit string concatenation deliberately and heavily
+    # to keep long report prose readable in source. Flagging it would mean
+    # rewriting nearly every description string for no benefit.
+    "ISC001", "ISC002", "ISC003", "ISC004",
+    # Line length is reported by E501 only; the codebase wraps prose by hand
+    # at a narrower width than the limit above, which is fine either way.
+    "E501",
+    # `except ...: pass` around an optional cleanup is intentional in a few
+    # places where failing to clean up must not fail the rule.
+    "SIM105",
+    # zip(..., strict=) is Python 3.10+. environment.yaml pins `python >=3.9`
+    # as a solver floor, so the scripts must stay 3.9-compatible. Revisit if
+    # that floor is ever raised -- strict= would be a genuine improvement,
+    # since these zips pair a header with a row.
+    "B905",
+    # Cosmetic rewrites that do not make this code clearer: list concat vs
+    # unpacking, nested-with collapsing, and one-branch simplifications that
+    # would bury a documented special case.
+    "RUF005", "SIM117", "SIM114", "SIM102", "C401", "RUF059",
+    # Streaming reads that are consumed and then discarded with the process.
+    "SIM115",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Guard and test helpers deliberately re-import and shadow to exercise
+# scripts the way snakemake does.
+".tests/**" = ["E402", "F841"]
+# These two probe for the `snakemake` global with a bare `try: snakemake`,
+# which is an existence check, not a useless expression.
+"workflow/scripts/benchmark_summary.py" = ["B018"]
+"workflow/scripts/config_used_mqc.py" = ["B018"]
+# Loop variables kept for readability where the tuple shape is the point.
+"workflow/scripts/parse_chimeric_junctions.py" = ["B007"]
+"workflow/scripts/flowchart.py" = ["F841"]
+
+[tool.pytest.ini_options]
+testpaths = [".tests/unit"]
+# Keep output terse; the guards are the verbose suite.
+addopts = "-q"

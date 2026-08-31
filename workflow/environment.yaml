@@ -13,6 +13,11 @@ dependencies:
   - pyyaml
   - jsonschema
 
+  # Developer tooling: runs the unit tests (.tests/unit) and the guards
+  # (.tests/guards/run.sh) from inside this environment. CI installs these
+  # separately on a bare Python, so they are here only for local work.
+  - pytest
+
   # Analysis tools -- installed once at env creation so the workflow can be
   # run with plain `snakemake` (no --sdm conda needed, no per-run env solves).
   # Version pins mirror workflow/default-config/versions.yaml; keep the two in
