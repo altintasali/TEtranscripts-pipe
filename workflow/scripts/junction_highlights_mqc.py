@@ -107,10 +107,7 @@ looks expressed in TEcount, this is how you find which copy.</li>
 </ul>
 
 <p style="font-size: 85%; color: #888;">This screen's calls are merged with
-the assembly screen's into one catalogue,
-<code>results/chimera/candidates.tsv.gz</code>; see <strong>Chimera
-[Candidates]</strong> for what each line of evidence is worth and which tool
-produced it. Neither that section nor this one ranks candidates.</p>
+the assembly screen's into the <strong>Candidates</strong> table above.</p>
 """
 
     doc = {
@@ -118,9 +115,9 @@ produced it. Neither that section nor this one ranks candidates.</p>
         # view EXACTLY -- every view of this screen shares one group, and a
         # mismatch silently splits it into two report sections.
         "id": "junction_highlights",
-        "parent_id": "chimera_reads",
-        "parent_name": "Chimera [Reads]",
-        "section_name": "What this screen sees",
+        "parent_id": "chimera",
+        "parent_name": "Chimera",
+        "section_name": "Reads - what this screen sees",
         "description": (
             "The read-evidence screen's blind spot, and the counts that "
             "qualify its output."

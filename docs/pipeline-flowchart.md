@@ -54,6 +54,9 @@ flowchart LR
         chimera_evidence["unified gene-TE evidence catalogue"]
         chimera_evidence_heatmap["evidence correlation + candidate heatmaps"]
         chimera_evidence_guide["how to weigh the evidence + composition"]
+        chimera_candidates_table["candidate list (sortable table)"]
+        chimera_assembly_qc_transform["assembly QC matrix (log2)"]
+        chimera_assembly_qc["assembly PCA + sample clusters"]
         sample_evidence_status["per-sample evidence status grid"]
         chimera_igv_bed["IGV BED track"]
         chimera_counts["chimera counts matrix"]
@@ -89,10 +92,13 @@ flowchart LR
     chimera_assembly_classify --> chimera_evidence
     chimera_assembly_cross_evidence --> chimera_assembly_igv_bed
     chimera_assembly_cross_evidence --> chimera_assembly_summary_mqc
+    chimera_assembly_qc_transform --> chimera_assembly_qc
+    chimera_assembly_quantify --> chimera_assembly_qc_transform
     chimera_counts --> chimera_assembly_cross_evidence
     chimera_counts --> chimera_evidence
     chimera_counts --> junction_highlights
     chimera_counts --> sample_qc_transform
+    chimera_evidence --> chimera_candidates_table
     chimera_evidence --> chimera_evidence_guide
     chimera_evidence --> chimera_evidence_heatmap
     chimera_telocal_annotate --> chimera_counts
@@ -104,6 +110,7 @@ flowchart LR
     determine_strandedness --> tecount
     determine_strandedness --> telocal
     determine_strandedness --> tetranscripts_diffexp
+    gene_name_lookup --> chimera_candidates_table
     gene_name_lookup --> chimera_evidence_heatmap
     genepred_to_bed12 --> rseqc_gene_body_coverage
     genepred_to_bed12 --> rseqc_infer_experiment

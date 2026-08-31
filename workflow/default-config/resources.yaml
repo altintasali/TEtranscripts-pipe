@@ -374,6 +374,27 @@ resources:
     mem_mb: 500
     runtime: 30
 
+  chimera_candidates_table:
+    # Renders the top-N rows of candidates.tsv.gz; holds the table in memory.
+    threads: 1
+    mem_mb: 1000
+    mem_per_sample: 100
+    runtime: 30
+
+  chimera_assembly_qc_transform:
+    # log2-transforms the assembly TPM matrix for the QC view.
+    threads: 1
+    mem_mb: 2000
+    mem_per_sample: 200
+    runtime: 30
+
+  chimera_assembly_qc:
+    # PCA + sample-distance plots from the transformed assembly matrix.
+    threads: 1
+    mem_mb: 2000
+    mem_per_sample: 200
+    runtime: 30
+
   chimera_evidence_guide:
     # Counts evidence flags across candidates.tsv.gz; holds the table in
     # memory, so it scales with cohort size like its siblings.

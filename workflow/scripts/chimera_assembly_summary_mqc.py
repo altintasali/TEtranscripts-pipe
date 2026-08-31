@@ -57,6 +57,7 @@ def main():
                      help="candidates.tsv.gz, or candidates_with_junction_evidence.tsv.gz if available")
     ap.add_argument("--out-classes", required=True)
     ap.add_argument("--out-highlights", required=True)
+    ap.add_argument("--out-strand-rate", required=True)
     args = ap.parse_args()
 
     header, rows = read_table(args.candidates)
@@ -88,9 +89,9 @@ def main():
 
     classes_doc = {
         "id": "chimera_assembly_classes",
-        "parent_id": "chimera_transcripts",
-        "parent_name": "Chimera [Assembly]",
-        "section_name": "Candidates by class",
+        "parent_id": "chimera",
+        "parent_name": "Chimera",
+        "section_name": "Assembly - composition by class",
     }
     # counts values are {"count": N} or {"confirmed": N, "unconfirmed": N}
     # depending on whether the junction screen ran, so sum values rather
@@ -133,6 +134,69 @@ def main():
         json.dump(classes_doc, fh, indent=2)
         fh.write("\n")
 
+    # --- strand-match rate by class -------------------------------------
+    # The structural mirror of the read screen's splice-motif rate: a per-class
+    # quality rate rather than a per-class count. Derived from columns already
+    # in the candidates table, so it costs nothing extra.
+    #
+    # Deliberately NOT mirrored: the read screen's "gene-TE subset". That shows
+    # what share of all chimeric junctions involve a TE; classify_chimera_
+    # assembly.py only ever emits TE-involving classes, so the assembly
+    # equivalent would be a constant 100% and would say nothing.
+    strand_rate, strand_counts = {}, {}
+    for cls in CLASS_ORDER:
+        in_cls = [r for r in rows if r.get("chimera_type") == cls]
+        matched = sum(1 for r in in_cls if r.get("strand_match") == "yes")
+        strand_rate[cls] = round(100.0 * matched / len(in_cls), 1) if in_cls else 0.0
+        strand_counts[cls] = matched
+
+    if any(strand_counts.values()):
+        strand_body = {
+            "plot_type": "bar",
+            "pconfig": {
+                "id": "chimera_assembly_strand_rate_plot",
+                "title": "Strand-match rate by chimera class",
+                "ylab": "% strand-matched",
+                "cpswitch": False,
+                "data_labels": [
+                    {"name": "% strand-matched", "tt_decimals": 1},
+                    {"name": "strand-matched candidates", "tt_decimals": 0},
+                ],
+            },
+            "data": [{"strand match": strand_rate}, {"strand match": strand_counts}],
+        }
+    else:
+        # all-zero plots crash MultiQC outright -- see chimera_evidence_guide_mqc
+        strand_body = {
+            "plot_type": "html",
+            "data": ("<p>No candidate in any class has a matching strand, so "
+                     "there is nothing to plot. With few candidates this is "
+                     "unremarkable; across a large assembly it suggests the "
+                     "gene hits are spurious overlaps.</p>"),
+        }
+
+    strand_doc = {
+        "id": "chimera_assembly_strand_rate",
+        "parent_id": "chimera",
+        "parent_name": "Chimera",
+        "section_name": "Assembly - strand-match rate by class",
+        "description": (
+            "Share of each class's candidates whose assembled transcript "
+            "strand agrees with the gene's. "
+            "<br><br><em>Why this matters:</em> for <code>te_initiated</code> "
+            "calls a mismatch usually means the gene hit is a spurious "
+            "overlap rather than real transcript connectivity, so a class "
+            "with a low rate is one to distrust. This is a consistency check "
+            "on the assembly, not independent support &mdash; the read "
+            "screen's splice-motif rate is the closer thing to evidence."
+        ),
+        **strand_body,
+    }
+    os.makedirs(os.path.dirname(args.out_strand_rate) or ".", exist_ok=True)
+    with open_write(args.out_strand_rate) as fh:
+        json.dump(strand_doc, fh, indent=2)
+        fh.write("\n")
+
     # --- screen notes: blind spot + qualifying counts --------------------
     # This section used to render its own ranked top-N, keyed
     # (junction-confirmed, strand-matched, TPM). That was one of three
@@ -156,8 +220,8 @@ def main():
         "blind spots, so agreement should be meaningful &mdash; but measured "
         "across a cohort it has come out near its <strong>chance rate</strong>. "
         "It carries no more weight than any other flag here; see "
-        "<strong>Chimera [Evidence structure]</strong> for your own "
-        "data.</li>"
+        "the <strong>Evidence structure</strong> sections below for your "
+        "own data.</li>"
         if has_cross_evidence else
         "<li>chimera.junction is currently disabled, so no cross-confirmation "
         "is available &mdash; enabling it adds an independent evidence source "
@@ -196,17 +260,15 @@ rather than assembly noise.</li>
 </ul>
 
 <p style="font-size: 85%; color: #888;">This screen's calls are merged with
-the read-evidence screen's into one catalogue,
-<code>results/chimera/candidates.tsv.gz</code>; see <strong>Chimera
-[Candidates]</strong> for what each line of evidence is worth and which tool
-produced it. Neither that section nor this one ranks candidates.</p>
+the read-evidence screen's into the <strong>Candidates</strong> table
+above.</p>
 """
 
     highlights_doc = {
         "id": "chimera_assembly_highlights",
-        "parent_id": "chimera_transcripts",
-        "parent_name": "Chimera [Assembly]",
-        "section_name": "What this screen sees",
+        "parent_id": "chimera",
+        "parent_name": "Chimera",
+        "section_name": "Assembly - what this screen sees",
         "description": (
             "The transcript-evidence screen's blind spot, and the counts that "
             "qualify its output."

@@ -176,6 +176,23 @@ CHIMERA_ASSEMBLY_ENABLED = bool(
     config.get("chimera", {}).get("assembly", {}).get("enabled", False)
 )
 
+# Sample-QC thresholds for the chimera views (PCA / sample clustering). Lives
+# here, not in chimera_junction.smk, because BOTH screens' QC views use it and
+# that file is included only when the junction screen is on -- referencing it
+# from chimera_assembly.smk would NameError on an assembly-only run, which is
+# exactly the configuration guard 27 pins.
+#
+# The assembly view borrows these rather than having a parallel config block:
+# the two views answer the same question and there is no evidence they want
+# different cut-offs. Split them if that stops being true.
+CHIMERA_QC = config["chimera"]["junction"]["qc"]
+
+# How many candidate rows the report's table renders. MultiQC embeds table
+# data in the HTML and a real cohort produces tens of thousands of gene-TE
+# pairs, so the section shows a head and points at candidates.tsv.gz for the
+# rest. Not a config key: a rendering limit, not an analysis choice.
+CHIMERA_TABLE_TOP_N = 50
+
 # TEcounts sample-QC (PCA + sample clustering, rules/tecount_qc.smk), built
 # from the per-sample TEcount tables. Defaults come from the built-in
 # workflow/default-config/tetranscripts.yaml (the `qc:` section); user config

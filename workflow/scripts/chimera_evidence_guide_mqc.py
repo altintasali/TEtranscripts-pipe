@@ -35,8 +35,8 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from gz_io import open_read, open_write
 
-PARENT_ID = "chimera_evidence_guide"
-PARENT_NAME = "Chimera [Candidates]"
+PARENT_ID = "chimera"
+PARENT_NAME = "Chimera"
 
 # Flags emitted by chimera_evidence.py, in the order chimera_evidence.py
 # builds them. Presentational only -- the whole point of this section is that
@@ -84,8 +84,8 @@ SIGNALS = [
         "Should be the strongest signal here &mdash; the two screens have "
         "opposite blind spots. Measured across a cohort it was not: agreement "
         "came out near its <strong>chance rate</strong>. Treat it as "
-        "unresolved, and check <strong>Chimera [Evidence structure]</strong> "
-        "for your own data before relying on it.",
+        "unresolved, and check the <strong>Evidence structure</strong> "
+        "sections below for your own data before relying on it.",
         "unresolved",
     ),
     (
@@ -159,17 +159,10 @@ def guide_html(n_pairs, composition, n_no_flags):
         f"<code>{flag}</code> {composition.get(flag, 0):,}" for flag, _ in FLAGS
     )
     return f"""
-<p><strong>This pipeline does not rank chimera candidates.</strong> It reports
-every line of evidence for each <code>(gene, TE insertion)</code> pair and
-leaves the call to you. An earlier version scored pairs into confidence tiers;
-that was removed because no experiment here established how much each signal
-is actually worth, and the pipeline's own measurements contradicted the tier
-that ranked highest.</p>
-
-<p>What follows is what <em>is</em> known about each signal. Weigh them
-yourself, and <strong>validate candidates manually</strong> &mdash; by genome
-browser, by PCR, or against an orthogonal dataset &mdash; before treating any
-of them as a result.</p>
+<p>What each column of the <strong>Candidates</strong> table above is worth,
+and what this project has actually measured about it. Sort that table on the
+signal your question needs &mdash; this is the reference for choosing which
+one, and for knowing how far to trust it.</p>
 
 <table class="table" style="width:100%; font-size: 90%;">
 <thead><tr>
@@ -185,12 +178,7 @@ flag at all.</p>
 
 <p style="font-size: 85%; color: #888;">Full catalogue, one row per pair with
 every evidence column:
-<code>results/chimera/candidates.tsv.gz</code>. It is sorted by
-<code>n_evidence</code> &mdash; a <em>count</em> of how many flags a pair
-carries, not a score: the flags are counted unweighted precisely because no
-weighting has been validated. That count also tilts toward pairs the assembly
-screen found, since two of the four flags need assembly support. Sort the
-table on whichever column your question actually needs.</p>
+<code>results/chimera/candidates.tsv.gz</code>.</p>
 """
 
 
@@ -239,6 +227,44 @@ def main():
     # Composition, not a ranking: how much of each signal the cohort produced.
     # Shown because "148 of 2,431 carry a splice motif" changes how the whole
     # table should be read, and is invisible from any individual row.
+    # A bargraph whose every value is zero does not render as an empty plot --
+    # MultiQC raises ValueError("No datasets to plot"), exits non-zero, and
+    # NO REPORT IS WRITTEN AT ALL. A run that finds no gene-TE pairs is a
+    # normal outcome (a clean library, or a species with a sparse TE
+    # annotation), so it must not cost the user their entire report. Fall back
+    # to an HTML section, the same way chimera_assembly_summary_mqc.py does
+    # for its own empty case.
+    counts_by_label = {
+        **{label: composition[flag] for flag, label in FLAGS},
+        "No evidence flag": n_no_flags,
+    }
+    if any(counts_by_label.values()):
+        composition_body = {
+            "plot_type": "bargraph",
+            "pconfig": {
+                "id": "chimera_evidence_composition_plot",
+                "title": "Gene-TE pairs carrying each line of evidence",
+                "ylab": "Gene-TE pairs",
+                "cpswitch": False,
+                # whole pairs: no decimals. tt_decimals is the key MultiQC
+                # honours here; "format" is silently dropped.
+                "tt_decimals": 0,
+            },
+            "categories": [label for _, label in FLAGS] + ["No evidence flag"],
+            "data": {"Gene-TE pairs": counts_by_label},
+        }
+    else:
+        composition_body = {
+            "plot_type": "html",
+            "data": (
+                "<p>No gene-TE pairs were found in this run, so there is "
+                "nothing to plot here. This is not an error: it means neither "
+                "screen called a gene-TE chimera. The screens are independent "
+                "of each other and of TE quantification, so TEcount and "
+                "TElocal results are unaffected.</p>"
+            ),
+        }
+
     composition_doc = {
         "id": "chimera_evidence_composition",
         "parent_id": PARENT_ID,
@@ -252,23 +278,7 @@ def main():
             "cohort total; the bars are independent counts, not parts of a "
             "whole."
         ),
-        "plot_type": "bargraph",
-        "pconfig": {
-            "id": "chimera_evidence_composition_plot",
-            "title": "Gene-TE pairs carrying each line of evidence",
-            "ylab": "Gene-TE pairs",
-            "cpswitch": False,
-            # whole pairs: no decimals. tt_decimals is the key MultiQC
-            # honours here; "format" is silently dropped.
-            "tt_decimals": 0,
-        },
-        "categories": [label for _, label in FLAGS] + ["No evidence flag"],
-        "data": {
-            "Gene-TE pairs": {
-                **{label: composition[flag] for flag, label in FLAGS},
-                "No evidence flag": n_no_flags,
-            }
-        },
+        **composition_body,
     }
 
     for path, doc in ((args.out_guide, guide_doc),

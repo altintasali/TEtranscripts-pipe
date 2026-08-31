@@ -124,8 +124,8 @@ def heatmap_doc(doc_id, section, description, xcats, ycats, data, title):
         # them under one screen made a cross-screen check look like that
         # screen's diagnostic. They sit under the evidence guide because they
         # are how a reader checks that guide's claims against their own data.
-        "parent_id": "chimera_structure",
-        "parent_name": "Chimera [Evidence structure]",
+        "parent_id": "chimera",
+        "parent_name": "Chimera",
         "section_name": section,
         "description": description,
         "plot_type": "heatmap",
@@ -186,7 +186,8 @@ def main():
         "with it is selecting against real splicing, not for it."
     )
     corr = heatmap_doc(
-        "chimera_evidence_correlation", "Evidence correlation", corr_desc,
+        "chimera_evidence_correlation", "Evidence structure - correlation",
+        corr_desc,
         labels, labels, matrix, "Spearman correlation between evidence types",
     )
 
@@ -222,14 +223,13 @@ def main():
         "columns has broad support. A row bright in one column and dark in "
         "the rest leads on that axis alone -- which is most of them, on real "
         "data. If the picture is mostly diagonal, the dimensions disagree "
-        "about what the best candidates are, and no combined ordering of this "
-        "table would mean anything -- which is why the pipeline does not "
-        "produce one. Judge the candidates individually. That is a finding "
-        "about this cohort, not a failure of the plot."
+        "about what the best candidates are, so no single column of the "
+        "Candidates table above should carry the decision on its own. That is "
+        "a finding about this cohort, not a failure of the plot."
     )
     cand = heatmap_doc(
-        "chimera_evidence_candidates", "Candidates by evidence type",
-        cand_desc, labels, [label(i) for i in picked],
+        "chimera_evidence_candidates",
+        "Evidence structure - leaders by dimension", cand_desc, labels, [label(i) for i in picked],
         [[pct[d][i] for d in range(len(DIMENSIONS))] for i in picked],
         "Evidence percentile per candidate",
     )

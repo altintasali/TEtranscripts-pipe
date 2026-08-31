@@ -112,38 +112,18 @@ module_order:
 #                        produced and which are independent.
 #   tecount / telocal    Expression. NOTE: these ids must match sample_qc.R's
 #                        view ids exactly (a mismatch silently splits a group).
-#   chimera_evidence_guide  Chimera [Candidates]
-#                        What each line of evidence is worth and what has
-#                        been measured about it, plus the cohort's evidence
-#                        composition. No candidate table: the catalogue is
-#                        results/chimera/candidates.tsv.gz. Emitted by
-#                        chimera_evidence_guide_mqc.py.
-#   chimera_structure    Chimera [Evidence structure]
-#                        The two evidence heatmaps -- where a reader checks
-#                        the guide's claims against their own cohort. Its own
-#                        group, not a sub-item of either screen: it reads the
-#                        merged table, so filing it under one screen made a
-#                        cross-screen check look like that screen's own
-#                        diagnostic. Emitted by chimera_evidence_heatmap.py.
-#
-# NAMING: the two screens below are named for the EVIDENCE they use, not for
-# their internals -- "chimera"/"junction" previously appeared across four
-# section names with nothing saying what distinguished them:
-#
-#   chimera_reads        Chimera [Reads]  (STAR chimeric junctions)
-#                        STAR chimeric reads. Views: what this screen sees
-#                        (blind spot + qualifying counts), events +
-#                        splice-motif rate by direction, the gene-TE subset,
-#                        and PCA/Clusters. Emitted by junction_qc_mqc,
-#                        junction_highlights_mqc and sample_qc.R -- ALL of
-#                        which must use this exact id, or the group silently
-#                        splits into two sections.
-#   chimera_transcripts  Chimera [Assembly]  (StringTie)
-#                        StringTie assembly. A genuinely different screen
-#                        with opposite blind spots, so it stays separate.
-#
-#   evidence_status      Per-sample traffic-light grid. Sits after the screens
-#                        it summarises -- its columns are all screen layers.
+#   chimera              "Chimera": ONE group for every chimera view. It was
+#                        five (Candidates / Evidence structure / Reads /
+#                        Assembly / Per-sample), which fragmented the TOC.
+#                        MultiQC has only two heading levels, so the
+#                        Reads / Assembly / Evidence-structure grouping is
+#                        carried by section names and by report_section_order
+#                        below. Emitted by chimera_candidates_table_mqc,
+#                        chimera_evidence_guide_mqc, junction_qc_mqc,
+#                        junction_highlights_mqc, chimera_assembly_summary_mqc,
+#                        chimera_evidence_heatmap, sample_evidence_status_mqc
+#                        and sample_qc.R -- ALL of which must use parent_id
+#                        "chimera" exactly, or the group silently splits.
 #   config_used          resolved run configuration.
 #   resource_usage       per-rule benchmark summary.
 #
@@ -155,11 +135,7 @@ custom_content:
     - evidence_overview
     - tecount
     - telocal
-    - chimera_evidence_guide
-    - chimera_structure
-    - chimera_reads
-    - chimera_transcripts
-    - evidence_status
+    - chimera
     - config_used
     - resource_usage
 
@@ -172,37 +148,52 @@ custom_content:
 # Explicit order here; lower renders earlier. Sample-QC PCA/Clusters are left
 # to the default so they trail as supporting material.
 report_section_order:
-  # Reading the evidence -- the guide first, then what this cohort produced.
+  # One "Chimera" group holds every chimera view -- MultiQC custom content has
+  # exactly two heading levels (group, section), so "Reads"/"Assembly"/
+  # "Evidence structure" are carried by section NAMES, not by nesting.
+  # Sections sort alphabetically unless listed here, so all of them are.
   #
-  # NOTE the id is chimera_signal_guide, not chimera_evidence_guide: an entry
-  # here that matches a custom-content GROUP id (i.e. a parent_id) is applied
-  # by the module-level pass instead, whose order semantics are inverted, and
-  # the group renders last. Guard 49 pins the resulting order.
+  # Reading order: the candidate list, then how to weigh it, then what this
+  # cohort produced, then per-sample, then each screen, then the structure of
+  # the evidence behind it all.
+  #
+  # No id here may be "chimera": report_section_order's first pass matches
+  # module anchors, a custom-content group's anchor is its parent_id, and that
+  # pass has inverted order semantics -- the group would render last.
+  chimera_candidates_table:
+    order: -20
   chimera_signal_guide:
-    order: -10
+    order: -19
   chimera_evidence_composition:
-    order: -9
-  # Chimera [Evidence structure] -- what is behind the guide's claims.
-  chimera_evidence_correlation:
-    order: -10
-  chimera_evidence_candidates:
-    order: -9
-  # Chimera [Reads] -- what the screen sees, then composition, then
-  # quality, then the gene-TE subset. Sample-QC PCA/Clusters are left to the
-  # default sort so they trail as supporting material.
+    order: -18
+  sample_evidence_status:
+    order: -17
   junction_highlights:
-    order: -10
+    order: -16
   chimera_junction_qc:
-    order: -9
+    order: -15
   chimera_canonical_rate:
-    order: -8
+    order: -14
   chimera_te_gene_chimeras:
-    order: -7
-  # Chimera [Assembly]
+    order: -13
+  chimera_reads_sample_qc_pca:
+    order: -12
+  chimera_reads_sample_qc_heatmap:
+    order: -11
   chimera_assembly_highlights:
     order: -10
   chimera_assembly_classes:
     order: -9
+  chimera_assembly_strand_rate:
+    order: -8
+  chimera_assembly_sample_qc_pca:
+    order: -7
+  chimera_assembly_sample_qc_heatmap:
+    order: -6
+  chimera_evidence_correlation:
+    order: -5
+  chimera_evidence_candidates:
+    order: -4
   # Module-level move: report_section_order's FIRST pass reorders whole
   # modules by anchor, and a custom-content group's anchor is its parent_id.
   # module_order alone does not do this -- a group absent from

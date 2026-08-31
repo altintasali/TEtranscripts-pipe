@@ -107,7 +107,7 @@ def main():
 
     # --- reading order ---------------------------------------------------
     steps = ["<li>Check the QC first: FastQC and STAR alignment rates, then "
-             "<em>Strandedness check</em> \u2014 a wrong strandedness call "
+             "<em>Strandedness check</em> - a wrong strandedness call "
              "silently distorts every count below, so it is worth confirming "
              "before reading any of them.</li>",
              "<li>Read expression: <em>TEcount</em> for which subfamilies "
@@ -155,10 +155,8 @@ all independent, which is the usual source of confusion:</p>
 {"".join(steps)}
 </ol>
 
-<p style="font-size: 85%; color: #888;">This pipeline reports chimera evidence
-but does not rank or score candidates &mdash; see <strong>Chimera
-[Candidates]</strong> below for what each signal is worth and which tool
-produced it, and expect to validate calls manually.</p>
+<p style="font-size: 85%; color: #888;">Chimera candidates and the evidence
+behind them are in the <strong>Chimera</strong> section below.</p>
 """
 
     doc = {

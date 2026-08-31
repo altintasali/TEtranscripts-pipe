@@ -57,18 +57,18 @@ are **on by default**:
 
 The two are merged into one catalogue at `results/chimera/candidates.tsv.gz`
 — one row per (gene, TE insertion) pair, carrying every line of evidence
-either screen produced.
+either screen produced. The report's **Chimera** section opens with that list
+as a sortable table, followed by a guide to what each signal is worth, then
+each screen's own evidence.
 
 **The pipeline does not rank or score chimera candidates.** No experiment here
-has established what each signal is actually worth, and the pipeline's own
-measurements contradict the obvious guesses — cross-screen agreement comes out
-near its chance rate, and TE-locus expression is anti-correlated with the
-splice motif. So the report explains what is known about each line of evidence
-and stops; deciding which candidates are real is a manual call you make against
-that catalogue. The report's first chimera section is that guide, the heatmaps
-after it are where you check its claims against your own cohort, and the
-per-screen sections describe what each method can and cannot see. Set
-`chimera.junction.enabled: false` to skip chimera detection entirely.
+has established what each signal is worth, and the pipeline's own measurements
+contradict the obvious guesses — cross-screen agreement comes out near its
+chance rate, and TE-locus expression is anti-correlated with the splice motif.
+The table's default order is a *count* of how many evidence types a pair
+carries; sort it on whichever column your question needs, and expect to
+validate calls manually. Set `chimera.junction.enabled: false` to skip chimera
+detection entirely.
 
 A single MultiQC report pulls together FastQC, TrimGalore!, STAR, RSeQC, the
 TEcounts, TElocal and chimera sections, tool versions, and a per-rule

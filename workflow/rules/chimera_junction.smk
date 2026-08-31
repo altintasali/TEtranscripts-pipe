@@ -34,7 +34,8 @@ import os
 
 WRITE_COUNTS = bool(config["chimera"]["junction"]["outputs"]["write_counts_matrix"])
 WRITE_IGV_BED = bool(config["chimera"]["junction"]["outputs"]["write_igv_bed"])
-CHIMERA_QC = config["chimera"]["junction"]["qc"]
+# CHIMERA_QC now lives in common/runtime.smk -- the assembly screen needs it
+# too, and this file is not included when the junction screen is off.
 
 
 def chimera_counts_input():
@@ -83,6 +84,7 @@ def all_chimera_outputs():
         "results/chimera/qc/te_gene_chimeras_mqc.json",
         "results/chimera/qc/canonical_rate_mqc.json",
         "results/chimera/qc/junction_highlights_mqc.json",
+        "results/chimera/qc/chimera_candidates_table_mqc.json",
         "results/chimera/qc/chimera_evidence_guide_mqc.json",
         "results/chimera/qc/chimera_evidence_composition_mqc.json",
         "results/chimera/qc/chimera_evidence_correlation_mqc.json",
@@ -345,6 +347,34 @@ rule sample_evidence_status:
         "python3 {SCRIPTS_DIR}/sample_evidence_status_mqc.py "
         "--qc-tables {input.qc_tables} --samples {params.samples} "
         "--strandedness {input.strandedness} "
+        "--out {output} > {log} 2>&1"
+
+
+rule chimera_candidates_table:
+    # The report's candidate list. A table, not a ranking: MultiQC's native
+    # table sorts on any column, so the reader supplies the ordering the
+    # pipeline deliberately does not
+    # (chimera_candidates_table_mqc.py explains why).
+    input:
+        evidence="results/chimera/candidates.tsv.gz",
+        gene_names="results/reference/gene_id_to_name.tsv.gz",
+    output:
+        "results/chimera/qc/chimera_candidates_table_mqc.json",
+    params:
+        top_n=CHIMERA_TABLE_TOP_N,
+        source_path="results/chimera/candidates.tsv.gz",
+    threads: get_resources("chimera_candidates_table")["threads"]
+    resources:
+        mem_mb=get_scaled_mem_mb("chimera_candidates_table"),
+        runtime=get_resources("chimera_candidates_table")["runtime"],
+    benchmark:
+        "results/pipeline_info/benchmarks/chimera_candidates_table/chimera_candidates_table.txt",
+    log:
+        "results/pipeline_info/logs/chimera_junction/candidates_table.log",
+    shell:
+        "python3 {SCRIPTS_DIR}/chimera_candidates_table_mqc.py "
+        "--evidence {input.evidence} --gene-names {input.gene_names} "
+        "--top-n {params.top_n} --source-path {params.source_path} "
         "--out {output} > {log} 2>&1"
 
 

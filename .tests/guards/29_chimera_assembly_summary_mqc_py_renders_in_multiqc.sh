@@ -15,6 +15,7 @@ if ! python workflow/scripts/chimera_assembly_summary_mqc.py \
       --candidates "$T/ca.tsv.gz" \
       --out-classes "$T/custom/chimera/qc/chimera_assembly_classes_mqc.json" \
       --out-highlights "$T/custom/chimera/qc/chimera_assembly_highlights_mqc.json" \
+      --out-strand-rate "$T/custom/chimera/qc/chimera_assembly_strand_rate_mqc.json" \
       > "$T/casum.log" 2>&1; then
   echo "ERROR: chimera_assembly_summary_mqc.py failed"; cat "$T/casum.log"; FAIL=1
 fi
@@ -22,7 +23,7 @@ if ! multiqc --force --no-ansi -c workflow/default-config/multiqc_config.yaml \
       -o "$T/mqc_ca" -n report "$T/custom" > "$T/mqc_ca.log" 2>&1; then
   echo "ERROR: multiqc run with chimera_assembly failed"; tail -40 "$T/mqc_ca.log"; FAIL=1
 else
-  for cid in chimera_assembly_classes chimera_assembly_highlights; do
+  for cid in chimera_assembly_classes chimera_assembly_highlights chimera_assembly_strand_rate; do
     if ! grep -q "custom_content | $cid: Found" "$T/mqc_ca.log"; then
       echo "ERROR: section '$cid' not rendered by MultiQC"
       grep "custom_content" "$T/mqc_ca.log" | head -20

@@ -92,9 +92,9 @@ if ! multiqc --force --no-ansi -c workflow/default-config/multiqc_config.yaml \
   -o "$T/hm/out" -n r "$T/hm/qc" > "$T/hm/render.log" 2>&1; then
 echo "ERROR: multiqc failed on the evidence heatmaps"
 tail -30 "$T/hm/render.log"; FAIL=1
-elif ! grep -q "Evidence correlation" "$T/hm/out/r.html"; then
+elif ! grep -q "Evidence structure - correlation" "$T/hm/out/r.html"; then
 echo "ERROR: evidence correlation heatmap not rendered"; FAIL=1
-elif ! grep -q "Candidates by evidence type" "$T/hm/out/r.html"; then
+elif ! grep -q "Evidence structure - leaders by dimension" "$T/hm/out/r.html"; then
 echo "ERROR: candidate heatmap not rendered"; FAIL=1
 fi
 

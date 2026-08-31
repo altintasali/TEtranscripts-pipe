@@ -38,6 +38,10 @@ def all_chimera_assembly_outputs():
         "results/chimera/transcript_evidence/tpm_matrix.tsv.gz",
         "results/chimera/qc/chimera_assembly_classes_mqc.json",
         "results/chimera/qc/chimera_assembly_highlights_mqc.json",
+        "results/chimera/qc/chimera_assembly_strand_rate_mqc.json",
+        # the PCA/Clusters view, matching the read screen's
+        "results/chimera/qc/assembly_pca_log2_mqc.json",
+        "results/chimera/qc/assembly_heatmap_log2_mqc.json",
     ]
     if CHIMERA_JUNCTION_ENABLED:
         files.append("results/chimera/transcript_evidence/transcripts_with_read_support.tsv.gz")
@@ -312,6 +316,7 @@ rule chimera_assembly_summary_mqc:
     output:
         classes="results/chimera/qc/chimera_assembly_classes_mqc.json",
         highlights="results/chimera/qc/chimera_assembly_highlights_mqc.json",
+        strand_rate="results/chimera/qc/chimera_assembly_strand_rate_mqc.json",
     threads: get_resources("chimera_assembly_summary_mqc")["threads"]
     resources:
         mem_mb=get_resources("chimera_assembly_summary_mqc")["mem_mb"],
@@ -322,6 +327,7 @@ rule chimera_assembly_summary_mqc:
         "python3 {SCRIPTS_DIR}/chimera_assembly_summary_mqc.py "
         "--candidates {input.candidates} "
         "--out-classes {output.classes} --out-highlights {output.highlights} "
+        "--out-strand-rate {output.strand_rate} "
         "> {log} 2>&1"
 
 
@@ -346,3 +352,65 @@ if WRITE_IGV_BED_ASSEMBLY:
         shell:
             "python3 {SCRIPTS_DIR}/chimera_assembly_to_igv_bed.py "
             "--candidates {input.candidates} --out {output} > {log} 2>&1"
+
+
+# -----------------------------------------------------------------------------
+# Assembly sample-QC: the PCA / sample-distance view the read screen already
+# has, over this screen's own per-sample data (tpm_matrix.tsv.gz).
+#
+# These live HERE rather than in sample_qc.smk on purpose: that file is
+# included only when the JUNCTION screen is on (Snakefile), and guard 27 pins
+# that the assembly screen runs independently of it. Putting them there would
+# silently drop this view whenever assembly runs alone.
+#
+# transform is log2, not vst/rlog: the matrix is already TPM, so DESeq2's
+# count-based normalization does not apply. Thresholds are borrowed from
+# chimera.junction.qc rather than adding a parallel config block -- the two
+# views answer the same question and there is no evidence they want different
+# cut-offs. Split them if that ever stops being true.
+# -----------------------------------------------------------------------------
+rule chimera_assembly_qc_transform:
+    input:
+        tpm="results/chimera/transcript_evidence/tpm_matrix.tsv.gz",
+    output:
+        "results/chimera/qc/assembly_log2_counts.tsv.gz",
+    params:
+        samples=config["samples"],
+        min_samples_present=CHIMERA_QC["min_samples_present"],
+        min_total_counts=CHIMERA_QC["min_total_counts"],
+    threads: get_resources("chimera_assembly_qc_transform")["threads"]
+    resources:
+        mem_mb=get_scaled_mem_mb("chimera_assembly_qc_transform"),
+        runtime=get_resources("chimera_assembly_qc_transform")["runtime"],
+    log:
+        "results/pipeline_info/logs/chimera_assembly/qc_transform.log",
+    conda:
+        CHIMERA_QC_ENV
+    shell:
+        "Rscript {SCRIPTS_DIR}/sample_qc.R "
+        "--transform assembly {input.tpm} {params.samples} log2 "
+        "{params.min_samples_present} {params.min_total_counts} "
+        "{output} > {log} 2>&1"
+
+
+rule chimera_assembly_qc:
+    input:
+        transformed="results/chimera/qc/assembly_log2_counts.tsv.gz",
+    output:
+        pca="results/chimera/qc/assembly_pca_log2_mqc.json",
+        heatmap="results/chimera/qc/assembly_heatmap_log2_mqc.json",
+    params:
+        samples=config["samples"],
+        min_events=CHIMERA_QC["min_events"],
+    threads: get_resources("chimera_assembly_qc")["threads"]
+    resources:
+        mem_mb=get_scaled_mem_mb("chimera_assembly_qc"),
+        runtime=get_resources("chimera_assembly_qc")["runtime"],
+    log:
+        "results/pipeline_info/logs/chimera_assembly/qc_plots.log",
+    conda:
+        CHIMERA_QC_ENV
+    shell:
+        "Rscript {SCRIPTS_DIR}/sample_qc.R "
+        "--plots assembly {input.transformed} {params.samples} "
+        "{params.min_events} log2 {output.pca} {output.heatmap} > {log} 2>&1"

@@ -35,28 +35,46 @@ suppressMessages(library(DESeq2))
 # Per-view naming: the MultiQC custom-content ids, section names, plot titles
 # and descriptions are namespaced per view so the chimera, TEcount and TElocal
 # QC views can all render inside one multiqc_report.html without colliding.
-# Section names are deliberately bare ("PCA", "Clusters"): MultiQC renders
-# them inside each view's parent group (parent_id), which supplies the
-# context.
+# Section names carry their own grouping now. The chimera views share ONE
+# parent group with every other chimera section (parent = "chimera"), because
+# MultiQC has no third heading level -- so a bare "PCA" there would sit among a
+# dozen sibling sections with nothing saying which screen it belongs to. The
+# tecount/telocal views keep bare names: they have a parent group to themselves.
+#
+# `id` namespaces the emitted doc ids and must stay unique per view; `parent`
+# is the MultiQC group and must match the Python emitters' parent_id exactly.
 VIEWS <- list(
     # NB: the list KEY stays "chimera" -- it is the CLI selector passed by
-    # sample_qc.smk (--transform chimera / --plots chimera). Only id/label
-    # are report-facing, and id must match the Python emitters' parent_id.
+    # sample_qc.smk (--transform chimera / --plots chimera).
     chimera = list(
         id = "chimera_reads",
-        label = "Chimera [Reads]",
+        parent = "chimera",
+        label = "Chimera",
+        section_prefix = "Reads - ",
         noun_plural = "chimeric events",
         noun_singular = "event"
     ),
+    assembly = list(
+        id = "chimera_assembly",
+        parent = "chimera",
+        label = "Chimera",
+        section_prefix = "Assembly - ",
+        noun_plural = "assembled chimeric transcripts",
+        noun_singular = "transcript"
+    ),
     tecount = list(
         id = "tecount",
+        parent = "tecount",
         label = "TEcount",
+        section_prefix = "",
         noun_plural = "features",
         noun_singular = "feature"
     ),
     telocal = list(
         id = "telocal",
+        parent = "telocal",
         label = "TElocal",
+        section_prefix = "",
         noun_plural = "loci",
         noun_singular = "locus"
     )
@@ -165,9 +183,9 @@ write_pca_mqc <- function(path, samples, x, y, colors, pc1, pc2, transform,
     body <- paste0(
         '{\n',
         sprintf('  "id": "%s_sample_qc_pca",\n', v$id),
-        sprintf('  "parent_id": "%s",\n', v$id),
+        sprintf('  "parent_id": "%s",\n', v$parent),
         sprintf('  "parent_name": "%s",\n', v$label),
-        '  "section_name": "PCA",\n',
+        sprintf('  "section_name": "%sPCA",\n', v$section_prefix),
         sprintf('  "description": "%s",\n', json_escape(desc)),
         '  "plot_type": "scatter",\n',
         '  "pconfig": {\n',
@@ -194,9 +212,9 @@ write_heatmap_mqc <- function(path, samples, d, transform, v, note = NULL) {
     body <- paste0(
         '{\n',
         sprintf('  "id": "%s_sample_qc_heatmap",\n', v$id),
-        sprintf('  "parent_id": "%s",\n', v$id),
+        sprintf('  "parent_id": "%s",\n', v$parent),
         sprintf('  "parent_name": "%s",\n', v$label),
-        '  "section_name": "Clusters",\n',
+        sprintf('  "section_name": "%sClusters",\n', v$section_prefix),
         sprintf('  "description": "%s",\n', json_escape(desc)),
         '  "plot_type": "heatmap",\n',
         '  "pconfig": {\n',
@@ -220,9 +238,9 @@ write_empty_mqc <- function(path, kind, v) {
         paste0(
             '{\n',
             sprintf('  "id": "%s_sample_qc_pca",\n', v$id),
-            sprintf('  "parent_id": "%s",\n', v$id),
+            sprintf('  "parent_id": "%s",\n', v$parent),
             sprintf('  "parent_name": "%s",\n', v$label),
-            '  "section_name": "PCA",\n',
+            sprintf('  "section_name": "%sPCA",\n', v$section_prefix),
             sprintf('  "description": "%s",\n', json_escape(note)),
             '  "plot_type": "scatter",\n',
             sprintf('  "pconfig": {"id": "%s_pca_plot", "title": "%s counts: PCA"},\n',
@@ -234,9 +252,9 @@ write_empty_mqc <- function(path, kind, v) {
         paste0(
             '{\n',
             sprintf('  "id": "%s_sample_qc_heatmap",\n', v$id),
-            sprintf('  "parent_id": "%s",\n', v$id),
+            sprintf('  "parent_id": "%s",\n', v$parent),
             sprintf('  "parent_name": "%s",\n', v$label),
-            '  "section_name": "Clusters",\n',
+            sprintf('  "section_name": "%sClusters",\n', v$section_prefix),
             sprintf('  "description": "%s",\n', json_escape(note)),
             '  "plot_type": "heatmap",\n',
             sprintf('  "pconfig": {"id": "%s_heatmap_plot", "title": "Euclidean distance between samples"},\n',

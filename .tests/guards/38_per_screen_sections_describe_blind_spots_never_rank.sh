@@ -24,11 +24,11 @@ d=json.load(open('$T/hl/qc/junction_highlights_mqc.json'))
 ok=True
 if 'data' not in d:
     print('ERROR: custom_content needs a top-level data key'); ok=False
-# every read-evidence view shares this group; a mismatch splits the
+# every chimera view shares ONE group now; a mismatch splits the
 # section in two. Checked separately so a failure here does not
 # print as a content failure (it did, once).
-if d.get('parent_id')!='chimera_reads':
-    print(f\"ERROR: parent_id must be chimera_reads, got {d.get('parent_id')!r}\"); ok=False
+if d.get('parent_id')!='chimera':
+    print(f\"ERROR: parent_id must be chimera, got {d.get('parent_id')!r}\"); ok=False
 b=d.get('data','')
 if 'What it cannot see' not in b:
     print('ERROR: screen section must state its blind spot'); ok=False

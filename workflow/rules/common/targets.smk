@@ -237,6 +237,8 @@ def all_benchmark_files():
             "chimera_evidence.txt",
             "results/pipeline_info/benchmarks/chimera_evidence_guide/"
             "chimera_evidence_guide.txt",
+            "results/pipeline_info/benchmarks/chimera_candidates_table/"
+            "chimera_candidates_table.txt",
             "results/pipeline_info/benchmarks/chimera_evidence_heatmap/"
             "chimera_evidence_heatmap.txt",
             "results/pipeline_info/benchmarks/sample_evidence_status/"

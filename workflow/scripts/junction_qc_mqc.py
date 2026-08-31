@@ -105,9 +105,9 @@ def main():
 
     doc = {
         "id": "chimera_junction_qc",
-        "parent_id": "chimera_reads",
-        "parent_name": "Chimera [Reads]",
-        "section_name": "Events by direction",
+        "parent_id": "chimera",
+        "parent_name": "Chimera",
+        "section_name": "Reads - composition by direction",
         "description": (
             "Per-sample composition of annotated chimeric junctions by "
             "direction (the gene\u2194TE event classes first), as counts and "
@@ -115,7 +115,7 @@ def main():
             "<br><br><em>How to read this:</em> a junction is classified by "
             "what its two breakpoints overlap. Only <code>gene_to_te</code> "
             "and <code>te_to_gene</code> are gene\u2013TE chimeras. The other "
-            "classes are not merely leftovers \u2014 STAR calls a junction "
+            "classes are not merely leftovers - STAR calls a junction "
             "chimeric on alignment geometry alone, without reading any "
             "annotation, so they also collect circRNA back-splices, "
             "read-through transcripts and PCR/ligation chimeras. Nothing is "
@@ -136,7 +136,7 @@ def main():
     }
     _finalise(doc, [counts, pct],
               "<p>No chimeric junctions were annotated in this run, so there "
-              "is nothing to plot. This is not an error \u2014 STAR found no "
+              "is nothing to plot. This is not an error - STAR found no "
               "chimeric reads, or none survived annotation.</p>")
 
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
@@ -162,9 +162,9 @@ def main():
 
         canon_doc = {
             "id": "chimera_canonical_rate",
-            "parent_id": "chimera_reads",
-            "parent_name": "Chimera [Reads]",
-            "section_name": "Splice-motif rate by direction",
+            "parent_id": "chimera",
+            "parent_name": "Chimera",
+            "section_name": "Reads - splice-motif rate by direction",
             "description": (
                 "Share of each direction's junctions for which STAR reported a "
                 "recognised splice motif (GT/AG, GC/AG, AT/AC and reverse "
@@ -172,14 +172,14 @@ def main():
                 "<br><br><em>Why this matters:</em> genuine spliced introns are "
                 "very nearly 100% canonical, so a junction with no motif is "
                 "most likely template switching, a ligation/PCR chimera or a "
-                "mismapping \u2014 not a transcript. Chimeric junctions are "
+                "mismapping - not a transcript. Chimeric junctions are "
                 "overwhelmingly motif-less in practice, so <strong>read this "
                 "as enrichment, not as an absolute</strong>. "
                 "<br><br><strong>Compare within a donor group, not against "
                 "<code>other</code>.</strong> The donor side alone shifts the "
-                "rate a lot \u2014 on real data every <code>gene_to_*</code> "
+                "rate a lot - on real data every <code>gene_to_*</code> "
                 "class sits near 8-10% while every <code>te_to_*</code> class "
-                "sits at 3-7% \u2014 so measuring <code>gene_to_te</code> "
+                "sits at 3-7% - so measuring <code>gene_to_te</code> "
                 "against <code>other</code> credits it for the donor being a "
                 "gene at all. The honest comparisons are "
                 "<code>gene_to_te</code> vs <code>gene_to_gene</code> / "
@@ -246,15 +246,15 @@ def main():
 
         te_doc = {
             "id": "chimera_te_gene_chimeras",
-            "parent_id": "chimera_reads",
-            "parent_name": "Chimera [Reads]",
-            "section_name": "Gene-TE subset",
+            "parent_id": "chimera",
+            "parent_name": "Chimera",
+            "section_name": "Reads - gene-TE subset",
             "description": (
                 "Per-sample gene\u2194TE chimeric junctions (direction "
                 "gene_to_te / te_to_gene), as counts and % of total junctions. "
                 "<br><br><em>How to read this:</em> these are candidate "
                 "gene\u2013TE chimeras, annotated but <strong>not</strong> "
-                "filtered \u2014 no read-count, replicate or splice-motif "
+                "filtered - no read-count, replicate or splice-motif "
                 "cutoff has been applied. Apply your own before treating a "
                 "call as confident, and check the canonical-rate plot: in "
                 "practice only a minority of chimeric junctions carry a "

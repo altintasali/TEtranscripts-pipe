@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Chimera [Per-sample] grid, in the shape of FastQC's Status Checks:
+"""Per-sample chimera status grid, in the shape of FastQC's Status Checks:
 samples down the side, evidence layers across the top, one traffic-light cell
 each.
 
@@ -213,8 +213,8 @@ def main():
 
     doc = {
         "id": "sample_evidence_status",
-        "parent_id": "evidence_status",
-        "parent_name": "Chimera [Per-sample]",
+        "parent_id": "chimera",
+        "parent_name": "Chimera",
         "section_name": "Per-sample status",
         "description": (
             "What each sample contributed to every chimera evidence layer, "
