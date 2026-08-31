@@ -39,18 +39,48 @@ from gz_io import open_read
 
 PASS, WARN, FAIL = 1.0, 0.5, 0.0
 
-# (label, how to derive the per-sample number from the junction QC metrics)
+# (label, how to derive the per-sample number, what the column means)
+#
+# Every layer here comes from ONE source: the read-evidence screen's per-sample
+# junction QC (junction_qc.py over STAR's Chimeric.out.junction). That was not
+# visible in the rendered table -- the headers were bare labels with no
+# provenance and no definition -- so each carries a tooltip now.
 LAYERS = [
-    ("Chimeric junctions", lambda m: m("events_total")),
-    ("Gene-TE junctions", lambda m: m("events_gene_te")),
-    ("Splice motif", lambda m: m("canonical_gene_to_te") + m("canonical_te_to_gene")),
+    ("Chimeric junctions", lambda m: m("events_total"),
+     "STAR: all annotated chimeric junctions in the sample, before any "
+     "gene/TE filtering. The denominator everything else is a subset of."),
+    ("Gene-TE junctions", lambda m: m("events_gene_te"),
+     "STAR: the subset whose two breakpoints hit a gene and a TE "
+     "(gene_to_te or te_to_gene). These are the candidate chimeras."),
+    ("Splice motif", lambda m: m("canonical_gene_to_te") + m("canonical_te_to_gene"),
+     "STAR: gene-TE junctions carrying a recognised splice motif (GT/AG, "
+     "GC/AG, AT/AC). The best artifact discriminator in the pipeline -- real "
+     "introns are ~100% canonical, template-switching artifacts are not."),
     ("Unambiguous direction",
-     lambda m: m("events_gene_te") - m("ambiguous_direction")),
-    ("TE-initiated", lambda m: m("chimera_type_te_initiated")),
-    ("TE-exonized", lambda m: m("chimera_type_te_exonized")),
-    ("TE-terminated", lambda m: m("chimera_type_te_terminated")),
-    ("Gene strand match", lambda m: m("strand_match_yes")),
+     lambda m: m("events_gene_te") - m("ambiguous_direction"),
+     "STAR: gene-TE junctions where the donor/acceptor call was decided by "
+     "evidence rather than by branch order. TEs sit inside gene bodies, so a "
+     "breakpoint can hit both; those are excluded here."),
+    ("TE-initiated", lambda m: m("chimera_type_te_initiated"),
+     "STAR: junctions where transcription starts in the TE and reads into "
+     "the gene."),
+    ("TE-exonized", lambda m: m("chimera_type_te_exonized"),
+     "STAR: junctions where the TE is spliced in as an internal exon of the "
+     "gene transcript."),
+    ("TE-terminated", lambda m: m("chimera_type_te_terminated"),
+     "STAR: junctions where the gene transcript reads into a TE and ends "
+     "there."),
+    ("Gene strand match", lambda m: m("strand_match_yes"),
+     "STAR: junctions whose inferred transcript strand agrees with the "
+     "annotated gene strand. A mismatch usually means the gene overlap is "
+     "coincidental rather than real connectivity."),
 ]
+
+STRAND_TOOLTIP = (
+    "RSeQC: whether the strandedness declared in the sample sheet agrees with "
+    "what the data shows. MISMATCH is a correctness problem, not a yield one, "
+    "so it is flagged regardless of the cohort."
+)
 
 
 def load_metrics(path):
@@ -109,8 +139,8 @@ def main():
     metrics = {s: getter(load_metrics(p))
                for s, p in zip(samples, args.qc_tables)}
 
-    labels = [lbl for lbl, _ in LAYERS]
-    raw = [[fn(metrics[s]) for _, fn in LAYERS] for s in samples]
+    labels = [lbl for lbl, _, _ in LAYERS]
+    raw = [[fn(metrics[s]) for _, fn, _ in LAYERS] for s in samples]
     meds = [median([raw[r][c] for r in range(len(samples))])
             for c in range(len(LAYERS))]
     enough = len(samples) >= 3
@@ -160,9 +190,14 @@ def main():
         # metrics arrive as floats via getter(); counts are whole numbers
         return f"{round(value):,}"
 
-    header = "".join(f"<th>{lbl}</th>" for lbl in labels)
+    header = "".join(
+        f'<th title="{tip}" style="cursor:help;text-decoration:underline '
+        f'dotted;">{lbl}</th>'
+        for (lbl, _fn, tip) in LAYERS
+    )
     if strand_status:
-        header += "<th>Strandedness</th>"
+        header += (f'<th title="{STRAND_TOOLTIP}" style="cursor:help;'
+                   f'text-decoration:underline dotted;">Strandedness</th>')
 
     body = []
     for r, s in enumerate(samples):
@@ -218,8 +253,11 @@ def main():
         "section_name": "Per-sample status",
         "description": (
             "What each sample contributed to every chimera evidence layer, "
-            "from the read-evidence screen's per-sample QC. Read across a row "
-            f"for one sample, down a column to spot an outlier. {scale}"
+            "from the read-evidence screen's per-sample QC "
+            "(junction_qc.py over STAR's chimeric junctions; the strandedness "
+            "column comes from RSeQC). <strong>Hover any column header for "
+            "what it counts and where it comes from.</strong> Read across a "
+            f"row for one sample, down a column to spot an outlier. {scale}"
             f"{strand_note}"
         ),
         "plot_type": "html",

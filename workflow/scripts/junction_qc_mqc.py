@@ -3,7 +3,7 @@
 custom-content bar plots:
   junction_qc_mqc.json      per-sample chimeric-junction composition by
                             direction (counts and % of total junctions).
-  te_gene_chimeras_mqc.json the gene<->TE subset by direction (gene_to_te /
+  te_gene_chimeras_mqc.json the gene<->TE subset by class (gene_to_te /
                             te_to_gene, counts and % of total junctions) --
                             the gene-TE chimeras view, written when
                             --out-te-gene-chimeras is given.
@@ -107,11 +107,17 @@ def main():
         "id": "chimera_junction_qc",
         "parent_id": "chimera",
         "parent_name": "Chimera",
-        "section_name": "Reads - composition by direction",
+        "section_name": "Reads - junction classes",
         "description": (
             "Per-sample composition of annotated chimeric junctions by "
-            "direction (the gene\u2194TE event classes first), as counts and "
-            "% of total junctions. "
+            "class, as counts and % of total junctions. "
+            "<br><br><em>What the class names mean:</em> a chimeric junction "
+            "joins two breakpoints, and the name reads "
+            "<code>donor_to_acceptor</code> &mdash; what the read comes FROM, "
+            "then what it goes TO. So <code>gene_to_te</code> is a transcript "
+            "starting in a gene and continuing into a TE, and "
+            "<code>te_to_gene</code> is the reverse; they are different "
+            "biology, not two labels for the same event. "
             "<br><br><em>How to read this:</em> a junction is classified by "
             "what its two breakpoints overlap. Only <code>gene_to_te</code> "
             "and <code>te_to_gene</code> are gene\u2013TE chimeras. The other "
@@ -125,7 +131,7 @@ def main():
         "plot_type": "bar",
         "pconfig": {
             "id": "chimera_junction_qc_plot",
-            "title": "Chimera junctions by direction",
+            "title": "Chimeric junctions by class (donor to acceptor)",
             "ylab": "junctions",
             "cpswitch": True,
             "data_labels": [
@@ -164,7 +170,7 @@ def main():
             "id": "chimera_canonical_rate",
             "parent_id": "chimera",
             "parent_name": "Chimera",
-            "section_name": "Reads - splice-motif rate by direction",
+            "section_name": "Reads - splice-motif rate by junction class",
             "description": (
                 "Share of each direction's junctions for which STAR reported a "
                 "recognised splice motif (GT/AG, GC/AG, AT/AC and reverse "
@@ -194,7 +200,7 @@ def main():
             "plot_type": "bar",
             "pconfig": {
                 "id": "chimera_canonical_rate_plot",
-                "title": "Canonical (splice-motif) rate by direction",
+                "title": "Canonical (splice-motif) rate by junction class",
                 "ylab": "% canonical",
                 "cpswitch": False,
                 "data_labels": [
@@ -263,7 +269,7 @@ def main():
             "plot_type": "bar",
             "pconfig": {
                 "id": "chimera_te_gene_chimeras_plot",
-                "title": "Gene-TE chimeras by direction",
+                "title": "Gene-TE chimeric junctions by class",
                 "ylab": "junctions",
                 "cpswitch": True,
                 "data_labels": [

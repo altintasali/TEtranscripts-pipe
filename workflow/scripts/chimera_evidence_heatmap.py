@@ -116,7 +116,8 @@ def load(path):
             yield dict(zip(header, line.rstrip("\n").split("\t")))
 
 
-def heatmap_doc(doc_id, section, description, xcats, ycats, data, title):
+def heatmap_doc(doc_id, section, description, xcats, ycats, data, title,
+                ylab="Evidence type"):
     return {
         "id": doc_id,
         # Its own group, NOT the read-evidence screen's. These heatmaps read
@@ -129,7 +130,15 @@ def heatmap_doc(doc_id, section, description, xcats, ycats, data, title):
         "section_name": section,
         "description": description,
         "plot_type": "heatmap",
-        "pconfig": {"id": f"{doc_id}_plot", "title": title},
+        "pconfig": {
+            "id": f"{doc_id}_plot",
+            "title": title,
+            # Axis titles, because MultiQC calls every heatmap row a "sample".
+            # These rows are evidence dimensions and candidate pairs; without
+            # labels the report reads as though it found 7 samples.
+            "xlab": "Evidence type",
+            "ylab": ylab,
+        },
         "xcats": xcats,
         "ycats": ycats,
         "data": data,
@@ -172,7 +181,7 @@ def main():
 
     corr_desc = (
         f"Spearman correlation between the evidence columns of "
-        f"chimera_evidence.tsv.gz, across the {len(jrows):,} pair(s) the "
+        f"candidates.tsv.gz, across the {len(jrows):,} gene-TE pair(s) the "
         "junction screen found (assembly-only pairs are excluded: their "
         "junction fields are all zero, which would manufacture correlation "
         "from shared absence). "
@@ -184,6 +193,10 @@ def main():
         "<em>Splice motif</em> is the one to take seriously: the motif is "
         "the best artifact discriminator here, so anything anti-correlated "
         "with it is selecting against real splicing, not for it."
+        "<br><br><em>Note:</em> both axes are <strong>evidence types</strong>, "
+        "not samples. MultiQC labels every heatmap row a \"sample\" in its own "
+        "toolbox; here each row and column is one of the "
+        f"{len(DIMENSIONS)} evidence columns."
     )
     corr = heatmap_doc(
         "chimera_evidence_correlation", "Evidence structure - correlation",
@@ -229,9 +242,11 @@ def main():
     )
     cand = heatmap_doc(
         "chimera_evidence_candidates",
-        "Evidence structure - leaders by dimension", cand_desc, labels, [label(i) for i in picked],
+        "Evidence structure - leaders by dimension", cand_desc, labels,
+        [label(i) for i in picked],
         [[pct[d][i] for d in range(len(DIMENSIONS))] for i in picked],
         "Evidence percentile per candidate",
+        ylab="Gene / TE pair",
     )
 
     for path, doc in ((args.out_correlation, corr), (args.out_candidates, cand)):

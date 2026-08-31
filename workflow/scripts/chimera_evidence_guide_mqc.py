@@ -239,6 +239,13 @@ def main():
         "No evidence flag": n_no_flags,
     }
     if any(counts_by_label.values()):
+        # One bar PER EVIDENCE TYPE, not one stacked bar split by type.
+        # MultiQC stacks by default (stacking="relative"), which drew these as
+        # segments of a single bar -- and that reads as a partition: mutually
+        # exclusive slices summing to the cohort. It is the opposite of true.
+        # A pair can carry all four flags at once, so the counts OVERLAP and
+        # do not sum to anything meaningful. Giving each its own bar removes
+        # the implied exclusivity.
         composition_body = {
             "plot_type": "bargraph",
             "pconfig": {
@@ -246,12 +253,16 @@ def main():
                 "title": "Gene-TE pairs carrying each line of evidence",
                 "ylab": "Gene-TE pairs",
                 "cpswitch": False,
+                "stacking": "group",
                 # whole pairs: no decimals. tt_decimals is the key MultiQC
                 # honours here; "format" is silently dropped.
                 "tt_decimals": 0,
             },
-            "categories": [label for _, label in FLAGS] + ["No evidence flag"],
-            "data": {"Gene-TE pairs": counts_by_label},
+            "categories": ["Gene-TE pairs"],
+            "data": {
+                label: {"Gene-TE pairs": count}
+                for label, count in counts_by_label.items()
+            },
         }
     else:
         composition_body = {
@@ -271,12 +282,14 @@ def main():
         "parent_name": PARENT_NAME,
         "section_name": "Evidence composition",
         "description": (
-            "How many gene-TE pairs carry each line of evidence. Sources: "
-            "splice motif and replicate support from STAR chimeric junctions, "
-            "assembly strand match from StringTie, both-screens from the two "
-            "together. Pairs can carry several, so these do not sum to the "
-            "cohort total; the bars are independent counts, not parts of a "
-            "whole."
+            "How many gene-TE pairs carry each line of evidence. "
+            "<strong>These bars overlap and do not sum to the cohort.</strong> "
+            "A single pair can carry all four flags at once, so it is counted "
+            "in several bars &mdash; they are independent counts, not slices "
+            "of a whole, which is why they are drawn separately rather than "
+            "stacked. Sources: splice motif and replicate support from STAR "
+            "chimeric junctions, assembly strand match from StringTie, "
+            "both-screens from the two together."
         ),
         **composition_body,
     }

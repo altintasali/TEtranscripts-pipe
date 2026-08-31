@@ -151,19 +151,30 @@ def main():
         strand_counts[cls] = matched
 
     if any(strand_counts.values()):
+        # One bar PER CLASS. The first shape here put every class as a
+        # category of a single "strand match" bar, and MultiQC stacks by
+        # default -- so the percentages were summed and the axis ran past
+        # 100%. Percentages of different denominators must never share a
+        # stack; each class is its own bar with its own 0-100 scale.
         strand_body = {
             "plot_type": "bar",
             "pconfig": {
                 "id": "chimera_assembly_strand_rate_plot",
                 "title": "Strand-match rate by chimera class",
-                "ylab": "% strand-matched",
+                "ylab": "% of candidates in the class",
                 "cpswitch": False,
+                "stacking": "group",
+                "ymax": 100,
                 "data_labels": [
                     {"name": "% strand-matched", "tt_decimals": 1},
                     {"name": "strand-matched candidates", "tt_decimals": 0},
                 ],
             },
-            "data": [{"strand match": strand_rate}, {"strand match": strand_counts}],
+            "data": [
+                {cls: {"% strand-matched": strand_rate[cls]} for cls in CLASS_ORDER},
+                {cls: {"strand-matched candidates": strand_counts[cls]}
+                 for cls in CLASS_ORDER},
+            ],
         }
     else:
         # all-zero plots crash MultiQC outright -- see chimera_evidence_guide_mqc
@@ -181,14 +192,22 @@ def main():
         "parent_name": "Chimera",
         "section_name": "Assembly - strand-match rate by class",
         "description": (
-            "Share of each class's candidates whose assembled transcript "
-            "strand agrees with the gene's. "
-            "<br><br><em>Why this matters:</em> for <code>te_initiated</code> "
-            "calls a mismatch usually means the gene hit is a spurious "
-            "overlap rather than real transcript connectivity, so a class "
-            "with a low rate is one to distrust. This is a consistency check "
-            "on the assembly, not independent support &mdash; the read "
-            "screen's splice-motif rate is the closer thing to evidence."
+            "<em>What \"strand match\" means:</em> StringTie assembles each "
+            "transcript on a strand, and the gene it overlaps is annotated on "
+            "a strand. <strong>Strand match = those two agree.</strong> They "
+            "have to, for the transcript to actually be a fusion of that gene "
+            "with that TE: a transcript on the opposite strand from the gene "
+            "is running the other way and cannot be transcribed from it, so "
+            "the overlap is coincidental &mdash; the two features merely sit "
+            "in the same place in the genome. "
+            "<br><br><em>How to read it:</em> each bar is one chimera class, "
+            "scored independently, so the bars do not sum to anything. A "
+            "class with a low rate is one to distrust: for "
+            "<code>te_initiated</code> especially, a mismatch usually means "
+            "the gene hit is a spurious overlap rather than real transcript "
+            "connectivity. This is a consistency check on the assembly, not "
+            "independent support &mdash; the read screen\'s splice-motif "
+            "rate is the closer thing to evidence."
         ),
         **strand_body,
     }

@@ -85,6 +85,16 @@ check(len(c["ycats"]) == len(c["data"]), "row labels and rows disagree")
 check(all(len(r) == n for r in c["data"]), "candidate rows must cover every dimension")
 check(all(0 <= v <= 100 for r in c["data"] for v in r), "cells must be percentiles")
 check(any("/" in y for y in c["ycats"]), "rows must be labelled gene / te_id")
+# MultiQC labels every heatmap row a "sample" in its own toolbox, so the axes
+# must say what they actually are -- 7 evidence types read as 7 samples.
+check(d["pconfig"].get("xlab") == "Evidence type",
+      f"correlation x-axis must name evidence types, got {d['pconfig'].get('xlab')!r}")
+check(d["pconfig"].get("ylab") == "Evidence type",
+      f"correlation y-axis must name evidence types, got {d['pconfig'].get('ylab')!r}")
+check(c["pconfig"].get("ylab") == "Gene / TE pair",
+      f"candidate rows are pairs, not samples; got {c['pconfig'].get('ylab')!r}")
+check("evidence types" in d.get("description", "").lower(),
+      "the correlation section must say its axes are evidence types, not samples")
 sys.exit(0 if ok else 1)
 PY
 fi

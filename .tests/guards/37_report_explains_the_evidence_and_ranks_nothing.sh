@@ -61,10 +61,18 @@ c = json.load(open(f"{d}/chimera_evidence_composition_mqc.json"))
 check(c.get("plot_type") == "bargraph", "composition must be a bargraph")
 check(c.get("parent_id") == "chimera",
       "composition must share the chimera group")
-counts = c["data"]["Gene-TE pairs"]
+# One bar PER EVIDENCE TYPE, unstacked. The first shape made every type a
+# category of a single stacked bar, which drew them as slices of a whole --
+# but a pair can carry several flags, so the counts overlap and a partition
+# is exactly the wrong picture.
+check(c["pconfig"].get("stacking") == "group",
+      "composition must not stack: the counts overlap, they are not a partition")
+counts = {k: v["Gene-TE pairs"] for k, v in c["data"].items()}
 check(counts.get("Splice motif") == 2, f"splice-motif count wrong: {counts}")
 check(counts.get("Called by both screens") == 1, f"both-screens count wrong: {counts}")
 check(counts.get("No evidence flag") == 1, f"no-flag count wrong: {counts}")
+check("do not sum" in b or "overlap" in b,
+      "the section must say the bars overlap rather than partition the cohort")
 sys.exit(0 if ok else 1)
 PY2
 fi

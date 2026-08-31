@@ -92,7 +92,7 @@ merged.</p>
 A low overall percentage is normal &mdash; what matters is enrichment, and the
 honest comparison is <em>within a donor group</em>: <code>gene_to_te</code>
 against <code>gene_to_gene</code>/<code>gene_to_other</code>, not against
-<code>other</code>. See "Canonical rate by direction" below.</li>
+<code>other</code>. See "splice-motif rate by junction class" below.</li>
 {telocal_line}
 <li><strong>{n_multi}</strong> events are seen in more than one sample. Note
 this is weaker than a splice motif: a sequence-driven template switch recurs

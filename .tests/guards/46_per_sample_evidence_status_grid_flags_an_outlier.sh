@@ -87,6 +87,14 @@ for good in ("GV_KO_01", "GV_KO_02", "GV_WT_02"):
 
 check("cohort median" in d["description"], "description must say the scale is relative")
 check("fall outside 2x" in text, "the verdict line must state how many cells are flagged")
+# The headers were bare labels: no definition, no source. Every one now
+# carries a tooltip, and the description says to hover.
+tips = re.findall(r'<th title="([^"]{20,})"', body)
+check(len(tips) >= 8, f"every column needs a provenance tooltip; found {len(tips)}")
+check(all("STAR" in t or "RSeQC" in t for t in tips),
+      "each tooltip must name the tool the column comes from")
+check("Hover any column header" in d["description"],
+      "the description must tell the reader the headers are hoverable")
 sys.exit(0 if ok else 1)
 PY
 fi
