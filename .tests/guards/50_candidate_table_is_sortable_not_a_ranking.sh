@@ -40,15 +40,24 @@ check(d.get("parent_id") == "chimera",
 check(d.get("plot_type") == "table",
       f"must be a MultiQC table so the reader can sort; got {d.get('plot_type')!r}")
 
-# every signal is its own column, so any of them can be sorted on
+# every signal is its own column, so any of them can be sorted on -- Gene and
+# TE insertion included, so a reader can find a specific gene
 headers = d.get("headers", {})
-for col in ("Evidence types", "Splice motif", "Samples", "Found by",
-            "Strand match", "Reads"):
+for col in ("Gene", "TE insertion", "Evidence types", "Splice motif",
+            "Samples", "Found by", "Strand match", "Reads"):
     check(col in headers, f"column {col!r} missing -- the reader cannot sort on it")
+# the table opens on the evidence count; sort_rows alone does not stick
+check(d["pconfig"].get("defaultsort"),
+      "defaultsort must set the opening order -- sort_rows does not survive")
 
 # rows keep candidates.tsv.gz's own order (n_evidence desc, then alphabetical)
 rows = list(d["data"])
-check(rows[0].startswith("GAPDH /"),
+# " | ", never " / ": MultiQC cleans table row names like filenames and splits
+# on "/", so a "GENE / te_id" key rendered as just the TE id and the gene
+# vanished from the report entirely.
+check(all("/" not in r for r in rows),
+      f"row keys must not contain '/' -- MultiQC strips everything before it; got {rows[:2]}")
+check(rows[0].startswith("GAPDH |"),
       f"gene symbols must be resolved and the densest-evidence pair first; got {rows[0]!r}")
 n_ev = [d["data"][r]["Evidence types"] for r in rows]
 check(n_ev == sorted(n_ev, reverse=True),
@@ -79,6 +88,27 @@ elif ! grep -q "PlotType.TABLE" "$T/tbl/render.log"; then
   echo "ERROR: rendered as something other than a MultiQC table"; FAIL=1
 elif ! grep -q "Plot Table Data" "$T/tbl/out/r.html"; then
   echo "ERROR: the table toolbox (sort/filter) is absent from the report"; FAIL=1
+elif ! python3 - "$T/tbl/out/r_data/multiqc_chimera_candidates_table_plot.txt" <<'PY2'
+import sys
+# The bug this catches: MultiQC cleans table row names like filenames. A key
+# of "GENE / te_id" was split on "/" and only the basename kept, so every gene
+# silently disappeared from the rendered report while the emitted JSON looked
+# correct. Only a real render shows it -- assert on MultiQC's OUTPUT.
+rows = [l.split("\t") for l in open(sys.argv[1]).read().splitlines()]
+head, body = rows[0], rows[1:]
+ok = True
+if "Gene" not in head:
+    print("ERROR: rendered table has no Gene column"); ok = False
+gi = head.index("Gene") if "Gene" in head else None
+names = [r[0] for r in body]
+if not any("GAPDH" in n for n in names):
+    print(f"ERROR: gene lost from rendered row names: {names}"); ok = False
+if gi is not None and not any(r[gi] == "GAPDH" for r in body):
+    print("ERROR: gene lost from the rendered Gene column"); ok = False
+sys.exit(0 if ok else 1)
+PY2
+then
+  echo "ERROR: gene names did not survive MultiQC rendering"; FAIL=1
 fi
 
 exit $FAIL

@@ -35,6 +35,15 @@ PARENT_NAME = "Chimera"
 # (column in candidates.tsv.gz, header, description, kind)
 # kind: "int" -> numeric, right-aligned; "yesno" -> rendered as a yes/no string
 COLUMNS = [
+    # Gene and TE get their own columns, not just the row key: the key is one
+    # string, so without these you cannot sort by gene, and a reader scanning
+    # for a specific gene has nothing to sort on.
+    ("gene_label", "Gene",
+     "Gene symbol where the reference GTF provides one, otherwise the "
+     "gene_id.", "str"),
+    ("te_id", "TE insertion",
+     "The individual TE copy (transcript_id in the TE GTF), not the "
+     "subfamily. Joins against TElocal rows.", "str"),
     ("n_evidence", "Evidence types",
      "How many of the four evidence flags this pair carries. A count, not a "
      "score -- the flags are unweighted.", "int"),
@@ -106,13 +115,16 @@ def main():
     for r in top:
         gene_id = r.get("gene_id", ".")
         gene = symbols.get(gene_id, gene_id)
-        key = f"{gene} / {r.get('te_id', '.')}"
+        # " | ", never " / ": MultiQC cleans table row names like filenames
+        # and splits on "/", taking the basename -- which silently dropped the
+        # gene and left only the TE id. Measured; guard 50 pins it.
+        key = f"{gene} | {r.get('te_id', '.')}"
         # a duplicate key would silently drop a row; disambiguate with gene_id
         if key in data:
             key = f"{key} ({gene_id})"
         entry = {}
         for col, header, _desc, kind in COLUMNS:
-            value = r.get(col, ".")
+            value = gene if col == "gene_label" else r.get(col, ".")
             entry[header] = _int(value) if kind == "int" else str(value)
         data[key] = entry
 
@@ -145,8 +157,14 @@ def main():
             "pconfig": {
                 "id": "chimera_candidates_table_plot",
                 "title": "Gene-TE chimera candidates",
-                "col1_header": "Gene / TE insertion",
-                "sort_rows": False,   # keep candidates.tsv.gz's own order
+                "col1_header": "Gene | TE insertion",
+                # defaultsort is what actually sets the opening order.
+                # sort_rows: False does NOT survive -- MultiQC re-populates its
+                # camelCase alias sortRows from the default (True), so the rows
+                # arrive alphabetised by name whatever this says. Measured.
+                # Stating the intended sort explicitly is the reliable route.
+                "sort_rows": False,
+                "defaultsort": [{"column": "Evidence types", "direction": "desc"}],
                 "no_violin": True,
             },
             "headers": headers,
