@@ -105,7 +105,17 @@ TETRANSCRIPTS_ENV = _write_env(
         "pysam",
         "pip",
     ],
-    pip_dependencies=[f"TEtranscripts=={V['tetranscripts']}"],
+    # TElocal too, not just TEtranscripts: build_telocal_index.py imports
+    # TElocal_Toolkit unconditionally (the "fast" indexer still populates a
+    # real TEfeatures object, so it is not a legacy-only dependency), and the
+    # telocal rule runs the TElocal binary. Without this the telocal rules
+    # work only in the monolithic environment and fail under `--sdm conda`
+    # with ModuleNotFoundError: No module named 'TElocal_Toolkit'.
+    # Same two pins as workflow/environment.yaml.
+    pip_dependencies=[
+        f"TEtranscripts=={V['tetranscripts']}",
+        f"TElocal=={V['telocal']}",
+    ],
 )
 
 UCSC_TOOLS_ENV = _write_env(
