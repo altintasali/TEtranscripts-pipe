@@ -5,7 +5,7 @@ pulling values out of each sample's -e/-B re-quantified StringTie GTF
 chimera_assembly.smk's stringtie_requantify rule).
 
 Kept separate from classify_chimera_assembly.py the same way chimera_counts.py
-is separate from parse_chimeric_junctions.py: structural classification and
+is separate from classify_chimera_junctions.py: structural classification and
 expression aggregation are different concerns, and you usually want to
 re-run/tune one without re-running the other.
 """

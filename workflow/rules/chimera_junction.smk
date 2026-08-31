@@ -24,7 +24,7 @@
 # (the two _with-telocal ones only when telocal is enabled).
 #
 # Rules:
-#   parse_chimeric_junctions per-sample junction annotation (+ the gene-TE subset)
+#   chimera_junction_classify per-sample junction annotation (+ the gene-TE subset)
 #   chimera_counts           merge per-sample tables -> all_events + counts
 #                            + te-gene-chimeras
 #   junction_qc              per-sample QC summary (MultiQC custom content)
@@ -112,9 +112,9 @@ def all_sample_qc_outputs():
     ]
 
 
-rule parse_chimeric_junctions:
+rule chimera_junction_classify:
     # Annotates one sample's STAR chimeric junctions against the gene/TE
-    # tracks. See parse_chimeric_junctions.py for the full column spec.
+    # tracks. See classify_chimera_junctions.py for the full column spec.
     # Pure-python, so it runs in the base environment.
     input:
         junctions="results/star/{sample}_Chimeric.out.junction",
@@ -133,16 +133,16 @@ rule parse_chimeric_junctions:
             else ""
         ),
         library=get_strandedness_param,
-    threads: get_resources("parse_chimeric_junctions")["threads"]
+    threads: get_resources("chimera_junction_classify")["threads"]
     resources:
-        mem_mb=get_resources("parse_chimeric_junctions")["mem_mb"],
-        runtime=get_resources("parse_chimeric_junctions")["runtime"],
+        mem_mb=get_resources("chimera_junction_classify")["mem_mb"],
+        runtime=get_resources("chimera_junction_classify")["runtime"],
     benchmark:
-        "results/pipeline_info/benchmarks/parse_chimeric_junctions/{sample}.txt",
+        "results/pipeline_info/benchmarks/chimera_junction_classify/{sample}.txt",
     log:
-        "results/pipeline_info/logs/chimera_junction/parse/{sample}.log",
+        "results/pipeline_info/logs/chimera_junction/classify/{sample}.log",
     shell:
-        "python3 {SCRIPTS_DIR}/parse_chimeric_junctions.py "
+        "python3 {SCRIPTS_DIR}/classify_chimera_junctions.py "
         "--junctions {input.junctions} "
         "--genes {input.genes} --exons {input.exons} --te {input.te} "
         "--sample {wildcards.sample} "

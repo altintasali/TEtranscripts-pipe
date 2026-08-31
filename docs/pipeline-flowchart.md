@@ -46,7 +46,7 @@ flowchart LR
     end
     subgraph chimera_screen["Chimera screen"]
         annotation_to_bed["annotation -> BED tracks"]
-        parse_chimeric_junctions["parse chimeric junctions"]
+        chimera_junction_classify["classify chimeric junctions"]
         chimera_telocal_annotate["annotate junctions with TElocal counts"]
         junction_qc["junction QC"]
         junction_qc_barplot["junction QC barplot"]
@@ -82,7 +82,7 @@ flowchart LR
         telocal_locations["telocal_locations"]
     end
     annotation_to_bed --> chimera_assembly_classify
-    annotation_to_bed --> parse_chimeric_junctions
+    annotation_to_bed --> chimera_junction_classify
     benchmark_summary --> multiqc
     cat_fastq --> fastqc_raw
     cat_fastq --> trim_galore_pe
@@ -101,9 +101,12 @@ flowchart LR
     chimera_evidence --> chimera_candidates_table
     chimera_evidence --> chimera_evidence_guide
     chimera_evidence --> chimera_evidence_heatmap
+    chimera_junction_classify --> chimera_igv_bed
+    chimera_junction_classify --> chimera_telocal_annotate
+    chimera_junction_classify --> junction_qc
     chimera_telocal_annotate --> chimera_counts
     chimera_telocal_index --> chimera_telocal_annotate
-    determine_strandedness --> parse_chimeric_junctions
+    determine_strandedness --> chimera_junction_classify
     determine_strandedness --> strandedness_check
     determine_strandedness --> stringtie_assemble
     determine_strandedness --> stringtie_requantify
@@ -118,9 +121,6 @@ flowchart LR
     gtf_to_genepred --> genepred_to_bed12
     junction_qc --> chimera_te_type
     junction_qc --> junction_qc_barplot
-    parse_chimeric_junctions --> chimera_igv_bed
-    parse_chimeric_junctions --> chimera_telocal_annotate
-    parse_chimeric_junctions --> junction_qc
     rseqc_infer_experiment --> determine_strandedness
     rseqc_infer_experiment --> strandedness_check
     sample_qc_transform --> sample_qc
@@ -134,8 +134,8 @@ flowchart LR
     samtools_sort --> samtools_flagstat
     samtools_sort --> samtools_index
     software_versions --> multiqc
+    star_align --> chimera_junction_classify
     star_align --> cleanup_star_index
-    star_align --> parse_chimeric_junctions
     star_align --> samtools_sort
     star_align --> tecount
     star_align --> telocal

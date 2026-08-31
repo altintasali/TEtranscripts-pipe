@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Per-sample junction QC summary from a parse_chimeric_junctions.tsv table.
+"""Per-sample junction QC summary from a {sample}_junctions.tsv.gz table
+(classify_chimera_junctions.py).
 
 Writes a tiny two-column TSV (metric, value) with the event counts a user
 wants at a glance before any deeper QC: total events, how many are gene<->TE

@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
-"""Parse STAR's Chimeric.out.junction into a per-sample, per-event table of
-gene-TE chimera candidates.
+"""Classify STAR chimeric junctions as gene-TE chimera candidates, using
+read-level breakpoints rather than assembled transcript structure.
+
+The read-evidence counterpart of classify_chimera_assembly.py: same job, same
+shape of output, different evidence. Parses STAR's Chimeric.out.junction into
+a per-sample, per-event table.
 
 STAR's chimeric detection (--chimOutType Junctions WithinBAM SoftClip, see
 rules/align.smk) reports, per chimeric read, one line whose 5' segment is the

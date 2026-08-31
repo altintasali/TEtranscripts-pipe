@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Merge the per-sample junction tables (parse_chimeric_junctions.py) into the
+"""Merge the per-sample junction tables (classify_chimera_junctions.py) into the
 chimera all-events catalog and the event x sample counts matrix.
 
 Outputs:

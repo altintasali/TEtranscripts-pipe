@@ -54,7 +54,7 @@ ignore = [
 "workflow/scripts/benchmark_summary.py" = ["B018"]
 "workflow/scripts/config_used_mqc.py" = ["B018"]
 # Loop variables kept for readability where the tuple shape is the point.
-"workflow/scripts/parse_chimeric_junctions.py" = ["B007"]
+"workflow/scripts/classify_chimera_junctions.py" = ["B007"]
 "workflow/scripts/flowchart.py" = ["F841"]
 
 [tool.pytest.ini_options]

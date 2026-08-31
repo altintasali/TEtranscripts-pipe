@@ -298,7 +298,7 @@ resources:
     mem_mb: 6000
     runtime: 30
 
-  parse_chimeric_junctions:
+  chimera_junction_classify:
     # Annotating a junction file against the gene/TE tracks; single-threaded
     # python.
     threads: 1

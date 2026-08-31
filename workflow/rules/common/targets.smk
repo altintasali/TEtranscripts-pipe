@@ -246,7 +246,7 @@ def all_benchmark_files():
         ]
         for s in SAMPLES:
             files += [
-                f"results/pipeline_info/benchmarks/parse_chimeric_junctions/{s}.txt",
+                f"results/pipeline_info/benchmarks/chimera_junction_classify/{s}.txt",
                 f"results/pipeline_info/benchmarks/junction_qc/{s}.txt",
             ]
             if config["chimera"]["junction"]["outputs"]["write_igv_bed"]:

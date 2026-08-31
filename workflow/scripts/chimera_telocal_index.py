@@ -255,7 +255,7 @@ class TelocalIndex:
 
         Correct for arbitrarily long/nested/overlapping loci, not just the
         common case -- bisects on the running max_end rather than start,
-        matching parse_chimeric_junctions.py's overlapping() rationale.
+        matching classify_chimera_junctions.py's overlapping() rationale.
         """
         cols = self.chroms.get(chrom)
         if cols is None:

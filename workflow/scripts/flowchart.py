@@ -69,7 +69,7 @@ LABELS = {
     "cleanup_telocal_index": ("remove TElocal index (if keep: false)", "Quantification + QC"),
     "gene_name_lookup": ("gene_id -> gene_name lookup", "Reference (once)"),
     "annotation_to_bed": ("annotation -> BED tracks", "Chimera screen"),
-    "parse_chimeric_junctions": ("parse chimeric junctions", "Chimera screen"),
+    "chimera_junction_classify": ("classify chimeric junctions", "Chimera screen"),
     "chimera_telocal_annotate": ("annotate junctions with TElocal counts", "Chimera screen"),
     "junction_qc": ("junction QC", "Chimera screen"),
     "junction_qc_barplot": ("junction QC barplot", "Chimera screen"),

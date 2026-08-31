@@ -1,4 +1,4 @@
-"""Turn a per-sample chimera junction table (parse_chimeric_junctions.py)
+"""Turn a per-sample chimera junction table (classify_chimera_junctions.py)
 into a BED track for IGV: one BED6-ish row per gene-TE event, spanning the
 donor->acceptor breakpoint.
 
