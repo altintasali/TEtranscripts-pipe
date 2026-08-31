@@ -61,6 +61,16 @@ COLUMNS = [
     ("junction_reads", "Reads",
      "Chimeric reads supporting this pair (STAR). The metric most inflated by "
      "artifacts -- shown last on purpose.", "int"),
+    # Reported, never counted as evidence. It is in candidates.tsv.gz and the
+    # guide discusses it at length, so leaving it out of the table meant the
+    # one place a reader looks did not show it -- and its absence read as the
+    # column not existing rather than as a deliberate exclusion.
+    ("telocal_active", "TE locus expressed",
+     "TElocal: whether the TE copy is itself transcribed. CONTEXT, NOT "
+     "EVIDENCE -- it does not contribute to Evidence types. Measured on a "
+     "real cohort it was anti-correlated with the splice motif (6.7% vs "
+     "10.2% canonical), so an expressed locus is not support. '.' means "
+     "TElocal did not run.", "str"),
 ]
 
 

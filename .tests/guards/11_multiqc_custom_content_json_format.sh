@@ -30,6 +30,29 @@ if ! python workflow/scripts/tecount_summary_mqc.py \
       --out-class "$T/custom/tecount/qc/tecount_te_class_mqc.json" > "$T/tsum.log" 2>&1; then
   echo "ERROR: tecount_summary_mqc.py failed"; cat "$T/tsum.log"; FAIL=1
 fi
+# A composition plot must offer exactly ONE counts/percentages control.
+# cpswitch already provides it, and its percentage (share of the sample's
+# total) is the right one -- also passing a hand-built percentage dataset in
+# data_labels put a second, redundant switcher beside it.
+python3 - "$T/custom/chimera/qc/junction_qc_mqc.json" <<'PY3' || FAIL=1
+import json, sys
+d = json.load(open(sys.argv[1]))
+ok = True
+if d.get("plot_type") == "bar":
+    p = d.get("pconfig", {})
+    if p.get("cpswitch") is not True:
+        print("ERROR: composition plot should use cpswitch for its percentage view")
+        ok = False
+    if p.get("data_labels"):
+        print(f"ERROR: cpswitch plus data_labels = two switchers; got "
+              f"{[x.get('name') for x in p['data_labels']]}")
+        ok = False
+    if not isinstance(d.get("data"), dict):
+        print("ERROR: a cpswitch plot takes ONE dataset, not a list")
+        ok = False
+sys.exit(0 if ok else 1)
+PY3
+
 if ! multiqc --force --no-ansi -c workflow/default-config/multiqc_config.yaml \
       -o "$T/mqc" -n report "$T/custom" > "$T/mqc.log" 2>&1; then
   echo "ERROR: multiqc run failed"; tail -40 "$T/mqc.log"; FAIL=1

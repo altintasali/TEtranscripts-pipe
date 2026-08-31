@@ -162,18 +162,23 @@ def main():
                 "id": "chimera_assembly_strand_rate_plot",
                 "title": "Strand-match rate by chimera class",
                 "ylab": "% of candidates in the class",
+                # Raw counts first, then the rate. ymax belongs to the
+                # PERCENTAGE dataset only -- at plot level it also capped the
+                # counts view, clipping any class with more than 100
+                # candidates. cpswitch stays off: a strand-match RATE is
+                # matched/total within a class, not a share of the whole, so
+                # MultiQC's own percentage would be a different number.
                 "cpswitch": False,
                 "stacking": "group",
-                "ymax": 100,
                 "data_labels": [
-                    {"name": "% strand-matched", "tt_decimals": 1},
-                    {"name": "strand-matched candidates", "tt_decimals": 0},
+                    {"name": "Strand-matched candidates", "tt_decimals": 0},
+                    {"name": "% strand-matched", "tt_decimals": 1, "ymax": 100},
                 ],
             },
             "data": [
-                {cls: {"% strand-matched": strand_rate[cls]} for cls in CLASS_ORDER},
-                {cls: {"strand-matched candidates": strand_counts[cls]}
+                {cls: {"Strand-matched candidates": strand_counts[cls]}
                  for cls in CLASS_ORDER},
+                {cls: {"% strand-matched": strand_rate[cls]} for cls in CLASS_ORDER},
             ],
         }
     else:

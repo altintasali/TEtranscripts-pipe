@@ -28,7 +28,11 @@ DIRECTIONS = [
 
 
 def _finalise(doc, datasets, empty_html):
-    """Attach bar datasets, or fall back to html when everything is zero.
+    """Attach bar dataset(s), or fall back to html when everything is zero.
+
+    `datasets` is either one sample->category dict (a plot whose second view
+    cpswitch derives on its own) or a list of them (a plot whose views are
+    genuinely different numbers, like a rate beside its counts).
 
     MultiQC's bargraph raises "No datasets to plot" on an all-zero document
     and takes the whole report down with it. A run with no junctions -- or,
@@ -36,7 +40,8 @@ def _finalise(doc, datasets, empty_html):
     perfectly normal outcome (small genome, shallow data, synthetic reads),
     so it must be documented rather than fatal.
     """
-    if any(v for row in datasets[0].values() for v in row.values()):
+    first = datasets[0] if isinstance(datasets, list) else datasets
+    if any(v for row in first.values() for v in row.values()):
         doc["plot_type"] = "bar"
         doc["data"] = datasets
     else:
@@ -92,16 +97,9 @@ def main():
         counts[sample] = per_sample
 
     samples = sorted(counts)
-    pct = {}
-    for sample in samples:
-        total = sum(counts[sample].values())
-        if total <= 0:
-            pct[sample] = dict.fromkeys(DIRECTIONS, 0.0)
-        else:
-            pct[sample] = {
-                d: round(counts[sample][d] * 100.0 / total, 1)
-                for d in DIRECTIONS
-            }
+    # No hand-built percentage dataset: cpswitch derives share-of-total from
+    # the counts itself, and supplying both put two identical toggles on the
+    # plot.
 
     doc = {
         "id": "chimera_junction_qc",
@@ -133,14 +131,18 @@ def main():
             "id": "chimera_junction_qc_plot",
             "title": "Chimeric junctions by class (donor to acceptor)",
             "ylab": "junctions",
+            # cpswitch supplies the Counts/Percentages toggle itself, and
+            # for a composition plot its percentage (share of the sample's
+            # total) is exactly the right one. Passing a second, hand-built
+            # percentage dataset in data_labels added a redundant switcher
+            # beside it.
             "cpswitch": True,
-            "data_labels": [
-                {"name": "Junction counts", "tt_decimals": 0},
-                {"name": "% of total junctions", "tt_decimals": 1},
-            ],
+            "cpswitch_counts_label": "Junction counts",
+            "cpswitch_percent_label": "% of total junctions",
+            "tt_decimals": 0,
         },
     }
-    _finalise(doc, [counts, pct],
+    _finalise(doc, counts,
               "<p>No chimeric junctions were annotated in this run, so there "
               "is nothing to plot. This is not an error - STAR found no "
               "chimeric reads, or none survived annotation.</p>")
@@ -202,14 +204,19 @@ def main():
                 "id": "chimera_canonical_rate_plot",
                 "title": "Canonical (splice-motif) rate by junction class",
                 "ylab": "% canonical",
+                # Raw counts first, then the rate -- the previous order put
+                # the derived number in front of the measurement. cpswitch is
+                # off because a canonical RATE is canonical/total within a
+                # class, not a share of the sample's total, so MultiQC's own
+                # percentage would be a different (and wrong) number.
                 "cpswitch": False,
                 "data_labels": [
-                    {"name": "% canonical", "tt_decimals": 1},
-                    {"name": "canonical junctions", "tt_decimals": 0},
+                    {"name": "Canonical junctions", "tt_decimals": 0},
+                    {"name": "% canonical", "tt_decimals": 1, "ymax": 100},
                 ],
             },
         }
-        _finalise(canon_doc, [canon_pct, canon_n],
+        _finalise(canon_doc, [canon_n, canon_pct],
                   "<p>No chimeric junction in this run carried a recognised "
                   "splice motif, so there is no canonical rate to plot. That "
                   "is expected on synthetic or very shallow data; on a real "
@@ -236,20 +243,6 @@ def main():
                     per_sample[d] = 0
             te_counts[sample] = per_sample
 
-        te_pct = {}
-        for sample in samples:
-            try:
-                total = int(float(metrics_by_sample[sample].get("events_total", 0)))
-            except (TypeError, ValueError):
-                total = 0
-            if total <= 0:
-                te_pct[sample] = dict.fromkeys(te_dirs, 0.0)
-            else:
-                te_pct[sample] = {
-                    d: round(te_counts[sample][d] * 100.0 / total, 1)
-                    for d in te_dirs
-                }
-
         te_doc = {
             "id": "chimera_te_gene_chimeras",
             "parent_id": "chimera",
@@ -271,14 +264,14 @@ def main():
                 "id": "chimera_te_gene_chimeras_plot",
                 "title": "Gene-TE chimeric junctions by class",
                 "ylab": "junctions",
+                # as above: one toggle, MultiQC's own.
                 "cpswitch": True,
-                "data_labels": [
-                    {"name": "Gene-TE chimeric junctions", "tt_decimals": 0},
-                    {"name": "% of total junctions", "tt_decimals": 1},
-                ],
+                "cpswitch_counts_label": "Gene-TE chimeric junctions",
+                "cpswitch_percent_label": "% of total junctions",
+                "tt_decimals": 0,
             },
         }
-        _finalise(te_doc, [te_counts, te_pct],
+        _finalise(te_doc, te_counts,
                   "<p>No gene\u2013TE chimeric junctions were found in this "
                   "run, so there is nothing to plot.</p>")
 

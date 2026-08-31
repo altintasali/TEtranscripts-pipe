@@ -33,9 +33,34 @@ elif ! python3 workflow/scripts/junction_qc_mqc.py --tables "$T/canon/qc.tsv.gz"
       --out-canonical "$T/canon/qc/canonical_rate_mqc.json" > "$T/canon/mqc.log" 2>&1; then
   echo "ERROR: junction_qc_mqc.py failed"; cat "$T/canon/mqc.log"; FAIL=1
 else
-  # 10/40 = 25.0% for gene_to_te, 4/60 = 6.7% for other
-  if ! python3 -c "import json,sys; d=json.load(open('$T/canon/qc/canonical_rate_mqc.json'))['data'][0]['s']; sys.exit(0 if abs(d['gene_to_te']-25.0)<0.05 and abs(d['other']-6.7)<0.05 else 1)"; then
-    echo "ERROR: canonical percentages wrong"
+  # Dataset ORDER is load-bearing: raw counts first, the derived rate second.
+  # It used to be the other way round, which put the derived number in front
+  # of the measurement and made the toggle read backwards.
+  # 10/40 = 25.0% for gene_to_te, 4/60 = 6.7% for other.
+  if ! python3 - "$T/canon/qc/canonical_rate_mqc.json" <<'PY2'
+import json, sys
+d = json.load(open(sys.argv[1]))
+ok = True
+labels = [x["name"] for x in d["pconfig"]["data_labels"]]
+if labels != ["Canonical junctions", "% canonical"]:
+    print(f"ERROR: datasets must be counts then rate; got {labels}"); ok = False
+counts, rate = d["data"][0]["s"], d["data"][1]["s"]
+if counts.get("gene_to_te") != 10:
+    print(f"ERROR: first dataset must be raw counts; got {counts}"); ok = False
+if not (abs(rate["gene_to_te"] - 25.0) < 0.05 and abs(rate["other"] - 6.7) < 0.05):
+    print(f"ERROR: canonical percentages wrong: {rate}"); ok = False
+# a rate is not a share of a total, so cpswitch must stay off -- its
+# percentage would be a different number
+if d["pconfig"].get("cpswitch") is not False:
+    print("ERROR: cpswitch must be off for a rate plot"); ok = False
+# and the 0-100 cap belongs to the percentage view only, or it clips counts
+if d["pconfig"].get("ymax") is not None:
+    print("ERROR: ymax at plot level clips the counts view"); ok = False
+if d["pconfig"]["data_labels"][1].get("ymax") != 100:
+    print("ERROR: the percentage dataset must cap at 100"); ok = False
+sys.exit(0 if ok else 1)
+PY2
+  then
     cat "$T/canon/qc/canonical_rate_mqc.json"; FAIL=1
   fi
   if ! multiqc --force --no-ansi -c workflow/default-config/multiqc_config.yaml \
