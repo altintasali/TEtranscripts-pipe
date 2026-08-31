@@ -4,12 +4,14 @@ description: >-
   input/versions.yaml, deep-merged by Snakemake's multiple `configfile:`
   directives -- see workflow/Snakefile).
 type: object
+additionalProperties: false
 
 properties:
   samples:
     type: string
   versions:
     type: object
+    additionalProperties: false
     properties:
       star: {type: string}
       samtools: {type: string}
@@ -23,6 +25,8 @@ properties:
       deseq2: {type: string}
       ucsc_gtftogenepred: {type: string}
       ucsc_genepredtobed: {type: string}
+      pheatmap: {type: string}
+      r_base: {type: string}
     required:
       - star
       - samtools
@@ -36,6 +40,7 @@ properties:
       - ucsc_genepredtobed
   ref:
     type: object
+    additionalProperties: false
     properties:
       fasta: {type: string}
       gtf: {type: string}
@@ -56,6 +61,7 @@ properties:
     required: [gtf, te_gtf, sjdb_overhang]
   star:
     type: object
+    additionalProperties: false
     properties:
       index:
         type: string
@@ -115,6 +121,7 @@ properties:
           already used by every pass via the shared genome index.
   trimming:
     type: object
+    additionalProperties: false
     description: >-
       Optional TrimGalore! adapter/quality trimming before STAR, mirroring
       the nf-core/rnaseq defaults. Set enabled to false to skip trimming
@@ -134,6 +141,7 @@ properties:
     required: [enabled]
   strandedness:
     type: object
+    additionalProperties: false
     description: >-
       Which mode each sample uses is set per-sample in samples.csv (see
       samples.schema.yaml); this section only holds the shared
@@ -156,6 +164,7 @@ properties:
     required: [min_fraction]
   tetranscripts:
     type: object
+    additionalProperties: false
     properties:
       mode:
         type: string
@@ -166,6 +175,7 @@ properties:
       extra: {type: string}
       qc:
         type: object
+        additionalProperties: false
         description: >-
           Sample-QC view (PCA + sample clustering) of the per-sample TEcount
           tables, rendered inside multiqc_report.html. On by default; set
@@ -199,6 +209,7 @@ properties:
 
   chimera:
     type: object
+    additionalProperties: false
     description: >-
       Gene-TE chimera detection via two complementary, independent methods
       -- junction (STAR split-read evidence) and assembly (StringTie
@@ -208,6 +219,7 @@ properties:
     properties:
       junction:
         type: object
+        additionalProperties: false
         description: >-
           Gene-TE chimera screen from STAR's chimeric-junction reads (STAR
           --chimOutType Junctions WithinBAM SoftClip), per-junction
@@ -228,6 +240,7 @@ properties:
               pipeline.
           star:
             type: object
+            additionalProperties: false
             description: STAR chimeric-junction detection parameters.
             properties:
               segment_min: {type: integer}
@@ -252,6 +265,7 @@ properties:
               so the default (false) keeps everything and records the type.
           qc:
             type: object
+            additionalProperties: false
             description: >-
               Filters applied to the chimera count matrix *for the PCA/clustering
               view only* -- they never remove events from all_events.tsv or the
@@ -272,6 +286,7 @@ properties:
             required: [min_samples_present, min_total_counts, min_events, pca_transform]
           outputs:
             type: object
+            additionalProperties: false
             description: Which chimera artifacts to write.
             properties:
               write_igv_bed:
@@ -283,13 +298,14 @@ properties:
                    qc, outputs]
       assembly:
         type: object
+        additionalProperties: false
         description: >-
           Gene-TE chimera detection from StringTie assembly structure
           instead of read-level chimeric junctions -- catches TE-initiated/
           exonized/terminated transcripts spliced via an ordinary,
           canonical intron, which chimera.junction structurally cannot see.
           Complements chimera.junction (a candidate found by both is
-          cross-referenced, see results/chimera_assembly/). Uses a
+          cross-referenced, see results/chimera/transcript_evidence/). Uses a
           separate, dedicated STAR alignment pass (--outSAMstrandField
           intronMotif, for StringTie's strand inference on unstranded
           data) -- this suppresses non-canonical-junction reads from that
@@ -321,16 +337,17 @@ properties:
               Not applied at detection time (candidates are always fully
               reported, same annotate-first philosophy as chimera.junction)
               -- this is the threshold the report/README examples use when
-              reading results/chimera_assembly/tpm_matrix.tsv.gz. No rule
+              reading results/chimera/transcript_evidence/tpm_matrix.tsv.gz. No rule
               currently filters on it automatically.
           outputs:
             type: object
+            additionalProperties: false
             description: Which chimera-assembly artifacts to write.
             properties:
               write_igv_bed:
                 type: boolean
                 description: >-
-                  Write a BED track (results/chimera_assembly/igv/
+                  Write a BED track (results/chimera/transcript_evidence/igv/
                   candidates.bed) spanning each candidate's TE-overlapping
                   exon, colored by chimera_type, for loading alongside
                   chimera.junction's own IGV track. Default false.
@@ -340,6 +357,7 @@ properties:
 
   telocal:
     type: object
+    additionalProperties: false
     description: >-
       Locus-level TE quantification (TElocal), complementing TEcount's
       subfamily-level quantification. Enabled by default; requires a
@@ -380,6 +398,7 @@ properties:
         description: Extra command-line arguments passed verbatim to TElocal.
       qc:
         type: object
+        additionalProperties: false
         description: >-
           Sample-QC view (PCA + sample clustering) of the per-sample TElocal
           tables, rendered inside multiqc_report.html. Mirrors
@@ -424,13 +443,21 @@ properties:
       Missing rules/keys fall back to conservative defaults in common.smk.
     additionalProperties:
       type: object
+      additionalProperties: false
       properties:
         threads: {type: integer}
         mem_mb: {type: integer}
         runtime: {type: integer}
+        mem_per_sample:
+          type: integer
+          description: >-
+            Extra mem_mb per sample, for rules that hold per-sample data in
+            memory. common.smk's get_scaled_mem_mb() allocates
+            mem_mb + mem_per_sample * len(SAMPLES).
 
   outputs:
     type: object
+    additionalProperties: false
     description: >-
       Whether intermediate fastq files are kept after the downstream rules
       that consume them finish. Setting either to false marks those files as
