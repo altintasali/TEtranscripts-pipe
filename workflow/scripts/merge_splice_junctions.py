@@ -19,7 +19,6 @@ Usage:
       --min-unique-reads 3 --out merged_SJ.out.tab
 """
 import argparse
-import sys
 
 
 def main():

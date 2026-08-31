@@ -74,7 +74,10 @@ if [[ -n "$(ls -A "$prefix")" ]]; then
         exit 1
     fi
     echo "Warning: replacing the existing environment at $prefix." >&2
-    rm -rf "$prefix"/* "$prefix"/.[!.]*
+    # ${prefix:?} so an empty $prefix aborts instead of expanding to /* --
+    # unreachable today (the ls -A guard above would have failed first), but
+    # this is a recursive delete and the cost of being sure is nothing.
+    rm -rf "${prefix:?}"/* "${prefix:?}"/.[!.]*
 fi
 
 # Resolve the release to fetch. This deliberately avoids the GitHub API (which

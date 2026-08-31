@@ -27,7 +27,6 @@ import json
 import os
 import re
 
-
 # Sample sheet vocabulary is normalised to TEtranscripts' own before it
 # reaches here ("unstranded" -> "no"); display the pipeline's vocabulary so
 # this table matches the --stranded value actually passed to TEcount.
@@ -62,11 +61,11 @@ def parse_fractions(path):
 
 
 def main():
-    p = snakemake.params  # noqa: F821 -- injected by snakemake
+    p = snakemake.params
     samples = list(p.samples)
     declared = dict(p.declared)  # sample -> "auto"/"no"/"forward"/"reverse"
-    reports = dict(zip(samples, snakemake.input.reports))  # noqa: F821
-    calls = dict(zip(samples, snakemake.input.calls))  # noqa: F821
+    reports = dict(zip(samples, snakemake.input.reports))
+    calls = dict(zip(samples, snakemake.input.calls))
 
     data = {}
     n_mismatch = 0
@@ -201,7 +200,7 @@ def main():
         "data": data,
     }
 
-    out = snakemake.output[0]  # noqa: F821
+    out = snakemake.output[0]
     os.makedirs(os.path.dirname(out), exist_ok=True)
     with open(out, "w") as fh:
         json.dump(doc, fh, indent=2)
@@ -213,4 +212,9 @@ def main():
     )
 
 
-main()
+# Guarded so the module can be imported (by the unit tests) without
+# running. Snakemake's script: directive executes the file with
+# __name__ == "__main__", so this still runs under the workflow --
+# benchmark_summary.py has been doing exactly this all along.
+if __name__ == "__main__":
+    main()

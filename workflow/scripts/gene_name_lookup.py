@@ -39,9 +39,9 @@ def parse_attrs(text):
 
 
 def main():
-    gtf = snakemake.input.gtf  # noqa: F821 -- injected by snakemake
-    out = snakemake.output[0]  # noqa: F821
-    log = open(snakemake.log[0], "w")  # noqa: F821
+    gtf = snakemake.input.gtf
+    out = snakemake.output[0]
+    log = open(snakemake.log[0], "w")
 
     names = {}
     conflicts = 0
@@ -101,4 +101,9 @@ def main():
     log.close()
 
 
-main()
+# Guarded so the module can be imported (by the unit tests) without
+# running. Snakemake's script: directive executes the file with
+# __name__ == "__main__", so this still runs under the workflow --
+# benchmark_summary.py has been doing exactly this all along.
+if __name__ == "__main__":
+    main()

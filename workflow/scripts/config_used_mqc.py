@@ -10,7 +10,7 @@ import sys
 import traceback
 
 try:
-    snakemake  # noqa: F821 -- defined by Snakemake's script: runtime
+    snakemake
 except NameError:
     snakemake = None
 
