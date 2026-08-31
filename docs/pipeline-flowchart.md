@@ -55,9 +55,9 @@ flowchart LR
         chimera_evidence_heatmap["evidence correlation + candidate heatmaps"]
         chimera_evidence_guide["how to weigh the evidence + composition"]
         chimera_candidates_table["candidate list (sortable table)"]
+        chimera_te_type["reads TE type (per sample)"]
         chimera_assembly_qc_transform["assembly QC matrix (log2)"]
         chimera_assembly_qc["assembly PCA + sample clusters"]
-        sample_evidence_status["per-sample evidence status grid"]
         chimera_igv_bed["IGV BED track"]
         chimera_counts["chimera counts matrix"]
         sample_qc_transform["sample-QC transform"]
@@ -116,8 +116,8 @@ flowchart LR
     genepred_to_bed12 --> rseqc_infer_experiment
     genepred_to_bed12 --> rseqc_read_distribution
     gtf_to_genepred --> genepred_to_bed12
+    junction_qc --> chimera_te_type
     junction_qc --> junction_qc_barplot
-    junction_qc --> sample_evidence_status
     parse_chimeric_junctions --> chimera_igv_bed
     parse_chimeric_junctions --> chimera_telocal_annotate
     parse_chimeric_junctions --> junction_qc
@@ -148,7 +148,6 @@ flowchart LR
     star_index --> star_align_pass1
     star_merge_junctions --> star_align
     star_merge_junctions --> star_align_for_assembly
-    strandedness_check --> sample_evidence_status
     stringtie_assemble --> stringtie_merge
     stringtie_merge --> chimera_assembly_classify
     stringtie_merge --> stringtie_requantify

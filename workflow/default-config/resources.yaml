@@ -368,10 +368,12 @@ resources:
     mem_per_sample: 60
     runtime: 30
 
-  sample_evidence_status:
-    # Reads one tiny metrics table per sample into a status grid.
+
+  chimera_te_type:
+    # Sums three metrics per sample and counts classes in one table.
     threads: 1
-    mem_mb: 500
+    mem_mb: 1000
+    mem_per_sample: 50
     runtime: 30
 
   chimera_candidates_table:

@@ -91,7 +91,7 @@ def main():
         "id": "chimera_assembly_classes",
         "parent_id": "chimera",
         "parent_name": "Chimera",
-        "section_name": "Assembly - composition by class",
+        "section_name": "Assembly - TE type",
     }
     # counts values are {"count": N} or {"confirmed": N, "unconfirmed": N}
     # depending on whether the junction screen ran, so sum values rather
@@ -99,6 +99,20 @@ def main():
     if any(sum(v.values()) for v in counts.values()):
         classes_doc.update({
             "description": (
+                "<strong>The read screen uses these same words for a "
+                "different measurement.</strong> Here a class is decided by "
+                "<em>transcript structure</em> &mdash; whether the TE hits "
+                "the first, last or an internal exon of the assembled "
+                "transcript. In <strong>Reads - TE type</strong> it is "
+                "decided by <em>genomic position</em>, where the TE sits "
+                "relative to the gene body. A TE in a gene\'s intron that "
+                "becomes the transcript\'s first exon is "
+                "<code>te_initiated</code> here and <code>te_exonized</code> "
+                "there, and neither is wrong. Do not read agreement between "
+                "the two as corroboration. "
+                "<code>te_initiated_intergenic</code> and "
+                "<code>unspliced_te_only</code> have no read-screen "
+                "equivalent at all.<br><br>"
                 "StringTie-assembly chimera candidates by chimera_type. "
                 + data_labels_note
             ),
@@ -119,7 +133,7 @@ def main():
         # A run with no assembled TE candidates is normal (small genome, low
         # depth, or genuinely nothing there) -- it must not fail the report.
         classes_doc.update({
-            "description": "StringTie-assembly chimera candidates by chimera_type.",
+            "description": "StringTie-assembly chimera candidates by TE type.",
             "plot_type": "html",
             "data": (
                 "<p>No gene-TE chimera candidates were assembled in this run, "

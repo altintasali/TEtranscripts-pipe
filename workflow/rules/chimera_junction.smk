@@ -85,11 +85,11 @@ def all_chimera_outputs():
         "results/chimera/qc/canonical_rate_mqc.json",
         "results/chimera/qc/junction_highlights_mqc.json",
         "results/chimera/qc/chimera_candidates_table_mqc.json",
+        "results/chimera/qc/chimera_reads_te_type_mqc.json",
         "results/chimera/qc/chimera_evidence_guide_mqc.json",
         "results/chimera/qc/chimera_evidence_composition_mqc.json",
         "results/chimera/qc/chimera_evidence_correlation_mqc.json",
         "results/chimera/qc/chimera_evidence_candidates_mqc.json",
-        "results/chimera/qc/sample_evidence_status_mqc.json",
     ]
     if WRITE_IGV_BED:
         files += [
@@ -316,37 +316,31 @@ rule chimera_evidence:
         "--out {output} > {log} 2>&1"
 
 
-rule sample_evidence_status:
-    # FastQC-style status grid: samples down the side, evidence layers
-    # across the top (sample_evidence_status_mqc.py).
-    #
-    # The other two evidence heatmaps are cohort-level and cannot answer the
-    # first question after a run: is ONE of my samples different? A replicate
-    # contributing a tenth of the gene-TE junctions its peers do is absorbed
-    # by any cohort summary. Scored against the cohort median rather than
-    # absolute cut-offs, since chimeric yield varies by orders of magnitude
-    # with depth and library prep.
+rule chimera_te_type:
+    # The read screen's TE-type view, per sample. Its counterpart is the
+    # assembly screen's own class chart (Assembly - TE type); the two are kept
+    # SEPARATE because they use the same three words for different
+    # measurements -- position relative to the gene here, transcript exon
+    # structure there -- and one shared plot invites reading agreement as
+    # corroboration. Each section says so.
     input:
-        qc_tables=lambda wc: [
-            f"results/chimera/read_evidence/per_sample/{s}_junction_qc.tsv.gz" for s in SAMPLES
-        ],
-        strandedness="results/rseqc/strandedness_check_mqc.json",
+        qc_tables=expand("results/chimera/read_evidence/per_sample/"
+                         "{sample}_junction_qc.tsv.gz", sample=SAMPLES),
     output:
-        "results/chimera/qc/sample_evidence_status_mqc.json",
+        "results/chimera/qc/chimera_reads_te_type_mqc.json",
     params:
-        samples=lambda wc, input: " ".join(SAMPLES),
-    threads: get_resources("sample_evidence_status")["threads"]
+        samples=SAMPLES,
+    threads: get_resources("chimera_te_type")["threads"]
     resources:
-        mem_mb=get_resources("sample_evidence_status")["mem_mb"],
-        runtime=get_resources("sample_evidence_status")["runtime"],
+        mem_mb=get_scaled_mem_mb("chimera_te_type"),
+        runtime=get_resources("chimera_te_type")["runtime"],
     benchmark:
-        "results/pipeline_info/benchmarks/sample_evidence_status/sample_evidence_status.txt",
+        "results/pipeline_info/benchmarks/chimera_te_type/chimera_te_type.txt",
     log:
-        "results/pipeline_info/logs/chimera_junction/sample_evidence_status.log",
+        "results/pipeline_info/logs/chimera_junction/te_type.log",
     shell:
-        "python3 {SCRIPTS_DIR}/sample_evidence_status_mqc.py "
+        "python3 {SCRIPTS_DIR}/chimera_te_type_mqc.py "
         "--qc-tables {input.qc_tables} --samples {params.samples} "
-        "--strandedness {input.strandedness} "
         "--out {output} > {log} 2>&1"
 
 

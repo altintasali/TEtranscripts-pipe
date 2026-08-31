@@ -36,7 +36,7 @@ docs = [
  ("chimera_candidates_table", "chimera", "Chimera", "Candidates"),
  ("chimera_signal_guide", "chimera", "Chimera", "How to weigh this evidence"),
  ("chimera_evidence_composition", "chimera", "Chimera", "Evidence composition"),
- ("sample_evidence_status", "chimera", "Chimera", "Per-sample status"),
+ ("chimera_reads_te_type", "chimera", "Chimera", "Reads - TE type"),
  ("junction_highlights", "chimera", "Chimera", "Reads - what this screen sees"),
  ("chimera_junction_qc", "chimera", "Chimera", "Reads - junction classes"),
  ("chimera_canonical_rate", "chimera", "Chimera", "Reads - splice-motif rate by junction class"),
@@ -79,6 +79,8 @@ def check(cond, msg):
 check(seen.count("Chimera") == 1,
       f"chimera must be exactly ONE top-level section; sections were {seen}")
 # the five groups this replaced, plus every earlier naming generation
+check("Per-sample status" not in seen,
+      "the per-sample status section was removed; it duplicated the read screen")
 for gone in ("Chimera [Candidates]", "Chimera [Evidence structure]",
              "Chimera [Reads]", "Chimera [Assembly]", "Chimera [Per-sample]",
              "Gene-TE chimeras", "Gene-TE chimeras: candidates",
@@ -98,8 +100,8 @@ for m in re.finditer(r'href="#([a-z0-9_\-]+)"', h):
     if m.group(1) not in order:
         order.append(m.group(1))
 expected = ["chimera_candidates_table", "chimera_signal_guide",
-            "chimera_evidence_composition", "sample_evidence_status",
-            "junction_highlights", "chimera_junction_qc",
+            "chimera_evidence_composition",
+            "junction_highlights", "chimera_reads_te_type", "chimera_junction_qc",
             "chimera_canonical_rate", "chimera_te_gene_chimeras",
             "chimera_reads_sample_qc_pca", "chimera_assembly_highlights",
             "chimera_assembly_classes", "chimera_assembly_strand_rate",

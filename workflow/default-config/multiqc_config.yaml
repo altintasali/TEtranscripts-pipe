@@ -119,10 +119,11 @@ module_order:
 #                        Reads / Assembly / Evidence-structure grouping is
 #                        carried by section names and by report_section_order
 #                        below. Emitted by chimera_candidates_table_mqc,
-#                        chimera_evidence_guide_mqc, junction_qc_mqc,
+#                        chimera_evidence_guide_mqc, chimera_te_type_mqc,
+#                        junction_qc_mqc,
 #                        junction_highlights_mqc, chimera_assembly_summary_mqc,
-#                        chimera_evidence_heatmap, sample_evidence_status_mqc
-#                        and sample_qc.R -- ALL of which must use parent_id
+#                        chimera_evidence_heatmap and sample_qc.R -- ALL of
+#                        which must use parent_id
 #                        "chimera" exactly, or the group silently splits.
 #   config_used          resolved run configuration.
 #   resource_usage       per-rule benchmark summary.
@@ -161,39 +162,39 @@ report_section_order:
   # module anchors, a custom-content group's anchor is its parent_id, and that
   # pass has inverted order semantics -- the group would render last.
   chimera_candidates_table:
-    order: -20
+    order: -30
   chimera_signal_guide:
-    order: -19
+    order: -29
   chimera_evidence_composition:
-    order: -18
-  sample_evidence_status:
-    order: -17
+    order: -28
   junction_highlights:
-    order: -16
+    order: -27
+  chimera_reads_te_type:
+    order: -26
   chimera_junction_qc:
-    order: -15
+    order: -25
   chimera_canonical_rate:
-    order: -14
+    order: -24
   chimera_te_gene_chimeras:
-    order: -13
+    order: -23
   chimera_reads_sample_qc_pca:
-    order: -12
+    order: -22
   chimera_reads_sample_qc_heatmap:
-    order: -11
+    order: -21
   chimera_assembly_highlights:
-    order: -10
+    order: -20
   chimera_assembly_classes:
-    order: -9
+    order: -19
   chimera_assembly_strand_rate:
-    order: -8
+    order: -18
   chimera_assembly_sample_qc_pca:
-    order: -7
+    order: -17
   chimera_assembly_sample_qc_heatmap:
-    order: -6
+    order: -16
   chimera_evidence_correlation:
-    order: -5
+    order: -15
   chimera_evidence_candidates:
-    order: -4
+    order: -14
   # Module-level move: report_section_order's FIRST pass reorders whole
   # modules by anchor, and a custom-content group's anchor is its parent_id.
   # module_order alone does not do this -- a group absent from

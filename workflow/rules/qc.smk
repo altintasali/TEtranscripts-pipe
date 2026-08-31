@@ -125,12 +125,12 @@ def _junction_qc_mqc_inputs():
         return []
     return [
         "results/chimera/qc/junction_qc_mqc.json",
+        "results/chimera/qc/chimera_reads_te_type_mqc.json",
         "results/chimera/qc/te_gene_chimeras_mqc.json",
         "results/chimera/qc/canonical_rate_mqc.json",
         "results/chimera/qc/junction_highlights_mqc.json",
         "results/chimera/qc/chimera_evidence_correlation_mqc.json",
         "results/chimera/qc/chimera_evidence_candidates_mqc.json",
-        "results/chimera/qc/sample_evidence_status_mqc.json",
     ]
 
 
