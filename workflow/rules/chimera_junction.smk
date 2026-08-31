@@ -40,11 +40,11 @@ CHIMERA_QC = config["chimera"]["junction"]["qc"]
 def chimera_counts_input():
     if TELOCAL_ENABLED:
         return [
-            f"results/chimera_junction/{s}_junctions_with-telocal.tsv.gz"
+            f"results/chimera/read_evidence/per_sample/{s}_junctions_with-telocal.tsv.gz"
             for s in SAMPLES
         ]
     return [
-        f"results/chimera_junction/{s}_junctions.tsv.gz"
+        f"results/chimera/read_evidence/per_sample/{s}_junctions.tsv.gz"
         for s in SAMPLES
     ]
 
@@ -52,45 +52,46 @@ def chimera_counts_input():
 def all_chimera_outputs():
     """Chimera artifacts for the `all` target (Snakefile)."""
     files = [
-        f"results/chimera_junction/{s}_junctions.tsv.gz"
+        f"results/chimera/read_evidence/per_sample/{s}_junctions.tsv.gz"
         for s in SAMPLES
     ]
     if TELOCAL_ENABLED:
         files += [
-            f"results/chimera_junction/{s}_junctions_with-telocal.tsv.gz"
+            f"results/chimera/read_evidence/per_sample/{s}_junctions_with-telocal.tsv.gz"
             for s in SAMPLES
         ]
         files += [
-            f"results/chimera_junction/"
-            f"{s}_junctions_te-gene-chimeras_with-telocal.tsv.gz"
+            f"results/chimera/read_evidence/per_sample/{s}_junctions_te-gene-chimeras_with-telocal.tsv.gz"
             for s in SAMPLES
         ]
     files += [
-        f"results/chimera_junction/{s}_junctions_te-gene-chimeras.tsv.gz"
+        f"results/chimera/read_evidence/per_sample/{s}_junctions_te-gene-chimeras.tsv.gz"
         for s in SAMPLES
     ]
     files += [
-        "results/chimera_junction/all_events.tsv.gz",
-        "results/chimera_junction/te-gene-chimeras.tsv.gz",
-        "results/chimera_junction/counts_matrix.tsv.gz",
-        "results/chimera_junction/chimera_evidence.tsv.gz",
+        "results/chimera/read_evidence/all_events.tsv.gz",
+        "results/chimera/read_evidence/te-gene-chimeras.tsv.gz",
+        "results/chimera/counts_matrix.tsv.gz",
+        "results/chimera/candidates.tsv.gz",
     ]
     files += [
-        f"results/chimera_junction/qc/{s}_junction_qc.tsv.gz"
+        f"results/chimera/read_evidence/per_sample/{s}_junction_qc.tsv.gz"
         for s in SAMPLES
     ]
     files += [
-        "results/chimera_junction/qc/junction_qc_mqc.json",
-        "results/chimera_junction/qc/te_gene_chimeras_mqc.json",
-        "results/chimera_junction/qc/canonical_rate_mqc.json",
-        "results/chimera_junction/qc/junction_highlights_mqc.json",
-        "results/chimera_junction/qc/chimera_evidence_correlation_mqc.json",
-        "results/chimera_junction/qc/chimera_evidence_candidates_mqc.json",
-        "results/chimera_junction/qc/sample_evidence_status_mqc.json",
+        "results/chimera/qc/junction_qc_mqc.json",
+        "results/chimera/qc/te_gene_chimeras_mqc.json",
+        "results/chimera/qc/canonical_rate_mqc.json",
+        "results/chimera/qc/junction_highlights_mqc.json",
+        "results/chimera/qc/chimera_evidence_guide_mqc.json",
+        "results/chimera/qc/chimera_evidence_composition_mqc.json",
+        "results/chimera/qc/chimera_evidence_correlation_mqc.json",
+        "results/chimera/qc/chimera_evidence_candidates_mqc.json",
+        "results/chimera/qc/sample_evidence_status_mqc.json",
     ]
     if WRITE_IGV_BED:
         files += [
-            f"results/chimera_junction/igv/{s}_junctions.bed"
+            f"results/chimera/read_evidence/igv/{s}_junctions.bed"
             for s in SAMPLES
         ]
     return files
@@ -103,9 +104,9 @@ def all_sample_qc_outputs():
         return []
     transform = CHIMERA_QC["pca_transform"]
     return [
-        f"results/chimera_junction/qc/{transform}_counts.tsv.gz",
-        f"results/chimera_junction/qc/pca_{transform}_mqc.json",
-        f"results/chimera_junction/qc/heatmap_{transform}_mqc.json",
+        f"results/chimera/qc/{transform}_counts.tsv.gz",
+        f"results/chimera/qc/pca_{transform}_mqc.json",
+        f"results/chimera/qc/heatmap_{transform}_mqc.json",
     ]
 
 
@@ -120,8 +121,8 @@ rule parse_chimeric_junctions:
         te="results/reference/te.bed",
         strandedness=strandedness_input,
     output:
-        junctions="results/chimera_junction/{sample}_junctions.tsv.gz",
-        te_gene_chimeras="results/chimera_junction/{sample}_junctions_te-gene-chimeras.tsv.gz",
+        junctions="results/chimera/read_evidence/per_sample/{sample}_junctions.tsv.gz",
+        te_gene_chimeras="results/chimera/read_evidence/per_sample/{sample}_junctions_te-gene-chimeras.tsv.gz",
     params:
         tolerance=config["chimera"]["junction"]["breakpoint_tolerance"],
         canonical_flag=lambda wc: (
@@ -170,7 +171,7 @@ rule chimera_telocal_index:
         # string; otherwise this BED is the only way to place a locus.
         locations="results/telocal/telocal_locations.bed",
     output:
-        "results/chimera_junction/telocal_index.pkl.gz",
+        "results/chimera/read_evidence/telocal_index.pkl.gz",
     threads: get_resources("chimera_telocal_index")["threads"]
     resources:
         mem_mb=get_resources("chimera_telocal_index")["mem_mb"],
@@ -195,13 +196,12 @@ rule chimera_telocal_annotate:
     # same fixed index regardless of cohort size), unlike the old
     # per-sample-rebuild version.
     input:
-        junctions="results/chimera_junction/{sample}_junctions.tsv.gz",
-        telocal_index="results/chimera_junction/telocal_index.pkl.gz",
+        junctions="results/chimera/read_evidence/per_sample/{sample}_junctions.tsv.gz",
+        telocal_index="results/chimera/read_evidence/telocal_index.pkl.gz",
     output:
-        junctions="results/chimera_junction/{sample}_junctions_with-telocal.tsv.gz",
+        junctions="results/chimera/read_evidence/per_sample/{sample}_junctions_with-telocal.tsv.gz",
         te_gene_chimeras=(
-            "results/chimera_junction/"
-            "{sample}_junctions_te-gene-chimeras_with-telocal.tsv.gz"
+            "results/chimera/read_evidence/per_sample/{sample}_junctions_te-gene-chimeras_with-telocal.tsv.gz"
         ),
     params:
         sample_name=lambda wc: wc.sample,
@@ -231,9 +231,9 @@ rule chimera_counts:
     input:
         tables=chimera_counts_input(),
     output:
-        events="results/chimera_junction/all_events.tsv.gz",
-        counts="results/chimera_junction/counts_matrix.tsv.gz",
-        te_events="results/chimera_junction/te-gene-chimeras.tsv.gz",
+        events="results/chimera/read_evidence/all_events.tsv.gz",
+        counts="results/chimera/counts_matrix.tsv.gz",
+        te_events="results/chimera/read_evidence/te-gene-chimeras.tsv.gz",
     params:
         sample_names=lambda wc, input: " ".join(SAMPLES),
     threads: get_resources("chimera_counts")["threads"]
@@ -257,9 +257,9 @@ rule junction_qc:
     # Per-sample junction QC summary (junction_qc.py) for the MultiQC custom
     # content table.
     input:
-        "results/chimera_junction/{sample}_junctions.tsv.gz",
+        "results/chimera/read_evidence/per_sample/{sample}_junctions.tsv.gz",
     output:
-        "results/chimera_junction/qc/{sample}_junction_qc.tsv.gz",
+        "results/chimera/read_evidence/per_sample/{sample}_junction_qc.tsv.gz",
     params:
         sample=lambda wc: wc.sample,
     threads: get_resources("junction_qc")["threads"]
@@ -276,9 +276,11 @@ rule junction_qc:
 
 
 rule chimera_evidence:
-    # The unified gene-TE candidate table: one row per (gene, TE insertion)
-    # pair with every line of evidence and a confidence tier
-    # (chimera_evidence.py).  The two screens key their output differently
+    # The unified gene-TE candidate catalogue: one row per (gene, TE
+    # insertion) pair with every line of evidence either screen produced, and
+    # no score (chimera_evidence.py -- the confidence tier it used to carry
+    # was removed for lacking a validated weighting).  The two screens key
+    # their output differently
     # -- junction rows are breakpoint-keyed, assembly rows transcript-keyed
     # -- so this is the only place they can be read side by side.
     #
@@ -288,14 +290,14 @@ rule chimera_evidence:
     # candidates.tsv.gz is therefore an OPTIONAL input, and the table simply
     # reports found_by: junction for everything when it is absent.
     input:
-        junction="results/chimera_junction/te-gene-chimeras.tsv.gz",
-        **({"assembly": "results/chimera_assembly/candidates.tsv.gz"}
+        junction="results/chimera/read_evidence/te-gene-chimeras.tsv.gz",
+        **({"assembly": "results/chimera/transcript_evidence/transcripts.tsv.gz"}
            if CHIMERA_ASSEMBLY_ENABLED else {}),
     output:
-        "results/chimera_junction/chimera_evidence.tsv.gz",
+        "results/chimera/candidates.tsv.gz",
     params:
         assembly=(
-            "--assembly results/chimera_assembly/candidates.tsv.gz"
+            "--assembly results/chimera/transcript_evidence/transcripts.tsv.gz"
             if CHIMERA_ASSEMBLY_ENABLED else ""
         ),
     threads: get_resources("chimera_evidence")["threads"]
@@ -324,11 +326,11 @@ rule sample_evidence_status:
     # with depth and library prep.
     input:
         qc_tables=lambda wc: [
-            f"results/chimera_junction/qc/{s}_junction_qc.tsv.gz" for s in SAMPLES
+            f"results/chimera/read_evidence/per_sample/{s}_junction_qc.tsv.gz" for s in SAMPLES
         ],
         strandedness="results/rseqc/strandedness_check_mqc.json",
     output:
-        "results/chimera_junction/qc/sample_evidence_status_mqc.json",
+        "results/chimera/qc/sample_evidence_status_mqc.json",
     params:
         samples=lambda wc, input: " ".join(SAMPLES),
     threads: get_resources("sample_evidence_status")["threads"]
@@ -346,6 +348,38 @@ rule sample_evidence_status:
         "--out {output} > {log} 2>&1"
 
 
+rule chimera_evidence_guide:
+    # The report's guide to reading the chimera evidence -- what each signal
+    # is worth and what has been measured about it -- plus the cohort's
+    # evidence composition (chimera_evidence_guide_mqc.py).
+    #
+    # Deliberately renders NO candidate table. This section replaced a
+    # four-tier confidence ladder that was removed for lacking any validated
+    # weighting; rendering even an unranked top-N would re-create it, because
+    # whatever order the rows land in reads as importance. The full catalogue
+    # is candidates.tsv.gz, which the reader sorts for their own question.
+    #
+    # No gene_id -> gene_name input: with no table there is nothing to label.
+    input:
+        evidence="results/chimera/candidates.tsv.gz",
+    output:
+        guide="results/chimera/qc/chimera_evidence_guide_mqc.json",
+        composition="results/chimera/qc/chimera_evidence_composition_mqc.json",
+    threads: get_resources("chimera_evidence_guide")["threads"]
+    resources:
+        mem_mb=get_scaled_mem_mb("chimera_evidence_guide"),
+        runtime=get_resources("chimera_evidence_guide")["runtime"],
+    benchmark:
+        "results/pipeline_info/benchmarks/chimera_evidence_guide/chimera_evidence_guide.txt",
+    log:
+        "results/pipeline_info/logs/chimera_junction/evidence_guide.log",
+    shell:
+        "python3 {SCRIPTS_DIR}/chimera_evidence_guide_mqc.py "
+        "--evidence {input.evidence} "
+        "--out-guide {output.guide} "
+        "--out-composition {output.composition} > {log} 2>&1"
+
+
 rule chimera_evidence_heatmap:
     # Two heatmaps over chimera_evidence.tsv.gz and NO score
     # (chimera_evidence_heatmap.py): dimension x dimension correlation, and
@@ -357,11 +391,11 @@ rule chimera_evidence_heatmap:
     # its chance rate. Both were plain the moment the dimensions were shown
     # against each other. Judge the evidence, then decide on a ranking.
     input:
-        evidence="results/chimera_junction/chimera_evidence.tsv.gz",
+        evidence="results/chimera/candidates.tsv.gz",
         gene_names="results/reference/gene_id_to_name.tsv.gz",
     output:
-        correlation="results/chimera_junction/qc/chimera_evidence_correlation_mqc.json",
-        candidates="results/chimera_junction/qc/chimera_evidence_candidates_mqc.json",
+        correlation="results/chimera/qc/chimera_evidence_correlation_mqc.json",
+        candidates="results/chimera/qc/chimera_evidence_candidates_mqc.json",
     threads: get_resources("chimera_evidence_heatmap")["threads"]
     resources:
         mem_mb=get_scaled_mem_mb("chimera_evidence_heatmap"),
@@ -385,9 +419,9 @@ rule junction_highlights:
     # Reads the merged gene<->TE table (not the per-sample QC metrics),
     # because the ranking needs per-event annotation columns.
     input:
-        te_events="results/chimera_junction/te-gene-chimeras.tsv.gz",
+        te_events="results/chimera/read_evidence/te-gene-chimeras.tsv.gz",
     output:
-        "results/chimera_junction/qc/junction_highlights_mqc.json",
+        "results/chimera/qc/junction_highlights_mqc.json",
     threads: get_resources("junction_highlights")["threads"]
     resources:
         mem_mb=get_scaled_mem_mb("junction_highlights"),
@@ -410,12 +444,12 @@ rule junction_qc_barplot:
     # the custom_content module.
     input:
         tables=lambda wc: [
-            f"results/chimera_junction/qc/{s}_junction_qc.tsv.gz" for s in SAMPLES
+            f"results/chimera/read_evidence/per_sample/{s}_junction_qc.tsv.gz" for s in SAMPLES
         ],
     output:
-        junction="results/chimera_junction/qc/junction_qc_mqc.json",
-        te_gene_chimeras="results/chimera_junction/qc/te_gene_chimeras_mqc.json",
-        canonical="results/chimera_junction/qc/canonical_rate_mqc.json",
+        junction="results/chimera/qc/junction_qc_mqc.json",
+        te_gene_chimeras="results/chimera/qc/te_gene_chimeras_mqc.json",
+        canonical="results/chimera/qc/canonical_rate_mqc.json",
     params:
         samples=lambda wc, input: " ".join(SAMPLES),
     threads: get_resources("junction_qc_barplot")["threads"]
@@ -440,9 +474,9 @@ rule chimera_igv_bed:
     # candidates can be inspected visually. Gated by
     # config["chimera"]["junction"]["outputs"]["write_igv_bed"].
     input:
-        "results/chimera_junction/{sample}_junctions.tsv.gz",
+        "results/chimera/read_evidence/per_sample/{sample}_junctions.tsv.gz",
     output:
-        "results/chimera_junction/igv/{sample}_junctions.bed",
+        "results/chimera/read_evidence/igv/{sample}_junctions.bed",
     params:
         sample=lambda wc: wc.sample,
     threads: get_resources("chimera_igv_bed")["threads"]

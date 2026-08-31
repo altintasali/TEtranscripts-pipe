@@ -196,7 +196,7 @@ chimera:
     # that feeds TEcount (no separate alignment). On by default: the STAR
     # alignment always emits chimeric junctions and the workflow detects
     # and annotates chimeric gene-TE junction reads
-    # (results/chimera_junction/...). Set enabled: false to opt out -- the
+    # (results/chimera/read_evidence/...). Set enabled: false to opt out -- the
     # workflow then behaves like a plain quantification pipeline. Only
     # sees reads STAR can't explain as one linear alignment -- an
     # ordinary, canonical-intron TE-initiated splice will not appear here;
@@ -242,7 +242,7 @@ chimera:
     # flags a junction as chimeric when a read can't be explained by one
     # linear alignment. Complements chimera.junction; a candidate found by
     # both is cross-referenced in
-    # results/chimera_assembly/candidates_with_junction_evidence.tsv.gz.
+    # results/chimera/transcript_evidence/transcripts_with_read_support.tsv.gz.
     #
     # On by default, but newer and less validated than chimera.junction --
     # validate its output before relying on it. Set enabled: false to skip
@@ -263,11 +263,11 @@ chimera:
     breakpoint_tolerance: 5
     # Not applied automatically -- candidates are always fully reported,
     # same annotate-first philosophy as chimera.junction. This is just the
-    # threshold used when reading results/chimera_assembly/tpm_matrix.tsv.gz
+    # threshold used when reading results/chimera/transcript_evidence/tpm_matrix.tsv.gz
     # yourself downstream.
     min_transcript_tpm: 1
     outputs:
-      # Write a BED track (results/chimera_assembly/igv/candidates.bed)
+      # Write a BED track (results/chimera/transcript_evidence/igv/candidates.bed)
       # spanning each candidate's TE-overlapping exon, colored by
       # chimera_type, for loading alongside chimera.junction's own IGV
       # track.

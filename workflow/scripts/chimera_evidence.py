@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """One unified gene-TE chimera table: every line of evidence for a candidate
-in one row, with a confidence tier.
+in one row.
 
 The problem this solves: the two screens key their output differently -- the
 junction screen is BREAKPOINT-keyed (one row per chimeric junction, many per
@@ -16,19 +16,44 @@ strictly coarser view than either source table -- to see the individual
 breakpoints or transcripts behind a row, go back to
 te-gene-chimeras.tsv.gz / candidates.tsv.gz using the same pair.
 
-Confidence tiers mirror the ladder documented in the wiki's "Interpreting
-Your Results" page, and are the MAXIMUM level a pair reaches:
+This table reports evidence.  It does NOT score or rank candidates, and it
+does not decide which are real -- that is a manual call, made against these
+columns.  An earlier version carried a four-tier confidence ladder; it was
+removed because no experiment here established the relative weight of its
+rungs, and the pipeline's own measurements contradicted its top rung (see
+chimera_evidence_heatmap.py: cross-screen agreement sits near its chance
+rate).
 
-  1  a gene-TE call exists at all (the floor for any row here)
-  2  + seen in more than one sample
-  3  + a recognised splice motif on at least one junction (canonical)
-  4  + called by BOTH screens (methods with opposite blind spots agree)
+Two columns summarise what was observed, both deliberately unweighted:
 
-Two things are deliberately NOT on the ladder, both because they look like
-support and are not:
+  evidence    the set of evidence types present, comma-joined ("." if none).
+              Unordered and unweighted -- the flags are names, not points:
 
-Read depth.  It is the metric most inflated by artifacts -- a hot PCR
-chimera is often the deepest event in a run.
+                canonical              a recognised splice motif on at least
+                                       one junction
+                multi_sample           seen in more than one sample
+                both_screens           called by BOTH screens
+                assembly_strand_match  the assembled transcript's strand
+                                       agrees with the gene's
+
+  n_evidence  how many of those flags are set.  A COUNT OF EVIDENCE TYPES,
+              NOT A CONFIDENCE SCORE.  It weights every flag equally for the
+              specific reason that no weighting has been validated here.  The
+              file is sorted by it only so the order is deterministic and the
+              densely-evidenced rows are easy to find; it is not a claim that
+              those rows are correct.
+
+              Known bias, stated because the number invites over-reading:
+              n_evidence structurally favours pairs the assembly screen found,
+              since both_screens and assembly_strand_match are unreachable
+              without assembly support.  It is a tally of what was observed,
+              not a comparison of candidates.
+
+Two things are deliberately NOT evidence flags, both because they look like
+support and are not.  Both are still reported as columns:
+
+Read depth (junction_reads / junction_events).  The metric most inflated by
+artifacts -- a hot PCR chimera is often the deepest event in a run.
 
 TElocal expression of the TE locus.  This WAS a tier, on the assumption
 that independent evidence the TE is transcribed corroborates the chimera.
@@ -39,12 +64,11 @@ telocal_count > 10 vs 10.2% at <= 10, n = 19,503 events).  That is
 mechanistically unsurprising -- a highly expressed locus yields more reads
 and so more chances for template switching -- but it means expression is
 context, not support.  telocal_count/telocal_active are still reported;
-they just no longer promote anything.
+they just carry no flag.
 
-Ordering note: canonical outranks reproducibility because the dominant
-artifact mode here is sequence-driven template switching, which recurs
-across libraries -- so being seen in several samples does not rule it out,
-while a splice motif does.
+Relative weight of the flags is exactly what has NOT been established, so
+the report states what is known about each one (see
+chimera_evidence_guide_mqc.py) rather than combining them.
 """
 import argparse
 import os
@@ -73,7 +97,7 @@ def _int(value):
 
 OUT_COLUMNS = [
     "gene_id", "te_id", "te_subfamily", "te_family", "te_class",
-    "found_by", "confidence_tier",
+    "found_by", "evidence", "n_evidence",
     "junction_events", "junction_reads", "junction_max_samples",
     "junction_canonical", "junction_chimera_types", "telocal_active",
     "assembly_transcripts", "assembly_chimera_types",
@@ -95,9 +119,9 @@ def _blank():
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--junction", required=True,
-                    help="results/chimera_junction/te-gene-chimeras.tsv.gz")
+                    help="results/chimera/read_evidence/te-gene-chimeras.tsv.gz")
     ap.add_argument("--assembly", default=None,
-                    help="results/chimera_assembly/candidates.tsv.gz "
+                    help="results/chimera/transcript_evidence/transcripts.tsv.gz "
                          "(omit when the assembly screen is disabled)")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
@@ -159,19 +183,25 @@ def main():
             else "junction" if in_junction
             else "assembly"
         )
-        tier = 1
-        if p["junction_max_samples"] > 1:
-            tier = max(tier, 2)
+        # Names, not points. Order here is presentational only -- nothing
+        # downstream may treat position in this list as a weight.
+        flags = []
         if p["junction_canonical"] == "yes":
-            tier = max(tier, 3)
+            flags.append("canonical")
+        if p["junction_max_samples"] > 1:
+            flags.append("multi_sample")
         if found_by == "both":
-            tier = max(tier, 4)
+            flags.append("both_screens")
+        if p["assembly_strand_match"] == "yes":
+            flags.append("assembly_strand_match")
 
         rows.append({
             "gene_id": gene, "te_id": te,
             "te_subfamily": p["te_subfamily"], "te_family": p["te_family"],
             "te_class": p["te_class"],
-            "found_by": found_by, "confidence_tier": tier,
+            "found_by": found_by,
+            "evidence": ",".join(flags) or ".",
+            "n_evidence": len(flags),
             "junction_events": p["junction_events"],
             "junction_reads": p["junction_reads"],
             "junction_max_samples": p["junction_max_samples"],
@@ -184,15 +214,11 @@ def main():
             "assembly_transcript_ids": ",".join(p["assembly_tids"]) or ".",
         })
 
-    # Best candidates first, so head-ing the file is a useful triage step.
-    # Reads break ties last, matching the ladder's deliberate ordering.
-    rows.sort(
-        key=lambda r: (
-            r["confidence_tier"], r["junction_max_samples"],
-            r["assembly_transcripts"], r["junction_reads"],
-        ),
-        reverse=True,
-    )
+    # Deterministic order: densest evidence first, then alphabetical. This is
+    # a sort, not a verdict -- n_evidence counts flags without weighting them,
+    # and gene/te break ties so two runs of the same data produce byte-identical
+    # files. Nothing here says a high-n_evidence pair is real.
+    rows.sort(key=lambda r: (-r["n_evidence"], r["gene_id"], r["te_id"]))
 
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
     with open_write(args.out) as fh:
@@ -200,11 +226,15 @@ def main():
         for r in rows:
             fh.write("\t".join(str(r[c]) for c in OUT_COLUMNS) + "\n")
 
-    by_tier = {}
+    composition = {}
     for r in rows:
-        by_tier[r["confidence_tier"]] = by_tier.get(r["confidence_tier"], 0) + 1
-    summary = ", ".join(f"tier {t}: {n}" for t, n in sorted(by_tier.items(), reverse=True))
-    print(f"chimera evidence: {len(rows)} gene-TE pairs ({summary or 'none'}) "
+        for flag in r["evidence"].split(","):
+            if flag != ".":
+                composition[flag] = composition.get(flag, 0) + 1
+    summary = ", ".join(
+        f"{flag}: {n}" for flag, n in sorted(composition.items())
+    )
+    print(f"chimera evidence: {len(rows)} gene-TE pairs ({summary or 'no evidence flags'}) "
           f"-> {args.out}")
 
 

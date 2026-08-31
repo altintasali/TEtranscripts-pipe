@@ -13,6 +13,13 @@ motif, and screen agreement turned out to sit at roughly its chance rate.
 Both were obvious the moment the dimensions were plotted against each other
 and invisible while they were being summed.
 
+Nothing in this pipeline ranks candidates -- the confidence ladder that once
+did was removed for lacking a validated weighting, and these plots are part of
+why (they are what measured cross-screen agreement at its chance rate).  The
+evidence guide above states what is known about each signal in general; this
+section is where a reader checks those claims against their OWN cohort, which
+is the only place they can be settled.
+
 So this emits two heatmaps and no score:
 
   correlation   dimension x dimension (Spearman) across all pairs the
@@ -112,9 +119,13 @@ def load(path):
 def heatmap_doc(doc_id, section, description, xcats, ycats, data, title):
     return {
         "id": doc_id,
-        # Same group as every other view of the read-evidence screen.
-        "parent_id": "chimera_reads",
-        "parent_name": "Gene-TE chimeras: read evidence",
+        # Its own group, NOT the read-evidence screen's. These heatmaps read
+        # the merged candidates table -- both screens' columns -- so filing
+        # them under one screen made a cross-screen check look like that
+        # screen's diagnostic. They sit under the evidence guide because they
+        # are how a reader checks that guide's claims against their own data.
+        "parent_id": "chimera_structure",
+        "parent_name": "How independent is this evidence?",
         "section_name": section,
         "description": description,
         "plot_type": "heatmap",
@@ -211,10 +222,10 @@ def main():
         "columns has broad support. A row bright in one column and dark in "
         "the rest leads on that axis alone -- which is most of them, on real "
         "data. If the picture is mostly diagonal, the dimensions disagree "
-        "about what the best candidates are, and no single ranking of this "
-        "table is defensible yet. That is a finding, not a failure of the "
-        "plot: it says the evidence is genuinely thin and the candidates "
-        "should be judged individually."
+        "about what the best candidates are, and no combined ordering of this "
+        "table would mean anything -- which is why the pipeline does not "
+        "produce one. Judge the candidates individually. That is a finding "
+        "about this cohort, not a failure of the plot."
     )
     cand = heatmap_doc(
         "chimera_evidence_candidates", "Candidates by evidence type",

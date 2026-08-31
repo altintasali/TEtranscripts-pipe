@@ -37,7 +37,7 @@ Ambiguity: like parse_chimeric_junctions.py, the reported te_id/
 matched_gene_id at a multi-copy/nested locus use the first hit -- the full
 overlap set is preserved in te_hits_all/gene_hits_all for inspection.
 
-Output columns (results/chimera_assembly/candidates.tsv):
+Output columns (results/chimera/transcript_evidence/transcripts.tsv):
     transcript_id, gtf_gene_id, chrom, strand, n_exons,
     transcript_start, transcript_end (the whole assembled transcript's span),
     te_exon_start, te_exon_end (the SPECIFIC exon that overlaps the TE --

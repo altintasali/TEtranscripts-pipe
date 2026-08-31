@@ -8,7 +8,7 @@ custom-content bar plots:
                             the gene-TE chimeras view, written when
                             --out-te-gene-chimeras is given.
 
-Reads every results/chimera_junction/qc/{sample}_junction_qc.tsv (metric/value pairs)
+Reads every results/chimera/read_evidence/per_sample/{sample}_junction_qc.tsv (metric/value pairs)
 and writes the JSONs above. MultiQC renders them inside multiqc_report.html in
 the custom_content module (ordered by multiqc_config.yaml), with the two
 datasets switchable via each plot's cpswitch control.
@@ -96,7 +96,7 @@ def main():
     for sample in samples:
         total = sum(counts[sample].values())
         if total <= 0:
-            pct[sample] = {d: 0.0 for d in DIRECTIONS}
+            pct[sample] = dict.fromkeys(DIRECTIONS, 0.0)
         else:
             pct[sample] = {
                 d: round(counts[sample][d] * 100.0 / total, 1)
@@ -106,7 +106,7 @@ def main():
     doc = {
         "id": "chimera_junction_qc",
         "parent_id": "chimera_reads",
-        "parent_name": "Gene-TE chimeras: read evidence",
+        "parent_name": "Evidence: chimeric reads",
         "section_name": "Events by direction",
         "description": (
             "Per-sample composition of annotated chimeric junctions by "
@@ -163,7 +163,7 @@ def main():
         canon_doc = {
             "id": "chimera_canonical_rate",
             "parent_id": "chimera_reads",
-            "parent_name": "Gene-TE chimeras: read evidence",
+            "parent_name": "Evidence: chimeric reads",
             "section_name": "Splice-motif rate by direction",
             "description": (
                 "Share of each direction's junctions for which STAR reported a "
@@ -237,7 +237,7 @@ def main():
             except (TypeError, ValueError):
                 total = 0
             if total <= 0:
-                te_pct[sample] = {d: 0.0 for d in te_dirs}
+                te_pct[sample] = dict.fromkeys(te_dirs, 0.0)
             else:
                 te_pct[sample] = {
                     d: round(te_counts[sample][d] * 100.0 / total, 1)
@@ -247,7 +247,7 @@ def main():
         te_doc = {
             "id": "chimera_te_gene_chimeras",
             "parent_id": "chimera_reads",
-            "parent_name": "Gene-TE chimeras: read evidence",
+            "parent_name": "Evidence: chimeric reads",
             "section_name": "Gene-TE subset",
             "description": (
                 "Per-sample gene\u2194TE chimeric junctions (direction "

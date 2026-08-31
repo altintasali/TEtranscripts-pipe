@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Turn results/chimera_assembly/candidates.tsv.gz (classify_chimera_assembly.py)
+"""Turn results/chimera/transcript_evidence/transcripts.tsv.gz (classify_chimera_assembly.py)
 into a BED track for IGV: one row per candidate, spanning the SPECIFIC exon
 that overlaps the TE (te_exon_start/te_exon_end -- not the whole transcript,
 and not always the first exon; see classify_chimera_assembly.py's docstring),
@@ -32,7 +32,7 @@ CLASS_COLOR = {
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--candidates", required=True,
-                     help="results/chimera_assembly/candidates.tsv.gz (or "
+                     help="results/chimera/transcript_evidence/transcripts.tsv.gz (or "
                           "the _with_junction_evidence variant)")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()

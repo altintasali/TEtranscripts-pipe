@@ -3,7 +3,7 @@
 ![CI](https://img.shields.io/github/actions/workflow/status/altintasali/TEtranscripts-pipe/ci.yml?label=CI)
 ![License](https://img.shields.io/github/license/altintasali/TEtranscripts-pipe?color=blue)
 ![Platform](https://img.shields.io/badge/platform-Python-blue)
-![Version](https://img.shields.io/badge/version-0.10.1-blue)
+![Version](https://img.shields.io/badge/version-0.11.0-blue)
 
 A Snakemake workflow that quantifies genes **and** transposable elements (TEs)
 from RNA-seq data with [TEtranscripts/TEcount](https://github.com/mhammell-laboratory/TEtranscripts),
@@ -14,9 +14,12 @@ flowchart LR
     reads["Raw reads"] --> trim["Trim (optional)"]
     trim --> align["STAR alignment"]
     align --> quant["Gene + TE quantification<br/>(TEcount / TElocal)"]
-    align --> chimera["Chimera detection<br/>(optional)"]
+    align --> rdev["Chimeras: read evidence"]
+    align --> asm["Chimeras: transcript evidence<br/>(2nd STAR pass)"]
+    rdev --> cand["Gene-TE candidates<br/>(evidence, not a score)"]
+    asm --> cand
     quant --> report["MultiQC report"]
-    chimera --> report
+    cand --> report
 ```
 
 *(Simplified — every rule, dependency, and optional stage is in the
@@ -35,13 +38,41 @@ The per-sample TEcount tables also drive a sample-QC view (PCA + sample
 clustering, on by default) and per-sample summary barplots (gene-vs-TE
 assignment and TE class composition), rendered inside the MultiQC report;
 the TElocal tables drive the same section set for the locus-level counts.
-The **same** alignment also drives a gene-TE chimera
-screen that annotates chimeric junction reads and produces a counts matrix,
-an interactive sample-QC view, and a junction-QC barplot (on by default;
-set `chimera.junction.enabled: false` to opt out). A single MultiQC
-report pulls together
-FastQC, TrimGalore!, STAR, RSeQC, the TEcounts, TElocal, and chimera QC plots, tool
-versions, and a per-rule resource-usage table.
+
+### Gene-TE chimeras
+
+Two **independent** screens look for gene-TE chimeric transcripts, and both
+are **on by default**:
+
+- **Read evidence** (`chimera.junction`) annotates STAR's chimeric junction
+  reads — reads that cannot be explained by one linear alignment. It is
+  annotation-blind, so it catches breakpoints no assembler would predict, and
+  reuses the same alignment as quantification (no extra STAR pass).
+- **Transcript evidence** (`chimera.assembly`) infers chimeras from StringTie
+  assembly structure, catching TE-initiated/exonized/terminated transcripts
+  spliced through an ordinary canonical intron — which the read screen
+  structurally cannot see. **This costs a second, dedicated STAR pass per
+  sample**; set `chimera.assembly.enabled: false` to skip it. It is newer and
+  less validated than the read screen.
+
+The two are merged into one catalogue at `results/chimera/candidates.tsv.gz`
+— one row per (gene, TE insertion) pair, carrying every line of evidence
+either screen produced.
+
+**The pipeline does not rank or score chimera candidates.** No experiment here
+has established what each signal is actually worth, and the pipeline's own
+measurements contradict the obvious guesses — cross-screen agreement comes out
+near its chance rate, and TE-locus expression is anti-correlated with the
+splice motif. So the report explains what is known about each line of evidence
+and stops; deciding which candidates are real is a manual call you make against
+that catalogue. The report's first chimera section is that guide, the heatmaps
+after it are where you check its claims against your own cohort, and the
+per-screen sections describe what each method can and cannot see. Set
+`chimera.junction.enabled: false` to skip chimera detection entirely.
+
+A single MultiQC report pulls together FastQC, TrimGalore!, STAR, RSeQC, the
+TEcounts, TElocal and chimera sections, tool versions, and a per-rule
+resource-usage table.
 
 ## Documentation
 

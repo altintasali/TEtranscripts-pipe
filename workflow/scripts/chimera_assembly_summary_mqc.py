@@ -1,23 +1,27 @@
 #!/usr/bin/env python3
-"""Build MultiQC custom-content for the chimera-assembly screen:
+"""Build MultiQC custom-content for the transcript-evidence (assembly) screen:
   chimera_assembly_classes_mqc.json  candidate counts by chimera_type,
                                       split by cross-confirmation with the
-                                      junction screen when that column is
-                                      present (results/chimera_assembly/
-                                      candidates_with_junction_evidence.tsv.gz)
-                                      -- otherwise just totals per class.
-  chimera_assembly_highlights_mqc.json  a written "what to look at first"
-                                      guide plus a ranked table of this
-                                      run's actual top candidates (highest
-                                      confidence first: cross-confirmed,
-                                      strand-matched, highest expression).
+                                      read-evidence screen when that column
+                                      is present -- otherwise just totals
+                                      per class.
+  chimera_assembly_highlights_mqc.json  what this screen structurally can and
+                                      cannot see, plus the counts that
+                                      qualify its own output.
 
-Reads results/chimera_assembly/candidates.tsv.gz (or, when present,
-candidates_with_junction_evidence.tsv.gz -- pass whichever is available as
---candidates) and results/chimera_assembly/tpm_matrix.tsv.gz.
+This section used to also rank and render this run's top candidates, keyed
+(junction-confirmed, strand-matched, highest TPM).  It was one of three
+rankings shipping in the same report, and it led on the one signal
+chimera_evidence_heatmap.py measured at roughly its chance rate.  All three
+are gone -- the pipeline no longer ranks candidates at all (see
+chimera_evidence_guide_mqc.py); dropping the table here also dropped this
+script's only use of tpm_matrix.tsv.gz, so it is no longer an input.
+
+Reads the candidates table (or, when present, the cross-referenced
+transcripts_with_read_support.tsv.gz -- pass whichever is available as
+--candidates).
 """
 import argparse
-import gzip
 import json
 import os
 import sys
@@ -47,39 +51,16 @@ def read_table(path):
     return header, rows
 
 
-def load_max_tpm(path):
-    """{transcript_id: max TPM across samples}."""
-    max_tpm = {}
-    with open_read(path) as fh:
-        header = fh.readline().rstrip("\n").split("\t")
-        for line in fh:
-            if not line.strip():
-                continue
-            parts = line.rstrip("\n").split("\t")
-            tid = parts[0]
-            vals = [float(v) for v in parts[1:] if v]
-            max_tpm[tid] = max(vals) if vals else 0.0
-    return max_tpm
-
-
-def esc(s):
-    return (str(s).replace("&", "&amp;").replace("<", "&lt;")
-            .replace(">", "&gt;").replace('"', "&quot;"))
-
-
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--candidates", required=True,
                      help="candidates.tsv.gz, or candidates_with_junction_evidence.tsv.gz if available")
-    ap.add_argument("--tpm-matrix", required=True)
     ap.add_argument("--out-classes", required=True)
     ap.add_argument("--out-highlights", required=True)
-    ap.add_argument("--top-n", type=int, default=25)
     args = ap.parse_args()
 
     header, rows = read_table(args.candidates)
     has_cross_evidence = "confirmed_by_junction_screen" in header
-    max_tpm = load_max_tpm(args.tpm_matrix)
 
     # --- classes barplot -----------------------------------------------
     if has_cross_evidence:
@@ -108,7 +89,7 @@ def main():
     classes_doc = {
         "id": "chimera_assembly_classes",
         "parent_id": "chimera_transcripts",
-        "parent_name": "Gene-TE chimeras: transcript evidence",
+        "parent_name": "Evidence: assembled transcripts",
         "section_name": "Candidates by class",
     }
     # counts values are {"count": N} or {"confirmed": N, "unconfirmed": N}
@@ -147,116 +128,93 @@ def main():
                 "calls.</p>"
             ),
         })
-    os.makedirs(os.path.dirname(args.out_classes), exist_ok=True)
+    os.makedirs(os.path.dirname(args.out_classes) or ".", exist_ok=True)
     with open_write(args.out_classes) as fh:
         json.dump(classes_doc, fh, indent=2)
         fh.write("\n")
 
-    # --- highlights: guidance + ranked top-N table ----------------------
-    def rank_key(r):
-        confirmed = 1 if (has_cross_evidence and r.get("confirmed_by_junction_screen") == "yes") else 0
-        strand_ok = 1 if r.get("strand_match") == "yes" else 0
-        tpm = max_tpm.get(r.get("transcript_id", ""), 0.0)
-        return (confirmed, strand_ok, tpm)
-
-    ranked = sorted(rows, key=rank_key, reverse=True)
-    top = ranked[: args.top_n]
-
-    cols = ["transcript_id", "chimera_type", "te_id", "te_family", "te_class",
-            "matched_gene_id", "strand_match"]
-    if has_cross_evidence:
-        cols.append("confirmed_by_junction_screen")
-    cols.append("max_tpm")
-
-    col_label = {
-        "transcript_id": "Transcript", "chimera_type": "Class", "te_id": "TE",
-        "te_family": "Family", "te_class": "Class (TE)",
-        "matched_gene_id": "Gene", "strand_match": "Strand match",
-        "confirmed_by_junction_screen": "Junction-confirmed", "max_tpm": "Max TPM",
-    }
-
-    thead = "".join(f"<th>{esc(col_label[c])}</th>" for c in cols)
-    trows = []
-    for r in top:
-        tpm = max_tpm.get(r.get("transcript_id", ""), 0.0)
-        cells = []
-        for c in cols:
-            if c == "max_tpm":
-                cells.append(f"<td>{tpm:.2f}</td>")
-            elif c == "confirmed_by_junction_screen":
-                v = r.get(c, "no")
-                mark = "&#9733;" if v == "yes" else ""
-                cells.append(f"<td>{esc(v)} {mark}</td>")
-            else:
-                cells.append(f"<td>{esc(r.get(c, '.'))}</td>")
-        trows.append("<tr>" + "".join(cells) + "</tr>")
-
+    # --- screen notes: blind spot + qualifying counts --------------------
+    # This section used to render its own ranked top-N, keyed
+    # (junction-confirmed, strand-matched, TPM). That was one of three
+    # rankings shipping in the same report, and it led on the very signal
+    # chimera_evidence_heatmap.py measured at roughly its chance rate. The
+    # pipeline no longer ranks candidates anywhere; what stays here is what
+    # only this screen can say about itself.
     n_total = len(rows)
-    n_confirmed = sum(1 for r in rows if r.get("confirmed_by_junction_screen") == "yes") if has_cross_evidence else None
-    shown_note = (
-        f"Showing the top {len(top)} of {n_total} candidates (ranked: junction-confirmed "
-        "first, then strand-matched, then highest expression). Full table: "
-        "<code>results/chimera_assembly/candidates_with_junction_evidence.tsv.gz</code>."
-        if has_cross_evidence else
-        f"Showing the top {len(top)} of {n_total} candidates (ranked: strand-matched first, "
-        "then highest expression). Full table: "
-        "<code>results/chimera_assembly/candidates.tsv.gz</code>."
+    n_confirmed = (
+        sum(1 for r in rows if r.get("confirmed_by_junction_screen") == "yes")
+        if has_cross_evidence else None
+    )
+    n_strand_ok = sum(1 for r in rows if r.get("strand_match") == "yes")
+    n_unspliced = sum(
+        1 for r in rows if r.get("chimera_type") == "unspliced_te_only"
     )
 
     confirmed_line = (
-        f"<li><strong>{n_confirmed} of {n_total}</strong> candidates are also found by the "
-        "chimera-junction (read-level) screen -- independent evidence from two different "
-        "methods, and your highest-confidence starting point. Marked &#9733; below.</li>"
+        f"<li><strong>{n_confirmed} of {n_total}</strong> candidates are also "
+        "found by the read-evidence screen. The two methods have opposite "
+        "blind spots, so agreement should be meaningful &mdash; but measured "
+        "across a cohort it has come out near its <strong>chance rate</strong>. "
+        "It carries no more weight than any other flag here; see "
+        "<strong>How independent is this evidence?</strong> for your own "
+        "data.</li>"
         if has_cross_evidence else
-        "<li>chimera.junction is currently disabled, so no cross-confirmation is available "
-        "-- enabling it adds an independent evidence source for these same candidates.</li>"
+        "<li>chimera.junction is currently disabled, so no cross-confirmation "
+        "is available &mdash; enabling it adds an independent evidence source "
+        "for these same candidates.</li>"
     )
 
     html = f"""
-<p>This screen finds gene-TE chimeras from StringTie assembly structure --
-it catches TE-initiated/exonized/terminated transcripts spliced via an
-ordinary, canonical intron, which the chimera-junction screen structurally
-cannot see (it only flags reads STAR can't explain as one linear
-alignment). Neither screen alone is complete; a candidate found by both
-carries the strongest evidence.</p>
+<p><strong>What this screen sees.</strong> Gene-TE chimeras inferred from
+StringTie assembly structure: TE-initiated, exonized and TE-terminated
+transcripts spliced through an ordinary, canonical intron.</p>
 
-<p><strong>What to look at first:</strong></p>
+<p><strong>What it cannot see.</strong> Any structure an assembler would not
+build &mdash; the breakpoints that only show up as reads STAR cannot explain
+with one linear alignment. That gap is what the read-evidence screen covers,
+which is why the two are kept separate rather than merged.</p>
+
+<p><strong>Qualifying this screen's output:</strong></p>
 <ul>
 {confirmed_line}
-<li>For <code>te_initiated</code> calls, prefer <code>strand_match: yes</code> -- a mismatch
+<li><strong>{n_strand_ok} of {n_total}</strong> candidates have
+<code>strand_match: yes</code>. For <code>te_initiated</code> calls a mismatch
 usually means the "gene" hit is a spurious overlap, not real transcript
 connectivity.</li>
-<li>Check <code>te_hits_all</code> / <code>gene_hits_all</code> in the full table: more
-than one entry means the locus is ambiguous (a multi-copy TE family, or
-overlapping gene isoforms) -- the single <code>te_id</code>/<code>matched_gene_id</code>
-reported is just the first hit, not necessarily the right one.</li>
-<li>Candidates are structural calls from the merged assembly, not per-sample
--- check <code>tpm_matrix.tsv.gz</code> for real expression, and require
-support across multiple replicates of a condition before trusting a call
-as biological rather than assembly noise.</li>
-<li><code>unspliced_te_only</code> entries have no splice evidence at all -- useful
-for manual triage, not for a confident call on their own.</li>
+<li><strong>{n_unspliced}</strong> are <code>unspliced_te_only</code>, which
+carry no splice evidence at all &mdash; useful for manual triage, not for a
+confident call on their own.</li>
+<li>Check <code>te_hits_all</code> / <code>gene_hits_all</code> in the full
+table: more than one entry means the locus is ambiguous (a multi-copy TE
+family, or overlapping gene isoforms) &mdash; the single <code>te_id</code>/
+<code>matched_gene_id</code> reported is just the first hit, not necessarily
+the right one.</li>
+<li>Candidates are structural calls from the merged assembly, not per-sample.
+See <code>tpm_matrix.tsv.gz</code> for real expression, and require support
+across multiple replicates of a condition before trusting a call as biological
+rather than assembly noise.</li>
 </ul>
 
-<table class="table" style="width:100%; font-size: 90%;">
-<thead><tr>{thead}</tr></thead>
-<tbody>
-{"".join(trows) if trows else "<tr><td colspan=" + str(len(cols)) + ">No candidates.</td></tr>"}
-</tbody>
-</table>
-<p style="font-size: 85%; color: #888;">{shown_note}</p>
+<p style="font-size: 85%; color: #888;">This screen's calls are merged with
+the read-evidence screen's into one catalogue,
+<code>results/chimera/candidates.tsv.gz</code>; see <strong>Gene-TE chimeras:
+reading the evidence</strong> for what each line of evidence is worth. Neither
+that section nor this one ranks candidates.</p>
 """
 
     highlights_doc = {
         "id": "chimera_assembly_highlights",
         "parent_id": "chimera_transcripts",
-        "parent_name": "Gene-TE chimeras: transcript evidence",
-        "section_name": "What to look at",
-        "description": "How to read the chimera-assembly output, and this run's top candidates.",
+        "parent_name": "Evidence: assembled transcripts",
+        "section_name": "What this screen sees",
+        "description": (
+            "The transcript-evidence screen's blind spot, and the counts that "
+            "qualify its output."
+        ),
         "plot_type": "html",
         "data": html,
     }
-    os.makedirs(os.path.dirname(args.out_highlights), exist_ok=True)
+    os.makedirs(os.path.dirname(args.out_highlights) or ".", exist_ok=True)
     with open_write(args.out_highlights) as fh:
         json.dump(highlights_doc, fh, indent=2)
         fh.write("\n")

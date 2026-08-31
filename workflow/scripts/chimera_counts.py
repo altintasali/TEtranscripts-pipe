@@ -68,7 +68,6 @@ def main():
         sys.exit("error: --tables and --sample-names must have equal length")
 
     events = {}
-    sample_index = {s: i for i, s in enumerate(args.sample_names)}
     for path, sample in zip(args.tables, args.sample_names):
         for row in load(path):
             eid = row["event_id"]

@@ -374,6 +374,14 @@ resources:
     mem_mb: 500
     runtime: 30
 
+  chimera_evidence_guide:
+    # Counts evidence flags across candidates.tsv.gz; holds the table in
+    # memory, so it scales with cohort size like its siblings.
+    threads: 1
+    mem_mb: 1000
+    mem_per_sample: 100
+    runtime: 30
+
   chimera_evidence_heatmap:
     # Ranks every evidence column of chimera_evidence.tsv.gz; holds the table
     # plus one rank vector per dimension, so it scales with cohort size.

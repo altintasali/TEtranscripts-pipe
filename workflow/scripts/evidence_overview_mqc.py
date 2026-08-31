@@ -25,7 +25,7 @@ def _row(cells, muted=False):
 
 
 def main():
-    p = snakemake.params  # noqa: F821 -- injected by snakemake
+    p = snakemake.params
     telocal = bool(p._telocal_enabled)
     junction = bool(p._chimera_junction_enabled)
     assembly = bool(p._chimera_assembly_enabled)
@@ -155,9 +155,10 @@ all independent, which is the usual source of confusion:</p>
 {"".join(steps)}
 </ol>
 
-<p style="font-size: 85%; color: #888;">Longer version, including how to
-triage a candidate list: see the <em>Interpreting Your Results</em> page in
-the project wiki.</p>
+<p style="font-size: 85%; color: #888;">This pipeline reports chimera evidence
+but does not rank or score candidates &mdash; see <strong>Gene-TE chimeras:
+reading the evidence</strong> below for what each signal is worth, and expect
+to validate calls manually.</p>
 """
 
     doc = {
@@ -173,11 +174,16 @@ the project wiki.</p>
         "data": html,
     }
 
-    out = snakemake.output[0]  # noqa: F821
+    out = snakemake.output[0]
     os.makedirs(os.path.dirname(out), exist_ok=True)
     with open(out, "w") as fh:
         json.dump(doc, fh, indent=2)
         fh.write("\n")
 
 
-main()
+# Guarded so the module can be imported (by the unit tests) without
+# running. Snakemake's script: directive executes the file with
+# __name__ == "__main__", so this still runs under the workflow --
+# benchmark_summary.py has been doing exactly this all along.
+if __name__ == "__main__":
+    main()

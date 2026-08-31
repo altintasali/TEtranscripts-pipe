@@ -34,15 +34,15 @@ WRITE_IGV_BED_ASSEMBLY = bool(config["chimera"]["assembly"]["outputs"]["write_ig
 def all_chimera_assembly_outputs():
     """Chimera-assembly artifacts for the `all` target (Snakefile)."""
     files = [
-        "results/chimera_assembly/candidates.tsv.gz",
-        "results/chimera_assembly/tpm_matrix.tsv.gz",
-        "results/chimera_assembly/qc/chimera_assembly_classes_mqc.json",
-        "results/chimera_assembly/qc/chimera_assembly_highlights_mqc.json",
+        "results/chimera/transcript_evidence/transcripts.tsv.gz",
+        "results/chimera/transcript_evidence/tpm_matrix.tsv.gz",
+        "results/chimera/qc/chimera_assembly_classes_mqc.json",
+        "results/chimera/qc/chimera_assembly_highlights_mqc.json",
     ]
     if CHIMERA_JUNCTION_ENABLED:
-        files.append("results/chimera_assembly/candidates_with_junction_evidence.tsv.gz")
+        files.append("results/chimera/transcript_evidence/transcripts_with_read_support.tsv.gz")
     if WRITE_IGV_BED_ASSEMBLY:
-        files.append("results/chimera_assembly/igv/candidates.bed")
+        files.append("results/chimera/transcript_evidence/igv/transcripts.bed")
     return files
 
 
@@ -51,8 +51,8 @@ def _chimera_assembly_summary_input():
     confirmed_by_junction_screen) when the junction screen also ran; fall
     back to the plain candidates table otherwise."""
     if CHIMERA_JUNCTION_ENABLED:
-        return "results/chimera_assembly/candidates_with_junction_evidence.tsv.gz"
-    return "results/chimera_assembly/candidates.tsv.gz"
+        return "results/chimera/transcript_evidence/transcripts_with_read_support.tsv.gz"
+    return "results/chimera/transcript_evidence/transcripts.tsv.gz"
 
 
 def _assembly_two_pass_args(wildcards, input):
@@ -82,7 +82,7 @@ rule star_align_for_assembly:
     # Dedicated, chimera_assembly-only STAR pass. --outSAMstrandField
     # intronMotif gives StringTie the XS strand tag it needs for
     # transcript-strand inference on unstranded data, which the main
-    # alignment (used by chimera_junction/TEcount/TElocal) does not set.
+    # alignment (used by the read-evidence screen/TEcount/TElocal) does not set.
     #
     # This is a real, bounded tradeoff, not a free win: per STAR's own
     # manual, that flag suppresses reads with non-canonical/undefined-
@@ -95,12 +95,12 @@ rule star_align_for_assembly:
         **({"merged_sj": "results/star_pass1/merged_SJ.out.tab"}
            if STAR_TWO_PASS == "cohort" else {}),
     output:
-        aln="results/chimera_assembly/star/{sample}_Aligned.sortedByCoord.out.bam",
-        log_final="results/chimera_assembly/star/{sample}_Log.final.out",
+        aln="results/chimera/transcript_evidence/per_sample/star/{sample}_Aligned.sortedByCoord.out.bam",
+        log_final="results/chimera/transcript_evidence/per_sample/star/{sample}_Log.final.out",
     params:
         reads=star_reads_param,
         read_command=star_read_command_param,
-        prefix=lambda wc: f"results/chimera_assembly/star/{wc.sample}_",
+        prefix=lambda wc: f"results/chimera/transcript_evidence/per_sample/star/{wc.sample}_",
         tmpdir=lambda wc: os.path.join(STAR_TMPDIR, f"star_assembly_{wc.sample}"),
         two_pass=_assembly_two_pass_args,
         extra=config["star"]["extra"],
@@ -116,7 +116,7 @@ rule star_align_for_assembly:
         STAR_ENV
     shell:
         # Same benign-exit-crash tolerance as star_align (rules/align.smk).
-        "mkdir -p results/chimera_assembly/star && "
+        "mkdir -p results/chimera/transcript_evidence/per_sample/star && "
         "rm -rf {params.tmpdir} && "
         "trap 'rm -rf {params.tmpdir}' EXIT; "
         "(STAR --runThreadN {threads} "
@@ -144,10 +144,10 @@ rule stringtie_assemble:
     # recommendation) so low-coverage TE-driven transcripts aren't dropped
     # before classification -- filter on expression downstream instead.
     input:
-        bam="results/chimera_assembly/star/{sample}_Aligned.sortedByCoord.out.bam",
+        bam="results/chimera/transcript_evidence/per_sample/star/{sample}_Aligned.sortedByCoord.out.bam",
         strandedness=strandedness_input,
     output:
-        gtf="results/chimera_assembly/assembly/{sample}.gtf",
+        gtf="results/chimera/transcript_evidence/per_sample/assembly/{sample}.gtf",
     params:
         strand=stringtie_strand_flag,
     threads: get_resources("stringtie_assemble")["threads"]
@@ -173,9 +173,9 @@ rule stringtie_merge:
     # has finished), same shape as star_merge_junctions -- sized with
     # mem_per_sample from the start, not discovered the hard way.
     input:
-        gtfs=expand("results/chimera_assembly/assembly/{sample}.gtf", sample=SAMPLES),
+        gtfs=expand("results/chimera/transcript_evidence/per_sample/assembly/{sample}.gtf", sample=SAMPLES),
     output:
-        merged="results/chimera_assembly/stringtie_merge.gtf",
+        merged="results/chimera/transcript_evidence/stringtie_merge.gtf",
     threads: get_resources("stringtie_merge")["threads"]
     resources:
         mem_mb=get_scaled_mem_mb("stringtie_merge"),
@@ -196,11 +196,11 @@ rule stringtie_requantify:
     # "assemble -> merge -> quantify" pattern nf-core/rnaseq's
     # --stringtie_ignore_gtf uses.
     input:
-        bam="results/chimera_assembly/star/{sample}_Aligned.sortedByCoord.out.bam",
-        merged="results/chimera_assembly/stringtie_merge.gtf",
+        bam="results/chimera/transcript_evidence/per_sample/star/{sample}_Aligned.sortedByCoord.out.bam",
+        merged="results/chimera/transcript_evidence/stringtie_merge.gtf",
         strandedness=strandedness_input,
     output:
-        gtf="results/chimera_assembly/quant/{sample}.transcripts.gtf",
+        gtf="results/chimera/transcript_evidence/per_sample/quant/{sample}.transcripts.gtf",
     params:
         strand=stringtie_strand_flag,
     threads: get_resources("stringtie_requantify")["threads"]
@@ -223,12 +223,12 @@ rule chimera_assembly_classify:
     # the junction screen uses (ref.smk's annotation_to_bed) -- no separate
     # reference-track build needed.
     input:
-        gtf="results/chimera_assembly/stringtie_merge.gtf",
+        gtf="results/chimera/transcript_evidence/stringtie_merge.gtf",
         genes="results/reference/genes.bed",
         exons="results/reference/exons.bed",
         te="results/reference/te.bed",
     output:
-        candidates="results/chimera_assembly/candidates.tsv.gz",
+        candidates="results/chimera/transcript_evidence/transcripts.tsv.gz",
     params:
         tolerance=config["chimera"]["assembly"]["breakpoint_tolerance"],
     threads: get_resources("chimera_assembly_classify")["threads"]
@@ -252,10 +252,10 @@ rule chimera_assembly_quantify:
     # downstream (min TPM, min replicates), same "annotate-only, filter
     # later" philosophy as the junction screen.
     input:
-        candidates="results/chimera_assembly/candidates.tsv.gz",
-        quant=expand("results/chimera_assembly/quant/{sample}.transcripts.gtf", sample=SAMPLES),
+        candidates="results/chimera/transcript_evidence/transcripts.tsv.gz",
+        quant=expand("results/chimera/transcript_evidence/per_sample/quant/{sample}.transcripts.gtf", sample=SAMPLES),
     output:
-        matrix="results/chimera_assembly/tpm_matrix.tsv.gz",
+        matrix="results/chimera/transcript_evidence/tpm_matrix.tsv.gz",
     params:
         sample_names=" ".join(SAMPLES),
     threads: get_resources("chimera_assembly_quantify")["threads"]
@@ -281,10 +281,10 @@ if CHIMERA_JUNCTION_ENABLED:
         # structure is much higher confidence than either alone. Only
         # meaningful (and only included) when the junction screen also runs.
         input:
-            candidates="results/chimera_assembly/candidates.tsv.gz",
-            te_gene_chimeras="results/chimera_junction/te-gene-chimeras.tsv.gz",
+            candidates="results/chimera/transcript_evidence/transcripts.tsv.gz",
+            te_gene_chimeras="results/chimera/read_evidence/te-gene-chimeras.tsv.gz",
         output:
-            "results/chimera_assembly/candidates_with_junction_evidence.tsv.gz",
+            "results/chimera/transcript_evidence/transcripts_with_read_support.tsv.gz",
         threads: get_resources("chimera_assembly_cross_evidence")["threads"]
         resources:
             mem_mb=get_resources("chimera_assembly_cross_evidence")["mem_mb"],
@@ -299,17 +299,19 @@ if CHIMERA_JUNCTION_ENABLED:
 
 rule chimera_assembly_summary_mqc:
     # MultiQC custom content: candidates-by-class barplot (split by
-    # junction-screen confirmation when that ran too) plus a written
-    # "what to look at first" guide with this run's actual top candidates
-    # ranked by confidence. Uses the cross-referenced table when available
-    # (see _chimera_assembly_summary_input) so the guide can point at
-    # cross-confirmed candidates first.
+    # read-evidence confirmation when that screen ran too) plus this screen's
+    # blind-spot note and the counts qualifying its own output. Uses the
+    # cross-referenced table when available (see
+    # _chimera_assembly_summary_input) so the confirmation split is possible.
+    #
+    # tpm_matrix is deliberately NOT an input: it was only ever read to sort
+    # a ranked top-N table here, and the pipeline no longer ranks candidates
+    # anywhere (see chimera_evidence_guide_mqc.py).
     input:
         candidates=_chimera_assembly_summary_input(),
-        tpm_matrix="results/chimera_assembly/tpm_matrix.tsv.gz",
     output:
-        classes="results/chimera_assembly/qc/chimera_assembly_classes_mqc.json",
-        highlights="results/chimera_assembly/qc/chimera_assembly_highlights_mqc.json",
+        classes="results/chimera/qc/chimera_assembly_classes_mqc.json",
+        highlights="results/chimera/qc/chimera_assembly_highlights_mqc.json",
     threads: get_resources("chimera_assembly_summary_mqc")["threads"]
     resources:
         mem_mb=get_resources("chimera_assembly_summary_mqc")["mem_mb"],
@@ -318,7 +320,7 @@ rule chimera_assembly_summary_mqc:
         "results/pipeline_info/logs/chimera_assembly/summary_mqc.log",
     shell:
         "python3 {SCRIPTS_DIR}/chimera_assembly_summary_mqc.py "
-        "--candidates {input.candidates} --tpm-matrix {input.tpm_matrix} "
+        "--candidates {input.candidates} "
         "--out-classes {output.classes} --out-highlights {output.highlights} "
         "> {log} 2>&1"
 
@@ -334,7 +336,7 @@ if WRITE_IGV_BED_ASSEMBLY:
         input:
             candidates=_chimera_assembly_summary_input(),
         output:
-            "results/chimera_assembly/igv/candidates.bed",
+            "results/chimera/transcript_evidence/igv/transcripts.bed",
         threads: get_resources("chimera_assembly_igv_bed")["threads"]
         resources:
             mem_mb=get_resources("chimera_assembly_igv_bed")["mem_mb"],

@@ -50,9 +50,10 @@ flowchart LR
         chimera_telocal_annotate["annotate junctions with TElocal counts"]
         junction_qc["junction QC"]
         junction_qc_barplot["junction QC barplot"]
-        junction_highlights["ranked gene-TE junctions ('what to look at')"]
-        chimera_evidence["unified gene-TE evidence + confidence tier"]
+        junction_highlights["read-screen notes (blind spot + counts)"]
+        chimera_evidence["unified gene-TE evidence catalogue"]
         chimera_evidence_heatmap["evidence correlation + candidate heatmaps"]
+        chimera_evidence_guide["how to weigh the evidence + composition"]
         sample_evidence_status["per-sample evidence status grid"]
         chimera_igv_bed["IGV BED track"]
         chimera_counts["chimera counts matrix"]
@@ -88,11 +89,11 @@ flowchart LR
     chimera_assembly_classify --> chimera_evidence
     chimera_assembly_cross_evidence --> chimera_assembly_igv_bed
     chimera_assembly_cross_evidence --> chimera_assembly_summary_mqc
-    chimera_assembly_quantify --> chimera_assembly_summary_mqc
     chimera_counts --> chimera_assembly_cross_evidence
     chimera_counts --> chimera_evidence
     chimera_counts --> junction_highlights
     chimera_counts --> sample_qc_transform
+    chimera_evidence --> chimera_evidence_guide
     chimera_evidence --> chimera_evidence_heatmap
     chimera_telocal_annotate --> chimera_counts
     chimera_telocal_index --> chimera_telocal_annotate

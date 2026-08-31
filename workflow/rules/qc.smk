@@ -35,6 +35,17 @@ rule fastqc_raw:
         zip="results/fastqc/raw/{sample}_R{read}_fastqc.zip",
     params:
         outdir="results/fastqc/raw",
+        # The symlink FastQC actually reads, named the way every other tool
+        # names this sample. Its extension is carried over from the real input
+        # so FastQC still recognises the format.
+        canonical=lambda wc, input: os.path.join(
+            "results/fastqc/raw",
+            f"{wc.sample}_R{wc.read}"
+            + os.path.basename(input.fq)[len(_fastqc_base_name(input.fq)):],
+        ),
+        # Resolved here rather than in the shell: `realpath` is not portable
+        # and the input may be a relative sample-sheet path.
+        fq_abs=lambda wc, input: os.path.abspath(input.fq),
     threads: get_resources("fastqc_raw")["threads"]
     resources:
         mem_mb=get_resources("fastqc_raw")["mem_mb"],
@@ -45,27 +56,22 @@ rule fastqc_raw:
         "results/pipeline_info/logs/fastqc/raw/{sample}_R{read}.log",
     conda:
         FASTQC_ENV
-    run:
-        os.makedirs(params.outdir, exist_ok=True)
-        ext = os.path.basename(input.fq)[len(_fastqc_base_name(input.fq)) :]
-        canonical = os.path.join(
-            params.outdir, f"{wildcards.sample}_R{wildcards.read}{ext}"
-        )
-        if os.path.lexists(canonical):
-            os.remove(canonical)
-        os.symlink(os.path.abspath(input.fq), canonical)
-        try:
-            shell(
-                "fastqc -t {threads} -o {params.outdir} {canonical} "
-                "> {log} 2>&1"
-            )
-        finally:
-            os.remove(canonical)
-        produced = os.path.join(
-            params.outdir, _fastqc_base_name(canonical) + "_fastqc.zip"
-        )
-        if os.path.abspath(produced) != os.path.abspath(output.zip):
-            os.replace(produced, output.zip)
+    shell:
+        # shell:, not run:. Snakemake does NOT activate a rule's conda env for
+        # shell() calls inside a run: block, so the conda: above was silently
+        # doing nothing -- this only ever worked because fastqc also happens to
+        # be in the monolithic workflow environment, and it would have broken
+        # under `--sdm conda`. A run: block also pins the job to the main
+        # snakemake process, so it could not be dispatched as a cluster job.
+        #
+        # The output .zip is named directly by the symlink's basename, so the
+        # rename this rule used to do afterwards was provably a no-op and is
+        # gone. trap EXIT removes the symlink even when FastQC fails.
+        "mkdir -p {params.outdir} && "
+        "rm -f {params.canonical} && "
+        "ln -s {params.fq_abs} {params.canonical} && "
+        "trap 'rm -f {params.canonical}' EXIT && "
+        "fastqc -t {threads} -o {params.outdir} {params.canonical} > {log} 2>&1"
 
 
 rule benchmark_summary:
@@ -104,8 +110,8 @@ def _chimera_qc_mqc_inputs():
         return []
     transform = config["chimera"]["junction"]["qc"]["pca_transform"]
     return [
-        f"results/chimera_junction/qc/pca_{transform}_mqc.json",
-        f"results/chimera_junction/qc/heatmap_{transform}_mqc.json",
+        f"results/chimera/qc/pca_{transform}_mqc.json",
+        f"results/chimera/qc/heatmap_{transform}_mqc.json",
     ]
 
 
@@ -118,13 +124,13 @@ def _junction_qc_mqc_inputs():
     if not CHIMERA_JUNCTION_ENABLED:
         return []
     return [
-        "results/chimera_junction/qc/junction_qc_mqc.json",
-        "results/chimera_junction/qc/te_gene_chimeras_mqc.json",
-        "results/chimera_junction/qc/canonical_rate_mqc.json",
-        "results/chimera_junction/qc/junction_highlights_mqc.json",
-        "results/chimera_junction/qc/chimera_evidence_correlation_mqc.json",
-        "results/chimera_junction/qc/chimera_evidence_candidates_mqc.json",
-        "results/chimera_junction/qc/sample_evidence_status_mqc.json",
+        "results/chimera/qc/junction_qc_mqc.json",
+        "results/chimera/qc/te_gene_chimeras_mqc.json",
+        "results/chimera/qc/canonical_rate_mqc.json",
+        "results/chimera/qc/junction_highlights_mqc.json",
+        "results/chimera/qc/chimera_evidence_correlation_mqc.json",
+        "results/chimera/qc/chimera_evidence_candidates_mqc.json",
+        "results/chimera/qc/sample_evidence_status_mqc.json",
     ]
 
 
@@ -159,8 +165,8 @@ def _chimera_assembly_mqc_inputs():
     if not CHIMERA_ASSEMBLY_ENABLED:
         return []
     return [
-        "results/chimera_assembly/qc/chimera_assembly_classes_mqc.json",
-        "results/chimera_assembly/qc/chimera_assembly_highlights_mqc.json",
+        "results/chimera/qc/chimera_assembly_classes_mqc.json",
+        "results/chimera/qc/chimera_assembly_highlights_mqc.json",
     ]
 
 

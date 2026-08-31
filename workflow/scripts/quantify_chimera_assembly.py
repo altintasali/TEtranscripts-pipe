@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build a transcript_id x sample TPM matrix for chimera-assembly candidates,
 pulling values out of each sample's -e/-B re-quantified StringTie GTF
-(results/chimera_assembly/quant/{sample}.transcripts.gtf, see
+(results/chimera/transcript_evidence/per_sample/quant/{sample}.transcripts.gtf, see
 chimera_assembly.smk's stringtie_requantify rule).
 
 Kept separate from classify_chimera_assembly.py the same way chimera_counts.py
@@ -11,9 +11,9 @@ re-run/tune one without re-running the other.
 """
 import argparse
 import gzip
+import os
 import re
 import sys
-import os
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from gz_io import open_write
