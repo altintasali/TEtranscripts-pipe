@@ -1,0 +1,8 @@
+# Canonical identity for this project's commits.
+#
+# 148 of ~180 commits were authored as jqd731@kumac-g96kvwd7cc.unicph.domain --
+# a machine hostname git derived on its own, not a real address -- which
+# fragments the author list and breaks GitHub's contribution attribution.
+# This maps every spelling onto one identity without rewriting history.
+Ali Altintas <altintas.ali@gmail.com> <jqd731@kumac-g96kvwd7cc.unicph.domain>
+Ali Altintas <altintas.ali@gmail.com> Ali Altıntaş <altintas.ali@gmail.com>

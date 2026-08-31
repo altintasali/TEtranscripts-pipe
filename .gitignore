@@ -11,6 +11,11 @@ workflow/envs/generated/
 # Build artifact from README.md (pandoc); keep only the source in the repo
 README.html
 
+# Session/agent scratch output -- notes from an assistant working in the repo
+# are not project history. Removed from tracking in f32c46f; ignored here so
+# they cannot come back by accident.
+agent-logs/
+
 # Per-project user files -- create from the .example templates (see README).
 # input/ holds everything that belongs to your analysis (config.yaml,
 # samples.csv, version/resource overrides, reference fasta/gtf/te_gtf), so
