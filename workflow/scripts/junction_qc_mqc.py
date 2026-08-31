@@ -129,8 +129,8 @@ def main():
             "ylab": "junctions",
             "cpswitch": True,
             "data_labels": [
-                {"name": "Junction counts", "format": "{:,.0f}"},
-                {"name": "% of total junctions", "format": "{:,.1f}"},
+                {"name": "Junction counts", "tt_decimals": 0},
+                {"name": "% of total junctions", "tt_decimals": 1},
             ],
         },
     }
@@ -198,8 +198,8 @@ def main():
                 "ylab": "% canonical",
                 "cpswitch": False,
                 "data_labels": [
-                    {"name": "% canonical", "format": "{:,.1f}"},
-                    {"name": "canonical junctions", "format": "{:,.0f}"},
+                    {"name": "% canonical", "tt_decimals": 1},
+                    {"name": "canonical junctions", "tt_decimals": 0},
                 ],
             },
         }
@@ -267,8 +267,8 @@ def main():
                 "ylab": "junctions",
                 "cpswitch": True,
                 "data_labels": [
-                    {"name": "Gene-TE chimeric junctions", "format": "{:,.0f}"},
-                    {"name": "% of total junctions", "format": "{:,.1f}"},
+                    {"name": "Gene-TE chimeric junctions", "tt_decimals": 0},
+                    {"name": "% of total junctions", "tt_decimals": 1},
                 ],
             },
         }

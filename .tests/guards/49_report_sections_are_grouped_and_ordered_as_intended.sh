@@ -30,7 +30,7 @@ python3 - "$T/org/qc" <<'PY'
 import json, sys
 d = sys.argv[1]
 docs = [
- ("chimera_evidence_guide", "chimera_evidence_guide", "Chimera [Candidates]", "How to weigh this evidence"),
+ ("chimera_signal_guide", "chimera_evidence_guide", "Chimera [Candidates]", "How to weigh this evidence"),
  ("chimera_evidence_composition", "chimera_evidence_guide", "Chimera [Candidates]", "Evidence composition"),
  ("chimera_evidence_correlation", "chimera_structure", "Chimera [Evidence structure]", "Evidence correlation"),
  ("chimera_evidence_candidates", "chimera_structure", "Chimera [Evidence structure]", "Candidates by evidence type"),
@@ -108,7 +108,7 @@ for m in re.finditer(r'href="#([a-z0-9_\-]+)"', h):
     if m.group(1) not in order:
         order.append(m.group(1))
 for first, later in (("junction_highlights", "chimera_junction_qc"),
-                     ("chimera_evidence_guide", "chimera_evidence_composition"),
+                     ("chimera_signal_guide", "chimera_evidence_composition"),
                      ("chimera_assembly_highlights", "chimera_assembly_classes")):
     if first in order and later in order:
         check(order.index(first) < order.index(later),

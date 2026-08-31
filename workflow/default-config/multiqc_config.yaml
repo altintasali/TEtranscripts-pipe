@@ -173,7 +173,12 @@ custom_content:
 # to the default so they trail as supporting material.
 report_section_order:
   # Reading the evidence -- the guide first, then what this cohort produced.
-  chimera_evidence_guide:
+  #
+  # NOTE the id is chimera_signal_guide, not chimera_evidence_guide: an entry
+  # here that matches a custom-content GROUP id (i.e. a parent_id) is applied
+  # by the module-level pass instead, whose order semantics are inverted, and
+  # the group renders last. Guard 49 pins the resulting order.
+  chimera_signal_guide:
     order: -10
   chimera_evidence_composition:
     order: -9

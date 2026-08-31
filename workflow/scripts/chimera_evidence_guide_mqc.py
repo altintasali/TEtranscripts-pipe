@@ -216,9 +216,15 @@ def main():
                 composition[flag] += 1
 
     guide_doc = {
-        # Every view in this group must use this exact parent_id, or MultiQC
-        # silently splits the group into two report sections.
-        "id": "chimera_evidence_guide",
+        # NOT "chimera_evidence_guide": a section id must never equal a
+        # parent_id. report_section_order's first pass matches MODULE anchors,
+        # and a custom-content group's anchor is its parent_id -- so a section
+        # sharing that name gets picked up by the module pass, whose order
+        # semantics are inverted, and the whole group renders LAST. Measured.
+        #
+        # Every view in this group must still use the same parent_id, or
+        # MultiQC silently splits the group into two report sections.
+        "id": "chimera_signal_guide",
         "parent_id": PARENT_ID,
         "parent_name": PARENT_NAME,
         "section_name": "How to weigh this evidence",
@@ -252,9 +258,9 @@ def main():
             "title": "Gene-TE pairs carrying each line of evidence",
             "ylab": "Gene-TE pairs",
             "cpswitch": False,
-            # whole pairs: no decimals
+            # whole pairs: no decimals. tt_decimals is the key MultiQC
+            # honours here; "format" is silently dropped.
             "tt_decimals": 0,
-            "format": "{:,.0f}",
         },
         "categories": [label for _, label in FLAGS] + ["No evidence flag"],
         "data": {

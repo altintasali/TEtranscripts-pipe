@@ -55,21 +55,38 @@ def check(c, m):
     global ok
     if not c:
         print("ERROR:", m); ok = False
-check(d["plot_type"] == "heatmap", "status grid must be a heatmap")
-check(d["ycats"] == ["GV_KO_01","GV_KO_02","GV_WT_01","GV_WT_02"], "rows must be samples")
-check("Strandedness" in d["xcats"], "strandedness column missing")
-check(len(d["data"]) == 4 and all(len(r) == len(d["xcats"]) for r in d["data"]),
-      "grid shape does not match its labels")
-check(all(v in (0.0, 0.5, 1.0) for r in d["data"] for v in r), "cells must be pass/warn/fail")
-i = d["ycats"].index("GV_WT_01")
-yield_cols = [c for c, n in enumerate(d["xcats"]) if n != "Strandedness"]
-check(all(d["data"][i][c] == 0.0 for c in yield_cols),
-      "the 10x-low sample must fail every yield layer")
+# An HTML table, not a heatmap. The heatmap plotted the status ENCODING
+# (1.0/0.5/0.0), so a healthy cohort rendered as a wall of "1" -- a number
+# meaning nothing to the reader, with the counts behind the verdict hidden.
+check(d["plot_type"] == "html", "status grid must be an html table")
+body = d["data"]
+import re
+text = re.sub(r"<[^>]+>", " ", body)
+text = re.sub(r"\s+", " ", text)
+
+for s in ["GV_KO_01", "GV_KO_02", "GV_WT_01", "GV_WT_02"]:
+    check(s in text, f"row for {s} missing")
+check("Strandedness" in text, "strandedness column missing")
+
+# the counts themselves must be on the page -- that is the whole point
+check("118,000" in text, "cohort-scale count not shown (GV_KO_01 events_total)")
+check("11,800" in text, "the 10x-low sample's own count not shown")
+check("cohort median" in text, "median reference row missing")
+
+# the outlier must be flagged red, its peers green
+def cells(sample):
+    m = re.search(r"<tr><td><strong>" + sample + r"</strong>(.*?)</tr>", body, re.S)
+    check(m is not None, f"could not locate the {sample} row")
+    return re.findall(r"background:(#[0-9a-f]{6})", m.group(1)) if m else []
+
+low = cells("GV_WT_01")
+check(low.count("#fbe6e6") >= 8, f"the 10x-low sample must be red across yield layers, got {low}")
 for good in ("GV_KO_01", "GV_KO_02", "GV_WT_02"):
-    g = d["ycats"].index(good)
-    check(all(d["data"][g][c] == 1.0 for c in yield_cols),
-          f"{good} is within 2x of the median and must pass")
+    g = cells(good)
+    check(all(c == "#e4f3e4" for c in g), f"{good} is within 2x of the median and must be green, got {g}")
+
 check("cohort median" in d["description"], "description must say the scale is relative")
+check("fall outside 2x" in text, "the verdict line must state how many cells are flagged")
 sys.exit(0 if ok else 1)
 PY
 fi
