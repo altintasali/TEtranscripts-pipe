@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The report's "Start here" section: what this run actually measured, and
+"""The report's "TE analysis" section: what this run actually measured, and
 which parts of it are independent evidence.
 
 Written because the pipeline exposes several layers that are easy to mistake
@@ -156,15 +156,15 @@ all independent, which is the usual source of confusion:</p>
 </ol>
 
 <p style="font-size: 85%; color: #888;">This pipeline reports chimera evidence
-but does not rank or score candidates &mdash; see <strong>Gene-TE chimeras:
-reading the evidence</strong> below for what each signal is worth, and expect
-to validate calls manually.</p>
+but does not rank or score candidates &mdash; see <strong>Chimera
+[Candidates]</strong> below for what each signal is worth and which tool
+produced it, and expect to validate calls manually.</p>
 """
 
     doc = {
         "id": "evidence_overview",
         "parent_id": "evidence_overview",
-        "parent_name": "Start here",
+        "parent_name": "TE analysis",
         "section_name": "What this run measured",
         "description": (
             "The evidence layers in this report, and which of them are "

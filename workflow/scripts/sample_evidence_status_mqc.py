@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Per-sample evidence status grid, in the shape of FastQC's Status Checks:
+"""Chimera [Per-sample] grid, in the shape of FastQC's Status Checks:
 samples down the side, evidence layers across the top, one traffic-light cell
 each.
 
@@ -117,69 +117,119 @@ def main():
     grid = [[status(raw[r][c], meds[c]) if enough else PASS
              for c in range(len(LAYERS))] for r in range(len(samples))]
 
+    strand_status = {}
     strand_note = ""
     if args.strandedness and os.path.exists(args.strandedness):
         with open(args.strandedness) as fh:
             doc = json.load(fh)
-        rows = doc.get("data", {})
-        labels.append("Strandedness")
+        rows_in = doc.get("data", {})
         n_mismatch = 0
-        for r, s in enumerate(samples):
-            st = rows.get(s, {}).get("status", "")
+        for s in samples:
+            st = rows_in.get(s, {}).get("status", "")
+            strand_status[s] = st or "auto"
             if st == "MISMATCH":
-                grid[r].append(FAIL)
                 n_mismatch += 1
-            elif st == "OK":
-                grid[r].append(PASS)
-            else:  # auto-detected: nothing was declared to disagree with
-                grid[r].append(WARN)
         strand_note = (
             f" <strong>{n_mismatch} sample(s) declare a strandedness the data "
-            "disagrees with</strong> -- see the Strandedness check section."
+            "disagrees with</strong> &mdash; see the Strandedness check section."
             if n_mismatch else
             " Strandedness agrees with the sample sheet everywhere."
         )
 
     scale = (
-        "Thresholds are relative to the cohort median for each column, since "
-        "absolute chimeric-junction yield varies by orders of magnitude with "
-        "depth and library prep: <strong>green</strong> within 2x of the "
-        "median, <strong>amber</strong> 2-5x away, <strong>red</strong> "
-        "beyond 5x or zero where the cohort is not."
+        "Cells are coloured against the <strong>cohort median</strong> for "
+        "their column (shown in the last row), because absolute "
+        "chimeric-junction yield varies by orders of magnitude with depth and "
+        "library prep: <strong>green</strong> within 2x of the median, "
+        "<strong>amber</strong> 2-5x away, <strong>red</strong> beyond 5x or "
+        "zero where the cohort is not."
         if enough else
-        "<strong>Fewer than 3 samples, so there is no usable cohort median "
-        "and every cell is reported as pass.</strong> This grid detects "
-        "outliers among replicates; it cannot do that for n &lt; 3."
+        "<strong>Fewer than 3 samples, so there is no usable cohort median and "
+        "nothing is scored.</strong> The counts are still shown. This view "
+        "detects outliers among replicates; it cannot do that for n &lt; 3."
     )
+
+    # An HTML table, not a heatmap. The heatmap plotted the status encoding
+    # itself (1.0 / 0.5 / 0.0), so a healthy cohort rendered as a wall of "1"
+    # -- a number that means nothing to the reader and hides the counts the
+    # verdict was derived from. Showing the count and colouring it keeps the
+    # at-a-glance scan and makes every cell checkable.
+    BG = {PASS: "#e4f3e4", WARN: "#fdf3e0", FAIL: "#fbe6e6"}
+
+    def num(value):
+        # metrics arrive as floats via getter(); counts are whole numbers
+        return f"{round(value):,}"
+
+    header = "".join(f"<th>{lbl}</th>" for lbl in labels)
+    if strand_status:
+        header += "<th>Strandedness</th>"
+
+    body = []
+    for r, s in enumerate(samples):
+        cells = []
+        for c in range(len(LAYERS)):
+            bg = BG[grid[r][c]]
+            cells.append(
+                f'<td style="background:{bg};text-align:right;'
+                f'font-variant-numeric:tabular-nums;">{num(raw[r][c])}</td>'
+            )
+        if strand_status:
+            st = strand_status[s]
+            bg = BG[FAIL] if st == "MISMATCH" else (
+                BG[PASS] if st == "OK" else BG[WARN])
+            cells.append(f'<td style="background:{bg};">{st}</td>')
+        body.append(f"<tr><td><strong>{s}</strong></td>{''.join(cells)}</tr>")
+
+    median_row = "".join(
+        f'<td style="text-align:right;font-variant-numeric:tabular-nums;">'
+        f"{num(meds[c])}</td>" for c in range(len(LAYERS))
+    )
+    if strand_status:
+        median_row += "<td>&mdash;</td>"
+    body.append(
+        '<tr style="border-top:2px solid #ccc;color:#666;">'
+        f"<td><em>cohort median</em></td>{median_row}</tr>"
+    )
+
+    n_flag = sum(1 for r in grid for v in r if v < PASS)
+    verdict = (
+        f"<p><strong>{n_flag} cell(s) fall outside 2x of their column "
+        "median.</strong> Look down a column to find the sample that "
+        "disagrees with its replicates.</p>"
+        if n_flag else
+        "<p>Every sample is within 2x of the cohort median on every layer "
+        "&mdash; no outlier to chase.</p>"
+    )
+
+    html = f"""
+{verdict}
+<div style="overflow-x:auto;">
+<table class="table" style="width:100%; font-size: 90%;">
+<thead><tr><th>Sample</th>{header}</tr></thead>
+<tbody>{"".join(body)}</tbody>
+</table>
+</div>
+"""
+
     doc = {
         "id": "sample_evidence_status",
         "parent_id": "evidence_status",
-        "parent_name": "Per-sample evidence status",
+        "parent_name": "Chimera [Per-sample]",
         "section_name": "Per-sample status",
         "description": (
-            "Which evidence layers each sample contributed to, in the shape "
-            "of FastQC's status checks. Read it across a row to see what one "
-            "sample produced, and down a column to spot the sample that "
-            f"disagrees with its replicates. {scale}{strand_note}"
+            "What each sample contributed to every chimera evidence layer, "
+            "from the read-evidence screen's per-sample QC. Read across a row "
+            f"for one sample, down a column to spot an outlier. {scale}"
+            f"{strand_note}"
         ),
-        "plot_type": "heatmap",
-        "pconfig": {
-            "id": "sample_evidence_status_plot",
-            "title": "Evidence layers per sample",
-            "min": 0, "max": 1,
-            "colstops": [[0, "#d9534f"], [0.5, "#f0ad4e"], [1, "#5cb85c"]],
-            "reverseColors": False,
-        },
-        "xcats": labels,
-        "ycats": samples,
-        "data": grid,
+        "plot_type": "html",
+        "data": html,
     }
 
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
     with open(args.out, "w") as fh:
         json.dump(doc, fh, indent=2)
         fh.write("\n")
-    n_flag = sum(1 for r in grid for v in r if v < PASS)
     print(f"sample evidence status: {len(samples)} samples x {len(labels)} "
           f"layers, {n_flag} non-pass cell(s) -> {args.out}")
 

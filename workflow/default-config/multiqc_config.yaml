@@ -108,17 +108,17 @@ module_order:
 # validated here (see chimera_evidence_guide_mqc.py). Nothing in the report
 # may render a candidate table; guard 37 asserts it.
 #
-#   evidence_overview    "Start here": which evidence layers this run
+#   evidence_overview    "TE analysis": which evidence layers this run
 #                        produced and which are independent.
 #   tecount / telocal    Expression. NOTE: these ids must match sample_qc.R's
 #                        view ids exactly (a mismatch silently splits a group).
-#   chimera_evidence_guide  Gene-TE chimeras: reading the evidence
+#   chimera_evidence_guide  Chimera [Candidates]
 #                        What each line of evidence is worth and what has
 #                        been measured about it, plus the cohort's evidence
 #                        composition. No candidate table: the catalogue is
 #                        results/chimera/candidates.tsv.gz. Emitted by
 #                        chimera_evidence_guide_mqc.py.
-#   chimera_structure    How independent is this evidence?
+#   chimera_structure    Chimera [Evidence structure]
 #                        The two evidence heatmaps -- where a reader checks
 #                        the guide's claims against their own cohort. Its own
 #                        group, not a sub-item of either screen: it reads the
@@ -130,7 +130,7 @@ module_order:
 # their internals -- "chimera"/"junction" previously appeared across four
 # section names with nothing saying what distinguished them:
 #
-#   chimera_reads        Evidence: chimeric reads
+#   chimera_reads        Chimera [Reads]  (STAR chimeric junctions)
 #                        STAR chimeric reads. Views: what this screen sees
 #                        (blind spot + qualifying counts), events +
 #                        splice-motif rate by direction, the gene-TE subset,
@@ -138,7 +138,7 @@ module_order:
 #                        junction_highlights_mqc and sample_qc.R -- ALL of
 #                        which must use this exact id, or the group silently
 #                        splits into two sections.
-#   chimera_transcripts  Evidence: assembled transcripts
+#   chimera_transcripts  Chimera [Assembly]  (StringTie)
 #                        StringTie assembly. A genuinely different screen
 #                        with opposite blind spots, so it stays separate.
 #
@@ -177,12 +177,12 @@ report_section_order:
     order: -10
   chimera_evidence_composition:
     order: -9
-  # How independent is this evidence -- structure behind the guide's claims.
+  # Chimera [Evidence structure] -- what is behind the guide's claims.
   chimera_evidence_correlation:
     order: -10
   chimera_evidence_candidates:
     order: -9
-  # Evidence: chimeric reads -- what the screen sees, then composition, then
+  # Chimera [Reads] -- what the screen sees, then composition, then
   # quality, then the gene-TE subset. Sample-QC PCA/Clusters are left to the
   # default sort so they trail as supporting material.
   junction_highlights:
@@ -193,7 +193,7 @@ report_section_order:
     order: -8
   chimera_te_gene_chimeras:
     order: -7
-  # Evidence: assembled transcripts
+  # Chimera [Assembly]
   chimera_assembly_highlights:
     order: -10
   chimera_assembly_classes:

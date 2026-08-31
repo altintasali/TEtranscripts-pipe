@@ -125,7 +125,7 @@ def heatmap_doc(doc_id, section, description, xcats, ycats, data, title):
         # screen's diagnostic. They sit under the evidence guide because they
         # are how a reader checks that guide's claims against their own data.
         "parent_id": "chimera_structure",
-        "parent_name": "How independent is this evidence?",
+        "parent_name": "Chimera [Evidence structure]",
         "section_name": section,
         "description": description,
         "plot_type": "heatmap",

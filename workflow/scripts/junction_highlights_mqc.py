@@ -108,9 +108,9 @@ looks expressed in TEcount, this is how you find which copy.</li>
 
 <p style="font-size: 85%; color: #888;">This screen's calls are merged with
 the assembly screen's into one catalogue,
-<code>results/chimera/candidates.tsv.gz</code>; see <strong>Gene-TE chimeras:
-reading the evidence</strong> for what each line of evidence is worth. Neither
-that section nor this one ranks candidates.</p>
+<code>results/chimera/candidates.tsv.gz</code>; see <strong>Chimera
+[Candidates]</strong> for what each line of evidence is worth and which tool
+produced it. Neither that section nor this one ranks candidates.</p>
 """
 
     doc = {
@@ -119,7 +119,7 @@ that section nor this one ranks candidates.</p>
         # mismatch silently splits it into two report sections.
         "id": "junction_highlights",
         "parent_id": "chimera_reads",
-        "parent_name": "Evidence: chimeric reads",
+        "parent_name": "Chimera [Reads]",
         "section_name": "What this screen sees",
         "description": (
             "The read-evidence screen's blind spot, and the counts that "

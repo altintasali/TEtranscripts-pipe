@@ -137,8 +137,8 @@ def build_docs(flavour, assign, classes):
             "ylab": "assigned reads",
             "cpswitch": True,
             "data_labels": [
-                {"name": "Read counts"},
-                {"name": "% of total assigned reads"},
+                {"name": "Read counts", "format": "{:,.0f}"},
+                {"name": "% of total assigned reads", "format": "{:,.1f}"},
             ],
         },
         "data": [assign, _as_percent(assign)],
@@ -156,8 +156,8 @@ def build_docs(flavour, assign, classes):
             "ylab": "TE reads",
             "cpswitch": True,
             "data_labels": [
-                {"name": "TE read counts"},
-                {"name": "% of TE reads"},
+                {"name": "TE read counts", "format": "{:,.0f}"},
+                {"name": "% of TE reads", "format": "{:,.1f}"},
             ],
         },
         "data": [classes, _as_percent(classes)],

@@ -30,20 +30,20 @@ python3 - "$T/org/qc" <<'PY'
 import json, sys
 d = sys.argv[1]
 docs = [
- ("chimera_evidence_guide", "chimera_evidence_guide", "Gene-TE chimeras: reading the evidence", "How to weigh this evidence"),
- ("chimera_evidence_composition", "chimera_evidence_guide", "Gene-TE chimeras: reading the evidence", "Evidence composition"),
- ("chimera_evidence_correlation", "chimera_structure", "How independent is this evidence?", "Evidence correlation"),
- ("chimera_evidence_candidates", "chimera_structure", "How independent is this evidence?", "Candidates by evidence type"),
- ("junction_highlights", "chimera_reads", "Evidence: chimeric reads", "What this screen sees"),
- ("chimera_junction_qc", "chimera_reads", "Evidence: chimeric reads", "Events by direction"),
- ("chimera_canonical_rate", "chimera_reads", "Evidence: chimeric reads", "Splice-motif rate by direction"),
- ("chimera_te_gene_chimeras", "chimera_reads", "Evidence: chimeric reads", "Gene-TE subset"),
- ("chimera_reads_sample_qc_pca", "chimera_reads", "Evidence: chimeric reads", "PCA"),
- ("chimera_assembly_highlights", "chimera_transcripts", "Evidence: assembled transcripts", "What this screen sees"),
- ("chimera_assembly_classes", "chimera_transcripts", "Evidence: assembled transcripts", "Candidates by class"),
- ("sample_evidence_status", "evidence_status", "Per-sample evidence status", "Per-sample status"),
+ ("chimera_evidence_guide", "chimera_evidence_guide", "Chimera [Candidates]", "How to weigh this evidence"),
+ ("chimera_evidence_composition", "chimera_evidence_guide", "Chimera [Candidates]", "Evidence composition"),
+ ("chimera_evidence_correlation", "chimera_structure", "Chimera [Evidence structure]", "Evidence correlation"),
+ ("chimera_evidence_candidates", "chimera_structure", "Chimera [Evidence structure]", "Candidates by evidence type"),
+ ("junction_highlights", "chimera_reads", "Chimera [Reads]", "What this screen sees"),
+ ("chimera_junction_qc", "chimera_reads", "Chimera [Reads]", "Events by direction"),
+ ("chimera_canonical_rate", "chimera_reads", "Chimera [Reads]", "Splice-motif rate by direction"),
+ ("chimera_te_gene_chimeras", "chimera_reads", "Chimera [Reads]", "Gene-TE subset"),
+ ("chimera_reads_sample_qc_pca", "chimera_reads", "Chimera [Reads]", "PCA"),
+ ("chimera_assembly_highlights", "chimera_transcripts", "Chimera [Assembly]", "What this screen sees"),
+ ("chimera_assembly_classes", "chimera_transcripts", "Chimera [Assembly]", "Candidates by class"),
+ ("sample_evidence_status", "evidence_status", "Chimera [Per-sample]", "Per-sample status"),
  ("strandedness_check", "strandedness_check", "Strandedness check", "Declared vs. inferred"),
- ("evidence_overview", "evidence_overview", "Start here", "What this run measured"),
+ ("evidence_overview", "evidence_overview", "TE analysis", "What this run measured"),
 ]
 for did, pid, pname, sec in docs:
     json.dump({"id": did, "parent_id": pid, "parent_name": pname,
@@ -70,22 +70,22 @@ def check(cond, msg):
     global ok
     if not cond:
         print("ERROR:", msg); ok = False
-check(seen.count("Evidence: chimeric reads") == 1,
+check(seen.count("Chimera [Reads]") == 1,
       f"read-evidence must be exactly ONE section; sections were {seen}")
-check("Evidence: assembled transcripts" in seen,
+check("Chimera [Assembly]" in seen,
       "transcript-evidence section missing")
-check("Gene-TE chimeras: reading the evidence" in seen,
+check("Chimera [Candidates]" in seen,
       "evidence-guide section missing")
-check("How independent is this evidence?" in seen,
+check("Chimera [Evidence structure]" in seen,
       "evidence-independence section missing")
 # how to read the evidence, then whether it is independent, then what
 # each screen contributed -- the whole point of the ordering.
-if all(s in seen for s in ("Gene-TE chimeras: reading the evidence",
-                           "How independent is this evidence?",
-                           "Evidence: chimeric reads")):
-    check(seen.index("Gene-TE chimeras: reading the evidence")
-          < seen.index("How independent is this evidence?")
-          < seen.index("Evidence: chimeric reads"),
+if all(s in seen for s in ("Chimera [Candidates]",
+                           "Chimera [Evidence structure]",
+                           "Chimera [Reads]")):
+    check(seen.index("Chimera [Candidates]")
+          < seen.index("Chimera [Evidence structure]")
+          < seen.index("Chimera [Reads]"),
           f"guide -> independence -> screens order broken; got {seen}")
 # old headings must be gone as TOP-LEVEL sections. "candidates" and
 # "trust the ranking" are here because they shipped briefly and both

@@ -192,7 +192,7 @@ def _telocal_qc_mqc_inputs():
 
 
 rule evidence_overview:
-    # The report's "Start here" section: which evidence layers this run
+    # The report's "TE analysis" section: which evidence layers this run
     # actually produced and which of them are independent of each other.
     # Reads the resolved switches from params (like config_used) rather than
     # re-deriving them, so it cannot drift from what really ran.

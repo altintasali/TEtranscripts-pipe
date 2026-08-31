@@ -36,7 +36,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from gz_io import open_read, open_write
 
 PARENT_ID = "chimera_evidence_guide"
-PARENT_NAME = "Gene-TE chimeras: reading the evidence"
+PARENT_NAME = "Chimera [Candidates]"
 
 # Flags emitted by chimera_evidence.py, in the order chimera_evidence.py
 # builds them. Presentational only -- the whole point of this section is that
@@ -48,10 +48,17 @@ FLAGS = [
     ("assembly_strand_match", "Assembly strand match"),
 ]
 
-# (label, what the signal is, what THIS pipeline has measured about it)
+# (label, source tool, what the signal is, what THIS pipeline has measured
+#  about it, standing)
+#
+# The source column exists because the labels alone are ambiguous: "splice
+# motif" and "strand match" could plausibly come from either screen, and a
+# reader weighing two signals needs to know whether they are independent
+# measurements or two views of the same tool's output.
 SIGNALS = [
     (
         "Splice motif",
+        "STAR (chimeric junctions)",
         "A recognised splice motif on at least one junction "
         "(<code>canonical</code>).",
         "The best artifact discriminator available here. Real introns are "
@@ -62,6 +69,7 @@ SIGNALS = [
     ),
     (
         "Replicate support",
+        "STAR (chimeric junctions)",
         "Seen in more than one sample (<code>multi_sample</code>).",
         "Weaker than it looks. A sequence-driven template switch recurs across "
         "libraries too, so recurrence does not separate a real chimera from a "
@@ -70,17 +78,19 @@ SIGNALS = [
     ),
     (
         "Called by both screens",
+        "STAR + StringTie",
         "Found by the read-evidence <em>and</em> transcript-evidence screens "
         "(<code>both_screens</code>).",
         "Should be the strongest signal here &mdash; the two screens have "
         "opposite blind spots. Measured across a cohort it was not: agreement "
         "came out near its <strong>chance rate</strong>. Treat it as "
-        "unresolved, and check the independence heatmaps below for your own "
-        "data before relying on it.",
+        "unresolved, and check <strong>Chimera [Evidence structure]</strong> "
+        "for your own data before relying on it.",
         "unresolved",
     ),
     (
         "Assembly strand match",
+        "StringTie (assembly)",
         "The assembled transcript's strand agrees with the gene's "
         "(<code>assembly_strand_match</code>).",
         "A consistency check on the assembly call rather than independent "
@@ -90,6 +100,7 @@ SIGNALS = [
     ),
     (
         "Read depth",
+        "STAR (chimeric junctions)",
         "<strong>Not an evidence flag.</strong> Reported as "
         "<code>junction_reads</code> / <code>junction_events</code>.",
         "The metric most inflated by artifacts &mdash; a hot PCR chimera is "
@@ -99,6 +110,7 @@ SIGNALS = [
     ),
     (
         "TE locus expressed",
+        "TElocal",
         "<strong>Not an evidence flag.</strong> Reported as "
         "<code>telocal_active</code> when TElocal ran.",
         "Was once treated as support, on the assumption that an independently "
@@ -131,11 +143,12 @@ def load(path):
 
 def guide_html(n_pairs, composition, n_no_flags):
     rows = []
-    for label, what, measured, weight in SIGNALS:
+    for label, source, what, measured, weight in SIGNALS:
         colour, badge = WEIGHT_STYLE[weight]
         rows.append(
             "<tr>"
             f'<td style="white-space:nowrap;"><strong>{label}</strong></td>'
+            f'<td style="white-space:nowrap;color:#555;">{source}</td>'
             f'<td style="white-space:nowrap;color:{colour};">{badge}</td>'
             f"<td>{what}</td>"
             f"<td>{measured}</td>"
@@ -160,7 +173,7 @@ of them as a result.</p>
 
 <table class="table" style="width:100%; font-size: 90%;">
 <thead><tr>
-<th>Signal</th><th>Standing</th><th>What it is</th>
+<th>Signal</th><th>Source</th><th>Standing</th><th>What it is</th>
 <th>What has been measured about it</th>
 </tr></thead>
 <tbody>{"".join(rows)}</tbody>
@@ -226,9 +239,12 @@ def main():
         "parent_name": PARENT_NAME,
         "section_name": "Evidence composition",
         "description": (
-            "How many gene-TE pairs carry each line of evidence. Pairs can "
-            "carry several, so these do not sum to the cohort total; the bars "
-            "are independent counts, not parts of a whole."
+            "How many gene-TE pairs carry each line of evidence. Sources: "
+            "splice motif and replicate support from STAR chimeric junctions, "
+            "assembly strand match from StringTie, both-screens from the two "
+            "together. Pairs can carry several, so these do not sum to the "
+            "cohort total; the bars are independent counts, not parts of a "
+            "whole."
         ),
         "plot_type": "bargraph",
         "pconfig": {
@@ -236,6 +252,9 @@ def main():
             "title": "Gene-TE pairs carrying each line of evidence",
             "ylab": "Gene-TE pairs",
             "cpswitch": False,
+            # whole pairs: no decimals
+            "tt_decimals": 0,
+            "format": "{:,.0f}",
         },
         "categories": [label for _, label in FLAGS] + ["No evidence flag"],
         "data": {

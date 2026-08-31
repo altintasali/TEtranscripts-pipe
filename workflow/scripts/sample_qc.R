@@ -44,7 +44,7 @@ VIEWS <- list(
     # are report-facing, and id must match the Python emitters' parent_id.
     chimera = list(
         id = "chimera_reads",
-        label = "Evidence: chimeric reads",
+        label = "Chimera [Reads]",
         noun_plural = "chimeric events",
         noun_singular = "event"
     ),

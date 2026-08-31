@@ -106,7 +106,7 @@ def main():
     doc = {
         "id": "chimera_junction_qc",
         "parent_id": "chimera_reads",
-        "parent_name": "Evidence: chimeric reads",
+        "parent_name": "Chimera [Reads]",
         "section_name": "Events by direction",
         "description": (
             "Per-sample composition of annotated chimeric junctions by "
@@ -129,8 +129,8 @@ def main():
             "ylab": "junctions",
             "cpswitch": True,
             "data_labels": [
-                {"name": "Junction counts"},
-                {"name": "% of total junctions"},
+                {"name": "Junction counts", "format": "{:,.0f}"},
+                {"name": "% of total junctions", "format": "{:,.1f}"},
             ],
         },
     }
@@ -163,7 +163,7 @@ def main():
         canon_doc = {
             "id": "chimera_canonical_rate",
             "parent_id": "chimera_reads",
-            "parent_name": "Evidence: chimeric reads",
+            "parent_name": "Chimera [Reads]",
             "section_name": "Splice-motif rate by direction",
             "description": (
                 "Share of each direction's junctions for which STAR reported a "
@@ -198,8 +198,8 @@ def main():
                 "ylab": "% canonical",
                 "cpswitch": False,
                 "data_labels": [
-                    {"name": "% canonical"},
-                    {"name": "canonical junctions"},
+                    {"name": "% canonical", "format": "{:,.1f}"},
+                    {"name": "canonical junctions", "format": "{:,.0f}"},
                 ],
             },
         }
@@ -247,7 +247,7 @@ def main():
         te_doc = {
             "id": "chimera_te_gene_chimeras",
             "parent_id": "chimera_reads",
-            "parent_name": "Evidence: chimeric reads",
+            "parent_name": "Chimera [Reads]",
             "section_name": "Gene-TE subset",
             "description": (
                 "Per-sample gene\u2194TE chimeric junctions (direction "
@@ -267,8 +267,8 @@ def main():
                 "ylab": "junctions",
                 "cpswitch": True,
                 "data_labels": [
-                    {"name": "Gene-TE chimeric junctions"},
-                    {"name": "% of total junctions"},
+                    {"name": "Gene-TE chimeric junctions", "format": "{:,.0f}"},
+                    {"name": "% of total junctions", "format": "{:,.1f}"},
                 ],
             },
         }

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Guard 39: 'Start here' evidence overview reflects what ran
+# Guard 39: 'TE analysis' evidence overview reflects what ran
 #
 # Run on its own:   .tests/guards/39_start_here_evidence_overview_reflects_what_ran.sh
 # Run all guards:   .tests/guards/run.sh
@@ -46,8 +46,8 @@ if ! multiqc --force --no-ansi -c workflow/default-config/multiqc_config.yaml \
       -o "$T/eo/out" -n r "$T/eo/qc" > "$T/eo/render.log" 2>&1; then
   echo "ERROR: multiqc failed on the evidence overview section"
   tail -30 "$T/eo/render.log"; FAIL=1
-elif ! grep -q "Start here" "$T/eo/out/r.html"; then
-  echo "ERROR: 'Start here' section not rendered"; FAIL=1
+elif ! grep -q "TE analysis" "$T/eo/out/r.html"; then
+  echo "ERROR: 'TE analysis' section not rendered"; FAIL=1
 fi
 
 exit $FAIL

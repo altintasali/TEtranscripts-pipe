@@ -89,7 +89,7 @@ def main():
     classes_doc = {
         "id": "chimera_assembly_classes",
         "parent_id": "chimera_transcripts",
-        "parent_name": "Evidence: assembled transcripts",
+        "parent_name": "Chimera [Assembly]",
         "section_name": "Candidates by class",
     }
     # counts values are {"count": N} or {"confirmed": N, "unconfirmed": N}
@@ -156,7 +156,7 @@ def main():
         "blind spots, so agreement should be meaningful &mdash; but measured "
         "across a cohort it has come out near its <strong>chance rate</strong>. "
         "It carries no more weight than any other flag here; see "
-        "<strong>How independent is this evidence?</strong> for your own "
+        "<strong>Chimera [Evidence structure]</strong> for your own "
         "data.</li>"
         if has_cross_evidence else
         "<li>chimera.junction is currently disabled, so no cross-confirmation "
@@ -197,15 +197,15 @@ rather than assembly noise.</li>
 
 <p style="font-size: 85%; color: #888;">This screen's calls are merged with
 the read-evidence screen's into one catalogue,
-<code>results/chimera/candidates.tsv.gz</code>; see <strong>Gene-TE chimeras:
-reading the evidence</strong> for what each line of evidence is worth. Neither
-that section nor this one ranks candidates.</p>
+<code>results/chimera/candidates.tsv.gz</code>; see <strong>Chimera
+[Candidates]</strong> for what each line of evidence is worth and which tool
+produced it. Neither that section nor this one ranks candidates.</p>
 """
 
     highlights_doc = {
         "id": "chimera_assembly_highlights",
         "parent_id": "chimera_transcripts",
-        "parent_name": "Evidence: assembled transcripts",
+        "parent_name": "Chimera [Assembly]",
         "section_name": "What this screen sees",
         "description": (
             "The transcript-evidence screen's blind spot, and the counts that "
