@@ -113,6 +113,10 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--top-n", type=int, default=50)
     ap.add_argument("--source-path", default="results/chimera/candidates.tsv.gz")
+    ap.add_argument("--explorer-path",
+                    default="results/chimera/candidates_explorer.html",
+                    help="chimera_candidates_explorer.R's output -- the full, "
+                    "sortable/filterable table, no top-N cap")
     args = ap.parse_args()
 
     rows = list(load(args.evidence))
@@ -170,7 +174,11 @@ def main():
         "<strong>not a score</strong>, and tilted toward the assembly screen "
         "(two of the five flags need it). See <strong>How to weigh this "
         "evidence</strong> above, and validate candidates manually.</p>"
-    ).format(n_shown=len(top), n_total=len(rows), src=args.source_path)
+        "<p>For all <strong>{n_total:,}</strong> pairs in one sortable, "
+        "filterable page — no MultiQC needed — open "
+        "<code>{explorer}</code>.</p>"
+    ).format(n_shown=len(top), n_total=len(rows), src=args.source_path,
+             explorer=args.explorer_path)
 
     if top:
         body = {

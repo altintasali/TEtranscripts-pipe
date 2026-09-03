@@ -35,6 +35,14 @@ dependencies:
   - pip
   - ucsc-gtftogenepred=482
   - ucsc-genepredtobed=482
+  # Standalone HTML candidates explorer (chimera_candidates_explorer.R):
+  # DT/htmlwidgets render the table, htmlwidgets::saveWidget(selfcontained =
+  # TRUE) bundles it into one file via pandoc. r-rmarkdown drives that
+  # pandoc call and isn't pinned (plumbing, like pysam/pip below).
+  - r-dt=0.34.0
+  - r-htmlwidgets=1.6.4
+  - r-rmarkdown
+  - pandoc=3.9
   # Floor only: keeps the solver from backtracking to an ancient build (seen
   # with RSeQC/MultiQC), without pinning the exact interpreter version.
   - python >=3.9

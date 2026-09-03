@@ -74,6 +74,7 @@ def all_chimera_outputs():
         "results/chimera/reads/te-gene-chimeras.tsv.gz",
         "results/chimera/counts_matrix.tsv.gz",
         "results/chimera/candidates.tsv.gz",
+        "results/chimera/candidates_explorer.html",
     ]
     files += [
         f"results/chimera/reads/per_sample/{s}_chimera_reads_qc.tsv.gz"
@@ -397,6 +398,7 @@ rule chimera_candidates_table:
     params:
         top_n=CHIMERA_TABLE_TOP_N,
         source_path="results/chimera/candidates.tsv.gz",
+        explorer_path="results/chimera/candidates_explorer.html",
     threads: get_resources("chimera_candidates_table")["threads"]
     resources:
         mem_mb=get_scaled_mem_mb("chimera_candidates_table"),
@@ -409,7 +411,49 @@ rule chimera_candidates_table:
         "python3 {input.script} "
         "--evidence {input.evidence} --gene-names {input.gene_names} "
         "--top-n {params.top_n} --source-path {params.source_path} "
+        "--explorer-path {params.explorer_path} "
         "--out {output} > {log} 2>&1"
+
+
+rule chimera_candidates_explorer:
+    # Standalone, self-contained interactive HTML over the FULL candidates
+    # catalogue -- the top_n cap on chimera_candidates_table above exists
+    # because MultiQC embeds table data into one already-large report; this
+    # is the "all rows, sortable/searchable/filterable, no MultiQC, no
+    # server" companion (chimera_candidates_explorer.R, DT + htmlwidgets).
+    # Also adds two columns candidates.tsv.gz does not carry: a ready-to-
+    # paste IGV locus per gene and per TE, joined from genes.bed/te.bed
+    # (both keyed on the same gene_id/te_id candidates.tsv.gz uses, and
+    # always written whenever a chimera screen is enabled -- unlike the
+    # optional, differently-keyed chimera_reads_igv_bed/
+    # chimera_assembly_igv_bed tracks, which cannot be searched by
+    # candidate name).
+    input:
+        # Declared so that EDITING the script re-runs the rule.
+        # Snakemake's code trigger hashes the shell command STRING,
+        # not the file it names, so without this an edit to the
+        # script leaves stale outputs in place silently.
+        script=f"{SCRIPTS_DIR}/chimera_candidates_explorer.R",
+        evidence="results/chimera/candidates.tsv.gz",
+        gene_names="results/reference/gene_id_to_name.tsv.gz",
+        genes_bed="results/reference/genes.bed",
+        te_bed="results/reference/te.bed",
+    output:
+        "results/chimera/candidates_explorer.html",
+    threads: get_resources("chimera_candidates_explorer")["threads"]
+    resources:
+        mem_mb=get_scaled_mem_mb("chimera_candidates_explorer"),
+        runtime=get_resources("chimera_candidates_explorer")["runtime"],
+    benchmark:
+        "results/pipeline_info/benchmarks/chimera_candidates_explorer/chimera_candidates_explorer.txt",
+    log:
+        "results/pipeline_info/logs/chimera_reads/candidates_explorer.log",
+    conda:
+        CANDIDATES_EXPLORER_ENV
+    shell:
+        "Rscript {input.script} "
+        "{input.evidence} {input.gene_names} {input.genes_bed} {input.te_bed} "
+        "{output} > {log} 2>&1"
 
 
 rule chimera_evidence_guide:

@@ -84,6 +84,7 @@ LABELS = {
     "chimera_evidence_heatmap": ("evidence correlation + candidate heatmaps", "Chimera screen"),
     "chimera_evidence_guide": ("how to weigh the evidence + composition", "Chimera screen"),
     "chimera_candidates_table": ("candidate list (sortable table)", "Chimera screen"),
+    "chimera_candidates_explorer": ("standalone candidate explorer (all rows, IGV loci)", "Chimera screen"),
     "chimera_reads_te_type": ("reads TE type (per sample)", "Chimera screen"),
     "chimera_telocal_index": ("build TElocal index", "Chimera screen"),
     "star_align_for_assembly": ("2nd STAR pass (assembly)", "Chimera screen"),

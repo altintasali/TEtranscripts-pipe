@@ -26,6 +26,9 @@ properties:
       ucsc_gtftogenepred: {type: string}
       ucsc_genepredtobed: {type: string}
       r_base: {type: string}
+      r_dt: {type: string}
+      r_htmlwidgets: {type: string}
+      pandoc: {type: string}
     required:
       - star
       - samtools

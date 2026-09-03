@@ -39,3 +39,9 @@ versions:
   r_base: "4.4"
   ucsc_gtftogenepred: "482"
   ucsc_genepredtobed: "482"
+  # Standalone HTML candidates explorer (chimera_candidates_explorer.R) --
+  # unused unless the reads screen is enabled, same as telocal/stringtie
+  # above.
+  r_dt: "0.34.0"
+  r_htmlwidgets: "1.6.4"
+  pandoc: "3.9"

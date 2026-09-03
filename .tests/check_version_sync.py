@@ -47,6 +47,9 @@ PACKAGE_NAMES = {
     "ucsc_genepredtobed": "ucsc-genepredtobed",
     "tetranscripts": "TEtranscripts",
     "telocal": "TElocal",
+    "r_dt": "r-dt",
+    "r_htmlwidgets": "r-htmlwidgets",
+    "pandoc": "pandoc",
 }
 
 

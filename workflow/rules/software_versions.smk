@@ -56,6 +56,14 @@ rule software_versions:
                 "DESeq2": V["deseq2"],
                 "R": V["r_base"],
             },
+            # Only runs when chimera.reads is enabled, but listed
+            # unconditionally like every other entry here -- see the
+            # StringTie comment above.
+            "Reporting": {
+                "DT": V["r_dt"],
+                "htmlwidgets": V["r_htmlwidgets"],
+                "pandoc": V["pandoc"],
+            },
         }
         with open("results/versions/rnaseq_mqc_versions.yml", "w") as fh:
             yaml.safe_dump(versions, fh, default_flow_style=False, sort_keys=False)

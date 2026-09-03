@@ -61,6 +61,7 @@ flowchart LR
         chimera_evidence_heatmap["evidence correlation + candidate heatmaps"]
         chimera_evidence_guide["how to weigh the evidence + composition"]
         chimera_candidates_table["candidate list (sortable table)"]
+        chimera_candidates_explorer["standalone candidate explorer (all rows, IGV loci)"]
         chimera_reads_te_type["reads TE type (per sample)"]
         chimera_telocal_index["build TElocal index"]
         star_align_for_assembly["2nd STAR pass (assembly)"]
@@ -80,6 +81,7 @@ flowchart LR
         chimera_reads_sample_qc["sample-QC plots"]
     end
     annotation_to_bed --> chimera_assembly_classify
+    annotation_to_bed --> chimera_candidates_explorer
     annotation_to_bed --> chimera_reads_classify
     benchmark_summary --> multiqc
     cat_fastq --> fastqc_raw
@@ -92,6 +94,7 @@ flowchart LR
     chimera_assembly_cross_evidence --> chimera_assembly_summary_mqc
     chimera_assembly_qc_transform --> chimera_assembly_qc
     chimera_assembly_quantify --> chimera_assembly_qc_transform
+    chimera_evidence --> chimera_candidates_explorer
     chimera_evidence --> chimera_candidates_table
     chimera_evidence --> chimera_evidence_guide
     chimera_evidence --> chimera_evidence_heatmap
@@ -114,6 +117,7 @@ flowchart LR
     determine_strandedness --> tecount
     determine_strandedness --> telocal
     determine_strandedness --> tetranscripts_diffexp
+    gene_name_lookup --> chimera_candidates_explorer
     gene_name_lookup --> chimera_candidates_table
     gene_name_lookup --> chimera_evidence_heatmap
     genepred_to_bed12 --> rseqc_gene_body_coverage

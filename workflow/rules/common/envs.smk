@@ -112,3 +112,30 @@ UCSC_TOOLS_ENV = _write_env(
         f"ucsc-genepredtobed={V['ucsc_genepredtobed']}",
     ],
 )
+
+# Chimera candidates explorer: a standalone, self-contained interactive HTML
+# table over the FULL gene-TE chimera catalogue (candidates.tsv.gz can run to
+# tens of thousands of rows -- multiqc_report.html's own candidates table
+# caps at chimera.table.top_n rows for exactly that reason; see
+# chimera_candidates_table_mqc.py). DT/htmlwidgets give sort/search/
+# range-filter for free (datatable(filter = "top")); saveWidget(selfcontained
+# = TRUE) shells out through pandoc, and htmlwidgets' selfcontained code path
+# additionally requires the rmarkdown package to drive that pandoc call --
+# r-rmarkdown is left unpinned here, like pysam/pip on TETRANSCRIPTS_ENV,
+# because it is pulled in only for that plumbing, not itself a reported tool.
+# A dedicated, narrow env: none of this is needed by any other rule, so
+# (unlike deseq2/r-base, which sample_qc.R's call sites all share) it does
+# not belong on TETRANSCRIPTS_ENV -- the same reasoning that led to dropping
+# the previous single-rule CHIMERA_QC_ENV in favor of TETRANSCRIPTS_ENV cuts
+# the other way here: that env was redundant (identical DESeq2/r-base need,
+# plus an unused r-pheatmap); this one is genuinely new and single-purpose.
+CANDIDATES_EXPLORER_ENV = _write_env(
+    "candidates_explorer",
+    [
+        f"r-base={V['r_base']}",
+        f"r-dt={V['r_dt']}",
+        f"r-htmlwidgets={V['r_htmlwidgets']}",
+        "r-rmarkdown",
+        f"pandoc={V['pandoc']}",
+    ],
+)

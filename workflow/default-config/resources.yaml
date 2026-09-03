@@ -388,6 +388,16 @@ resources:
     mem_per_sample: 100
     runtime: 30
 
+  chimera_candidates_explorer:
+    # Builds one self-contained DT widget over the FULL candidates catalogue
+    # (all rows, not top-N); the data.frame, DT's JSON serialization, and
+    # pandoc's self-contained bundling step all hold the whole catalogue in
+    # memory at once, so this scales with cohort size like chimera_evidence.
+    threads: 1
+    mem_mb: 2000
+    mem_per_sample: 100
+    runtime: 60
+
   chimera_assembly_qc_transform:
     # log2-transforms the assembly TPM matrix for the QC view.
     threads: 1
