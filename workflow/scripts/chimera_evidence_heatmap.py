@@ -188,7 +188,7 @@ def main():
     # Restricted to pairs the junction screen found. Assembly-only pairs have
     # every junction_* field at 0, which would manufacture correlation between
     # all of them purely from that shared absence.
-    jrows = [r for r in rows if r.get("found_by") in ("junction", "both")]
+    jrows = [r for r in rows if r.get("found_by") in ("reads", "both")]
     cols = [[value(r, c, k) for r in jrows] for c, _, k in DIMENSIONS]
     rcols = [ranks(c) for c in cols]
     matrix = [[round(pearson(rcols[i], rcols[j]), 3) for j in range(len(cols))]

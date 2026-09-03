@@ -188,7 +188,7 @@ def main():
         in_assembly = p["assembly_transcripts"] > 0
         found_by = (
             "both" if in_junction and in_assembly
-            else "junction" if in_junction
+            else "reads" if in_junction
             else "assembly"
         )
         # Names, not points. Order here is presentational only -- nothing

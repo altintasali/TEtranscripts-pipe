@@ -308,6 +308,8 @@ if CHIMERA_READS_ENABLED:
         resources:
             mem_mb=get_resources("chimera_assembly_cross_evidence")["mem_mb"],
             runtime=get_resources("chimera_assembly_cross_evidence")["runtime"],
+        benchmark:
+            "results/pipeline_info/benchmarks/chimera_assembly_cross_evidence/chimera_assembly_cross_evidence.txt",
         log:
             "results/pipeline_info/logs/chimera_assembly/cross_evidence.log",
         shell:
@@ -341,6 +343,8 @@ rule chimera_assembly_summary_mqc:
     resources:
         mem_mb=get_resources("chimera_assembly_summary_mqc")["mem_mb"],
         runtime=get_resources("chimera_assembly_summary_mqc")["runtime"],
+    benchmark:
+        "results/pipeline_info/benchmarks/chimera_assembly_summary_mqc/chimera_assembly_summary_mqc.txt",
     log:
         "results/pipeline_info/logs/chimera_assembly/summary_mqc.log",
     shell:
@@ -372,6 +376,8 @@ if WRITE_IGV_BED_ASSEMBLY:
         resources:
             mem_mb=get_resources("chimera_assembly_igv_bed")["mem_mb"],
             runtime=get_resources("chimera_assembly_igv_bed")["runtime"],
+        benchmark:
+            "results/pipeline_info/benchmarks/chimera_assembly_igv_bed/chimera_assembly_igv_bed.txt",
         log:
             "results/pipeline_info/logs/chimera_assembly/igv_bed.log",
         shell:
@@ -412,6 +418,8 @@ rule chimera_assembly_qc_transform:
     resources:
         mem_mb=get_scaled_mem_mb("chimera_assembly_qc_transform"),
         runtime=get_resources("chimera_assembly_qc_transform")["runtime"],
+    benchmark:
+        "results/pipeline_info/benchmarks/chimera_assembly_qc_transform/chimera_assembly_qc_transform.txt",
     log:
         "results/pipeline_info/logs/chimera_assembly/qc_transform.log",
     conda:
@@ -441,6 +449,8 @@ rule chimera_assembly_qc:
     resources:
         mem_mb=get_scaled_mem_mb("chimera_assembly_qc"),
         runtime=get_resources("chimera_assembly_qc")["runtime"],
+    benchmark:
+        "results/pipeline_info/benchmarks/chimera_assembly_qc/chimera_assembly_qc.txt",
     log:
         "results/pipeline_info/logs/chimera_assembly/qc_plots.log",
     conda:

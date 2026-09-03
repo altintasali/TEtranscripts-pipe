@@ -171,6 +171,7 @@ def all_benchmark_files():
     auto-detection, contrasts) need to be gated here. The multiqc and
     benchmark_summary rules' own benchmarks are deliberately excluded to
     avoid a cyclic dependency (their resource use is negligible)."""
+    B = "results/pipeline_info/benchmarks"
     files = [
         "results/pipeline_info/benchmarks/software_versions/software_versions.txt",
         "results/pipeline_info/benchmarks/gene_name_lookup/gene_name_lookup.txt",
@@ -251,11 +252,19 @@ def all_benchmark_files():
             "results/pipeline_info/benchmarks/chimera_evidence_heatmap/"
             "chimera_evidence_heatmap.txt",
         ]
+        files.append(
+            f"{B}/chimera_reads_qc_barplot/chimera_reads_qc_barplot.txt"
+        )
+        if TELOCAL_ENABLED:
+            # The reads screen cross-references TElocal only when it ran.
+            files.append(f"{B}/chimera_telocal_index/chimera_telocal_index.txt")
         for s in SAMPLES:
             files += [
-                f"results/pipeline_info/benchmarks/chimera_reads_classify/{s}.txt",
-                f"results/pipeline_info/benchmarks/chimera_reads_qc/{s}.txt",
+                f"{B}/chimera_reads_classify/{s}.txt",
+                f"{B}/chimera_reads_qc/{s}.txt",
             ]
+            if TELOCAL_ENABLED:
+                files.append(f"{B}/chimera_telocal_annotate/{s}.txt")
             if config["chimera"]["reads"]["outputs"]["write_igv_bed"]:
                 files.append(
                     f"results/pipeline_info/benchmarks/chimera_reads_igv_bed/{s}.txt"
@@ -267,6 +276,48 @@ def all_benchmark_files():
                 f"chimera_reads_sample_qc_transform/{transform}.txt",
                 f"results/pipeline_info/benchmarks/chimera_reads_sample_qc/{transform}.txt",
             ]
+    # Assembly screen: its own STAR pass, StringTie, and everything after.
+    # None of this was listed, so the second-heaviest stage in the workflow
+    # was invisible in the resource table.
+    if CHIMERA_ASSEMBLY_ENABLED:
+        files += [
+            f"{B}/stringtie_merge/stringtie_merge.txt",
+            f"{B}/chimera_assembly_classify/chimera_assembly_classify.txt",
+            f"{B}/chimera_assembly_quantify/chimera_assembly_quantify.txt",
+            f"{B}/chimera_assembly_summary_mqc/chimera_assembly_summary_mqc.txt",
+        ]
+        for s in SAMPLES:
+            files += [
+                f"{B}/star_align_for_assembly/{s}.txt",
+                f"{B}/stringtie_assemble/{s}.txt",
+                f"{B}/stringtie_requantify/{s}.txt",
+            ]
+        if CHIMERA_READS_ENABLED:
+            files.append(
+                f"{B}/chimera_assembly_cross_evidence/chimera_assembly_cross_evidence.txt"
+            )
+        if config["chimera"]["assembly"]["outputs"]["write_igv_bed"]:
+            files.append(f"{B}/chimera_assembly_igv_bed/chimera_assembly_igv_bed.txt")
+        # The assembly QC view is log2-fixed (its outputs carry no
+        # {transform} wildcard), unlike the reads screen's.
+        files += [
+            f"{B}/chimera_assembly_qc_transform/chimera_assembly_qc_transform.txt",
+            f"{B}/chimera_assembly_qc/chimera_assembly_qc.txt",
+        ]
+
+    # Cohort-wide STAR 2-pass: a pass-1 alignment per sample plus one merge.
+    if STAR_TWO_PASS == "cohort":
+        files.append(f"{B}/star_merge_junctions/merge.txt")
+        for s in SAMPLES:
+            files.append(f"{B}/star_align_pass1/{s}.txt")
+
+    # Report-assembly rules that are siblings of benchmark_summary (they do
+    # not depend on it, so listing them just orders them earlier).
+    files += [
+        f"{B}/config_used/config_used.txt",
+        f"{B}/evidence_overview/evidence_overview.txt",
+    ]
+
     # TEcounts sample-QC rules only run when tetranscripts.qc.enabled.
     if TECOUNT_QC_ENABLED:
         transform = TECOUNT_QC["pca_transform"]
@@ -297,6 +348,8 @@ def all_benchmark_files():
                 f"results/pipeline_info/benchmarks/telocal_qc/{transform}.txt",
             ]
     return sorted(set(files))
+
+
 def allocated_resources_by_rule():
     """{rule: {"threads", "mem_mb"}} for every rule that has benchmark files
     (the benchmark_summary rule's input), read from resources.yaml -- the

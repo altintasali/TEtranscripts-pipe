@@ -70,8 +70,8 @@ fi
 if ! python3 workflow/scripts/chimera_evidence.py --junction "$T/ev/j.tsv.gz" \
       --out "$T/ev/j_only.tsv.gz" > "$T/ev/log2" 2>&1; then
   echo "ERROR: chimera_evidence.py failed without --assembly"; cat "$T/ev/log2"; FAIL=1
-elif gzip -dc "$T/ev/j_only.tsv.gz" | tail -n +2 | cut -f6 | grep -qv '^junction$'; then
-  echo "ERROR: without --assembly every pair must be found_by junction"; FAIL=1
+elif gzip -dc "$T/ev/j_only.tsv.gz" | tail -n +2 | cut -f6 | grep -qv '^reads$'; then
+  echo "ERROR: without --assembly every pair must be found_by reads"; FAIL=1
 fi
 
 exit $FAIL

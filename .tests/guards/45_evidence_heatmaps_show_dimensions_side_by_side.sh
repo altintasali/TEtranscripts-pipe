@@ -28,9 +28,9 @@ with gzip.open(f"{T}/ev.tsv.gz","wt") as fh:
       active = "yes" if random.random() < (0.80 if canon else 0.93) else "no"
       # the same anti-correlation, now as the COUNT the heatmap reads
       tl_count = random.randint(1, 200) if active == "yes" else 0
-      fb = "both" if random.random() < 0.0042 else ("junction" if random.random() < 0.6 else "assembly")
+      fb = "both" if random.random() < 0.0042 else ("reads" if random.random() < 0.6 else "assembly")
       asm = random.randint(1,14) if fb in ("both","assembly") else 0
-      jr = random.randint(1,40) if fb in ("both","junction") else 0
+      jr = random.randint(1,40) if fb in ("both","reads") else 0
       nsamp = (random.choice([1,1,1,1,2,3]) if jr else 0)
       strand = "yes" if asm and random.random()<0.7 else "."
       flags = ([f for f, on in (("canonical", canon),

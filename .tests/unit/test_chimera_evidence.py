@@ -89,7 +89,7 @@ def test_both_screens_flag_and_event_aggregation(tmp_path):
 
 def test_without_assembly_every_pair_is_junction_only(tmp_path):
     _, rows = run_evidence(tmp_path, "j1\tG\tT\tsf\tfam\tLINE\tyes\tte_initiated\tno\t1\t5\n")
-    assert rows[0]["found_by"] == "junction"
+    assert rows[0]["found_by"] == "reads"
     assert "both_screens" not in rows[0]["evidence"]
 
 

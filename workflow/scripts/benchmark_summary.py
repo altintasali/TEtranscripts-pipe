@@ -96,11 +96,17 @@ def main():
 
         row = {
             "n": len(rows),
-            # Seconds, not hours. In hours, every rule that finishes in
-            # under ~1.8s rounds to 0.000 at 3 decimals -- which on any
-            # normal run is most of the table, so the column read as though
-            # nothing took any time. Seconds never collapse: a 0.4s rule
-            # shows 0.4, and an hour-long STAR job shows 3,600.
+            # The same two measurements in three units. Hours is the default
+            # view (it is what matters when sizing an HPC job), but in hours
+            # anything under ~1.8s rounds to 0.000 at 3 decimals -- which on
+            # a normal run is most of the table. Minutes and seconds are
+            # emitted alongside and hidden; "Configure columns" in the report
+            # switches between them, so a short rule is still readable
+            # without making the default view useless for a long one.
+            "walltime_mean_h": round(statistics.mean(walltimes) / 3600.0, 3),
+            "walltime_max_h": round(max(walltimes) / 3600.0, 3),
+            "walltime_mean_min": round(statistics.mean(walltimes) / 60.0, 2),
+            "walltime_max_min": round(max(walltimes) / 60.0, 2),
             "walltime_mean_s": round(statistics.mean(walltimes), 1),
             "walltime_max_s": round(max(walltimes), 1),
             "cpu_alloc_cores": cpu_alloc_cores,
@@ -120,6 +126,9 @@ def main():
         "id": "resource_usage",
         "section_name": "Resource Usage",
         "description": (
+            "Wall time is shown in <strong>hours</strong>; minutes and "
+            "seconds are available under <em>Configure columns</em> for the "
+            "many rules that finish in well under a minute. "
             "Per-rule job count, wall time, and resource efficiency -- for "
             "CPU and RAM: the allocated amount (resources.yaml), the mean/max "
             "amount actually used (Snakemake benchmark files in "
@@ -141,17 +150,47 @@ def main():
                 "format": "{:,d}",
                 "min": 0,
             },
+            # Hours shown by default; minutes and seconds are one click away
+            # under "Configure columns".
+            "walltime_mean_h": {
+                "title": "Wall time mean (h)",
+                "description": "Mean wall-clock hours per job",
+                "format": "{:,.3f}",
+                "min": 0,
+            },
+            "walltime_max_h": {
+                "title": "Wall time max (h)",
+                "description": "Slowest single job, wall-clock hours",
+                "format": "{:,.3f}",
+                "min": 0,
+            },
+            "walltime_mean_min": {
+                "title": "Wall time mean (min)",
+                "description": "Mean wall-clock minutes per job",
+                "format": "{:,.2f}",
+                "min": 0,
+                "hidden": True,
+            },
+            "walltime_max_min": {
+                "title": "Wall time max (min)",
+                "description": "Slowest single job, wall-clock minutes",
+                "format": "{:,.2f}",
+                "min": 0,
+                "hidden": True,
+            },
             "walltime_mean_s": {
                 "title": "Wall time mean (s)",
                 "description": "Mean wall-clock seconds per job",
                 "format": "{:,.1f}",
                 "min": 0,
+                "hidden": True,
             },
             "walltime_max_s": {
                 "title": "Wall time max (s)",
                 "description": "Slowest single job, wall-clock seconds",
                 "format": "{:,.1f}",
                 "min": 0,
+                "hidden": True,
             },
             "cpu_alloc_cores": {
                 "title": "CPU allocated (cores)",

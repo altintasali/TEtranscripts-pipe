@@ -53,7 +53,7 @@ COLUMNS = [
     ("junction_max_samples", "Samples",
      "Most samples any one junction for this pair was seen in (STAR).", "int"),
     ("found_by", "Found by",
-     "Which screens called it: junction (STAR), assembly (StringTie), or "
+     "Which screens called it: reads (STAR), assembly (StringTie), or "
      "both. Agreement measured near its chance rate -- see the guide.", "str"),
     ("assembly_strand_match", "Strand match",
      "The assembled transcript's strand agrees with the gene's (StringTie).",

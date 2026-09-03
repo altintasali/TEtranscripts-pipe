@@ -203,6 +203,8 @@ rule evidence_overview:
     resources:
         mem_mb=get_resources("evidence_overview")["mem_mb"],
         runtime=get_resources("evidence_overview")["runtime"],
+    benchmark:
+        "results/pipeline_info/benchmarks/evidence_overview/evidence_overview.txt",
     log:
         "results/pipeline_info/logs/multiqc/evidence_overview.log",
     params:
@@ -225,6 +227,8 @@ rule config_used:
     resources:
         mem_mb=get_resources("config_used")["mem_mb"],
         runtime=get_resources("config_used")["runtime"],
+    benchmark:
+        "results/pipeline_info/benchmarks/config_used/config_used.txt",
     log:
         "results/pipeline_info/logs/multiqc/config_used.log",
     params:
