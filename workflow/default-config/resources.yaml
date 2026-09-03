@@ -94,8 +94,24 @@ resources:
     # on-disk size is a safe estimate for human/mouse. 2 threads per job
     # trades wall time for cluster throughput (more samples aligned in
     # parallel); the runtime limit is raised accordingly.
+    #
+    # 32000 was NOT enough on a real run: star.two_pass: cohort passes
+    # --sjdbFileChrStartEnd merged_SJ.out.tab, and STAR's "inserting
+    # junctions into the genome indices" step does one large, sudden
+    # reallocation around every novel junction in that pooled file --
+    # SLURM's cgroup OOM killer fired on a real GRCm38 job (sacct:
+    # State=OUT_OF_ME+, exit 0:125) with polled MaxRSS at 31.9 GiB, just
+    # under the 32000M request; the actual instantaneous peak that
+    # triggered the kill was necessarily higher than that polled sample
+    # (RSS polling is periodic, the OOM killer fires the instant a
+    # cgroup is overcommitted, so a sudden spike can be killed before
+    # the next poll captures it). star_align_pass1 and
+    # star_align_for_assembly run the SAME insertion against the SAME
+    # merged_SJ.out.tab and genome, so they carry the identical risk on
+    # any sample, not just the one that happened to fail first -- all
+    # three are bumped together.
     threads: 2
-    mem_mb: 32000
+    mem_mb: 45000
     runtime: 600
 
   star_align_pass1:
@@ -105,8 +121,15 @@ resources:
     # whole genome index (same as star_align); runtime is lower since there
     # is no BAM write/sort/chimeric-detection overhead, but unbenchmarked --
     # kept equal to star_align's until measured on a real run.
+    #
+    # mem_mb raised alongside star_align/star_align_for_assembly -- see
+    # star_align's comment for the real OOM this fixes. Pass 1 does not
+    # itself take --sjdbFileChrStartEnd (it's what DISCOVERS the novel
+    # junctions merged_SJ.out.tab pools), but it loads the identical base
+    # genome index, so it is kept at the same budget rather than left an
+    # outlier.
     threads: 2
-    mem_mb: 32000
+    mem_mb: 45000
     runtime: 600
 
   star_merge_junctions:
@@ -516,8 +539,11 @@ resources:
   star_align_for_assembly:
     # Same shape as star_align/star_align_pass1: STAR keeps the whole genome
     # index in memory regardless of output type, so mem_mb matches those.
+    # This is the rule that actually OOM-killed on a real run -- see
+    # star_align's comment for the measurement and the shared root cause
+    # (--sjdbFileChrStartEnd merged_SJ.out.tab's junction-insertion spike).
     threads: 2
-    mem_mb: 32000
+    mem_mb: 45000
     runtime: 600
 
   stringtie_assemble:
