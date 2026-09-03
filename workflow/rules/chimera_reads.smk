@@ -8,7 +8,7 @@
 # The STAR alignment run already emits {sample}_Chimeric.out.junction (see
 # align.smk --chimOutType). This stage annotates those junctions against the
 # gene/TE tracks and aggregates them into the all-events catalog and the
-# counts matrix the sample-QC stage (sample_qc.smk) consumes.
+# counts matrix the sample-QC stage (chimera_reads_qc.smk) consumes.
 #
 # The genes.bed/exons.bed/te.bed tracks this stage annotates against are
 # built by ref.smk's annotation_to_bed rule (shared with chimera_assembly.smk,
@@ -24,28 +24,28 @@
 # (the two _with-telocal ones only when telocal is enabled).
 #
 # Rules:
-#   chimera_junction_classify per-sample junction annotation (+ the gene-TE subset)
-#   chimera_counts           merge per-sample tables -> all_events + counts
+#   chimera_reads_classify per-sample junction annotation (+ the gene-TE subset)
+#   chimera_reads_counts           merge per-sample tables -> all_events + counts
 #                            + te-gene-chimeras
-#   junction_qc              per-sample QC summary (MultiQC custom content)
-#   chimera_igv_bed          per-sample IGV track (config-gated)
+#   chimera_reads_qc              per-sample QC summary (MultiQC custom content)
+#   chimera_reads_igv_bed          per-sample IGV track (config-gated)
 # -----------------------------------------------------------------------------
 import os
 
-WRITE_COUNTS = bool(config["chimera"]["junction"]["outputs"]["write_counts_matrix"])
-WRITE_IGV_BED = bool(config["chimera"]["junction"]["outputs"]["write_igv_bed"])
+WRITE_COUNTS = bool(config["chimera"]["reads"]["outputs"]["write_counts_matrix"])
+WRITE_IGV_BED = bool(config["chimera"]["reads"]["outputs"]["write_igv_bed"])
 # CHIMERA_QC now lives in common/runtime.smk -- the assembly screen needs it
 # too, and this file is not included when the junction screen is off.
 
 
-def chimera_counts_input():
+def chimera_reads_counts_input():
     if TELOCAL_ENABLED:
         return [
-            f"results/chimera/read_evidence/per_sample/{s}_junctions_with-telocal.tsv.gz"
+            f"results/chimera/reads/per_sample/{s}_junctions_with-telocal.tsv.gz"
             for s in SAMPLES
         ]
     return [
-        f"results/chimera/read_evidence/per_sample/{s}_junctions.tsv.gz"
+        f"results/chimera/reads/per_sample/{s}_junctions.tsv.gz"
         for s in SAMPLES
     ]
 
@@ -53,37 +53,37 @@ def chimera_counts_input():
 def all_chimera_outputs():
     """Chimera artifacts for the `all` target (Snakefile)."""
     files = [
-        f"results/chimera/read_evidence/per_sample/{s}_junctions.tsv.gz"
+        f"results/chimera/reads/per_sample/{s}_junctions.tsv.gz"
         for s in SAMPLES
     ]
     if TELOCAL_ENABLED:
         files += [
-            f"results/chimera/read_evidence/per_sample/{s}_junctions_with-telocal.tsv.gz"
+            f"results/chimera/reads/per_sample/{s}_junctions_with-telocal.tsv.gz"
             for s in SAMPLES
         ]
         files += [
-            f"results/chimera/read_evidence/per_sample/{s}_junctions_te-gene-chimeras_with-telocal.tsv.gz"
+            f"results/chimera/reads/per_sample/{s}_junctions_te-gene-chimeras_with-telocal.tsv.gz"
             for s in SAMPLES
         ]
     files += [
-        f"results/chimera/read_evidence/per_sample/{s}_junctions_te-gene-chimeras.tsv.gz"
+        f"results/chimera/reads/per_sample/{s}_junctions_te-gene-chimeras.tsv.gz"
         for s in SAMPLES
     ]
     files += [
-        "results/chimera/read_evidence/all_events.tsv.gz",
-        "results/chimera/read_evidence/te-gene-chimeras.tsv.gz",
+        "results/chimera/reads/all_events.tsv.gz",
+        "results/chimera/reads/te-gene-chimeras.tsv.gz",
         "results/chimera/counts_matrix.tsv.gz",
         "results/chimera/candidates.tsv.gz",
     ]
     files += [
-        f"results/chimera/read_evidence/per_sample/{s}_junction_qc.tsv.gz"
+        f"results/chimera/reads/per_sample/{s}_chimera_reads_qc.tsv.gz"
         for s in SAMPLES
     ]
     files += [
-        "results/chimera/qc/junction_qc_mqc.json",
+        "results/chimera/qc/chimera_reads_qc_mqc.json",
         "results/chimera/qc/te_gene_chimeras_mqc.json",
         "results/chimera/qc/canonical_rate_mqc.json",
-        "results/chimera/qc/junction_highlights_mqc.json",
+        "results/chimera/qc/chimera_reads_highlights_mqc.json",
         "results/chimera/qc/chimera_candidates_table_mqc.json",
         "results/chimera/qc/chimera_reads_te_type_mqc.json",
         "results/chimera/qc/chimera_evidence_guide_mqc.json",
@@ -93,13 +93,13 @@ def all_chimera_outputs():
     ]
     if WRITE_IGV_BED:
         files += [
-            f"results/chimera/read_evidence/igv/{s}_junctions.bed"
+            f"results/chimera/reads/igv/{s}_junctions.bed"
             for s in SAMPLES
         ]
     return files
 
 
-def all_sample_qc_outputs():
+def all_chimera_reads_sample_qc_outputs():
     """Sample-QC artifacts for the `all` target (Snakefile). Only produced
     when a counts matrix is written (it is the QC view's input)."""
     if not WRITE_COUNTS:
@@ -112,40 +112,40 @@ def all_sample_qc_outputs():
     ]
 
 
-rule chimera_junction_classify:
+rule chimera_reads_classify:
     # Annotates one sample's STAR chimeric junctions against the gene/TE
-    # tracks. See classify_chimera_junctions.py for the full column spec.
+    # tracks. See classify_chimera_reads.py for the full column spec.
     # Pure-python, so it runs in the base environment.
     input:
         # Declared so that EDITING the script re-runs the rule.
         # Snakemake's code trigger hashes the shell command STRING,
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
-        script=f"{SCRIPTS_DIR}/classify_chimera_junctions.py",
+        script=f"{SCRIPTS_DIR}/classify_chimera_reads.py",
         junctions="results/star/{sample}_Chimeric.out.junction",
         genes="results/reference/genes.bed",
         exons="results/reference/exons.bed",
         te="results/reference/te.bed",
         strandedness=strandedness_input,
     output:
-        junctions="results/chimera/read_evidence/per_sample/{sample}_junctions.tsv.gz",
-        te_gene_chimeras="results/chimera/read_evidence/per_sample/{sample}_junctions_te-gene-chimeras.tsv.gz",
+        junctions="results/chimera/reads/per_sample/{sample}_junctions.tsv.gz",
+        te_gene_chimeras="results/chimera/reads/per_sample/{sample}_junctions_te-gene-chimeras.tsv.gz",
     params:
-        tolerance=config["chimera"]["junction"]["breakpoint_tolerance"],
+        tolerance=config["chimera"]["reads"]["breakpoint_tolerance"],
         canonical_flag=lambda wc: (
             "--require-canonical"
-            if config["chimera"]["junction"]["require_canonical_junction"]
+            if config["chimera"]["reads"]["require_canonical_junction"]
             else ""
         ),
         library=get_strandedness_param,
-    threads: get_resources("chimera_junction_classify")["threads"]
+    threads: get_resources("chimera_reads_classify")["threads"]
     resources:
-        mem_mb=get_resources("chimera_junction_classify")["mem_mb"],
-        runtime=get_resources("chimera_junction_classify")["runtime"],
+        mem_mb=get_resources("chimera_reads_classify")["mem_mb"],
+        runtime=get_resources("chimera_reads_classify")["runtime"],
     benchmark:
-        "results/pipeline_info/benchmarks/chimera_junction_classify/{sample}.txt",
+        "results/pipeline_info/benchmarks/chimera_reads_classify/{sample}.txt",
     log:
-        "results/pipeline_info/logs/chimera_junction/classify/{sample}.log",
+        "results/pipeline_info/logs/chimera_reads/classify/{sample}.log",
     shell:
         "python3 {input.script} "
         "--junctions {input.junctions} "
@@ -183,7 +183,7 @@ rule chimera_telocal_index:
         # string; otherwise this BED is the only way to place a locus.
         locations="results/telocal/telocal_locations.bed",
     output:
-        "results/chimera/read_evidence/telocal_index.pkl.gz",
+        "results/chimera/reads/telocal_index.pkl.gz",
     threads: get_resources("chimera_telocal_index")["threads"]
     resources:
         mem_mb=get_resources("chimera_telocal_index")["mem_mb"],
@@ -191,7 +191,7 @@ rule chimera_telocal_index:
     benchmark:
         "results/pipeline_info/benchmarks/chimera_telocal_index/chimera_telocal_index.txt",
     log:
-        "results/pipeline_info/logs/chimera_junction/telocal_index.log",
+        "results/pipeline_info/logs/chimera_reads/telocal_index.log",
     shell:
         "python3 {input.script} "
         "--telocal-tables {input.telocal_tables} "
@@ -213,16 +213,16 @@ rule chimera_telocal_annotate:
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/chimera_telocal_annotate.py",
-        junctions="results/chimera/read_evidence/per_sample/{sample}_junctions.tsv.gz",
-        telocal_index="results/chimera/read_evidence/telocal_index.pkl.gz",
+        junctions="results/chimera/reads/per_sample/{sample}_junctions.tsv.gz",
+        telocal_index="results/chimera/reads/telocal_index.pkl.gz",
     output:
-        junctions="results/chimera/read_evidence/per_sample/{sample}_junctions_with-telocal.tsv.gz",
+        junctions="results/chimera/reads/per_sample/{sample}_junctions_with-telocal.tsv.gz",
         te_gene_chimeras=(
-            "results/chimera/read_evidence/per_sample/{sample}_junctions_te-gene-chimeras_with-telocal.tsv.gz"
+            "results/chimera/reads/per_sample/{sample}_junctions_te-gene-chimeras_with-telocal.tsv.gz"
         ),
     params:
         sample_name=lambda wc: wc.sample,
-        tolerance=config["chimera"]["junction"]["breakpoint_tolerance"],
+        tolerance=config["chimera"]["reads"]["breakpoint_tolerance"],
     threads: get_resources("chimera_telocal_annotate")["threads"]
     resources:
         mem_mb=get_resources("chimera_telocal_annotate")["mem_mb"],
@@ -230,7 +230,7 @@ rule chimera_telocal_annotate:
     benchmark:
         "results/pipeline_info/benchmarks/chimera_telocal_annotate/{sample}.txt",
     log:
-        "results/pipeline_info/logs/chimera_junction/telocal_annotate/{sample}.log",
+        "results/pipeline_info/logs/chimera_reads/telocal_annotate/{sample}.log",
     shell:
         "python3 {input.script} "
         "--junctions {input.junctions} "
@@ -241,31 +241,31 @@ rule chimera_telocal_annotate:
         "--te-out {output.te_gene_chimeras} > {log} 2>&1"
 
 
-rule chimera_counts:
+rule chimera_reads_counts:
     # Merges every sample's junction table into the all-events catalog and
-    # the event x sample counts matrix (chimera_counts.py). The counts matrix
+    # the event x sample counts matrix (chimera_reads_counts.py). The counts matrix
     # feeds the sample-QC PCA/clustering stage.
     input:
         # Declared so that EDITING the script re-runs the rule.
         # Snakemake's code trigger hashes the shell command STRING,
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
-        script=f"{SCRIPTS_DIR}/chimera_counts.py",
-        tables=chimera_counts_input(),
+        script=f"{SCRIPTS_DIR}/chimera_reads_counts.py",
+        tables=chimera_reads_counts_input(),
     output:
-        events="results/chimera/read_evidence/all_events.tsv.gz",
+        events="results/chimera/reads/all_events.tsv.gz",
         counts="results/chimera/counts_matrix.tsv.gz",
-        te_events="results/chimera/read_evidence/te-gene-chimeras.tsv.gz",
+        te_events="results/chimera/reads/te-gene-chimeras.tsv.gz",
     params:
         sample_names=lambda wc, input: " ".join(SAMPLES),
-    threads: get_resources("chimera_counts")["threads"]
+    threads: get_resources("chimera_reads_counts")["threads"]
     resources:
-        mem_mb=get_scaled_mem_mb("chimera_counts"),
-        runtime=get_resources("chimera_counts")["runtime"],
+        mem_mb=get_scaled_mem_mb("chimera_reads_counts"),
+        runtime=get_resources("chimera_reads_counts")["runtime"],
     benchmark:
-        "results/pipeline_info/benchmarks/chimera_counts/chimera_counts.txt",
+        "results/pipeline_info/benchmarks/chimera_reads_counts/chimera_reads_counts.txt",
     log:
-        "results/pipeline_info/logs/chimera_junction/counts.log",
+        "results/pipeline_info/logs/chimera_reads/counts.log",
     shell:
         "python3 {input.script} "
         "--tables {input.tables} "
@@ -275,28 +275,28 @@ rule chimera_counts:
         "--out-te-events {output.te_events} > {log} 2>&1"
 
 
-rule junction_qc:
-    # Per-sample junction QC summary (junction_qc.py) for the MultiQC custom
+rule chimera_reads_qc:
+    # Per-sample junction QC summary (chimera_reads_qc.py) for the MultiQC custom
     # content table.
     input:
         # Declared so that EDITING the script re-runs the rule.
         # Snakemake's code trigger hashes the shell command STRING,
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
-        script=f"{SCRIPTS_DIR}/junction_qc.py",
-        table="results/chimera/read_evidence/per_sample/{sample}_junctions.tsv.gz",
+        script=f"{SCRIPTS_DIR}/chimera_reads_qc.py",
+        table="results/chimera/reads/per_sample/{sample}_junctions.tsv.gz",
     output:
-        "results/chimera/read_evidence/per_sample/{sample}_junction_qc.tsv.gz",
+        "results/chimera/reads/per_sample/{sample}_chimera_reads_qc.tsv.gz",
     params:
         sample=lambda wc: wc.sample,
-    threads: get_resources("junction_qc")["threads"]
+    threads: get_resources("chimera_reads_qc")["threads"]
     resources:
-        mem_mb=get_resources("junction_qc")["mem_mb"],
-        runtime=get_resources("junction_qc")["runtime"],
+        mem_mb=get_resources("chimera_reads_qc")["mem_mb"],
+        runtime=get_resources("chimera_reads_qc")["runtime"],
     benchmark:
-        "results/pipeline_info/benchmarks/junction_qc/{sample}.txt",
+        "results/pipeline_info/benchmarks/chimera_reads_qc/{sample}.txt",
     log:
-        "results/pipeline_info/logs/chimera_junction/junction_qc/{sample}.log",
+        "results/pipeline_info/logs/chimera_reads/chimera_reads_qc/{sample}.log",
     shell:
         "python3 {input.script} "
         "--table {input.table} --sample {params.sample} --out {output} > {log} 2>&1"
@@ -322,14 +322,14 @@ rule chimera_evidence:
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/chimera_evidence.py",
-        junction="results/chimera/read_evidence/te-gene-chimeras.tsv.gz",
-        **({"assembly": "results/chimera/transcript_evidence/transcripts.tsv.gz"}
+        junction="results/chimera/reads/te-gene-chimeras.tsv.gz",
+        **({"assembly": "results/chimera/assembly/transcripts.tsv.gz"}
            if CHIMERA_ASSEMBLY_ENABLED else {}),
     output:
         "results/chimera/candidates.tsv.gz",
     params:
         assembly=(
-            "--assembly results/chimera/transcript_evidence/transcripts.tsv.gz"
+            "--assembly results/chimera/assembly/transcripts.tsv.gz"
             if CHIMERA_ASSEMBLY_ENABLED else ""
         ),
     threads: get_resources("chimera_evidence")["threads"]
@@ -339,14 +339,14 @@ rule chimera_evidence:
     benchmark:
         "results/pipeline_info/benchmarks/chimera_evidence/chimera_evidence.txt",
     log:
-        "results/pipeline_info/logs/chimera_junction/chimera_evidence.log",
+        "results/pipeline_info/logs/chimera_reads/chimera_evidence.log",
     shell:
         "python3 {input.script} "
         "--junction {input.junction} {params.assembly} "
         "--out {output} > {log} 2>&1"
 
 
-rule chimera_te_type:
+rule chimera_reads_te_type:
     # The read screen's TE-type view, per sample. Its counterpart is the
     # assembly screen's own class chart (Assembly - TE type); the two are kept
     # SEPARATE because they use the same three words for different
@@ -358,21 +358,21 @@ rule chimera_te_type:
         # Snakemake's code trigger hashes the shell command STRING,
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
-        script=f"{SCRIPTS_DIR}/chimera_te_type_mqc.py",
-        qc_tables=expand("results/chimera/read_evidence/per_sample/"
-                         "{sample}_junction_qc.tsv.gz", sample=SAMPLES),
+        script=f"{SCRIPTS_DIR}/chimera_reads_te_type_mqc.py",
+        qc_tables=expand("results/chimera/reads/per_sample/"
+                         "{sample}_chimera_reads_qc.tsv.gz", sample=SAMPLES),
     output:
         "results/chimera/qc/chimera_reads_te_type_mqc.json",
     params:
         samples=SAMPLES,
-    threads: get_resources("chimera_te_type")["threads"]
+    threads: get_resources("chimera_reads_te_type")["threads"]
     resources:
-        mem_mb=get_scaled_mem_mb("chimera_te_type"),
-        runtime=get_resources("chimera_te_type")["runtime"],
+        mem_mb=get_scaled_mem_mb("chimera_reads_te_type"),
+        runtime=get_resources("chimera_reads_te_type")["runtime"],
     benchmark:
-        "results/pipeline_info/benchmarks/chimera_te_type/chimera_te_type.txt",
+        "results/pipeline_info/benchmarks/chimera_reads_te_type/chimera_reads_te_type.txt",
     log:
-        "results/pipeline_info/logs/chimera_junction/te_type.log",
+        "results/pipeline_info/logs/chimera_reads/te_type.log",
     shell:
         "python3 {input.script} "
         "--qc-tables {input.qc_tables} --samples {params.samples} "
@@ -404,7 +404,7 @@ rule chimera_candidates_table:
     benchmark:
         "results/pipeline_info/benchmarks/chimera_candidates_table/chimera_candidates_table.txt",
     log:
-        "results/pipeline_info/logs/chimera_junction/candidates_table.log",
+        "results/pipeline_info/logs/chimera_reads/candidates_table.log",
     shell:
         "python3 {input.script} "
         "--evidence {input.evidence} --gene-names {input.gene_names} "
@@ -441,7 +441,7 @@ rule chimera_evidence_guide:
     benchmark:
         "results/pipeline_info/benchmarks/chimera_evidence_guide/chimera_evidence_guide.txt",
     log:
-        "results/pipeline_info/logs/chimera_junction/evidence_guide.log",
+        "results/pipeline_info/logs/chimera_reads/evidence_guide.log",
     shell:
         "python3 {input.script} "
         "--evidence {input.evidence} "
@@ -477,7 +477,7 @@ rule chimera_evidence_heatmap:
     benchmark:
         "results/pipeline_info/benchmarks/chimera_evidence_heatmap/chimera_evidence_heatmap.txt",
     log:
-        "results/pipeline_info/logs/chimera_junction/evidence_heatmap.log",
+        "results/pipeline_info/logs/chimera_reads/evidence_heatmap.log",
     shell:
         "python3 {input.script} "
         "--evidence {input.evidence} --gene-names {input.gene_names} "
@@ -485,9 +485,9 @@ rule chimera_evidence_heatmap:
         "--out-candidates {output.candidates} > {log} 2>&1"
 
 
-rule junction_highlights:
+rule chimera_reads_highlights:
     # The junction screen's "what to look at first" guide + ranked top-N
-    # table (junction_highlights_mqc.py) -- the mirror of the assembly
+    # table (chimera_reads_highlights_mqc.py) -- the mirror of the assembly
     # screen's highlights section, so a default run's report has a guided
     # entry point for BOTH screens rather than only the assembly one.
     # Reads the merged gene<->TE table (not the per-sample QC metrics),
@@ -497,27 +497,27 @@ rule junction_highlights:
         # Snakemake's code trigger hashes the shell command STRING,
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
-        script=f"{SCRIPTS_DIR}/junction_highlights_mqc.py",
-        te_events="results/chimera/read_evidence/te-gene-chimeras.tsv.gz",
+        script=f"{SCRIPTS_DIR}/chimera_reads_highlights_mqc.py",
+        te_events="results/chimera/reads/te-gene-chimeras.tsv.gz",
     output:
-        "results/chimera/qc/junction_highlights_mqc.json",
-    threads: get_resources("junction_highlights")["threads"]
+        "results/chimera/qc/chimera_reads_highlights_mqc.json",
+    threads: get_resources("chimera_reads_highlights")["threads"]
     resources:
-        mem_mb=get_scaled_mem_mb("junction_highlights"),
-        runtime=get_resources("junction_highlights")["runtime"],
+        mem_mb=get_scaled_mem_mb("chimera_reads_highlights"),
+        runtime=get_resources("chimera_reads_highlights")["runtime"],
     benchmark:
-        "results/pipeline_info/benchmarks/junction_highlights/junction_highlights.txt",
+        "results/pipeline_info/benchmarks/chimera_reads_highlights/chimera_reads_highlights.txt",
     log:
-        "results/pipeline_info/logs/chimera_junction/junction_highlights.log",
+        "results/pipeline_info/logs/chimera_reads/chimera_reads_highlights.log",
     shell:
         "python3 {input.script} "
         "--te-events {input.te_events} "
         "--out {output} > {log} 2>&1"
 
 
-rule junction_qc_barplot:
+rule chimera_reads_qc_barplot:
     # Merges the per-sample junction QC tables into two MultiQC bar-plot
-    # custom-content documents (junction_qc_mqc.py): per-sample direction
+    # custom-content documents (chimera_reads_qc_mqc.py): per-sample direction
     # composition as counts and % of total junctions, plus the gene<->TE
     # subset (the gene-TE chimeras view), rendered inside multiqc_report.html in
     # the custom_content module.
@@ -526,25 +526,25 @@ rule junction_qc_barplot:
         # Snakemake's code trigger hashes the shell command STRING,
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
-        script=f"{SCRIPTS_DIR}/junction_qc_mqc.py",
+        script=f"{SCRIPTS_DIR}/chimera_reads_qc_mqc.py",
         tables=lambda wc: [
-            f"results/chimera/read_evidence/per_sample/{s}_junction_qc.tsv.gz" for s in SAMPLES
+            f"results/chimera/reads/per_sample/{s}_chimera_reads_qc.tsv.gz" for s in SAMPLES
         ],
     output:
-        junction="results/chimera/qc/junction_qc_mqc.json",
+        junction="results/chimera/qc/chimera_reads_qc_mqc.json",
         te_gene_chimeras="results/chimera/qc/te_gene_chimeras_mqc.json",
         canonical="results/chimera/qc/canonical_rate_mqc.json",
         enrichment="results/chimera/qc/canonical_enrichment_mqc.json",
     params:
         samples=lambda wc, input: " ".join(SAMPLES),
-    threads: get_resources("junction_qc_barplot")["threads"]
+    threads: get_resources("chimera_reads_qc_barplot")["threads"]
     resources:
-        mem_mb=get_resources("junction_qc_barplot")["mem_mb"],
-        runtime=get_resources("junction_qc_barplot")["runtime"],
+        mem_mb=get_resources("chimera_reads_qc_barplot")["mem_mb"],
+        runtime=get_resources("chimera_reads_qc_barplot")["runtime"],
     benchmark:
-        "results/pipeline_info/benchmarks/junction_qc_barplot/junction_qc_barplot.txt",
+        "results/pipeline_info/benchmarks/chimera_reads_qc_barplot/chimera_reads_qc_barplot.txt",
     log:
-        "results/pipeline_info/logs/chimera_junction/junction_qc_barplot.log",
+        "results/pipeline_info/logs/chimera_reads/chimera_reads_qc_barplot.log",
     shell:
         "python3 {input.script} "
         "--tables {input.tables} "
@@ -555,23 +555,23 @@ rule junction_qc_barplot:
         "--out-enrichment {output.enrichment} > {log} 2>&1"
 
 
-rule chimera_igv_bed:
+rule chimera_reads_igv_bed:
     # Optional IGV track per sample (one BED12-style row per junction), so
     # candidates can be inspected visually. Gated by
-    # config["chimera"]["junction"]["outputs"]["write_igv_bed"].
+    # config["chimera"]["reads"]["outputs"]["write_igv_bed"].
     input:
-        "results/chimera/read_evidence/per_sample/{sample}_junctions.tsv.gz",
+        "results/chimera/reads/per_sample/{sample}_junctions.tsv.gz",
     output:
-        "results/chimera/read_evidence/igv/{sample}_junctions.bed",
+        "results/chimera/reads/igv/{sample}_junctions.bed",
     params:
         sample=lambda wc: wc.sample,
-    threads: get_resources("chimera_igv_bed")["threads"]
+    threads: get_resources("chimera_reads_igv_bed")["threads"]
     resources:
-        mem_mb=get_resources("chimera_igv_bed")["mem_mb"],
-        runtime=get_resources("chimera_igv_bed")["runtime"],
+        mem_mb=get_resources("chimera_reads_igv_bed")["mem_mb"],
+        runtime=get_resources("chimera_reads_igv_bed")["runtime"],
     benchmark:
-        "results/pipeline_info/benchmarks/chimera_igv_bed/{sample}.txt",
+        "results/pipeline_info/benchmarks/chimera_reads_igv_bed/{sample}.txt",
     log:
-        "results/pipeline_info/logs/chimera_junction/igv/{sample}.log",
+        "results/pipeline_info/logs/chimera_reads/igv/{sample}.log",
     script:
-        "../scripts/junctions_to_igv_bed.py"
+        "../scripts/chimera_reads_to_igv_bed.py"

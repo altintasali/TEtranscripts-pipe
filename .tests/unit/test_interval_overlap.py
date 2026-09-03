@@ -1,6 +1,6 @@
 """The interval search behind every gene/TE annotation lookup.
 
-classify_chimera_junctions.overlapping() decides which genes and TEs a chimeric
+classify_chimera_reads.overlapping() decides which genes and TEs a chimeric
 breakpoint lands in, so an off-by-one or a missed long feature here silently
 mislabels calls rather than failing. Two real bugs in this area are in the
 history ("breakpoints were resolved one base off", "te.bed collapsed every TE
@@ -9,7 +9,7 @@ subfamily into one genome-spanning interval"), which is why the awkward cases
 
 Coordinates are half-open [start, end), matching BED.
 """
-import classify_chimera_junctions as pcj
+import classify_chimera_reads as pcj
 import pytest
 
 

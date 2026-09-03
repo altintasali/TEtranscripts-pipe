@@ -77,19 +77,6 @@ SCRIPTS_DIR = os.path.abspath("workflow/scripts")
 MULTIQC_CONFIG = os.path.abspath("workflow/default-config/multiqc_config.yaml")
 
 # Chimera sample-QC (PCA / sample clustering) runs in R with DESeq2
-# (nf-core/rnaseq style); deseq2 + r-base come from conda. A python>=3.9
-# floor guards the solver against ancient, mutually-incompatible builds.
-# Only referenced when the chimera stage is enabled.
-CHIMERA_QC_ENV = _write_env(
-    "chimera_qc",
-    [
-        f"bioconductor-deseq2={V['deseq2']}",
-        f"r-base={V['r_base']}",
-        "r-pheatmap",
-        "python>=3.9",
-    ],
-)
-
 # TEtranscripts is installed from PyPI rather than bioconda: the bioconda
 # recipe's run dependencies pin an ancient bioconductor-deseq (DESeq v1),
 # which is not used at runtime (only DESeq2 is) and can only coexist with

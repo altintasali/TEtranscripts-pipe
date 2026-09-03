@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Cross-check assembly-based chimera candidates against the junction
-screen's read-level gene<->TE calls (results/chimera/read_evidence/te-gene-chimeras.tsv.gz).
+screen's read-level gene<->TE calls (results/chimera/reads/te-gene-chimeras.tsv.gz).
 
 The two screens use independent evidence (StringTie transcript structure vs.
 STAR chimeric-junction reads), so a (gene_id, te_id) pair called by BOTH is
@@ -36,9 +36,9 @@ def open_write(path):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--candidates", required=True,
-                     help="results/chimera/transcript_evidence/transcripts.tsv.gz")
+                     help="results/chimera/assembly/transcripts.tsv.gz")
     ap.add_argument("--junction", required=True,
-                     help="results/chimera/read_evidence/te-gene-chimeras.tsv.gz")
+                     help="results/chimera/reads/te-gene-chimeras.tsv.gz")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
@@ -47,7 +47,7 @@ def main():
 
     junc_gene_idx = junc_header.index("gene_id")
     junc_te_idx = junc_header.index("te_id")
-    # --junction is the MERGED catalog (chimera_counts.py), whose read column
+    # --junction is the MERGED catalog (chimera_reads_counts.py), whose read column
     # is "total_reads" (summed across samples); a per-sample junction table
     # calls the same thing "reads". This asked only for "reads" and so died
     # with ValueError on the file the rule actually passes it -- latent until

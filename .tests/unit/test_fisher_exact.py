@@ -1,14 +1,14 @@
 """Fisher's exact test and BH correction behind the splice-motif enrichment.
 
 scipy is not in this workflow's environment and is far too heavy a dependency
-for one test, so junction_qc_mqc implements both. That makes them OUR
+for one test, so chimera_reads_qc_mqc implements both. That makes them OUR
 correctness problem: a wrong p-value here would not fail anything, it would
 just publish a wrong number in the report next to a real one.
 
 Every expected value below was produced by R -- `fisher.test(matrix(...))` and
 `p.adjust(..., method = "BH")` -- and is pinned to 10 significant figures.
 """
-import junction_qc_mqc as jq
+import chimera_reads_qc_mqc as jq
 import pytest
 
 # (a, b, c, d) -> R fisher.test(matrix(c(a, c, b, d), nrow = 2))$p.value

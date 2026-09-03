@@ -191,12 +191,12 @@ chimera:
   # classification and QC-view behavior may still change between releases.
   # Use for exploration, and validate the output before relying on it for
   # published results.
-  junction:
+  reads:
     # STAR chimeric-junction read screen, run on the SAME STAR alignment
     # that feeds TEcount (no separate alignment). On by default: the STAR
     # alignment always emits chimeric junctions and the workflow detects
     # and annotates chimeric gene-TE junction reads
-    # (results/chimera/read_evidence/...). Set enabled: false to opt out -- the
+    # (results/chimera/reads/...). Set enabled: false to opt out -- the
     # workflow then behaves like a plain quantification pipeline. Only
     # sees reads STAR can't explain as one linear alignment -- an
     # ordinary, canonical-intron TE-initiated splice will not appear here;
@@ -238,13 +238,25 @@ chimera:
   assembly:
     # StringTie-assembly chimera screen: catches TE-initiated/exonized/
     # terminated transcripts spliced via an ordinary, canonical intron --
-    # structurally invisible to chimera.junction above, since STAR only
+    # structurally invisible to chimera.reads above, since STAR only
     # flags a junction as chimeric when a read can't be explained by one
-    # linear alignment. Complements chimera.junction; a candidate found by
+    # linear alignment. Complements chimera.reads; a candidate found by
     # both is cross-referenced in
-    # results/chimera/transcript_evidence/transcripts_with_read_support.tsv.gz.
+    # results/chimera/assembly/transcripts_with_read_support.tsv.gz.
     #
-    # On by default, but newer and less validated than chimera.junction --
+    # WHEN TO ENABLE IT. The two screens fail in opposite directions, so
+    # which one earns its cost depends on the annotation and the question:
+    #   * Well-annotated TEs (human, mouse) -- the assembly screen is worth
+    #     the most here. It finds chimeras spliced through an ordinary
+    #     canonical intron, which the read screen structurally cannot see,
+    #     and a good TE annotation is what lets it name what it found.
+    #   * Novel or poorly annotated TEs -- prefer the read screen. Assembly
+    #     needs the TE to be in the annotation to call the chimera at all;
+    #     STAR's chimeric junctions do not.
+    #   * Cost is dominated by the second STAR pass below, roughly doubling
+    #     alignment time and peak disk for the run. Everything after it
+    #     (StringTie, classification) is cheap by comparison.
+    # On by default, but newer and less validated than chimera.reads --
     # validate its output before relying on it. Set enabled: false to skip
     # it (and save the extra alignment below).
     # Uses its own dedicated STAR alignment pass (--outSAMstrandField
@@ -258,18 +270,18 @@ chimera:
     # TE/gene-exon feature edge. StringTie's exon boundaries (especially
     # the first exon's 5' end, which has no upstream junction to anchor
     # it) are coverage-inferred and can be imprecise at low depth -- a
-    # more generous default than chimera.junction's, since single-end data
+    # more generous default than chimera.reads's, since single-end data
     # typically gives lower depth per read than paired-end.
     breakpoint_tolerance: 5
     # Not applied automatically -- candidates are always fully reported,
-    # same annotate-first philosophy as chimera.junction. This is just the
-    # threshold used when reading results/chimera/transcript_evidence/tpm_matrix.tsv.gz
+    # same annotate-first philosophy as chimera.reads. This is just the
+    # threshold used when reading results/chimera/assembly/tpm_matrix.tsv.gz
     # yourself downstream.
     min_transcript_tpm: 1
     outputs:
-      # Write a BED track (results/chimera/transcript_evidence/igv/candidates.bed)
+      # Write a BED track (results/chimera/assembly/igv/candidates.bed)
       # spanning each candidate's TE-overlapping exon, colored by
-      # chimera_type, for loading alongside chimera.junction's own IGV
+      # chimera_type, for loading alongside chimera.reads's own IGV
       # track.
       write_igv_bed: false
 

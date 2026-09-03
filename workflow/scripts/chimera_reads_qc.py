@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Per-sample junction QC summary from a {sample}_junctions.tsv.gz table
-(classify_chimera_junctions.py).
+(classify_chimera_reads.py).
 
 Writes a tiny two-column TSV (metric, value) with the event counts a user
 wants at a glance before any deeper QC: total events, how many are gene<->TE
 candidates, the direction/chimera-type composition, canonical vs
 non-canonical, antisense, and strand-match. Used by the MultiQC custom-content
-module (parse_junction_qc) so the report can show per-sample chimera QC.
+module (parse_chimera_reads_qc) so the report can show per-sample chimera QC.
 """
 import argparse
 import collections

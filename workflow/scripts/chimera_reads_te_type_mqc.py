@@ -9,7 +9,7 @@ The two are shown SEPARATELY on purpose. Both emit te_initiated /
 te_exonized / te_terminated, so putting them in one plot invites reading
 agreement as corroboration -- and they are not the same measurement:
 
-  Read evidence (classify_chimera_junctions.py) classifies by GENOMIC POSITION:
+  Read evidence (classify_chimera_reads.py) classifies by GENOMIC POSITION:
   where the TE sits relative to the gene body, oriented by gene strand.
     te_initiated   TE lies upstream of the gene
     te_terminated  TE lies downstream

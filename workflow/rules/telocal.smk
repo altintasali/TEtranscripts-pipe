@@ -242,7 +242,7 @@ rule telocal_qc:
     # PCA scatter + sample-to-sample distance heatmap of the transformed
     # TElocal counts, colored by condition (sample sheet's "condition"
     # column; absent -> one "all" group), emitted as MultiQC custom-content
-    # JSON (ids telocal_sample_qc_pca / telocal_sample_qc_heatmap, ordered
+    # JSON (ids telocal_chimera_reads_sample_qc_pca / telocal_chimera_reads_sample_qc_heatmap, ordered
     # inside the custom_content module by multiqc_config.yaml).
     input:
         # Declared so that EDITING the script re-runs the rule.

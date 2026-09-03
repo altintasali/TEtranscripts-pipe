@@ -234,38 +234,38 @@ def all_benchmark_files():
             f"results/pipeline_info/benchmarks/tetranscripts_diffexp/{contrast}.txt"
         )
     # Chimera-screen rules only run when the chimera stage is enabled.
-    if CHIMERA_JUNCTION_ENABLED:
+    if CHIMERA_READS_ENABLED:
         files += [
             "results/pipeline_info/benchmarks/annotation_to_bed/annotation_to_bed.txt",
-            "results/pipeline_info/benchmarks/chimera_counts/chimera_counts.txt",
-            "results/pipeline_info/benchmarks/junction_highlights/"
-            "junction_highlights.txt",
+            "results/pipeline_info/benchmarks/chimera_reads_counts/chimera_reads_counts.txt",
+            "results/pipeline_info/benchmarks/chimera_reads_highlights/"
+            "chimera_reads_highlights.txt",
             "results/pipeline_info/benchmarks/chimera_evidence/"
             "chimera_evidence.txt",
             "results/pipeline_info/benchmarks/chimera_evidence_guide/"
             "chimera_evidence_guide.txt",
             "results/pipeline_info/benchmarks/chimera_candidates_table/"
             "chimera_candidates_table.txt",
-            "results/pipeline_info/benchmarks/chimera_te_type/"
-            "chimera_te_type.txt",
+            "results/pipeline_info/benchmarks/chimera_reads_te_type/"
+            "chimera_reads_te_type.txt",
             "results/pipeline_info/benchmarks/chimera_evidence_heatmap/"
             "chimera_evidence_heatmap.txt",
         ]
         for s in SAMPLES:
             files += [
-                f"results/pipeline_info/benchmarks/chimera_junction_classify/{s}.txt",
-                f"results/pipeline_info/benchmarks/junction_qc/{s}.txt",
+                f"results/pipeline_info/benchmarks/chimera_reads_classify/{s}.txt",
+                f"results/pipeline_info/benchmarks/chimera_reads_qc/{s}.txt",
             ]
-            if config["chimera"]["junction"]["outputs"]["write_igv_bed"]:
+            if config["chimera"]["reads"]["outputs"]["write_igv_bed"]:
                 files.append(
-                    f"results/pipeline_info/benchmarks/chimera_igv_bed/{s}.txt"
+                    f"results/pipeline_info/benchmarks/chimera_reads_igv_bed/{s}.txt"
                 )
-        if config["chimera"]["junction"]["outputs"]["write_counts_matrix"]:
-            transform = config["chimera"]["junction"]["qc"]["pca_transform"]
+        if config["chimera"]["reads"]["outputs"]["write_counts_matrix"]:
+            transform = config["chimera"]["reads"]["qc"]["pca_transform"]
             files += [
                 f"results/pipeline_info/benchmarks/"
-                f"sample_qc_transform/{transform}.txt",
-                f"results/pipeline_info/benchmarks/sample_qc/{transform}.txt",
+                f"chimera_reads_sample_qc_transform/{transform}.txt",
+                f"results/pipeline_info/benchmarks/chimera_reads_sample_qc/{transform}.txt",
             ]
     # TEcounts sample-QC rules only run when tetranscripts.qc.enabled.
     if TECOUNT_QC_ENABLED:
@@ -297,8 +297,6 @@ def all_benchmark_files():
                 f"results/pipeline_info/benchmarks/telocal_qc/{transform}.txt",
             ]
     return sorted(set(files))
-
-
 def allocated_resources_by_rule():
     """{rule: {"threads", "mem_mb"}} for every rule that has benchmark files
     (the benchmark_summary rule's input), read from resources.yaml -- the

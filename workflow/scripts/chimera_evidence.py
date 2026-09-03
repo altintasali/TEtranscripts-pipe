@@ -120,9 +120,9 @@ def _blank():
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--junction", required=True,
-                    help="results/chimera/read_evidence/te-gene-chimeras.tsv.gz")
+                    help="results/chimera/reads/te-gene-chimeras.tsv.gz")
     ap.add_argument("--assembly", default=None,
-                    help="results/chimera/transcript_evidence/transcripts.tsv.gz "
+                    help="results/chimera/assembly/transcripts.tsv.gz "
                          "(omit when the assembly screen is disabled)")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()

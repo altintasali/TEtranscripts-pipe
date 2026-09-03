@@ -88,7 +88,7 @@ def main():
             if c in counts:
                 counts[c]["count"] += 1
         data_labels_note = (
-            "chimera.junction is disabled, so these counts have no independent "
+            "chimera.reads is disabled, so these counts have no independent "
             "cross-confirmation -- enable it too for higher-confidence calls."
         )
         # One category per bar here, so a percentage view would read 100% for
@@ -287,7 +287,7 @@ def main():
         "the <strong>Evidence structure</strong> sections below for your "
         "own data.</li>"
         if has_cross_evidence else
-        "<li>chimera.junction is currently disabled, so no cross-confirmation "
+        "<li>chimera.reads is currently disabled, so no cross-confirmation "
         "is available &mdash; enabling it adds an independent evidence source "
         "for these same candidates.</li>"
     )

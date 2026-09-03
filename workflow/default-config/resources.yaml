@@ -303,7 +303,7 @@ resources:
     mem_mb: 6000
     runtime: 30
 
-  chimera_junction_classify:
+  chimera_reads_classify:
     # Annotating a junction file against the gene/TE tracks; single-threaded
     # python.
     threads: 1
@@ -341,7 +341,7 @@ resources:
     mem_mb: 8000
     runtime: 60
 
-  chimera_counts:
+  chimera_reads_counts:
     # Merging per-sample junction tables; single-threaded python (2 threads
     # reserved as scheduler headroom).  Loads all unique events into a
     # single Python dict -- peak RSS scales linearly with sample count.
@@ -353,12 +353,12 @@ resources:
     mem_per_sample: 125
     runtime: 30
 
-  junction_qc:
+  chimera_reads_qc:
     threads: 1
     mem_mb: 2000
     runtime: 30
 
-  junction_qc_barplot:
+  chimera_reads_qc_barplot:
     # Merging the per-sample junction QC tables into one MultiQC bar-plot
     # JSON; single-threaded, small (2nd core reserved as scheduler headroom).
     threads: 2
@@ -374,7 +374,7 @@ resources:
     runtime: 30
 
 
-  chimera_te_type:
+  chimera_reads_te_type:
     # Sums three metrics per sample and counts classes in one table.
     threads: 1
     mem_mb: 1000
@@ -418,7 +418,7 @@ resources:
     mem_per_sample: 60
     runtime: 30
 
-  junction_highlights:
+  chimera_reads_highlights:
     # Ranks the merged gene<->TE table for the report's "what to look at"
     # section.  Holds that table in memory, so it scales with the number of
     # events -- which scales with cohort size, hence mem_per_sample.
@@ -427,12 +427,12 @@ resources:
     mem_per_sample: 60
     runtime: 30
 
-  chimera_igv_bed:
+  chimera_reads_igv_bed:
     threads: 2
     mem_mb: 2000
     runtime: 30
 
-  sample_qc_transform:
+  chimera_reads_sample_qc_transform:
     # DESeq2 vst/rlog on the chimera counts matrix; R is single-threaded.
     # Memory scales with sample count.  Re-measured on an 84-sample run at
     # the prior "base 2 GB + 125 MB/sample" setting: 442% RAM efficiency
@@ -444,8 +444,9 @@ resources:
     mem_per_sample: 700
     runtime: 60
 
-  sample_qc:
-    # PCA + pheatmap in R; single-threaded.  Memory scales with sample count.
+  chimera_reads_sample_qc:
+    # DESeq2 transform + PCA in R; single-threaded.  Memory scales with
+    # sample count.
     # Base 4 GB + 150 MB per sample.
     threads: 1
     mem_mb: 4000

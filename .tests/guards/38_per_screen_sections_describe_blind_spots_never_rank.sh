@@ -14,13 +14,13 @@ fixture_evidence
 # regression that produced three competing rankings.
 mkdir -p "$T/hl/qc"
 cp "$T/ev/j.tsv.gz" "$T/hl/te-gene-chimeras.tsv.gz"
-if ! python3 workflow/scripts/junction_highlights_mqc.py \
+if ! python3 workflow/scripts/chimera_reads_highlights_mqc.py \
       --te-events "$T/hl/te-gene-chimeras.tsv.gz" \
-      --out "$T/hl/qc/junction_highlights_mqc.json" > "$T/hl/log" 2>&1; then
-  echo "ERROR: junction_highlights_mqc.py failed"; cat "$T/hl/log"; FAIL=1
+      --out "$T/hl/qc/chimera_reads_highlights_mqc.json" > "$T/hl/log" 2>&1; then
+  echo "ERROR: chimera_reads_highlights_mqc.py failed"; cat "$T/hl/log"; FAIL=1
 elif ! python3 -c "
 import json,sys
-d=json.load(open('$T/hl/qc/junction_highlights_mqc.json'))
+d=json.load(open('$T/hl/qc/chimera_reads_highlights_mqc.json'))
 ok=True
 if 'data' not in d:
     print('ERROR: custom_content needs a top-level data key'); ok=False
@@ -49,10 +49,10 @@ fi
 # An empty gene-TE table is a normal outcome and must not crash.
 printf 'event_id\tgene_id\tte_id\tcanonical\tn_samples\ttotal_reads\n' \
   | gzip -c > "$T/hl/empty.tsv.gz"
-if ! python3 workflow/scripts/junction_highlights_mqc.py \
+if ! python3 workflow/scripts/chimera_reads_highlights_mqc.py \
       --te-events "$T/hl/empty.tsv.gz" --out "$T/hl/empty_mqc.json" \
       > "$T/hl/empty.log" 2>&1; then
-  echo "ERROR: junction_highlights_mqc.py died on an empty table"
+  echo "ERROR: chimera_reads_highlights_mqc.py died on an empty table"
   cat "$T/hl/empty.log"; FAIL=1
 fi
 

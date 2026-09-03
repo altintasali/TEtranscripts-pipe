@@ -80,9 +80,9 @@ include: "rules/tetranscripts.smk"
 include: "rules/tecount_qc.smk"
 if TELOCAL_ENABLED:
     include: "rules/telocal.smk"
-if CHIMERA_JUNCTION_ENABLED:
-    include: "rules/chimera_junction.smk"
-    include: "rules/sample_qc.smk"
+if CHIMERA_READS_ENABLED:
+    include: "rules/chimera_reads.smk"
+    include: "rules/chimera_reads_qc.smk"
 if CHIMERA_ASSEMBLY_ENABLED:
     include: "rules/chimera_assembly.smk"
 include: "rules/software_versions.smk"
@@ -100,10 +100,10 @@ rule all:
         # gene_id -> gene_name sidecar; every output is gene_id-keyed, so
         # this is how a symbol gets onto any of them.
         "results/reference/gene_id_to_name.tsv.gz",
-        # The chimera helper functions live in rules/chimera_junction.smk, only
+        # The chimera helper functions live in rules/chimera_reads.smk, only
         # included when the chimera stage is enabled.
         **({"chimera": all_chimera_outputs(),
-            "sample_qc": all_sample_qc_outputs()} if CHIMERA_JUNCTION_ENABLED else {}),
+            "chimera_reads_sample_qc": all_chimera_reads_sample_qc_outputs()} if CHIMERA_READS_ENABLED else {}),
         # The chimera-assembly helpers live in rules/chimera_assembly.smk,
         # only included when that (off-by-default) screen is enabled.
         **({"chimera_assembly": all_chimera_assembly_outputs()}

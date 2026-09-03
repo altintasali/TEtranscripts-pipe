@@ -22,16 +22,16 @@ mkdir -p "$T/canon/qc"
     else printf 'e%s\ts\tother\tno\tno\t.\t.\tNA\n' "$i"; fi
   done
 } | gzip -c > "$T/canon/j.tsv.gz"
-if ! python3 workflow/scripts/junction_qc.py --table "$T/canon/j.tsv.gz" \
+if ! python3 workflow/scripts/chimera_reads_qc.py --table "$T/canon/j.tsv.gz" \
       --sample s --out "$T/canon/qc.tsv.gz" > "$T/canon/qc.log" 2>&1; then
-  echo "ERROR: junction_qc.py failed"; cat "$T/canon/qc.log"; FAIL=1
+  echo "ERROR: chimera_reads_qc.py failed"; cat "$T/canon/qc.log"; FAIL=1
 elif ! zcat "$T/canon/qc.tsv.gz" | grep -qx "canonical_gene_to_te	10"; then
   echo "ERROR: canonical_gene_to_te should be 10"
   zcat "$T/canon/qc.tsv.gz" | grep canonical; FAIL=1
-elif ! python3 workflow/scripts/junction_qc_mqc.py --tables "$T/canon/qc.tsv.gz" \
-      --samples s --out "$T/canon/qc/junction_qc_mqc.json" \
+elif ! python3 workflow/scripts/chimera_reads_qc_mqc.py --tables "$T/canon/qc.tsv.gz" \
+      --samples s --out "$T/canon/qc/chimera_reads_qc_mqc.json" \
       --out-canonical "$T/canon/qc/canonical_rate_mqc.json" > "$T/canon/mqc.log" 2>&1; then
-  echo "ERROR: junction_qc_mqc.py failed"; cat "$T/canon/mqc.log"; FAIL=1
+  echo "ERROR: chimera_reads_qc_mqc.py failed"; cat "$T/canon/mqc.log"; FAIL=1
 else
   # Dataset ORDER is load-bearing: raw counts first, the derived rate second.
   # It used to be the other way round, which put the derived number in front
@@ -82,12 +82,12 @@ mkdir -p "$T/canon0/qc"
 { printf 'event_id\tsample\tdirection\tdirection_ambiguous\tcanonical\tchimera_type\tantisense_flag\tgene_strand_match\n'
   for i in $(seq 1 30); do printf 'e%s\ts\tgene_to_te\tno\tno\tte_initiated\tno\tyes\n' "$i"; done
 } | gzip -c > "$T/canon0/j.tsv.gz"
-python3 workflow/scripts/junction_qc.py --table "$T/canon0/j.tsv.gz" \
+python3 workflow/scripts/chimera_reads_qc.py --table "$T/canon0/j.tsv.gz" \
   --sample s --out "$T/canon0/qc.tsv.gz" > /dev/null 2>&1
-if ! python3 workflow/scripts/junction_qc_mqc.py --tables "$T/canon0/qc.tsv.gz" \
-      --samples s --out "$T/canon0/qc/junction_qc_mqc.json" \
+if ! python3 workflow/scripts/chimera_reads_qc_mqc.py --tables "$T/canon0/qc.tsv.gz" \
+      --samples s --out "$T/canon0/qc/chimera_reads_qc_mqc.json" \
       --out-canonical "$T/canon0/qc/canonical_rate_mqc.json" > "$T/canon0/mqc.log" 2>&1; then
-  echo "ERROR: junction_qc_mqc.py failed on all-zero canonical"; cat "$T/canon0/mqc.log"; FAIL=1
+  echo "ERROR: chimera_reads_qc_mqc.py failed on all-zero canonical"; cat "$T/canon0/mqc.log"; FAIL=1
 elif ! python3 -c "import json,sys; sys.exit(0 if json.load(open('$T/canon0/qc/canonical_rate_mqc.json'))['plot_type']=='html' else 1)"; then
   echo "ERROR: all-zero canonical must degrade to plot_type html"; FAIL=1
 elif ! multiqc --force --no-ansi -c workflow/default-config/multiqc_config.yaml \

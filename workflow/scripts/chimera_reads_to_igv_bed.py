@@ -1,4 +1,4 @@
-"""Turn a per-sample chimera junction table (classify_chimera_junctions.py)
+"""Turn a per-sample chimera junction table (classify_chimera_reads.py)
 into a BED track for IGV: one BED6-ish row per gene-TE event, spanning the
 donor->acceptor breakpoint.
 
@@ -24,7 +24,7 @@ with open_read(snakemake.input[0]) as fh:
 
 os.makedirs(os.path.dirname(str(snakemake.output[0])), exist_ok=True)
 with open(snakemake.output[0], "w") as fh:
-    fh.write('track name="chimera_junctions" description="gene-TE chimera '
+    fh.write('track name="chimera_reads" description="gene-TE chimera '
              'junctions ({sample})" itemRgb="On"\n')
     for r in rows:
         if r.get("direction") not in ("gene_to_te", "te_to_gene"):

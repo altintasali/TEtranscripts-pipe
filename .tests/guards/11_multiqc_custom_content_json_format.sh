@@ -18,11 +18,11 @@ printf 'metric\tvalue\nsample\tb\nevents_total\t0\ndirection_gene_to_te\t0\ndire
 printf 'gene/TE\t/path/a.bam\nENSG0001\t80\nL1PA_0001:L1:LINE\t5\nAluYb_001:AluYb:SINE\t7\n' > "$T/a.cntTable"
 printf 'gene/TE\t/path/b.bam\nENSG0001\t0\nL1PA_0001:L1:LINE\t0\n' > "$T/b.cntTable"
 mkdir -p "$T/custom/chimera/qc" "$T/custom/tecount/qc"
-if ! python workflow/scripts/junction_qc_mqc.py \
+if ! python workflow/scripts/chimera_reads_qc_mqc.py \
       --tables "$T/jqc_a.tsv" "$T/jqc_b.tsv" --samples a b \
-      --out "$T/custom/chimera/qc/junction_qc_mqc.json" \
+      --out "$T/custom/chimera/qc/chimera_reads_qc_mqc.json" \
       --out-te-gene-chimeras "$T/custom/chimera/qc/te_gene_chimeras_mqc.json" > "$T/jqc.log" 2>&1; then
-  echo "ERROR: junction_qc_mqc.py failed"; cat "$T/jqc.log"; FAIL=1
+  echo "ERROR: chimera_reads_qc_mqc.py failed"; cat "$T/jqc.log"; FAIL=1
 fi
 if ! python workflow/scripts/tecount_summary_mqc.py \
       --tables "$T/a.cntTable" "$T/b.cntTable" --samples a b \
@@ -34,7 +34,7 @@ fi
 # cpswitch already provides it, and its percentage (share of the sample's
 # total) is the right one -- also passing a hand-built percentage dataset in
 # data_labels put a second, redundant switcher beside it.
-python3 - "$T/custom/chimera/qc/junction_qc_mqc.json" <<'PY3' || FAIL=1
+python3 - "$T/custom/chimera/qc/chimera_reads_qc_mqc.json" <<'PY3' || FAIL=1
 import json, sys
 d = json.load(open(sys.argv[1]))
 ok = True
@@ -57,7 +57,7 @@ if ! multiqc --force --no-ansi -c workflow/default-config/multiqc_config.yaml \
       -o "$T/mqc" -n report "$T/custom" > "$T/mqc.log" 2>&1; then
   echo "ERROR: multiqc run failed"; tail -40 "$T/mqc.log"; FAIL=1
 else
-  for cid in chimera_junction_qc chimera_te_gene_chimeras \
+  for cid in chimera_reads_qc chimera_te_gene_chimeras \
              tecount_assignment tecount_te_class; do
     if ! grep -q "custom_content | $cid: Found" "$T/mqc.log" \
        || [ ! -f "$T/mqc/report_data/multiqc_${cid}_plot.txt" ]; then

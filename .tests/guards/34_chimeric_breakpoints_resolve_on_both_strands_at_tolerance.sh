@@ -32,12 +32,12 @@ else
   printf 'chr1\t2001\t+\tchr1\t2999\t+\t1\t0\t0\tp1\t1\t50M\t1\t50M\n'  > "$T/bpt/j.junction"
   # - : mirrored. donor ends at 1000 -> STAR 999 ; acceptor starts at 3500 -> STAR 3501
   printf 'chr1\t999\t-\tchr1\t3501\t-\t1\t0\t0\tm1\t1\t50M\t1\t50M\n' >> "$T/bpt/j.junction"
-  if ! python3 workflow/scripts/classify_chimera_junctions.py \
+  if ! python3 workflow/scripts/classify_chimera_reads.py \
         --junctions "$T/bpt/j.junction" --genes "$T/bpt/ref/genes.bed" \
         --exons "$T/bpt/ref/exons.bed" --te "$T/bpt/ref/te.bed" \
         --sample s --breakpoint-tolerance 0 --library-strandedness no \
         --out "$T/bpt/out.tsv.gz" > "$T/bpt/parse.log" 2>&1; then
-    echo "ERROR: classify_chimera_junctions.py failed"; cat "$T/bpt/parse.log"; FAIL=1
+    echo "ERROR: classify_chimera_reads.py failed"; cat "$T/bpt/parse.log"; FAIL=1
   else
     N=$(zcat "$T/bpt/out.tsv.gz" | awk -F'\t' 'NR==1{for(i=1;i<=NF;i++)h[$i]=i;next} $h["direction"]=="gene_to_te" && $h["gene_id"]=="G1" && $h["te_id"]=="L1_dup1"{n++} END{print n+0}')
     if [ "$N" -ne 2 ]; then

@@ -25,7 +25,6 @@ properties:
       deseq2: {type: string}
       ucsc_gtftogenepred: {type: string}
       ucsc_genepredtobed: {type: string}
-      pheatmap: {type: string}
       r_base: {type: string}
     required:
       - star
@@ -212,12 +211,12 @@ properties:
     additionalProperties: false
     description: >-
       Gene-TE chimera detection via two complementary, independent methods
-      -- junction (STAR split-read evidence) and assembly (StringTie
+      -- reads (STAR split-read evidence) and assembly (StringTie
       transcript-structure evidence). See each sub-block. EXPERIMENTAL:
       classification and QC-view behavior may still change between
       releases.
     properties:
-      junction:
+      reads:
         type: object
         additionalProperties: false
         description: >-
@@ -303,15 +302,15 @@ properties:
           Gene-TE chimera detection from StringTie assembly structure
           instead of read-level chimeric junctions -- catches TE-initiated/
           exonized/terminated transcripts spliced via an ordinary,
-          canonical intron, which chimera.junction structurally cannot see.
-          Complements chimera.junction (a candidate found by both is
-          cross-referenced, see results/chimera/transcript_evidence/). Uses a
+          canonical intron, which chimera.reads structurally cannot see.
+          Complements chimera.reads (a candidate found by both is
+          cross-referenced, see results/chimera/assembly/). Uses a
           separate, dedicated STAR alignment pass (--outSAMstrandField
           intronMotif, for StringTie's strand inference on unstranded
           data) -- this suppresses non-canonical-junction reads from that
           one private BAM only; the main alignment used by everything else
           is untouched. Disabled by default: newer and less validated than
-          chimera.junction.
+          chimera.reads.
         properties:
           enabled:
             type: boolean
@@ -328,16 +327,16 @@ properties:
               StringTie's assembled exon boundaries (especially the first
               exon's 5' end, which has no upstream junction to anchor it)
               are coverage-inferred and can be imprecise at low depth --
-              worth setting more generous than chimera.junction's default
+              worth setting more generous than chimera.reads's default
               for single-end data.
           min_transcript_tpm:
             type: number
             minimum: 0
             description: >-
               Not applied at detection time (candidates are always fully
-              reported, same annotate-first philosophy as chimera.junction)
+              reported, same annotate-first philosophy as chimera.reads)
               -- this is the threshold the report/README examples use when
-              reading results/chimera/transcript_evidence/tpm_matrix.tsv.gz. No rule
+              reading results/chimera/assembly/tpm_matrix.tsv.gz. No rule
               currently filters on it automatically.
           outputs:
             type: object
@@ -347,13 +346,13 @@ properties:
               write_igv_bed:
                 type: boolean
                 description: >-
-                  Write a BED track (results/chimera/transcript_evidence/igv/
+                  Write a BED track (results/chimera/assembly/igv/
                   candidates.bed) spanning each candidate's TE-overlapping
                   exon, colored by chimera_type, for loading alongside
-                  chimera.junction's own IGV track. Default false.
+                  chimera.reads's own IGV track. Default false.
             required: [write_igv_bed]
         required: [enabled, breakpoint_tolerance, min_transcript_tpm, outputs]
-    required: [junction, assembly]
+    required: [reads, assembly]
 
   telocal:
     type: object

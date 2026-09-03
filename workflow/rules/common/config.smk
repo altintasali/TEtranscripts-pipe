@@ -19,6 +19,30 @@ from snakemake.utils import validate
 # -----------------------------------------------------------------------------
 # Load & validate config
 # -----------------------------------------------------------------------------
+# Renamed in 0.12.0: chimera.junction -> chimera.reads. This runs BEFORE
+# validate(), because the schema is additionalProperties: false and would
+# otherwise reject the old key with a bare jsonschema error naming "junction"
+# and nothing else -- which every existing user would hit, with no hint that
+# the key moved. Fail fast, and say what to do about it.
+if isinstance(config.get("chimera"), dict) and "junction" in config["chimera"]:
+    raise WorkflowError(
+        "config key 'chimera.junction' was renamed to 'chimera.reads' in "
+        "0.12.0.\n"
+        "The report has always called this screen \"Reads\" (it is the "
+        "read-level evidence screen, as opposed to the StringTie assembly "
+        "one), and the config, rule names and output paths now agree with "
+        "it.\n\n"
+        "In your config file, rename:\n"
+        "    chimera:\n"
+        "      junction:      ->      reads:\n\n"
+        "Everything nested under it is unchanged.\n\n"
+        "The read screen's outputs also moved, from "
+        "results/chimera/read_evidence/ to results/chimera/reads/ (and the "
+        "assembly screen's from transcript_evidence/ to assembly/), so that "
+        "stage re-runs once. Delete the old directories when you are happy "
+        "with the new run."
+    )
+
 validate(config, schema="../../schemas/config.schema.yaml")
 
 V = config["versions"]
@@ -44,8 +68,8 @@ def get_resources(rule_name):
 def get_scaled_mem_mb(rule_name):
     """Return *mem_mb* for *rule_name*, scaled by sample count.
 
-    Rules that accumulate per-sample data in memory (chimera_counts,
-    sample_qc_transform, tecount_counts, …) declare a ``mem_per_sample``
+    Rules that accumulate per-sample data in memory (chimera_reads_counts,
+    chimera_reads_sample_qc_transform, tecount_counts, …) declare a ``mem_per_sample``
     key in ``resources.yaml`` on top of the base ``mem_mb``.  This helper
     computes ``base + per_sample × len(SAMPLES)`` so the SLURM allocation
     grows automatically with the experiment size.  Rules without

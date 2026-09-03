@@ -29,11 +29,11 @@ mkdir -p "$T/p"
 python3 - "$T" <<'PY'
 import sys, os
 sys.path.insert(0, os.path.join(os.getcwd(), "workflow", "scripts"))
-from junction_qc_mqc import DIRECTIONS
+from chimera_reads_qc_mqc import DIRECTIONS
 T = sys.argv[1]
 for i, s in enumerate(["S1", "S2"]):
     with open(f"{T}/p/{s}.tsv", "w") as fh:
-        # junction_qc.py writes a "metric\tvalue" header and load_metrics
+        # chimera_reads_qc.py writes a "metric\tvalue" header and load_metrics
         # skips it; without one here the FIRST metric is silently eaten.
         fh.write("metric\tvalue\n")
         for j, d in enumerate(DIRECTIONS):
@@ -55,7 +55,7 @@ with gzip.open(f"{T}/p/candidates.tsv.gz", "wt") as fh:
     w.writeheader(); w.writerows(rows)
 PY
 
-python3 workflow/scripts/junction_qc_mqc.py \
+python3 workflow/scripts/chimera_reads_qc_mqc.py \
   --tables "$T/p/S1.tsv" "$T/p/S2.tsv" --samples S1 S2 \
   --out "$T/p/junction_mqc.json" \
   --out-canonical "$T/p/canonical_mqc.json" > "$T/p/emit.log" 2>&1

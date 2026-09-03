@@ -130,7 +130,7 @@ rule tecount_qc:
     # PCA scatter + sample-to-sample distance heatmap of the transformed
     # TEcounts counts, colored by condition (sample sheet's "condition"
     # column; absent -> one "all" group), emitted as MultiQC custom-content
-    # JSON (ids tecount_sample_qc_pca / tecount_sample_qc_heatmap, ordered
+    # JSON (ids tecount_chimera_reads_sample_qc_pca / tecount_chimera_reads_sample_qc_heatmap, ordered
     # inside the custom_content module by multiqc_config.yaml).
     input:
         # Declared so that EDITING the script re-runs the rule.

@@ -5,15 +5,15 @@
 # into input/config.yaml and change what you need there instead.
 #
 # Two independent, complementary detection methods live under chimera.*:
-#   chimera.junction -- STAR chimeric-junction reads (on by default). Only
+#   chimera.reads -- STAR chimeric-junction reads (on by default). Only
 #     sees reads STAR can't explain as one linear alignment.
 #   chimera.assembly -- StringTie assembly structure (also on by default;
-#     newer and less validated than chimera.junction). Catches
-#     ordinary-canonical-intron TE-initiated splices that chimera.junction
+#     newer and less validated than chimera.reads). Catches
+#     ordinary-canonical-intron TE-initiated splices that chimera.reads
 #     structurally cannot see. Costs a second, dedicated STAR pass per
 #     sample -- set enabled: false if you don't need it.
 # A candidate found by both is cross-referenced -- see
-# results/chimera/transcript_evidence/transcripts_with_read_support.tsv.gz.
+# results/chimera/assembly/transcripts_with_read_support.tsv.gz.
 #
 # EXPERIMENTAL: both stages are newer additions to the pipeline -- their
 # classification and QC-view behavior may still change between releases. Use
@@ -21,7 +21,7 @@
 # results.
 # =============================================================================
 chimera:
-  junction:
+  reads:
     enabled: true
     star:
       segment_min: 12

@@ -119,9 +119,9 @@ module_order:
 #                        Reads / Assembly / Evidence-structure grouping is
 #                        carried by section names and by report_section_order
 #                        below. Emitted by chimera_candidates_table_mqc,
-#                        chimera_evidence_guide_mqc, chimera_te_type_mqc,
-#                        junction_qc_mqc,
-#                        junction_highlights_mqc, chimera_assembly_summary_mqc,
+#                        chimera_evidence_guide_mqc, chimera_reads_te_type_mqc,
+#                        chimera_reads_qc_mqc,
+#                        chimera_reads_highlights_mqc, chimera_assembly_summary_mqc,
 #                        chimera_evidence_heatmap and sample_qc.R -- ALL of
 #                        which must use parent_id
 #                        "chimera" exactly, or the group silently splits.
@@ -167,11 +167,11 @@ report_section_order:
     order: -29
   chimera_evidence_composition:
     order: -28
-  junction_highlights:
+  chimera_reads_highlights:
     order: -28
   chimera_reads_te_type:
     order: -27
-  chimera_junction_qc:
+  chimera_reads_qc:
     order: -26
   chimera_canonical_rate:
     order: -25
@@ -192,9 +192,9 @@ report_section_order:
     order: -19
   chimera_assembly_strand_rate:
     order: -18
-  chimera_assembly_sample_qc_pca:
+  chimera_assembly_chimera_reads_sample_qc_pca:
     order: -17
-  chimera_assembly_sample_qc_heatmap:
+  chimera_assembly_chimera_reads_sample_qc_heatmap:
     order: -16
   chimera_evidence_correlation:
     order: -15

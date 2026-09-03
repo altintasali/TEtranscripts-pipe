@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Merge the per-sample junction QC tables (junction_qc.py) into MultiQC
+"""Merge the per-sample junction QC tables (chimera_reads_qc.py) into MultiQC
 custom-content bar plots:
-  junction_qc_mqc.json      per-sample chimeric-junction composition by
+  chimera_reads_qc_mqc.json      per-sample chimeric-junction composition by
                             direction (counts and % of total junctions).
   te_gene_chimeras_mqc.json the gene<->TE subset by class (gene_to_te /
                             te_to_gene, counts and % of total junctions) --
                             the gene-TE chimeras view, written when
                             --out-te-gene-chimeras is given.
 
-Reads every results/chimera/read_evidence/per_sample/{sample}_junction_qc.tsv (metric/value pairs)
+Reads every results/chimera/reads/per_sample/{sample}_chimera_reads_qc.tsv (metric/value pairs)
 and writes the JSONs above. MultiQC renders them inside multiqc_report.html in
 the custom_content module (ordered by multiqc_config.yaml), with the two
 datasets switchable via each plot's cpswitch control.
@@ -112,7 +112,7 @@ def _finalise(doc, datasets, empty_html):
 
 
 def load_metrics(path):
-    """metric/value pairs from a junction_qc.tsv."""
+    """metric/value pairs from a chimera_reads_qc.tsv."""
     metrics = {}
     with open_read(path) as fh:
         fh.readline()  # header: metric \t value
@@ -167,7 +167,7 @@ def main():
     # plot.
 
     doc = {
-        "id": "chimera_junction_qc",
+        "id": "chimera_reads_qc",
         "parent_id": "chimera",
         "parent_name": "Chimera",
         "section_name": "Reads - junction classes",
@@ -193,7 +193,7 @@ def main():
         ),
         "plot_type": "bar",
         "pconfig": {
-            "id": "chimera_junction_qc_plot",
+            "id": "chimera_reads_qc_plot",
             "title": "Chimeric junctions by class (donor to acceptor)",
             "ylab": "junctions",
             # cpswitch supplies the Counts/Percentages toggle itself, and

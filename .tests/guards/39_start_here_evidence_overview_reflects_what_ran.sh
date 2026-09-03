@@ -21,13 +21,13 @@ class NS(dict):
 out = sys.argv[1]
 ok = True
 cases = [
-    (dict(_telocal_enabled=True, _chimera_junction_enabled=True,
+    (dict(_telocal_enabled=True, _chimera_reads_enabled=True,
           _chimera_assembly_enabled=True, _two_pass="cohort",
           _has_condition=True), "Two independent"),
-    (dict(_telocal_enabled=False, _chimera_junction_enabled=True,
+    (dict(_telocal_enabled=False, _chimera_reads_enabled=True,
           _chimera_assembly_enabled=False, _two_pass="none",
           _has_condition=False), "One chimera screen"),
-    (dict(_telocal_enabled=False, _chimera_junction_enabled=False,
+    (dict(_telocal_enabled=False, _chimera_reads_enabled=False,
           _chimera_assembly_enabled=False, _two_pass="per_sample",
           _has_condition=False), "quantification only"),
 ]

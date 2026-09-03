@@ -54,7 +54,6 @@ rule software_versions:
             },
             "Differential Expression & Stats": {
                 "DESeq2": V["deseq2"],
-                "pheatmap": V["pheatmap"],
                 "R": V["r_base"],
             },
         }

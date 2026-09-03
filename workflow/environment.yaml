@@ -30,9 +30,6 @@ dependencies:
   - multiqc=1.33
   - stringtie=2.2.1
   - bioconductor-deseq2=1.46.0
-  # pheatmap backs the chimera sample-QC clustering heatmap (sample_qc rule,
-  # only when the chimera screen is enabled).
-  - r-pheatmap=1.0.12
   - r-base=4.4
   - pysam
   - pip

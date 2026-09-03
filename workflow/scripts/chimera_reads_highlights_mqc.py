@@ -12,7 +12,7 @@ longer ranks candidates at all (see chimera_evidence_guide_mqc.py), and this
 section keeps only what is genuinely specific to this screen: its blind spot,
 and the counts a reader needs to judge its output.
 
-Reads the merged gene<->TE table (chimera_counts.py's --out-te-events) because
+Reads the merged gene<->TE table (chimera_reads_counts.py's --out-te-events) because
 the qualifying counts are per-event annotation columns: canonical motif,
 replicate support, and (when telocal is enabled) whether the TE locus is
 expressed.
@@ -51,7 +51,7 @@ def main():
     rows = list(load(args.te_events))
     n_total = len(rows)
     # telocal columns only exist when the telocal-annotation step ran; "." is
-    # what chimera_counts writes for an absent column, so this also stays
+    # what chimera_reads_counts writes for an absent column, so this also stays
     # correct if telocal is on but a run produced no annotated events.
     has_telocal = any(r.get("telocal_active", ".") in ("yes", "no") for r in rows)
 
@@ -111,10 +111,10 @@ the assembly screen's into the <strong>Candidates</strong> table above.</p>
 """
 
     doc = {
-        # parent_id must match junction_qc_mqc.py and sample_qc.R's chimera
+        # parent_id must match chimera_reads_qc_mqc.py and sample_qc.R's chimera
         # view EXACTLY -- every view of this screen shares one group, and a
         # mismatch silently splits it into two report sections.
-        "id": "junction_highlights",
+        "id": "chimera_reads_highlights",
         "parent_id": "chimera",
         "parent_name": "Chimera",
         "section_name": "Reads - what this screen sees",

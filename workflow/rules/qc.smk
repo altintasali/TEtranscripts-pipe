@@ -104,32 +104,32 @@ def _chimera_qc_mqc_inputs():
     as interactive PCA + sample-distance plots inside the report). Only when
     the chimera stage is enabled and a counts matrix is written. Their
     directory is added to the MultiQC scan dirs via params.indirs."""
-    if not CHIMERA_JUNCTION_ENABLED:
+    if not CHIMERA_READS_ENABLED:
         return []
-    if not config["chimera"]["junction"]["outputs"]["write_counts_matrix"]:
+    if not config["chimera"]["reads"]["outputs"]["write_counts_matrix"]:
         return []
-    transform = config["chimera"]["junction"]["qc"]["pca_transform"]
+    transform = config["chimera"]["reads"]["qc"]["pca_transform"]
     return [
         f"results/chimera/qc/pca_{transform}_mqc.json",
         f"results/chimera/qc/heatmap_{transform}_mqc.json",
     ]
 
 
-def _junction_qc_mqc_inputs():
+def _chimera_reads_qc_mqc_inputs():
     """MultiQC custom-content JSONs from the chimera junction-QC barplot
     (per-sample direction composition) and the gene-TE chimeras barplot (the
     gene<->TE subset). Only when the chimera stage is enabled; independent of
     write_counts_matrix, since junction QC runs for every sample the annotator
     produces."""
-    if not CHIMERA_JUNCTION_ENABLED:
+    if not CHIMERA_READS_ENABLED:
         return []
     return [
-        "results/chimera/qc/junction_qc_mqc.json",
+        "results/chimera/qc/chimera_reads_qc_mqc.json",
         "results/chimera/qc/chimera_reads_te_type_mqc.json",
         "results/chimera/qc/te_gene_chimeras_mqc.json",
         "results/chimera/qc/canonical_rate_mqc.json",
         "results/chimera/qc/canonical_enrichment_mqc.json",
-        "results/chimera/qc/junction_highlights_mqc.json",
+        "results/chimera/qc/chimera_reads_highlights_mqc.json",
         "results/chimera/qc/chimera_evidence_correlation_mqc.json",
         "results/chimera/qc/chimera_evidence_candidates_mqc.json",
     ]
@@ -209,7 +209,7 @@ rule evidence_overview:
         _sample_count=len(SAMPLES),
         _has_condition=HAS_CONDITION,
         _telocal_enabled=TELOCAL_ENABLED,
-        _chimera_junction_enabled=CHIMERA_JUNCTION_ENABLED,
+        _chimera_reads_enabled=CHIMERA_READS_ENABLED,
         _chimera_assembly_enabled=CHIMERA_ASSEMBLY_ENABLED,
         _two_pass=STAR_TWO_PASS,
     script:
@@ -235,7 +235,7 @@ rule config_used:
         _trim_enabled=TRIM_ENABLED,
         _tecount_qc_enabled=TECOUNT_QC_ENABLED,
         _tecount_qc=TECOUNT_QC,
-        _chimera_enabled=CHIMERA_JUNCTION_ENABLED,
+        _chimera_enabled=CHIMERA_READS_ENABLED,
         _telocal_enabled=TELOCAL_ENABLED,
         _telocal_locind_auto=not _telocal_locind_cfg,
         _telocal_qc_enabled=TELOCAL_QC_ENABLED,
@@ -279,7 +279,7 @@ rule multiqc:
         "results/pipeline_info/evidence_overview_mqc.json",
         "results/versions/rnaseq_mqc_versions.yml",
         chimera_qc=_chimera_qc_mqc_inputs(),
-        junction_qc=_junction_qc_mqc_inputs(),
+        chimera_reads_qc=_chimera_reads_qc_mqc_inputs(),
         tecount_qc=_tecount_qc_mqc_inputs(),
         tecount_summary=_tecount_summary_mqc_inputs(),
         telocal=_telocal_qc_mqc_inputs(),

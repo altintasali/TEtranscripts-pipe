@@ -26,7 +26,7 @@ Usage:
 
 --out keeps every junction (same rows as --junctions, plus the four columns
 above).  --te-out is the optional gene<->TE subset of that same table --
-same filter classify_chimera_junctions.py's own --te-out applies, so the four
+same filter classify_chimera_reads.py's own --te-out applies, so the four
 per-sample tables are the two row-sets (all / gene-TE) x the two column-sets
 (without / with TElocal).
 
@@ -171,7 +171,7 @@ def main():
             fh.write("\t".join(row.get(c, ".") for c in out_header) + "\n")
 
     if args.te_out:
-        # Same gene<->TE filter classify_chimera_junctions.py's --te-out uses,
+        # Same gene<->TE filter classify_chimera_reads.py's --te-out uses,
         # so the subset is defined identically on both sides.
         te_rows = [
             r for r in rows

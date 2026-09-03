@@ -27,7 +27,7 @@ def _row(cells, muted=False):
 def main():
     p = snakemake.params
     telocal = bool(p._telocal_enabled)
-    junction = bool(p._chimera_junction_enabled)
+    junction = bool(p._chimera_reads_enabled)
     assembly = bool(p._chimera_assembly_enabled)
     two_pass = str(p._two_pass)
     n_samples = int(p._sample_count)
@@ -97,7 +97,7 @@ def main():
         independence = (
             "<p><strong>One chimera screen is running</strong> (assembly). "
             "There is no second, independent method to cross-check its calls; "
-            "<code>chimera.junction.enabled: true</code> adds one.</p>"
+            "<code>chimera.reads.enabled: true</code> adds one.</p>"
         )
     else:
         independence = (

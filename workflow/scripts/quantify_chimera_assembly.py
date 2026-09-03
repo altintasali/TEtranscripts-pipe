@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Build a transcript_id x sample TPM matrix for chimera-assembly candidates,
 pulling values out of each sample's -e/-B re-quantified StringTie GTF
-(results/chimera/transcript_evidence/per_sample/quant/{sample}.transcripts.gtf, see
+(results/chimera/assembly/per_sample/quant/{sample}.transcripts.gtf, see
 chimera_assembly.smk's stringtie_requantify rule).
 
-Kept separate from classify_chimera_assembly.py the same way chimera_counts.py
-is separate from classify_chimera_junctions.py: structural classification and
+Kept separate from classify_chimera_assembly.py the same way chimera_reads_counts.py
+is separate from classify_chimera_reads.py: structural classification and
 expression aggregation are different concerns, and you usually want to
 re-run/tune one without re-running the other.
 """
@@ -52,7 +52,7 @@ def main():
     ap.add_argument("--candidates", required=True)
     ap.add_argument("--quant", nargs="+", required=True,
                      help="Per-sample requantified GTFs, same order as --sample-names")
-    # nargs="+" like chimera_counts.py / tecount_counts.py: the rule
+    # nargs="+" like chimera_reads_counts.py / tecount_counts.py: the rule
     # interpolates the names unquoted, so the shell hands us N argv entries,
     # not one space-joined string. Without it argparse consumed only the
     # first name and exited 2 on the rest -- latent because this rule never

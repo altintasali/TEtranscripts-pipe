@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 # Sample-QC: normalize a counts matrix (chimera junctions, TEcount features
 # or TElocal loci) and produce the PCA + sample-distance views shipped by
-# sample_qc.smk / tecount_qc.smk / telocal.smk.
+# chimera_reads_qc.smk / tecount_qc.smk / telocal.smk.
 #
 # The first two arguments select the mode and the view being served:
 #   view   "chimera", "tecount" or "telocal" -- namespaces the MultiQC
@@ -11,7 +11,7 @@
 #   --transform view counts.tsv samples.csv transform min_samples_present \
 #                 min_total_counts out_matrix.tsv
 #       Apply the chosen transformation (vst / rlog / log2) to the counts
-#       matrix (feature x sample, as written by chimera_counts.py /
+#       matrix (feature x sample, as written by chimera_reads_counts.py /
 #       tecount_counts.py) and write the transformed matrix for the plot
 #       rule to read. vst/rlog use DESeq2's blind normalization
 #       (independent of sample labels, so the QC view can't be overfit);
@@ -45,7 +45,7 @@ suppressMessages(library(DESeq2))
 # is the MultiQC group and must match the Python emitters' parent_id exactly.
 VIEWS <- list(
     # NB: the list KEY stays "chimera" -- it is the CLI selector passed by
-    # sample_qc.smk (--transform chimera / --plots chimera).
+    # chimera_reads_qc.smk (--transform chimera / --plots chimera).
     chimera = list(
         id = "chimera_reads",
         parent = "chimera",
@@ -182,7 +182,7 @@ write_pca_mqc <- function(path, samples, x, y, colors, pc1, pc2, transform,
     }
     body <- paste0(
         '{\n',
-        sprintf('  "id": "%s_sample_qc_pca",\n', v$id),
+        sprintf('  "id": "%s_chimera_reads_sample_qc_pca",\n', v$id),
         sprintf('  "parent_id": "%s",\n', v$parent),
         sprintf('  "parent_name": "%s",\n', v$label),
         sprintf('  "section_name": "%sPCA",\n', v$section_prefix),
@@ -211,7 +211,7 @@ write_heatmap_mqc <- function(path, samples, d, transform, v, note = NULL) {
     rows <- apply(d, 1, function(r) paste0('[', paste(json_num(r), collapse = ", "), ']'))
     body <- paste0(
         '{\n',
-        sprintf('  "id": "%s_sample_qc_heatmap",\n', v$id),
+        sprintf('  "id": "%s_chimera_reads_sample_qc_heatmap",\n', v$id),
         sprintf('  "parent_id": "%s",\n', v$parent),
         sprintf('  "parent_name": "%s",\n', v$label),
         sprintf('  "section_name": "%sClusters",\n', v$section_prefix),
@@ -237,7 +237,7 @@ write_empty_mqc <- function(path, kind, v) {
     body <- if (kind == "scatter") {
         paste0(
             '{\n',
-            sprintf('  "id": "%s_sample_qc_pca",\n', v$id),
+            sprintf('  "id": "%s_chimera_reads_sample_qc_pca",\n', v$id),
             sprintf('  "parent_id": "%s",\n', v$parent),
             sprintf('  "parent_name": "%s",\n', v$label),
             sprintf('  "section_name": "%sPCA",\n', v$section_prefix),
@@ -251,7 +251,7 @@ write_empty_mqc <- function(path, kind, v) {
     } else {
         paste0(
             '{\n',
-            sprintf('  "id": "%s_sample_qc_heatmap",\n', v$id),
+            sprintf('  "id": "%s_chimera_reads_sample_qc_heatmap",\n', v$id),
             sprintf('  "parent_id": "%s",\n', v$parent),
             sprintf('  "parent_name": "%s",\n', v$label),
             sprintf('  "section_name": "%sClusters",\n', v$section_prefix),

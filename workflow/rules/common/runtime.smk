@@ -158,26 +158,26 @@ def _is_paired(sample):
 # -----------------------------------------------------------------------------
 TRIM_ENABLED = bool(config.get("trimming", {}).get("enabled", True))
 
-# Optional chimera-junction screen (rules/chimera_junction.smk +
-# sample_qc.smk). When enabled (the default), the STAR alignment emits
+# Optional chimera-junction screen (rules/chimera_reads.smk +
+# chimera_reads_qc.smk). When enabled (the default), the STAR alignment emits
 # chimeric junctions and the chimera rules annotate them; set
-# chimera.junction.enabled: false to opt out -- no chimera STAR flags are
+# chimera.reads.enabled: false to opt out -- no chimera STAR flags are
 # passed, the chimera rules are not included, and the workflow behaves like
 # the plain quantification pipeline. See CHIMERA_ASSEMBLY_ENABLED below for
 # the complementary StringTie-assembly-based screen.
-CHIMERA_JUNCTION_ENABLED = bool(
-    config.get("chimera", {}).get("junction", {}).get("enabled", True)
+CHIMERA_READS_ENABLED = bool(
+    config.get("chimera", {}).get("reads", {}).get("enabled", True)
 )
 
 # Optional chimera-assembly screen (rules/chimera_assembly.smk):
-# StringTie-assembly-based detection, complementing CHIMERA_JUNCTION_ENABLED
+# StringTie-assembly-based detection, complementing CHIMERA_READS_ENABLED
 # above. Off by default -- newer and less validated.
 CHIMERA_ASSEMBLY_ENABLED = bool(
     config.get("chimera", {}).get("assembly", {}).get("enabled", False)
 )
 
 # Sample-QC thresholds for the chimera views (PCA / sample clustering). Lives
-# here, not in chimera_junction.smk, because BOTH screens' QC views use it and
+# here, not in chimera_reads.smk, because BOTH screens' QC views use it and
 # that file is included only when the junction screen is on -- referencing it
 # from chimera_assembly.smk would NameError on an assembly-only run, which is
 # exactly the configuration guard 27 pins.
@@ -185,7 +185,7 @@ CHIMERA_ASSEMBLY_ENABLED = bool(
 # The assembly view borrows these rather than having a parallel config block:
 # the two views answer the same question and there is no evidence they want
 # different cut-offs. Split them if that stops being true.
-CHIMERA_QC = config["chimera"]["junction"]["qc"]
+CHIMERA_QC = config["chimera"]["reads"]["qc"]
 
 # How many candidate rows the report's table renders. MultiQC embeds table
 # data in the HTML and a real cohort produces tens of thousands of gene-TE

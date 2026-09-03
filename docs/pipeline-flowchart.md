@@ -10,6 +10,7 @@ flowchart LR
         gtf_to_genepred["GTF -> genePred"]
         genepred_to_bed12["genePred -> BED12"]
         telocal_locind["TElocal locus index"]
+        telocal_locations["TElocal locations"]
         cleanup_star_index["remove STAR index (if keep: false)"]
         gene_name_lookup["gene_id -> gene_name lookup"]
     end
@@ -21,7 +22,12 @@ flowchart LR
         samtools_sort["samtools sort"]
         samtools_index["samtools index"]
         fastqc_raw["FastQC (raw)"]
+        star_align_pass1["STAR pass 1 (2-pass)"]
+        star_merge_junctions["merge splice junctions"]
+        samtools_flagstat["samtools flagstat"]
         rseqc_infer_experiment["RSeQC infer_experiment"]
+        rseqc_read_distribution["RSeQC read distribution"]
+        rseqc_gene_body_coverage["RSeQC gene body coverage"]
         determine_strandedness["determine strandedness"]
     end
     subgraph quantification_qc["Quantification + QC"]
@@ -46,43 +52,35 @@ flowchart LR
     end
     subgraph chimera_screen["Chimera screen"]
         annotation_to_bed["annotation -> BED tracks"]
-        chimera_junction_classify["classify chimeric junctions"]
+        chimera_reads_classify["classify chimeric junctions"]
         chimera_telocal_annotate["annotate junctions with TElocal counts"]
-        junction_qc["junction QC"]
-        junction_qc_barplot["junction QC barplot"]
-        junction_highlights["read-screen notes (blind spot + counts)"]
+        chimera_reads_qc["junction QC"]
+        chimera_reads_qc_barplot["junction QC barplot"]
+        chimera_reads_highlights["read-screen notes (blind spot + counts)"]
         chimera_evidence["unified gene-TE evidence catalogue"]
         chimera_evidence_heatmap["evidence correlation + candidate heatmaps"]
         chimera_evidence_guide["how to weigh the evidence + composition"]
         chimera_candidates_table["candidate list (sortable table)"]
-        chimera_te_type["reads TE type (per sample)"]
+        chimera_reads_te_type["reads TE type (per sample)"]
+        chimera_telocal_index["build TElocal index"]
+        star_align_for_assembly["2nd STAR pass (assembly)"]
+        stringtie_assemble["StringTie assemble"]
+        stringtie_merge["StringTie merge"]
+        stringtie_requantify["StringTie requantify"]
+        chimera_assembly_classify["classify assembled chimeric transcripts"]
+        chimera_assembly_quantify["assembly quantification"]
+        chimera_assembly_cross_evidence["cross-evidence catalogue"]
+        chimera_assembly_summary_mqc["assembly summary barplots"]
+        chimera_assembly_igv_bed["assembly IGV BED track"]
         chimera_assembly_qc_transform["assembly QC matrix (log2)"]
         chimera_assembly_qc["assembly PCA + sample clusters"]
-        chimera_igv_bed["IGV BED track"]
-        chimera_counts["chimera counts matrix"]
-        sample_qc_transform["sample-QC transform"]
-        sample_qc["sample-QC plots"]
-    end
-    subgraph other["Other"]
-        chimera_assembly_classify["chimera_assembly_classify"]
-        chimera_assembly_cross_evidence["chimera_assembly_cross_evidence"]
-        chimera_assembly_igv_bed["chimera_assembly_igv_bed"]
-        chimera_assembly_quantify["chimera_assembly_quantify"]
-        chimera_assembly_summary_mqc["chimera_assembly_summary_mqc"]
-        chimera_telocal_index["chimera_telocal_index"]
-        rseqc_gene_body_coverage["rseqc_gene_body_coverage"]
-        rseqc_read_distribution["rseqc_read_distribution"]
-        samtools_flagstat["samtools_flagstat"]
-        star_align_for_assembly["star_align_for_assembly"]
-        star_align_pass1["star_align_pass1"]
-        star_merge_junctions["star_merge_junctions"]
-        stringtie_assemble["stringtie_assemble"]
-        stringtie_merge["stringtie_merge"]
-        stringtie_requantify["stringtie_requantify"]
-        telocal_locations["telocal_locations"]
+        chimera_reads_igv_bed["IGV BED track"]
+        chimera_reads_counts["chimera counts matrix"]
+        chimera_reads_sample_qc_transform["sample-QC transform"]
+        chimera_reads_sample_qc["sample-QC plots"]
     end
     annotation_to_bed --> chimera_assembly_classify
-    annotation_to_bed --> chimera_junction_classify
+    annotation_to_bed --> chimera_reads_classify
     benchmark_summary --> multiqc
     cat_fastq --> fastqc_raw
     cat_fastq --> trim_galore_pe
@@ -94,19 +92,22 @@ flowchart LR
     chimera_assembly_cross_evidence --> chimera_assembly_summary_mqc
     chimera_assembly_qc_transform --> chimera_assembly_qc
     chimera_assembly_quantify --> chimera_assembly_qc_transform
-    chimera_counts --> chimera_assembly_cross_evidence
-    chimera_counts --> chimera_evidence
-    chimera_counts --> junction_highlights
-    chimera_counts --> sample_qc_transform
     chimera_evidence --> chimera_candidates_table
     chimera_evidence --> chimera_evidence_guide
     chimera_evidence --> chimera_evidence_heatmap
-    chimera_junction_classify --> chimera_igv_bed
-    chimera_junction_classify --> chimera_telocal_annotate
-    chimera_junction_classify --> junction_qc
-    chimera_telocal_annotate --> chimera_counts
+    chimera_reads_classify --> chimera_reads_igv_bed
+    chimera_reads_classify --> chimera_reads_qc
+    chimera_reads_classify --> chimera_telocal_annotate
+    chimera_reads_counts --> chimera_assembly_cross_evidence
+    chimera_reads_counts --> chimera_evidence
+    chimera_reads_counts --> chimera_reads_highlights
+    chimera_reads_counts --> chimera_reads_sample_qc_transform
+    chimera_reads_qc --> chimera_reads_qc_barplot
+    chimera_reads_qc --> chimera_reads_te_type
+    chimera_reads_sample_qc_transform --> chimera_reads_sample_qc
+    chimera_telocal_annotate --> chimera_reads_counts
     chimera_telocal_index --> chimera_telocal_annotate
-    determine_strandedness --> chimera_junction_classify
+    determine_strandedness --> chimera_reads_classify
     determine_strandedness --> strandedness_check
     determine_strandedness --> stringtie_assemble
     determine_strandedness --> stringtie_requantify
@@ -119,11 +120,8 @@ flowchart LR
     genepred_to_bed12 --> rseqc_infer_experiment
     genepred_to_bed12 --> rseqc_read_distribution
     gtf_to_genepred --> genepred_to_bed12
-    junction_qc --> chimera_te_type
-    junction_qc --> junction_qc_barplot
     rseqc_infer_experiment --> determine_strandedness
     rseqc_infer_experiment --> strandedness_check
-    sample_qc_transform --> sample_qc
     samtools_index --> rseqc_gene_body_coverage
     samtools_index --> rseqc_infer_experiment
     samtools_index --> rseqc_read_distribution
@@ -134,7 +132,7 @@ flowchart LR
     samtools_sort --> samtools_flagstat
     samtools_sort --> samtools_index
     software_versions --> multiqc
-    star_align --> chimera_junction_classify
+    star_align --> chimera_reads_classify
     star_align --> cleanup_star_index
     star_align --> samtools_sort
     star_align --> tecount

@@ -42,7 +42,6 @@ PACKAGE_NAMES = {
     "multiqc": "multiqc",
     "stringtie": "stringtie",
     "deseq2": "bioconductor-deseq2",
-    "pheatmap": "r-pheatmap",
     "r_base": "r-base",
     "ucsc_gtftogenepred": "ucsc-gtftogenepred",
     "ucsc_genepredtobed": "ucsc-genepredtobed",

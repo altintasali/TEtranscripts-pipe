@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Merge the per-sample junction tables (classify_chimera_junctions.py) into the
+"""Merge the per-sample junction tables (classify_chimera_reads.py) into the
 chimera all-events catalog and the event x sample counts matrix.
 
 Outputs:
@@ -18,7 +18,7 @@ Outputs:
 
 Nothing is filtered from the main outputs: the full union of annotated events
 is shipped (the QC filters in the chimera.qc config section apply only to the
-PCA/clustering view in sample_qc.smk).
+PCA/clustering view in chimera_reads_qc.smk).
 """
 import argparse
 import os
@@ -76,7 +76,7 @@ def main():
             if ev["sample"] == sample:
                 # first-seen annotations (event_id is breakpoint-deterministic).
                 # .get(): the telocal_* columns only exist when telocal is
-                # enabled (chimera_counts_input() then feeds the
+                # enabled (chimera_reads_counts_input() then feeds the
                 # _with-telocal tables); with telocal off the plain junction
                 # tables legitimately lack them, and strict indexing here
                 # crashed the whole merge.
