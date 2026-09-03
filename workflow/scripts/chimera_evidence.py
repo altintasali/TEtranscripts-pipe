@@ -99,7 +99,8 @@ OUT_COLUMNS = [
     "gene_id", "te_id", "te_subfamily", "te_family", "te_class",
     "found_by", "evidence", "n_evidence",
     "junction_events", "junction_reads", "junction_max_samples",
-    "junction_canonical", "junction_chimera_types", "telocal_active",
+    "junction_canonical", "junction_chimera_types",
+    "telocal_active", "telocal_count",
     "assembly_transcripts", "assembly_chimera_types",
     "assembly_strand_match", "assembly_transcript_ids",
 ]
@@ -110,7 +111,7 @@ def _blank():
         "te_subfamily": ".", "te_family": ".", "te_class": ".",
         "junction_events": 0, "junction_reads": 0, "junction_max_samples": 0,
         "junction_canonical": "no", "junction_types": set(),
-        "telocal_active": ".",
+        "telocal_active": ".", "telocal_count": 0,
         "assembly_transcripts": 0, "assembly_types": set(),
         "assembly_strand_match": ".", "assembly_tids": [],
     }
@@ -155,6 +156,13 @@ def main():
             p["telocal_active"] = "yes"
         elif active == "no" and p["telocal_active"] == ".":
             p["telocal_active"] = "no"
+        # chimera_telocal_annotate.py already measured the locus's read count
+        # and this step used to throw it away, keeping only the boolean it was
+        # derived from. MAX, not sum: telocal_count is one locus's count in one
+        # sample, and the same locus recurs across a pair's events, so summing
+        # would multiply one measurement by how many junctions happened to hit
+        # it. Max reads as "the most this locus was expressed in any sample".
+        p["telocal_count"] = max(p["telocal_count"], _int(r.get("telocal_count", 0)))
 
     if args.assembly:
         for r in load(args.assembly):
@@ -194,6 +202,13 @@ def main():
             flags.append("both_screens")
         if p["assembly_strand_match"] == "yes":
             flags.append("assembly_strand_match")
+        # TElocal expression COUNTS as evidence, deliberately. One 4-sample
+        # run suggested it discriminates nothing (see the evidence guide), but
+        # a single small experiment is not enough to demote a signal: the
+        # correlation between junction-side pairs and locus expression has not
+        # been tested properly yet. It stays a flag until it has been.
+        if p["telocal_active"] == "yes":
+            flags.append("telocal_expressed")
 
         rows.append({
             "gene_id": gene, "te_id": te,
@@ -208,6 +223,11 @@ def main():
             "junction_canonical": p["junction_canonical"],
             "junction_chimera_types": ",".join(sorted(p["junction_types"])) or ".",
             "telocal_active": p["telocal_active"],
+            # "." rather than 0 when TElocal never ran, so "not measured" stays
+            # distinguishable from "measured, no reads" -- the same distinction
+            # telocal_active already draws.
+            "telocal_count": ("." if p["telocal_active"] == "."
+                              else p["telocal_count"]),
             "assembly_transcripts": p["assembly_transcripts"],
             "assembly_chimera_types": ",".join(sorted(p["assembly_types"])) or ".",
             "assembly_strand_match": p["assembly_strand_match"],

@@ -45,7 +45,7 @@ COLUMNS = [
      "The individual TE copy (transcript_id in the TE GTF), not the "
      "subfamily. Joins against TElocal rows.", "str"),
     ("n_evidence", "Evidence types",
-     "How many of the four evidence flags this pair carries. A count, not a "
+     "How many of the five evidence flags this pair carries. A count, not a "
      "score -- the flags are unweighted.", "int"),
     ("junction_canonical", "Splice motif",
      "A recognised splice motif on at least one junction (STAR). The guide "
@@ -65,12 +65,13 @@ COLUMNS = [
     # guide discusses it at length, so leaving it out of the table meant the
     # one place a reader looks did not show it -- and its absence read as the
     # column not existing rather than as a deliberate exclusion.
-    ("telocal_active", "TE locus expressed",
-     "TElocal: whether the TE copy is itself transcribed. CONTEXT, NOT "
-     "EVIDENCE -- it does not contribute to Evidence types. Measured on a "
-     "real cohort it was anti-correlated with the splice motif (6.7% vs "
-     "10.2% canonical), so an expressed locus is not support. '.' means "
-     "TElocal did not run.", "str"),
+    ("telocal_count", "TE locus reads",
+     "TElocal read count for the TE copy itself -- how strongly the locus is "
+     "transcribed, not just whether it is. A nonzero count counts toward "
+     "Evidence types. One small run had it anti-correlated with the splice "
+     "motif (6.7% vs 10.2% canonical), which is not enough to demote it -- "
+     "see the guide. Blank means TElocal did not run; 0 means it ran and "
+     "found nothing.", "intna"),
 ]
 
 
@@ -135,30 +136,40 @@ def main():
         entry = {}
         for col, header, _desc, kind in COLUMNS:
             value = gene if col == "gene_label" else r.get(col, ".")
-            entry[header] = _int(value) if kind == "int" else str(value)
+            if kind == "intna":
+                # Leave the cell UNSET when the measurement was not taken.
+                # _int(".") is 0, which would read as "TElocal ran and found
+                # no reads" -- a different statement from "TElocal did not
+                # run". MultiQC renders a missing key as an empty cell.
+                if str(value) not in (".", ""):
+                    entry[header] = _int(value)
+            else:
+                entry[header] = _int(value) if kind == "int" else str(value)
         data[key] = entry
 
     headers = {
         header: {
             "title": header,
             "description": desc,
-            **({"format": "{:,.0f}", "min": 0} if kind == "int" else {}),
+            **({"format": "{:,.0f}", "min": 0}
+               if kind in ("int", "intna") else {}),
         }
         for _col, header, desc, kind in COLUMNS
     }
 
+    # Kept deliberately short: the full argument lives in "How to weigh this
+    # evidence" one section up, and repeating it here buried the table. What
+    # must survive any trim is the disclosure that the default order is an
+    # unweighted count rather than a ranking -- guard 50 pins the phrases
+    # "not a score", "sort" and "validate candidates manually".
     note = (
-        "<p>The <strong>{n_shown:,}</strong> of {n_total:,} gene-TE pairs with "
-        "the most evidence types, from <code>{src}</code>. "
+        "<p>The <strong>{n_shown:,}</strong> of {n_total:,} gene-TE pairs "
+        "carrying the most evidence types, from <code>{src}</code>. "
         "<strong>Click any column header to sort.</strong></p>"
-        "<p>The default order is <em>Evidence types</em>, a count of how many "
-        "of the four flags a pair carries. It is not a score: the flags are "
-        "counted unweighted, because no weighting of them has been validated "
-        "here. It also tilts toward pairs the assembly screen found, since two "
-        "of the four flags need assembly support. <strong>How to weigh this "
-        "evidence</strong> above says what each column is actually worth; "
-        "sort on the one your question needs, and validate candidates "
-        "manually before treating any of them as a result.</p>"
+        "<p>Ordered by <em>Evidence types</em> — an unweighted count of flags, "
+        "<strong>not a score</strong>, and tilted toward the assembly screen "
+        "(two of the five flags need it). See <strong>How to weigh this "
+        "evidence</strong> above, and validate candidates manually.</p>"
     ).format(n_shown=len(top), n_total=len(rows), src=args.source_path)
 
     if top:

@@ -18,7 +18,7 @@ import gzip, random, sys
 T = sys.argv[1]; random.seed(7)
 cols = ["gene_id","te_id","te_subfamily","te_family","te_class","found_by",
       "evidence","n_evidence","junction_events","junction_reads","junction_max_samples",
-      "junction_canonical","junction_chimera_types","telocal_active",
+      "junction_canonical","junction_chimera_types","telocal_active","telocal_count",
       "assembly_transcripts","assembly_chimera_types","assembly_strand_match",
       "assembly_transcript_ids"]
 with gzip.open(f"{T}/ev.tsv.gz","wt") as fh:
@@ -26,6 +26,8 @@ with gzip.open(f"{T}/ev.tsv.gz","wt") as fh:
   for i in range(3000):
       canon = random.random() < 0.086
       active = "yes" if random.random() < (0.80 if canon else 0.93) else "no"
+      # the same anti-correlation, now as the COUNT the heatmap reads
+      tl_count = random.randint(1, 200) if active == "yes" else 0
       fb = "both" if random.random() < 0.0042 else ("junction" if random.random() < 0.6 else "assembly")
       asm = random.randint(1,14) if fb in ("both","assembly") else 0
       jr = random.randint(1,40) if fb in ("both","junction") else 0
@@ -45,6 +47,7 @@ with gzip.open(f"{T}/ev.tsv.gz","wt") as fh:
            "junction_max_samples":nsamp,
            "junction_canonical":"yes" if canon else "no",
            "junction_chimera_types":"te_exonized","telocal_active":active if jr else ".",
+           "telocal_count":tl_count if jr else ".",
            "assembly_transcripts":asm,"assembly_chimera_types":"te_exonized",
            "assembly_strand_match":strand,
            "assembly_transcript_ids":"MSTRG.1"}
@@ -75,7 +78,15 @@ labs = d["xcats"]
 n = len(labs)
 check(len(d["data"]) == n and all(len(r) == n for r in d["data"]), "matrix not square")
 check(all(abs(d["data"][i][i] - 1.0) < 1e-6 for i in range(n)), "diagonal must be 1.0")
-i, j = labs.index("Splice motif"), labs.index("TE locus expressed")
+# Every dimension names the tool it came from, so four STAR columns are
+# visibly one screen rather than four independent lines of evidence.
+import re
+unsourced = [x for x in labs if not re.search(r" \[(STAR|StringTie|TElocal)\]$", x)]
+check(not unsourced, f"dimension labels must name their source tool: {unsourced}")
+# Matched on prefix, not the full string, so relabelling does not break this.
+def find(prefix):
+    return next(k for k, x in enumerate(labs) if x.startswith(prefix))
+i, j = find("Splice motif"), find("TE locus")
 check(abs(d["data"][i][j] - d["data"][j][i]) < 1e-9, "matrix must be symmetric")
 check(d["data"][i][j] < -0.05,
       f"anti-correlation baked into the fixture not recovered: {d['data'][i][j]}")

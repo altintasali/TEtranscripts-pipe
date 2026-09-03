@@ -53,14 +53,24 @@ from gz_io import open_read
 # like an independent line of evidence. Collapsing two screens into one
 # boolean is the same premature aggregation that hid the tier-4 problem: read
 # the two screens' columns and judge the agreement yourself.
+# Every label names the TOOL it comes from. Both heatmaps below exist to show
+# which evidence is independent, and the bare labels hid the answer: four of
+# these seven are STAR reading the same chimeric-junction output, so their
+# mutual correlation is near-tautological, not corroboration. Naming the
+# source puts that in the axis instead of leaving the reader to infer it --
+# the same reason chimera_evidence_guide_mqc.py carries a source-tool column.
 DIMENSIONS = [
-    ("junction_reads", "Junction reads", "num"),
-    ("junction_events", "Breakpoints", "num"),
-    ("junction_max_samples", "Replicates", "num"),
-    ("junction_canonical", "Splice motif", "yes"),
-    ("assembly_transcripts", "Assembly transcripts", "num"),
-    ("assembly_strand_match", "Assembly strand match", "yes"),
-    ("telocal_active", "TE locus expressed", "yes"),
+    ("junction_reads", "Junction reads [STAR]", "num"),
+    ("junction_events", "Breakpoints [STAR]", "num"),
+    ("junction_max_samples", "Replicates [STAR]", "num"),
+    ("junction_canonical", "Splice motif [STAR]", "yes"),
+    ("assembly_transcripts", "Assembly transcripts [StringTie]", "num"),
+    ("assembly_strand_match", "Assembly strand match [StringTie]", "yes"),
+    # The COUNT, not the yes/no it was derived from. As a boolean this column
+    # could only ever take two percentile values, so it carried almost no
+    # information in either heatmap and its Spearman was one giant tie. The
+    # count is what TElocal actually measured.
+    ("telocal_count", "TE locus reads [TElocal]", "num"),
 ]
 
 
@@ -138,6 +148,11 @@ def heatmap_doc(doc_id, section, description, xcats, ycats, data, title,
             # labels the report reads as though it found 7 samples.
             "xlab": "Evidence type",
             "ylab": ylab,
+            # ...and the subtitle said exactly that -- "7 samples" -- because
+            # PConfig.series_label defaults to "samples" and is echoed as
+            # "{n} {series_label}" (multiqc/plots/plot.py). The 7 are evidence
+            # dimensions, not samples; a custom value is used verbatim.
+            "series_label": "evidences",
         },
         "xcats": xcats,
         "ycats": ycats,

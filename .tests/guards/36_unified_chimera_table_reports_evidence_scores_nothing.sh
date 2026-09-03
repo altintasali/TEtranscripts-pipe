@@ -36,17 +36,20 @@ check("evidence" in h and "n_evidence" in h, "evidence/n_evidence columns missin
 g = d.get(("Gapdh", "L1PA2_dup1"), {})
 check(g.get("found_by") == "both", "Gapdh pair not marked found_by both")
 check(set(g.get("evidence", "").split(",")) ==
-      {"canonical", "multi_sample", "both_screens", "assembly_strand_match"},
+      {"canonical", "multi_sample", "both_screens", "assembly_strand_match",
+       "telocal_expressed"},
       f"Gapdh pair evidence set wrong: {g.get('evidence')!r}")
-check(g.get("n_evidence") == "4", f"n_evidence must count flags, got {g.get('n_evidence')}")
+check(g.get("n_evidence") == "5", f"n_evidence must count flags, got {g.get('n_evidence')}")
 check(g.get("junction_events") == "2", "two junction events must collapse into one pair row")
 check(g.get("junction_reads") == "60", "junction reads must sum across events")
 check(g.get("junction_canonical") == "yes", "canonical on any event must set the pair canonical")
-# TE expression is anti-evidence: it must create no flag at all
+# TE expression IS an evidence flag at this stage. One small run suggested it
+# discriminates nothing, but that is not enough to demote it -- see the
+# evidence guide. Pinned so the flag is neither dropped nor silently renamed.
 a = d.get(("Actb", "AluY_dup9"), {})
 check(a.get("telocal_active") == "yes", "fixture should have an expressed locus here")
-check(a.get("evidence") == "multi_sample",
-      f"telocal_active must add no flag; got {a.get('evidence')!r}")
+check(a.get("evidence") == "multi_sample,telocal_expressed",
+      f"an expressed locus must add the telocal flag; got {a.get('evidence')!r}")
 check(d.get(("Myc", "L1MdA_dup4"), {}).get("evidence") == "canonical",
       "canonical-only pair must carry exactly that flag")
 # depth is the metric artifacts inflate most: 999 reads earns nothing

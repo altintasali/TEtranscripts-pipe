@@ -46,6 +46,7 @@ FLAGS = [
     ("multi_sample", "Replicate support"),
     ("both_screens", "Called by both screens"),
     ("assembly_strand_match", "Assembly strand match"),
+    ("telocal_expressed", "TE locus expressed"),
 ]
 
 # (label, source tool, what the signal is, what THIS pipeline has measured
@@ -111,15 +112,16 @@ SIGNALS = [
     (
         "TE locus expressed",
         "TElocal",
-        "<strong>Not an evidence flag.</strong> Reported as "
-        "<code>telocal_active</code> when TElocal ran.",
-        "Was once treated as support, on the assumption that an independently "
-        "transcribed TE corroborates the chimera. Measured on a real 4-sample "
-        "mouse run it did the opposite: 91% of junction-side pairs had an "
-        "expressed locus, so it discriminated nothing, and the canonical rate "
-        "was <em>lower</em> where the TE was expressed (6.7% vs 10.2%, "
-        "n&nbsp;=&nbsp;19,503). Expression is context, not support.",
-        "not-evidence",
+        "Counted as an evidence flag. Reported as "
+        "<code>telocal_count</code> when TElocal ran.",
+        "One small 4-sample mouse experiment: 91% of junction-side pairs had "
+        "an expressed locus, and the canonical rate was <em>lower</em> where "
+        "it was (6.7% vs 10.2%, n&nbsp;=&nbsp;19,503). Too early to conclude "
+        "anything from a single run &mdash; the correlation between "
+        "junction-side pairs and TE locus expression needs testing properly. "
+        "It stays a flag until that test exists &mdash; one small experiment "
+        "is not enough to demote a signal.",
+        "unresolved",
     ),
 ]
 
@@ -243,7 +245,7 @@ def main():
         # MultiQC stacks by default (stacking="relative"), which drew these as
         # segments of a single bar -- and that reads as a partition: mutually
         # exclusive slices summing to the cohort. It is the opposite of true.
-        # A pair can carry all four flags at once, so the counts OVERLAP and
+        # A pair can carry all five flags at once, so the counts OVERLAP and
         # do not sum to anything meaningful. Giving each its own bar removes
         # the implied exclusivity.
         composition_body = {
@@ -284,7 +286,7 @@ def main():
         "description": (
             "How many gene-TE pairs carry each line of evidence. "
             "<strong>These bars overlap and do not sum to the cohort.</strong> "
-            "A single pair can carry all four flags at once, so it is counted "
+            "A single pair can carry all five flags at once, so it is counted "
             "in several bars &mdash; they are independent counts, not slices "
             "of a whole, which is why they are drawn separately rather than "
             "stacked. Sources: splice motif and replicate support from STAR "
