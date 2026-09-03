@@ -96,8 +96,13 @@ def main():
 
         row = {
             "n": len(rows),
-            "walltime_mean_h": round(statistics.mean(walltimes) / 3600.0, 3),
-            "walltime_max_h": round(max(walltimes) / 3600.0, 3),
+            # Seconds, not hours. In hours, every rule that finishes in
+            # under ~1.8s rounds to 0.000 at 3 decimals -- which on any
+            # normal run is most of the table, so the column read as though
+            # nothing took any time. Seconds never collapse: a 0.4s rule
+            # shows 0.4, and an hour-long STAR job shows 3,600.
+            "walltime_mean_s": round(statistics.mean(walltimes), 1),
+            "walltime_max_s": round(max(walltimes), 1),
             "cpu_alloc_cores": cpu_alloc_cores,
             "cpu_used_mean_cores": round(statistics.mean(loads), 3),
             "cpu_used_max_cores": round(max(loads), 3),
@@ -136,14 +141,16 @@ def main():
                 "format": "{:,d}",
                 "min": 0,
             },
-            "walltime_mean_h": {
-                "title": "Wall time mean (h)",
-                "format": "{:.3f}",
+            "walltime_mean_s": {
+                "title": "Wall time mean (s)",
+                "description": "Mean wall-clock seconds per job",
+                "format": "{:,.1f}",
                 "min": 0,
             },
-            "walltime_max_h": {
-                "title": "Wall time max (h)",
-                "format": "{:.3f}",
+            "walltime_max_s": {
+                "title": "Wall time max (s)",
+                "description": "Slowest single job, wall-clock seconds",
+                "format": "{:,.1f}",
                 "min": 0,
             },
             "cpu_alloc_cores": {

@@ -182,18 +182,19 @@ def all_benchmark_files():
         files.append(
             "results/pipeline_info/benchmarks/star_index/star_index.txt"
         )
-    # BED12 gene-model conversion only runs when RSeQC strandedness
-    # auto-detection actually needs it.
     if STRAND_CHECK_SAMPLES:
         files.append(
             "results/pipeline_info/benchmarks/strandedness_check/"
             "strandedness_check.txt"
         )
-    if AUTO_SAMPLES:
-        files += [
-            "results/pipeline_info/benchmarks/gtf_to_genepred/gtf_to_genepred.txt",
-            "results/pipeline_info/benchmarks/genepred_to_bed12/genepred_to_bed12.txt",
-        ]
+    # The BED12 gene model is built on every run: rseqc_read_distribution and
+    # rseqc_gene_body_coverage (bam_qc.smk) consume it for ALL samples, not
+    # just the strandedness ones. It used to be gated on AUTO_SAMPLES, from
+    # when RSeQC strandedness was its only consumer.
+    files += [
+        "results/pipeline_info/benchmarks/gtf_to_genepred/gtf_to_genepred.txt",
+        "results/pipeline_info/benchmarks/genepred_to_bed12/genepred_to_bed12.txt",
+    ]
     for stem in REFERENCE_GZ_SOURCES:
         files.append(f"results/pipeline_info/benchmarks/gunzip_reference/{stem}.txt")
     for s in SAMPLES:
@@ -203,6 +204,12 @@ def all_benchmark_files():
             f"results/pipeline_info/benchmarks/samtools_index/{s}.txt",
             f"results/pipeline_info/benchmarks/tecount/{s}.txt",
             f"results/pipeline_info/benchmarks/fastqc_raw/{s}_R1.txt",
+            # bam_qc.smk -- always on, for every sample. Omitted here until
+            # now, so the table silently hid them; gene-body coverage in
+            # particular is one of the slowest per-sample steps.
+            f"results/pipeline_info/benchmarks/samtools_flagstat/{s}.txt",
+            f"results/pipeline_info/benchmarks/rseqc_read_distribution/{s}.txt",
+            f"results/pipeline_info/benchmarks/rseqc_gene_body_coverage/{s}.txt",
         ]
         if _is_paired(s):
             files.append(f"results/pipeline_info/benchmarks/fastqc_raw/{s}_R2.txt")
