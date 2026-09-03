@@ -151,10 +151,15 @@ resources:
     runtime: 60
 
   rseqc_gene_body_coverage:
-    # Per-position depth across every transcript in the BED12 model over the
-    # whole BAM -- CPU/time heavier than infer_experiment/read_distribution's
-    # single streaming pass. Unbenchmarked on real data at time of writing;
-    # a starting point, not a measured value.
+    # Heavier than infer_experiment/read_distribution's single streaming
+    # pass: geneBody_coverage.py pileups each transcript from its first to
+    # its last exonic base -- the whole genomic span, introns included -- to
+    # sample 100 points, so the cost is sum(genomic span x depth) over
+    # transcripts, in pure Python. It has no internal parallelism, so
+    # threads: 1 is the tool's limit, not a conservative choice. The rule
+    # thins the BED12 to ~1000 transcripts first (see bam_qc.smk), which is
+    # what keeps this in minutes rather than hours; runtime below is headroom
+    # for that thinned model.
     threads: 1
     mem_mb: 8000
     runtime: 120
