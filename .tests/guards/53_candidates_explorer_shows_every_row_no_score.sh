@@ -18,14 +18,6 @@ guard_init
 #
 # Same non-ranking stance as guards 36/50: every evidence column is shown
 # as-is and no combined/weighted score is ever computed here.
-if ! command -v Rscript >/dev/null 2>&1 || ! Rscript -e 'library(DT); library(htmlwidgets)' >/dev/null 2>&1; then
-  echo "[guard 53] SKIP: R/DT/htmlwidgets not on PATH in this environment " \
-       "(they live in the generated candidates_explorer env, only present " \
-       "under --sdm conda or after installing workflow/environment.yaml's " \
-       "r-dt/r-htmlwidgets/pandoc directly)"
-  exit 0
-fi
-
 mkdir -p "$T/exp"
 cols="gene_id\tte_id\tte_subfamily\tte_family\tte_class\tfound_by\tevidence\tn_evidence\tjunction_events\tjunction_reads\tjunction_max_samples\tjunction_canonical\tjunction_chimera_types\ttelocal_active\ttelocal_count\tassembly_transcripts\tassembly_chimera_types\tassembly_strand_match\tassembly_transcript_ids"
 {
@@ -45,6 +37,58 @@ printf 'chr1\t999\t2000\tENSMUSG00000057666\t.\t+\nchr2\t4999\t6000\tENSMUSG9999
   > "$T/exp/genes.bed"
 printf 'chr1\t2099\t2400\tL1PA2_dup1\t.\t+\tL1\tLINE\tL1PA2\nchr2\t7099\t7300\tAluY_dup9\t.\t-\tAlu\tSINE\tAluY\n' \
   > "$T/exp/te.bed"
+
+# --- The rule's own shell step (not the R script) awk-filters genes.bed/
+# te.bed down to just the candidates' gene_id/te_id before R ever sees them.
+# genes.bed/te.bed are GENOME-WIDE (every gene/TE in the annotation, not just
+# candidates) -- te.bed especially, millions of rows for a real mouse/human
+# TE annotation. Loading the unfiltered file OOM-killed a real run (2.3 GB
+# against a 2.4 GB request) even though a candidate-count-sized dev fixture
+# never caught it. This exercises the EXACT awk command from
+# workflow/rules/chimera_reads.smk (kept in sync by eye -- if that command
+# changes, update this copy too) against a small stand-in for a genome-wide
+# BED that mixes candidate and non-candidate ids, and pins that only the
+# candidate rows survive. Needs no R, so it runs even where Rscript/DT are
+# unavailable.
+gzip -dc "$T/exp/candidates.tsv.gz" | tail -n +2 | cut -f1 | sort -u > "$T/exp/gene_ids.txt"
+gzip -dc "$T/exp/candidates.tsv.gz" | tail -n +2 | cut -f2 | sort -u > "$T/exp/te_ids.txt"
+{
+  cat "$T/exp/genes.bed"
+  # non-candidate genes that must be FILTERED OUT
+  printf 'chr3\t0\t100\tENSMUSG_NOT_A_CANDIDATE_1\t.\t+\n'
+  printf 'chr4\t0\t100\tENSMUSG_NOT_A_CANDIDATE_2\t.\t+\n'
+} > "$T/exp/genome_wide_genes.bed"
+{
+  cat "$T/exp/te.bed"
+  printf 'chr3\t0\t100\tL1_NOT_A_CANDIDATE\t.\t+\tL1\tLINE\tL1x\n'
+} > "$T/exp/genome_wide_te.bed"
+awk -F'\t' 'NR==FNR{ids[$1]=1; next} ($4 in ids)' \
+  "$T/exp/gene_ids.txt" "$T/exp/genome_wide_genes.bed" > "$T/exp/filtered_genes.bed"
+awk -F'\t' 'NR==FNR{ids[$1]=1; next} ($4 in ids)' \
+  "$T/exp/te_ids.txt" "$T/exp/genome_wide_te.bed" > "$T/exp/filtered_te.bed"
+n_genes=$(wc -l < "$T/exp/filtered_genes.bed" | tr -d ' ')
+n_te=$(wc -l < "$T/exp/filtered_te.bed" | tr -d ' ')
+if [ "$n_genes" != "2" ]; then
+  echo "ERROR: gene BED filter kept $n_genes rows, expected exactly the 2 candidate genes -- non-candidate genome rows leaked through, or a candidate was dropped"
+  FAIL=1
+fi
+if [ "$n_te" != "2" ]; then
+  echo "ERROR: TE BED filter kept $n_te rows, expected exactly the 2 candidate TEs -- non-candidate genome rows leaked through, or a candidate was dropped"
+  FAIL=1
+fi
+if grep -q "NOT_A_CANDIDATE" "$T/exp/filtered_genes.bed" "$T/exp/filtered_te.bed"; then
+  echo "ERROR: a non-candidate genome-wide row survived filtering -- this is exactly what OOM-killed a real run"
+  FAIL=1
+fi
+
+if ! command -v Rscript >/dev/null 2>&1 || ! Rscript -e 'library(DT); library(htmlwidgets)' >/dev/null 2>&1; then
+  echo "[guard 53] SKIP (R portion only): R/DT/htmlwidgets not on PATH in " \
+       "this environment (they live in the generated candidates_explorer " \
+       "env, only present under --sdm conda or after installing " \
+       "workflow/environment.yaml's r-dt/r-htmlwidgets/pandoc directly). " \
+       "The awk-filtering checks above still ran."
+  exit $FAIL
+fi
 
 if ! Rscript workflow/scripts/chimera_candidates_explorer.R \
       "$T/exp/candidates.tsv.gz" "$T/exp/gene_id_to_name.tsv.gz" \

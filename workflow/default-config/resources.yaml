@@ -393,8 +393,18 @@ resources:
     # (all rows, not top-N); the data.frame, DT's JSON serialization, and
     # pandoc's self-contained bundling step all hold the whole catalogue in
     # memory at once, so this scales with cohort size like chimera_evidence.
+    # The rule's own shell step awk-filters genes.bed/te.bed down to just the
+    # candidates' gene_id/te_id BEFORE R ever runs -- those BEDs are
+    # genome-wide (te.bed especially: millions of rows for a real
+    # mouse/human TE annotation), and loading the unfiltered files OOM-killed
+    # a real run at 2.4 GB. Measured after that fix, at real-cohort scale
+    # (~31k candidates, a 4M-row/240MB synthetic te.bed standing in for a
+    # real genome-wide TE annotation): R's peak RSS was ~1.1 GB. mem_mb below
+    # is set with real headroom above that measurement, not tightly to it --
+    # pandoc runs as a subprocess during the self-contained bundling step and
+    # its own memory isn't captured by that measurement.
     threads: 1
-    mem_mb: 2000
+    mem_mb: 4000
     mem_per_sample: 100
     runtime: 60
 

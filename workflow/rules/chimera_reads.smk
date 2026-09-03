@@ -428,6 +428,18 @@ rule chimera_candidates_explorer:
     # optional, differently-keyed chimera_reads_igv_bed/
     # chimera_assembly_igv_bed tracks, which cannot be searched by
     # candidate name).
+    #
+    # genes.bed/te.bed are GENOME-WIDE -- every gene and every TE insertion
+    # in the annotation, not just the ones with a candidate. te.bed
+    # especially: a real mouse/human TE annotation is millions of rows.
+    # Loading that whole file into R OOM-killed this rule on real data (2.3
+    # GB against a 2.4 GB request, measured on a real run -- a synthetic
+    # dev fixture sized to just the candidate count never caught this).
+    # awk-filtering both BEDs down to only the gene_id/te_id values
+    # candidates.tsv.gz actually references, BEFORE R ever sees them, is
+    # the same fix as rseqc_gene_body_coverage's BED thinning in
+    # bam_qc.smk: cheap, streaming, and keeps R's peak memory proportional
+    # to candidate count instead of genome size.
     input:
         # Declared so that EDITING the script re-runs the rule.
         # Snakemake's code trigger hashes the shell command STRING,
@@ -451,8 +463,18 @@ rule chimera_candidates_explorer:
     conda:
         CANDIDATES_EXPLORER_ENV
     shell:
+        "genes_ids={resources.tmpdir}/candidates_gene_ids.txt; "
+        "te_ids={resources.tmpdir}/candidates_te_ids.txt; "
+        "genes_filtered={resources.tmpdir}/candidates_genes.bed; "
+        "te_filtered={resources.tmpdir}/candidates_te.bed; "
+        "gzip -dc {input.evidence} | tail -n +2 | cut -f1 | sort -u > \"$genes_ids\" && "
+        "gzip -dc {input.evidence} | tail -n +2 | cut -f2 | sort -u > \"$te_ids\" && "
+        "awk -F'\\t' 'NR==FNR{{ids[$1]=1; next}} ($4 in ids)' "
+        "\"$genes_ids\" {input.genes_bed} > \"$genes_filtered\" && "
+        "awk -F'\\t' 'NR==FNR{{ids[$1]=1; next}} ($4 in ids)' "
+        "\"$te_ids\" {input.te_bed} > \"$te_filtered\" && "
         "Rscript {input.script} "
-        "{input.evidence} {input.gene_names} {input.genes_bed} {input.te_bed} "
+        "{input.evidence} {input.gene_names} \"$genes_filtered\" \"$te_filtered\" "
         "{output} > {log} 2>&1"
 
 
