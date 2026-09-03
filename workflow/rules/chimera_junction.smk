@@ -534,6 +534,7 @@ rule junction_qc_barplot:
         junction="results/chimera/qc/junction_qc_mqc.json",
         te_gene_chimeras="results/chimera/qc/te_gene_chimeras_mqc.json",
         canonical="results/chimera/qc/canonical_rate_mqc.json",
+        enrichment="results/chimera/qc/canonical_enrichment_mqc.json",
     params:
         samples=lambda wc, input: " ".join(SAMPLES),
     threads: get_resources("junction_qc_barplot")["threads"]
@@ -550,7 +551,8 @@ rule junction_qc_barplot:
         "--samples {params.samples} "
         "--out {output.junction} "
         "--out-te-gene-chimeras {output.te_gene_chimeras} "
-        "--out-canonical {output.canonical} > {log} 2>&1"
+        "--out-canonical {output.canonical} "
+        "--out-enrichment {output.enrichment} > {log} 2>&1"
 
 
 rule chimera_igv_bed:

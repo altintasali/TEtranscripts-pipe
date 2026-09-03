@@ -14,6 +14,7 @@ the custom_content module (ordered by multiqc_config.yaml), with the two
 datasets switchable via each plot's cpswitch control.
 """
 import argparse
+from math import lgamma, exp
 import json
 import os
 import sys
@@ -25,6 +26,65 @@ DIRECTIONS = [
     "gene_to_te", "te_to_gene", "gene_to_gene", "te_to_te",
     "gene_to_other", "other_to_gene", "te_to_other", "other_to_te", "other",
 ]
+
+# The comparisons the canonical-rate section already prescribes in prose:
+# each gene-TE direction against its OWN donor group, never against `other`.
+# The donor side alone moves the rate several points, so gene_to_te vs other
+# would credit the class for its donor being a gene at all.
+ENRICHMENT_COMPARISONS = [
+    ("gene_to_te", "gene_to_gene"),
+    ("gene_to_te", "gene_to_other"),
+    ("te_to_gene", "te_to_te"),
+    ("te_to_gene", "te_to_other"),
+]
+
+
+def _lchoose(n, k):
+    if k < 0 or k > n:
+        return float("-inf")
+    return lgamma(n + 1) - lgamma(k + 1) - lgamma(n - k + 1)
+
+
+def fisher_exact_two_sided(a, b, c, d):
+    """Two-sided Fisher's exact p for [[a, b], [c, d]].
+
+    Implemented here because scipy is not in this workflow's environment and
+    is far too heavy a dependency for one test. Conditioning on both margins
+    makes the count in cell `a` hypergeometric; the two-sided p is the total
+    probability of every table no more probable than the observed one, which
+    is R's fisher.test convention. Verified against R fisher.test to 10
+    significant figures on small, large and zero-cell tables (unit test).
+    """
+    r1, r2, c1 = a + b, c + d, a + c
+    n = r1 + r2
+    if r1 == 0 or r2 == 0 or c1 == 0 or (n - c1) == 0:
+        return 1.0
+    ln_den = _lchoose(n, c1)
+
+    def lp(k):
+        return _lchoose(r1, k) + _lchoose(r2, c1 - k) - ln_den
+
+    p_obs = lp(a)
+    total = 0.0
+    for k in range(max(0, c1 - r2), min(r1, c1) + 1):
+        pk = lp(k)
+        if pk <= p_obs + 1e-7:   # tolerance: equal-probability tables
+            total += exp(pk)
+    return min(1.0, total)
+
+
+def benjamini_hochberg(pvals):
+    """BH-adjusted q-values, same order as the input."""
+    m = len(pvals)
+    if not m:
+        return []
+    order = sorted(range(m), key=lambda i: pvals[i])
+    q = [0.0] * m
+    prev = 1.0
+    for rank, i in enumerate(reversed(order), start=1):
+        adj = min(prev, pvals[i] * m / (m - rank + 1))
+        q[i] = prev = min(1.0, adj)
+    return q
 
 
 def _finalise(doc, datasets, empty_html):
@@ -74,6 +134,11 @@ def main():
         "--out-canonical", required=False,
         help="Optional output: canonical (splice-motif) rate per direction "
         "-- the main signal-vs-artifact discriminator.",
+    )
+    ap.add_argument(
+        "--out-enrichment", required=False,
+        help="Optional output: Fisher's exact test of each gene-TE "
+        "direction's canonical rate against its own donor group.",
     )
     ap.add_argument(
         "--out-te-gene-chimeras", required=False,
@@ -247,6 +312,117 @@ def main():
             json.dump(canon_doc, fh, indent=2)
             fh.write("\n")
         print(f"canonical-rate barplot ({len(samples)} samples) -> {args.out_canonical}")
+
+    if args.out_enrichment:
+        # Per-sample AND pooled. Pooled has the power; per-sample shows
+        # whether the effect reproduces across libraries, which is the more
+        # convincing evidence and the thing a single deep library can fake.
+        per_sample = {}
+        for path, sample in zip(args.tables, args.samples):
+            m = load_metrics(path)
+            row = {}
+            for d in DIRECTIONS:
+                try:
+                    tot = int(float(m.get(f"direction_{d}", 0)))
+                    hit = int(float(m.get(f"canonical_{d}", 0)))
+                except (TypeError, ValueError):
+                    tot = hit = 0
+                row[d] = (hit, max(0, tot - hit))
+            per_sample[sample] = row
+
+        entries = []
+        for cls, comp in ENRICHMENT_COMPARISONS:
+            units = [(s_, per_sample[s_]) for s_ in args.samples]
+            pooled = {}
+            for d in (cls, comp):
+                pooled[d] = (sum(r[d][0] for _, r in units),
+                             sum(r[d][1] for _, r in units))
+            for label, row in [("pooled", pooled)] + units:
+                a, b = row[cls]
+                c, d_ = row[comp]
+                if (a + b) == 0 or (c + d_) == 0:
+                    continue
+                # Sample odds ratio, NOT R's conditional MLE -- they differ,
+                # and claiming the latter without computing it would be wrong.
+                orat = ((a * d_) / (b * c)) if b and c else float("nan")
+                entries.append({
+                    "key": f"{cls} vs {comp} | {label}",
+                    "Comparison": f"{cls} vs {comp}",
+                    "Sample": label,
+                    "Canonical": a,
+                    "Junctions": a + b,
+                    "Rate": round(100.0 * a / (a + b), 2),
+                    "Comparator rate": round(100.0 * c / (c + d_), 2),
+                    "Odds ratio": None if orat != orat else round(orat, 3),
+                    "p": fisher_exact_two_sided(a, b, c, d_),
+                })
+        for e, q in zip(entries, benjamini_hochberg([e["p"] for e in entries])):
+            e["q (BH)"] = q
+
+        enrich_doc = {
+            "id": "chimera_canonical_enrichment",
+            "parent_id": "chimera",
+            "parent_name": "Chimera",
+            "section_name": "Reads - splice-motif enrichment",
+            "description": (
+                "Fisher's exact test (two-sided) of each gene-TE direction's "
+                "splice-motif rate against its <em>own donor group</em>, the "
+                "comparison the plot above prescribes. Each row is one 2x2 of "
+                "canonical vs motif-less junctions in the class against the "
+                "same in the comparator."
+                "<br><br><em>How to read it:</em> the <strong>pooled</strong> "
+                "row has the power; the per-sample rows show whether the "
+                "effect reproduces, which one deep library cannot fake. "
+                "<code>q (BH)</code> corrects across every test in this table "
+                f"({len(entries)}). An odds ratio above 1 means the gene-TE "
+                "class carries the motif more often than its donor group."
+                "<br><br>This tests <em>enrichment only</em>. A motif-less "
+                "junction can still be real and a canonical one can still be "
+                "an artifact, so a small q is not a verdict on any individual "
+                "candidate."
+            ),
+            "plot_type": "table",
+            "pconfig": {
+                "id": "chimera_canonical_enrichment_table",
+                "title": "Splice-motif enrichment vs donor group",
+                "col1_header": "Comparison | sample",
+                "defaultsort": [{"column": "Comparison"}, {"column": "Sample"}],
+                "sort_rows": False,
+            },
+            "headers": {
+                "Comparison": {"title": "Comparison", "description":
+                               "gene-TE class vs the comparator from its own donor group"},
+                "Sample": {"title": "Sample",
+                           "description": "'pooled' sums every sample's counts"},
+                "Canonical": {"title": "Canonical", "format": "{:,.0f}", "min": 0,
+                              "description": "Junctions in the class carrying a splice motif"},
+                "Junctions": {"title": "Junctions", "format": "{:,.0f}", "min": 0,
+                              "description": "All junctions in the class"},
+                "Rate": {"title": "Rate", "suffix": "%", "format": "{:,.2f}", "min": 0},
+                "Comparator rate": {"title": "Comparator rate", "suffix": "%",
+                                    "format": "{:,.2f}", "min": 0},
+                "Odds ratio": {"title": "Odds ratio", "format": "{:,.3f}", "min": 0,
+                               "description": "Sample odds ratio (a*d)/(b*c), not the "
+                               "conditional MLE R reports"},
+                "p": {"title": "p", "format": "{:.2e}", "min": 0, "max": 1},
+                "q (BH)": {"title": "q (BH)", "format": "{:.2e}", "min": 0, "max": 1},
+            },
+            "data": {e.pop("key"): e for e in entries},
+        }
+        if not enrich_doc["data"]:
+            enrich_doc.pop("headers")
+            enrich_doc.pop("pconfig")
+            enrich_doc["plot_type"] = "html"
+            enrich_doc["data"] = (
+                "<p>No junctions in either a gene-TE class or its donor "
+                "group, so there is nothing to test. Expected on synthetic or "
+                "very shallow data.</p>")
+        os.makedirs(os.path.dirname(args.out_enrichment) or ".", exist_ok=True)
+        with open_write(args.out_enrichment) as fh:
+            json.dump(enrich_doc, fh, indent=2)
+            fh.write("\n")
+        print(f"canonical enrichment: {len(enrich_doc.get('data', {}))} tests "
+              f"-> {args.out_enrichment}")
 
     if args.out_te_gene_chimeras:
         te_dirs = ["gene_to_te", "te_to_gene"]

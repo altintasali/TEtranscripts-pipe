@@ -168,12 +168,17 @@ report_section_order:
   chimera_evidence_composition:
     order: -28
   junction_highlights:
-    order: -27
+    order: -28
   chimera_reads_te_type:
-    order: -26
+    order: -27
   chimera_junction_qc:
-    order: -25
+    order: -26
   chimera_canonical_rate:
+    order: -25
+  # The Fisher test belongs immediately after the plot whose claim it tests;
+  # the four entries above were shifted one earlier to open this slot rather
+  # than renumbering everything below it.
+  chimera_canonical_enrichment:
     order: -24
   chimera_te_gene_chimeras:
     order: -23
