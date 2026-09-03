@@ -175,7 +175,14 @@ def main():
             "pconfig": {
                 "id": "chimera_assembly_strand_rate_plot",
                 "title": "Strand-match rate by chimera class",
-                "ylab": "% of candidates in the class",
+                # Plot-level ylab is the COUNTS label. MultiQC derives the
+                # axis/tooltip suffix from ylab when ysuffix is unset ("%" in
+                # ylab -> suffix "%", plots/plot.py), and a plot-level "%"
+                # ylab is inherited by EVERY dataset -- which rendered the
+                # counts view as "1,898%". Each dataset therefore carries its
+                # own ylab AND an explicit ysuffix, so the suffix never
+                # depends on that heuristic again.
+                "ylab": "candidates",
                 # Raw counts first, then the rate. ymax belongs to the
                 # PERCENTAGE dataset only -- at plot level it also capped the
                 # counts view, clipping any class with more than 100
@@ -185,8 +192,12 @@ def main():
                 "cpswitch": False,
                 "stacking": "group",
                 "data_labels": [
-                    {"name": "Strand-matched candidates", "tt_decimals": 0},
-                    {"name": "% strand-matched", "tt_decimals": 1, "ymax": 100},
+                    {"name": "Strand-matched candidates",
+                     "ylab": "strand-matched candidates",
+                     "ysuffix": "", "tt_decimals": 0},
+                    {"name": "% strand-matched",
+                     "ylab": "% of candidates in the class",
+                     "ysuffix": "%", "tt_decimals": 1, "ymax": 100},
                 ],
             },
             "data": [

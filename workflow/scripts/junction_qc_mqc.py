@@ -203,16 +203,32 @@ def main():
             "pconfig": {
                 "id": "chimera_canonical_rate_plot",
                 "title": "Canonical (splice-motif) rate by junction class",
-                "ylab": "% canonical",
+                # Plot-level ylab is the COUNTS label. MultiQC derives the
+                # axis/tooltip suffix from ylab when ysuffix is unset ("%" in
+                # ylab -> suffix "%", plots/plot.py), and a plot-level "%"
+                # ylab is inherited by EVERY dataset -- which rendered the
+                # counts view as "241%", "3,818%". Each dataset therefore
+                # carries its own ylab AND an explicit ysuffix, so the suffix
+                # never depends on that heuristic again.
+                "ylab": "canonical junctions",
                 # Raw counts first, then the rate -- the previous order put
                 # the derived number in front of the measurement. cpswitch is
                 # off because a canonical RATE is canonical/total within a
                 # class, not a share of the sample's total, so MultiQC's own
                 # percentage would be a different (and wrong) number.
                 "cpswitch": False,
+                # One bar per class, NOT stacked. These are per-class rates
+                # with different denominators; stacking them summed nine
+                # classes into an axis running past 6000%. Same fix, and same
+                # reason, as chimera_assembly_strand_rate_plot.
+                "stacking": "group",
                 "data_labels": [
-                    {"name": "Canonical junctions", "tt_decimals": 0},
-                    {"name": "% canonical", "tt_decimals": 1, "ymax": 100},
+                    {"name": "Canonical junctions",
+                     "ylab": "canonical junctions",
+                     "ysuffix": "", "tt_decimals": 0},
+                    {"name": "% canonical",
+                     "ylab": "% canonical",
+                     "ysuffix": "%", "tt_decimals": 1, "ymax": 100},
                 ],
             },
         }
