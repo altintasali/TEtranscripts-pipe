@@ -76,6 +76,11 @@ def main():
             "confirmed = also found by the chimera-junction (read-level) screen -- "
             "independent evidence, higher confidence."
         )
+        # Two categories that partition the bar, so MultiQC's own cpswitch
+        # percentage (category / bar total) is exactly "share of this class's
+        # candidates that were confirmed" -- a real number, and it stacks to
+        # 100%. Offer the toggle.
+        classes_cpswitch = True
     else:
         counts = {c: {"count": 0} for c in CLASS_ORDER}
         for r in rows:
@@ -86,6 +91,9 @@ def main():
             "chimera.junction is disabled, so these counts have no independent "
             "cross-confirmation -- enable it too for higher-confidence calls."
         )
+        # One category per bar here, so a percentage view would read 100% for
+        # every class. No toggle rather than a meaningless one.
+        classes_cpswitch = False
 
     classes_doc = {
         "id": "chimera_assembly_classes",
@@ -121,7 +129,14 @@ def main():
                 "id": "chimera_assembly_classes_plot",
                 "title": "Chimera-assembly candidates by class",
                 "ylab": "candidates",
-                "cpswitch": False,
+                # A composition per bar (confirmed + unconfirmed = every
+                # candidate in the class), unlike the RATE plots below where
+                # cpswitch is off because a rate is not a share of any total.
+                # Gated: only meaningful when the junction screen supplied a
+                # second category (see above).
+                "cpswitch": classes_cpswitch,
+                "cpswitch_counts_label": "Candidate counts",
+                "cpswitch_percent_label": "% of the class",
                 "use_legend": True,
             },
             "data": {CLASS_LABEL.get(c, c): v for c, v in counts.items()},

@@ -217,11 +217,15 @@ def main():
                 # class, not a share of the sample's total, so MultiQC's own
                 # percentage would be a different (and wrong) number.
                 "cpswitch": False,
-                # One bar per class, NOT stacked. These are per-class rates
-                # with different denominators; stacking them summed nine
-                # classes into an axis running past 6000%. Same fix, and same
-                # reason, as chimera_assembly_strand_rate_plot.
-                "stacking": "group",
+                # Stacked (MultiQC's "relative" default), deliberately. The
+                # axis that once ran past 6000% was the SUFFIX bug above --
+                # stacked counts wearing a "%" sign -- not the stacking. With
+                # the suffix fixed the counts view stacks to a real quantity:
+                # the sample's total canonical junctions. The rate view's
+                # stack total is not meaningful (each class is a rate over its
+                # own denominator), which is why the description tells the
+                # reader to compare segments within a donor group rather than
+                # read the totals.
                 "data_labels": [
                     {"name": "Canonical junctions",
                      "ylab": "canonical junctions",
