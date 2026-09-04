@@ -14,10 +14,10 @@ the custom_content module (ordered by multiqc_config.yaml), with the two
 datasets switchable via each plot's cpswitch control.
 """
 import argparse
-from math import lgamma, exp
 import json
 import os
 import sys
+from math import exp, lgamma
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from gz_io import open_read, open_write

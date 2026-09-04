@@ -385,7 +385,7 @@ def main():
             # always correct regardless of same_chrom, so this still runs
             # for trans events too.
             te_chrom = acceptor_chrom if direction == "gene_to_te" else donor_chrom
-            for s, e, ex in overlapping(genes, te_chrom, te_span[0], te_span[1]):
+            for _s, _e, ex in overlapping(genes, te_chrom, te_span[0], te_span[1]):
                 if ex[0] != gene_id and ex[2] == opp(gene_strand):
                     antisense = "yes"
                     break

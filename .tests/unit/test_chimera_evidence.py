@@ -1,10 +1,11 @@
 """The merged gene-TE evidence table.
 
 Its contract is the pipeline's central claim about chimeras: it reports
-evidence and scores nothing. The two signals deliberately excluded -- read
-depth and TE-locus expression -- must never produce a flag, because both were
-measured to be misleading (depth is artifact-inflated; TE expression is
-anti-correlated with the splice motif).
+evidence and scores nothing. Read depth is the one signal deliberately
+excluded from ever producing a flag, because it was measured to be
+misleading (depth is artifact-inflated). TE-locus expression (telocal_active)
+IS counted as a flag despite a mixed real-cohort measurement -- see
+chimera_evidence.py's module docstring for the full reasoning.
 
 The flag logic lives inside main(), so this drives the CLI the way the rule
 does and reads the table back.
@@ -57,11 +58,13 @@ def test_read_depth_earns_no_flag(tmp_path):
     assert rows[0]["junction_reads"] == "999"  # still reported
 
 
-def test_te_expression_earns_no_flag(tmp_path):
-    """telocal_active is anti-evidence -- reported, never counted."""
+def test_te_expression_earns_a_flag(tmp_path):
+    """telocal_active is an unresolved-but-counted signal -- see
+    chimera_evidence.py's module docstring for why it stays a flag despite
+    the mixed real-cohort measurement."""
     _, rows = run_evidence(tmp_path, "j1\tG\tT\tsf\tfam\tLINE\tno\tte_initiated\tyes\t1\t5\n")
     assert rows[0]["telocal_active"] == "yes"
-    assert rows[0]["evidence"] == "."
+    assert rows[0]["evidence"] == "telocal_expressed"
 
 
 def test_canonical_and_replicates_flag(tmp_path):

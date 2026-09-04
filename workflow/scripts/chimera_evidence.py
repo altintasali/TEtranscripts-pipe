@@ -35,6 +35,9 @@ Two columns summarise what was observed, both deliberately unweighted:
                 both_screens           called by BOTH screens
                 assembly_strand_match  the assembled transcript's strand
                                        agrees with the gene's
+                telocal_expressed      TElocal reports the TE locus as
+                                       expressed (unresolved signal -- see
+                                       below)
 
   n_evidence  how many of those flags are set.  A COUNT OF EVIDENCE TYPES,
               NOT A CONFIDENCE SCORE.  It weights every flag equally for the
@@ -49,22 +52,23 @@ Two columns summarise what was observed, both deliberately unweighted:
               without assembly support.  It is a tally of what was observed,
               not a comparison of candidates.
 
-Two things are deliberately NOT evidence flags, both because they look like
-support and are not.  Both are still reported as columns:
+Read depth (junction_reads / junction_events) is deliberately NOT an
+evidence flag, because it looks like support and is not: the metric most
+inflated by artifacts -- a hot PCR chimera is often the deepest event in a
+run. It is still reported as a column.
 
-Read depth (junction_reads / junction_events).  The metric most inflated by
-artifacts -- a hot PCR chimera is often the deepest event in a run.
-
-TElocal expression of the TE locus.  This WAS a tier, on the assumption
-that independent evidence the TE is transcribed corroborates the chimera.
-Measured on a real 4-sample mouse run it does the opposite: 91% of
-junction-side pairs had an expressed locus, so it discriminated nothing,
-and the canonical rate was LOWER where the TE was expressed (6.7% at
-telocal_count > 10 vs 10.2% at <= 10, n = 19,503 events).  That is
-mechanistically unsurprising -- a highly expressed locus yields more reads
-and so more chances for template switching -- but it means expression is
-context, not support.  telocal_count/telocal_active are still reported;
-they just carry no flag.
+TElocal expression of the TE locus (telocal_expressed) IS counted, but its
+standing is unresolved, not confirmed. Measured on a real 4-sample mouse
+run it looked like the opposite of support: 91% of junction-side pairs had
+an expressed locus, so it discriminated nothing, and the canonical rate was
+LOWER where the TE was expressed (6.7% at telocal_count > 10 vs 10.2% at
+<= 10, n = 19,503 events) -- mechanistically unsurprising (a highly
+expressed locus yields more reads and so more chances for template
+switching), but not evidence of a real chimera either. One small run isn't
+enough to demote a signal on, so it stays a flag until that correlation is
+tested properly across more data; see chimera_evidence_guide_mqc.py for the
+report-facing version of this caveat. telocal_count/telocal_active are
+always reported regardless of the flag.
 
 Relative weight of the flags is exactly what has NOT been established, so
 the report states what is known about each one (see
