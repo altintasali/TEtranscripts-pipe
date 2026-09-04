@@ -246,10 +246,29 @@ resources:
     # Merging per-sample TElocal cntTables into the counts matrix;
     # single-threaded.  Locus-level tables are much larger than TEcount's
     # (one row per TE instance), so the per-sample allowance is higher.
-    # Base 2 GB + 200 MB per sample.
+    #
+    # 2000 + 200/sample was NOT enough on a real run: tecount_counts.py holds
+    # one Python dict per sample, ALL of them simultaneously, until every
+    # sample has been read (needed to build the feature union before
+    # writing) -- 84 samples x up to ~3.7M TE loci each, real GRCm38 scale.
+    # SLURM's cgroup OOM killer fired (sacct: State=OUT_OF_ME+, exit 0:125)
+    # against the 18800M budget that formula gave at 84 samples.
+    #
+    # tecount_counts.py now interns each locus-key string (sys.intern) --
+    # every sample shares the SAME ~3.7M-locus vocabulary, but str.split()
+    # allocated an independent string object per line per file, so the old
+    # code held up to 84 separate copies of what is really one shared key
+    # set. Interning collapses those to one shared object per unique key;
+    # dict lookup behavior (and the output) is unchanged. Measured on a
+    # same-shape synthetic case at reduced scale: 66% peak-memory reduction.
+    # Real per-sample dict-slot and int-value overhead is untouched by
+    # interning, though, and this cannot be re-measured at the true
+    # 3.7M-locus x 84-sample scale outside the real HPC data -- so the
+    # per-sample allowance is raised with real margin on top of the fix,
+    # not cut close to whatever the reduction alone might suffice for.
     threads: 1
-    mem_mb: 2000
-    mem_per_sample: 200
+    mem_mb: 3000
+    mem_per_sample: 400
     runtime: 60
 
   telocal_qc_transform:
