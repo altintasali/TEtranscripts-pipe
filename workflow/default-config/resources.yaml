@@ -434,20 +434,43 @@ resources:
     # Builds one self-contained DT widget over the FULL candidates catalogue
     # (all rows, not top-N); the data.frame, DT's JSON serialization, and
     # pandoc's self-contained bundling step all hold the whole catalogue in
-    # memory at once, so this scales with cohort size like chimera_evidence.
-    # The rule's own shell step awk-filters genes.bed/te.bed down to just the
-    # candidates' gene_id/te_id BEFORE R ever runs -- those BEDs are
-    # genome-wide (te.bed especially: millions of rows for a real
+    # memory at once. The rule's own shell step awk-filters genes.bed/te.bed
+    # down to just the candidates' gene_id/te_id BEFORE R ever runs -- those
+    # BEDs are genome-wide (te.bed especially: millions of rows for a real
     # mouse/human TE annotation), and loading the unfiltered files OOM-killed
-    # a real run at 2.4 GB. Measured after that fix, at real-cohort scale
-    # (~31k candidates, a 4M-row/240MB synthetic te.bed standing in for a
-    # real genome-wide TE annotation): R's peak RSS was ~1.1 GB. mem_mb below
-    # is set with real headroom above that measurement, not tightly to it --
-    # pandoc runs as a subprocess during the self-contained bundling step and
-    # its own memory isn't captured by that measurement.
+    # a real run once already (fixed at 2.4 GB).
+    #
+    # mem_per_sample: 100 was ALSO wrong, on a second real run, for a more
+    # fundamental reason: this rule's memory is driven by candidate-pair
+    # COUNT (one row per distinct gene-TE pair found anywhere in the
+    # cohort), which depends on TE-annotation density and how many
+    # developmental stages/genotypes the cohort spans -- not a clean
+    # per-sample multiplier the way rules that hold one dict per sample
+    # (telocal_counts) genuinely do. SLURM's cgroup OOM killer fired again
+    # (sacct: State=OUT_OF_ME+, exit 0:125) at 12400 MB (4000 + 84 samples x
+    # 100) on a real 84-sample cohort whose candidates.tsv.gz turned out to
+    # hold 454,593 rows -- 14.7x the ~31k-row fixture the original 100
+    # MB/sample figure was calibrated against.
+    #
+    # Reproduced exactly: a synthetic fixture at that same real scale
+    # (454,593 candidates; 55,421-gene / 3,725,827-TE-locus BEDs, matching
+    # this project's real annotation sizes) measured R's peak RSS at 12.32
+    # GiB -- matching the real OOM almost exactly (it failed at a 12.11 GiB
+    # request). mem_per_sample below is recalibrated from that measurement
+    # (~28.4 KB/candidate-row here) with real margin on top -- pandoc runs
+    # as a subprocess during the self-contained bundling step and its own
+    # memory isn't captured by the R-process measurement, and this is a
+    # proxy for row count via ONE real cohort's row-density, not a directly
+    # measured relationship, so it can still be wrong for a cohort whose
+    # candidate density per sample differs a lot from this one. A dynamic,
+    # candidates.tsv.gz-size-based resources: lambda would fix this
+    # properly, but Snakemake 9's IOFile.size is an async method -- unclear
+    # whether a plain `resources:` lambda can use it directly, and this
+    # wasn't verified against the actual HPC's pinned Snakemake version
+    # (only >=8.0 is required here), so it was not risked on a blocked run.
     threads: 1
     mem_mb: 4000
-    mem_per_sample: 100
+    mem_per_sample: 300
     runtime: 60
 
   chimera_assembly_qc_transform:
