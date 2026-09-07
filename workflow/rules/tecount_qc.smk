@@ -1,14 +1,17 @@
 # -----------------------------------------------------------------------------
 # TEcounts sample-QC: PCA / sample-distance views of the per-sample TEcount
 # count tables (results/tecount/{sample}.cntTable), DESeq2-normalized
-# (vst/rlog) or log2. TEcount itself quantifies genes + TEs into one table, so
-# a small merge step first builds the feature x sample counts matrix the QC
-# view consumes; tecount_counts.py optionally restricts the matrix to TE
-# subfamilies (the default) or genes via the tecounts.qc.feature_class config.
+# (vst/rlog) or log2. TEcount itself quantifies genes + TEs into one table;
+# tecount_counts merges those into results/tecount/counts_matrix.tsv.gz
+# unfiltered (genes + TEs, exactly what TEcount reports), and a second,
+# QC-only step (tecount_qc_counts) filters a copy of that matrix down to TE
+# subfamilies (the default) or genes via tecounts.qc.feature_class -- only
+# the PCA/clustering view sees the filtered copy.
 #
 # Rules:
-#   tecount_counts      merge per-sample cntTables -> counts matrix
-#   tecount_qc_transform normalize the counts matrix for the QC view
+#   tecount_counts      merge per-sample cntTables -> counts matrix (genes + TEs)
+#   tecount_qc_counts   filter a copy of that matrix to the QC view's feature class
+#   tecount_qc_transform normalize the filtered matrix for the QC view
 #   tecount_qc          PCA + sample-distance plots from the transformed matrix
 #   tecount_summary     per-sample assignment + TE-class summary barplots for
 #                       the MultiQC report (raw cntTables, pure python)
@@ -21,7 +24,8 @@
 #
 # QC filters (tetranscripts.qc: min_samples_present / min_total_counts /
 # min_events / pca_transform / feature_class) apply ONLY to this view -- the
-# per-sample cntTables are never reduced.
+# per-sample cntTables and the top-level counts_matrix.tsv.gz are never
+# reduced.
 # -----------------------------------------------------------------------------
 
 
@@ -31,6 +35,7 @@ def all_tecount_qc_outputs():
     transform = TECOUNT_QC["pca_transform"]
     return [
         "results/tecount/counts_matrix.tsv.gz",
+        "results/tecount/qc/counts_matrix.tsv.gz",
         f"results/tecount/qc/{transform}_counts.tsv.gz",
         f"results/tecount/qc/pca_{transform}_mqc.json",
         f"results/tecount/qc/heatmap_{transform}_mqc.json",
@@ -56,10 +61,10 @@ def tecount_counts_input():
 
 rule tecount_counts:
     # Merges every sample's TEcount count table into the feature x sample
-    # counts matrix (tecount_counts.py) that feeds the sample-QC stage.
-    # --feature-class restricts the matrix to TE subfamilies (default), genes,
-    # or all features; only this QC-view matrix is filtered, never the
-    # per-sample cntTables.
+    # counts matrix (tecount_counts.py), always keeping every feature --
+    # genes and TEs -- exactly as TEcount reports them. This is the native
+    # merged deliverable; the QC-view's feature-class filtering happens
+    # downstream, in tecount_qc_counts, on a separate copy.
     input:
         # Declared so that EDITING the script re-runs the rule.
         # Snakemake's code trigger hashes the shell command STRING,
@@ -67,13 +72,10 @@ rule tecount_counts:
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/tecount_counts.py",
         tables=tecount_counts_input(),
-        gtf=GTF,
-        te_gtf=TE_GTF,
     output:
         counts="results/tecount/counts_matrix.tsv.gz",
     params:
         sample_names=lambda wc, input: " ".join(SAMPLES),
-        feature_class=TECOUNT_QC["feature_class"],
     threads: get_resources("tecount_counts")["threads"]
     resources:
         mem_mb=get_scaled_mem_mb("tecount_counts"),
@@ -86,9 +88,44 @@ rule tecount_counts:
         "python3 {input.script} "
         "--tables {input.tables} "
         "--sample-names {params.sample_names} "
+        "--feature-class all "
+        "--out-counts {output.counts} > {log} 2>&1"
+
+
+rule tecount_qc_counts:
+    # Filters a copy of the full counts matrix (genes + TEs) down to the
+    # QC-view's feature class -- TE subfamilies (default), genes, or all --
+    # via tecounts.qc.feature_class. results/tecount/counts_matrix.tsv.gz
+    # itself is untouched; only this QC-scoped copy is filtered, and only
+    # the PCA/clustering view (tecount_qc_transform) reads it.
+    input:
+        # Declared so that EDITING the script re-runs the rule.
+        # Snakemake's code trigger hashes the shell command STRING,
+        # not the file it names, so without this an edit to the
+        # script leaves stale outputs in place silently.
+        script=f"{SCRIPTS_DIR}/tecount_counts.py",
+        matrix="results/tecount/counts_matrix.tsv.gz",
+        gtf=GTF,
+        te_gtf=TE_GTF,
+    output:
+        "results/tecount/qc/counts_matrix.tsv.gz",
+    params:
+        feature_class=TECOUNT_QC["feature_class"],
+    threads: get_resources("tecount_qc_counts")["threads"]
+    resources:
+        mem_mb=get_resources("tecount_qc_counts")["mem_mb"],
+        runtime=get_resources("tecount_qc_counts")["runtime"],
+    benchmark:
+        "results/pipeline_info/benchmarks/tecount_qc_counts/tecount_qc_counts.txt",
+    log:
+        "results/pipeline_info/logs/tecount/qc/counts.log",
+    shell:
+        "python3 {input.script} "
+        "--in-matrix {input.matrix} "
+        "--key-style tecount "
         "--gtf {input.gtf} --te-gtf {input.te_gtf} "
         "--feature-class {params.feature_class} "
-        "--out-counts {output.counts} > {log} 2>&1"
+        "--out-counts {output} > {log} 2>&1"
 
 
 rule tecount_qc_transform:
@@ -102,7 +139,7 @@ rule tecount_qc_transform:
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/sample_qc.R",
-        counts="results/tecount/counts_matrix.tsv.gz",
+        counts="results/tecount/qc/counts_matrix.tsv.gz",
     output:
         "results/tecount/qc/{transform}_counts.tsv.gz",
     params:

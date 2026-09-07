@@ -173,6 +173,8 @@ tetranscripts:
     # Which features the QC-view matrix keeps: TE (TE subfamily names only,
     # the default -- the TE-focused view this pipeline is built for), gene
     # (gene ids only), or all (genes + TEs, exactly what TEcount reports).
+    # Only this QC-view copy is filtered -- results/tecount/counts_matrix.tsv.gz
+    # always holds every feature TEcount reports, unfiltered.
     feature_class: TE
 
 # Differential gene/TE enrichment (TEtranscripts + DESeq2) is fully automatic:
@@ -327,6 +329,10 @@ telocal:
     min_events: 10
     # log2 default: locus-level matrices are far too large for vst/rlog.
     pca_transform: log2
+    # Which features the QC-view matrix keeps: TE / gene / all (see
+    # tetranscripts.qc.feature_class above). Only this QC-view copy is
+    # filtered -- results/telocal/counts_matrix.tsv.gz always holds every
+    # feature the TElocal cntTables report, unfiltered.
     feature_class: TE
 
 outputs:

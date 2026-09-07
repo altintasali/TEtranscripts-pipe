@@ -42,5 +42,7 @@ tetranscripts:
     pca_transform: vst
     # Which features the QC-view matrix keeps: TE (TE subfamily names only,
     # the default -- the view this pipeline is built for), gene (gene ids
-    # only), or all (genes + TEs, exactly what TEcount reports).
+    # only), or all (genes + TEs, exactly what TEcount reports). Only this
+    # QC-view copy is filtered -- results/tecount/counts_matrix.tsv.gz
+    # always holds every feature TEcount reports, unfiltered.
     feature_class: TE

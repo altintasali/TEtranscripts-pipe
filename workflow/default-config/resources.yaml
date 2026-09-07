@@ -271,6 +271,16 @@ resources:
     mem_per_sample: 400
     runtime: 60
 
+  telocal_qc_counts:
+    # Filters a copy of the full telocal_counts matrix down to the QC
+    # view's feature class, streaming it row by row. Unlike telocal_counts,
+    # nothing is held in memory beyond the current line -- no per-sample
+    # dict to accumulate -- so this needs none of that rule's per-sample
+    # scaling even at the same locus-level row counts.
+    threads: 1
+    mem_mb: 500
+    runtime: 30
+
   telocal_qc_transform:
     # log2/vst/rlog on the TElocal counts matrix; R is single-threaded.
     # Memory scales with sample count.  Measured on an 84-sample run: 120%
@@ -306,6 +316,16 @@ resources:
     mem_mb: 2000
     mem_per_sample: 50
     runtime: 30
+
+  tecount_qc_counts:
+    # Filters a copy of the full tecount_counts matrix down to the QC
+    # view's feature class, streaming it row by row. Unlike tecount_counts,
+    # nothing is held in memory beyond the current line -- no per-sample
+    # dict to accumulate -- so a small fixed budget covers it regardless of
+    # sample count.
+    threads: 1
+    mem_mb: 500
+    runtime: 15
 
   tecount_qc_transform:
     # DESeq2 vst/rlog on the TEcounts counts matrix; R is single-threaded.

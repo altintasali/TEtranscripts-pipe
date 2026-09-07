@@ -51,5 +51,7 @@ telocal:
     pca_transform: log2
     # Which features the QC-view matrix keeps: TE (TE loci only, the
     # default), gene (gene ids only), or all (genes + loci, exactly what the
-    # TElocal cntTables report).
+    # TElocal cntTables report). Only this QC-view copy is filtered --
+    # results/telocal/counts_matrix.tsv.gz always holds every feature the
+    # TElocal cntTables report, unfiltered.
     feature_class: TE

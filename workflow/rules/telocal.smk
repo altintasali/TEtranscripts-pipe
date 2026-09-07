@@ -170,10 +170,11 @@ rule cleanup_telocal_index:
 
 rule telocal_counts:
     # Merges every sample's TElocal count table into the locus x sample
-    # counts matrix (tecount_counts.py --key-style telocal) that feeds the
-    # sample-QC stage.  --feature-class restricts the matrix to TE loci
-    # (default), genes, or all features; only this QC-view matrix is
-    # filtered, never the per-sample cntTables.
+    # counts matrix (tecount_counts.py --key-style telocal), always keeping
+    # every feature -- genes and TE loci -- exactly as the TElocal cntTables
+    # report them. This is the native merged deliverable; the QC-view's
+    # feature-class filtering happens downstream, in telocal_qc_counts, on
+    # a separate copy.
     input:
         # Declared so that EDITING the script re-runs the rule.
         # Snakemake's code trigger hashes the shell command STRING,
@@ -185,7 +186,6 @@ rule telocal_counts:
         counts="results/telocal/counts_matrix.tsv.gz",
     params:
         sample_names=lambda wc, input: " ".join(SAMPLES),
-        feature_class=TELOCAL_QC["feature_class"],
     threads: get_resources("telocal_counts")["threads"]
     resources:
         mem_mb=get_scaled_mem_mb("telocal_counts"),
@@ -199,8 +199,41 @@ rule telocal_counts:
         "--tables {input.tables} "
         "--sample-names {params.sample_names} "
         "--key-style telocal "
-        "--feature-class {params.feature_class} "
+        "--feature-class all "
         "--out-counts {output.counts} > {log} 2>&1"
+
+
+rule telocal_qc_counts:
+    # Filters a copy of the full counts matrix (genes + TE loci) down to
+    # the QC-view's feature class -- TE loci (default), genes, or all --
+    # via telocal.qc.feature_class. results/telocal/counts_matrix.tsv.gz
+    # itself is untouched; only this QC-scoped copy is filtered, and only
+    # the PCA/clustering view (telocal_qc_transform) reads it.
+    input:
+        # Declared so that EDITING the script re-runs the rule.
+        # Snakemake's code trigger hashes the shell command STRING,
+        # not the file it names, so without this an edit to the
+        # script leaves stale outputs in place silently.
+        script=f"{SCRIPTS_DIR}/tecount_counts.py",
+        matrix="results/telocal/counts_matrix.tsv.gz",
+    output:
+        "results/telocal/qc/counts_matrix.tsv.gz",
+    params:
+        feature_class=TELOCAL_QC["feature_class"],
+    threads: get_resources("telocal_qc_counts")["threads"]
+    resources:
+        mem_mb=get_resources("telocal_qc_counts")["mem_mb"],
+        runtime=get_resources("telocal_qc_counts")["runtime"],
+    benchmark:
+        "results/pipeline_info/benchmarks/telocal_qc_counts/telocal_qc_counts.txt",
+    log:
+        "results/pipeline_info/logs/telocal/qc/counts.log",
+    shell:
+        "python3 {input.script} "
+        "--in-matrix {input.matrix} "
+        "--key-style telocal "
+        "--feature-class {params.feature_class} "
+        "--out-counts {output} > {log} 2>&1"
 
 
 rule telocal_qc_transform:
@@ -214,7 +247,7 @@ rule telocal_qc_transform:
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/sample_qc.R",
-        counts="results/telocal/counts_matrix.tsv.gz",
+        counts="results/telocal/qc/counts_matrix.tsv.gz",
     output:
         "results/telocal/qc/{transform}_counts.tsv.gz",
     params:

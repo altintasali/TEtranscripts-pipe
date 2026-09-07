@@ -148,6 +148,7 @@ resources:
   tecount: {threads: 1, mem_mb: 1000, runtime: 10}
   tetranscripts_diffexp: {threads: 1, mem_mb: 1000, runtime: 10}
   tecount_counts: {threads: 1, mem_mb: 500, runtime: 5}
+  tecount_qc_counts: {threads: 1, mem_mb: 500, runtime: 5}
   tecount_qc_transform: {threads: 1, mem_mb: 1000, runtime: 5}
   tecount_qc: {threads: 1, mem_mb: 1000, runtime: 5}
   tecount_summary: {threads: 1, mem_mb: 500, runtime: 5}
@@ -159,6 +160,7 @@ resources:
   chimera_reads_igv_bed: {threads: 1, mem_mb: 500, runtime: 5}
   telocal_locind: {threads: 1, mem_mb: 500, runtime: 5}
   telocal_counts: {threads: 1, mem_mb: 500, runtime: 5}
+  telocal_qc_counts: {threads: 1, mem_mb: 500, runtime: 5}
   telocal_qc_transform: {threads: 1, mem_mb: 1000, runtime: 5}
   telocal_qc: {threads: 1, mem_mb: 1000, runtime: 5}
   chimera_reads_sample_qc_transform: {threads: 1, mem_mb: 1000, runtime: 5}

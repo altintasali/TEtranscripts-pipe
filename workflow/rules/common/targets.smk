@@ -99,6 +99,7 @@ def all_telocal_outputs():
         transform = TELOCAL_QC["pca_transform"]
         files += [
             "results/telocal/counts_matrix.tsv.gz",
+            "results/telocal/qc/counts_matrix.tsv.gz",
             f"results/telocal/qc/{transform}_counts.tsv.gz",
             f"results/telocal/qc/pca_{transform}_mqc.json",
             f"results/telocal/qc/heatmap_{transform}_mqc.json",

@@ -80,6 +80,10 @@ flowchart LR
         chimera_reads_sample_qc_transform["sample-QC transform"]
         chimera_reads_sample_qc["sample-QC plots"]
     end
+    subgraph other["Other"]
+        tecount_qc_counts["tecount_qc_counts"]
+        telocal_qc_counts["telocal_qc_counts"]
+    end
     annotation_to_bed --> chimera_assembly_classify
     annotation_to_bed --> chimera_candidates_explorer
     annotation_to_bed --> chimera_reads_classify
@@ -156,15 +160,17 @@ flowchart LR
     stringtie_requantify --> chimera_assembly_quantify
     tecount --> tecount_counts
     tecount --> tecount_summary
-    tecount_counts --> tecount_qc_transform
+    tecount_counts --> tecount_qc_counts
+    tecount_qc_counts --> tecount_qc_transform
     tecount_qc_transform --> tecount_qc
     telocal --> chimera_telocal_index
     telocal --> cleanup_telocal_index
     telocal --> telocal_counts
     telocal --> telocal_summary
-    telocal_counts --> telocal_qc_transform
+    telocal_counts --> telocal_qc_counts
     telocal_locations --> chimera_telocal_index
     telocal_locind --> telocal
+    telocal_qc_counts --> telocal_qc_transform
     telocal_qc_transform --> telocal_qc
     trim_galore_pe --> star_align
     trim_galore_pe --> star_align_for_assembly

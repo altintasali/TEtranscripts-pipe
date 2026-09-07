@@ -1,18 +1,33 @@
 #!/usr/bin/env python3
 """Merge the per-sample TEcount/TElocal count tables into one feature x
-sample counts matrix for the sample-QC stage.
+sample counts matrix, or filter an already-merged matrix down to one
+feature class.
 
 The cntTable written by a per-sample TEcount/TElocal run has a two-column
 layout: `gene/TE` (gene ids and TE feature names mixed) plus one count column
 whose header is the *input BAM path* -- not the sample name -- so samples are
 mapped positionally via --sample-names.
 
-Output:
+Two mutually exclusive modes, selected by which input flags are given:
 
-  counts_matrix.tsv  feature x sample integer count matrix (0 where a sample
-                     has no reads for the feature). Mirrors the chimera counts
-                     matrix layout so the shared sample_qc.R transform/plots
-                     modes read it identically.
+  merge mode   --tables + --sample-names. Merges every sample's cntTable
+               into one feature x sample matrix (0 where a sample has no
+               reads for the feature). This is how results/tecount/
+               counts_matrix.tsv.gz and results/telocal/counts_matrix.tsv.gz
+               are built -- always with --feature-class all, so they hold
+               every feature TEcount/TElocal reports, matching native
+               output exactly.
+  filter mode  --in-matrix. Re-filters an already-merged matrix (such as
+               the counts_matrix.tsv.gz above) down to one feature class,
+               without re-reading the per-sample cntTables. This is how the
+               QC-view's TE-only (or gene-only) matrix is derived; see
+               --feature-class below.
+
+Output (either mode):
+
+  counts_matrix.tsv  feature x sample integer count matrix. Mirrors the
+                     chimera counts matrix layout so the shared sample_qc.R
+                     transform/plots modes read it identically.
 
 --key-style selects how rows are classified for the --feature-class filter:
   tecount  TEcount tables (the default). TE keys are `gene_id:family_id:
@@ -24,13 +39,15 @@ Output:
            colons), gene keys have none -- so classification needs no GTF
            and --gtf/--te-gtf are ignored.
 
---feature-class picks which features the matrix keeps (the QC-view scope):
-  TE    TE features only (the default).
+--feature-class picks which features the output matrix keeps:
+  TE    TE features only (the QC-view default).
   gene  gene ids only.
-  all   everything the cntTable holds (genes + TEs, no classification).
+  all   everything the input holds (genes + TEs, no classification). Always
+        used for the top-level counts_matrix.tsv.gz merge.
 
-The filtering applies only to this QC-view matrix: the per-sample cntTables
-are never reduced.
+Merge mode never reduces the per-sample cntTables; filter mode never
+touches the merge-mode output it reads from -- it only writes a new,
+separate file.
 """
 import argparse
 import os
@@ -77,6 +94,34 @@ def is_telocal_te(key):
     return len(parts) >= 3 and all(parts)
 
 
+def resolve_feature_keys(feature_class, key_style, gtf, te_gtf):
+    """Feature-key spec for --feature-class, shared by merge and filter
+    mode. Returns None (keep everything), a set of tecount-style keys to
+    match exactly, or "TE"/"gene" for telocal's shape-based classification
+    (see keep_key)."""
+    if feature_class == "all":
+        return None
+    if key_style == "telocal":
+        return feature_class
+    if feature_class == "TE":
+        if not te_gtf:
+            sys.exit("error: --feature-class TE requires --te-gtf")
+        return parse_gtf_keys(te_gtf)
+    if not gtf:
+        sys.exit("error: --feature-class gene requires --gtf")
+    return parse_gtf_keys(gtf)
+
+
+def keep_key(key, feature_keys):
+    """True when `key` belongs to the --feature-class selection resolved by
+    resolve_feature_keys."""
+    if feature_keys is None:
+        return True
+    if isinstance(feature_keys, str):
+        return is_telocal_te(key) == (feature_keys == "TE")
+    return key in feature_keys
+
+
 def load_counts(path, feature_keys):
     # main() holds one of these dicts per sample, all at once, until every
     # sample has been read (needed to build the union of features before
@@ -100,16 +145,41 @@ def load_counts(path, feature_keys):
             if len(parts) < 2:
                 continue
             key = sys.intern(parts[0])
-            if feature_keys is not None and key not in feature_keys:
+            if not keep_key(key, feature_keys):
                 continue
             counts[key] = int(float(parts[1]))
     return counts
 
 
+def filter_matrix(in_path, out_path, feature_keys):
+    """Stream an already-merged feature x sample matrix, keeping only rows
+    whose key passes keep_key. Unlike merge mode, this holds nothing in
+    memory beyond the current line -- there is no per-sample dict to
+    accumulate, just a row-by-row pass over one file."""
+    kept = 0
+    with open_read(in_path) as in_fh, open_write(out_path) as out_fh:
+        header = in_fh.readline()
+        out_fh.write(header)
+        for line in in_fh:
+            if not line.strip():
+                continue
+            key = line.split("\t", 1)[0]
+            if not keep_key(key, feature_keys):
+                continue
+            out_fh.write(line if line.endswith("\n") else line + "\n")
+            kept += 1
+    return kept
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--tables", required=True, nargs="+")
-    ap.add_argument("--sample-names", required=True, nargs="+")
+    ap.add_argument("--tables", nargs="+",
+                     help="Merge mode: per-sample cntTable paths.")
+    ap.add_argument("--sample-names", nargs="+",
+                     help="Merge mode: sample name per --tables entry.")
+    ap.add_argument("--in-matrix",
+                     help="Filter mode: an already-merged counts matrix to "
+                          "re-filter by --feature-class.")
     ap.add_argument("--key-style", default="tecount",
                     choices=["tecount", "telocal"])
     ap.add_argument("--gtf", required=False)
@@ -119,38 +189,33 @@ def main():
     ap.add_argument("--out-counts", required=True)
     args = ap.parse_args()
 
-    if len(args.tables) != len(args.sample_names):
-        sys.exit("error: --tables and --sample-names must have equal length")
+    merge_mode = bool(args.tables or args.sample_names)
+    filter_mode = bool(args.in_matrix)
+    if merge_mode and filter_mode:
+        sys.exit("error: --in-matrix cannot be combined with --tables/--sample-names")
+    if not merge_mode and not filter_mode:
+        sys.exit("error: provide either --in-matrix, or --tables together with --sample-names")
+    if merge_mode and (not args.tables or not args.sample_names
+                       or len(args.tables) != len(args.sample_names)):
+        sys.exit("error: --tables and --sample-names must both be given with equal length")
 
-    if args.feature_class == "all":
-        feature_keys = None
-    elif args.key_style == "telocal":
-        # TElocal keys classify by shape alone; no GTF parsing.
-        feature_keys = args.feature_class
-    elif args.feature_class == "TE":
-        if not args.te_gtf:
-            sys.exit("error: --feature-class TE requires --te-gtf")
-        feature_keys = parse_gtf_keys(args.te_gtf)
-    else:
-        if not args.gtf:
-            sys.exit("error: --feature-class gene requires --gtf")
-        feature_keys = parse_gtf_keys(args.gtf)
+    feature_keys = resolve_feature_keys(
+        args.feature_class, args.key_style, args.gtf, args.te_gtf)
+
+    if filter_mode:
+        if not os.path.exists(args.in_matrix):
+            sys.exit(f"error: missing input matrix: {args.in_matrix}")
+        n = filter_matrix(args.in_matrix, args.out_counts, feature_keys)
+        print(f"{n} {args.feature_class} features kept from {args.in_matrix} "
+              f"-> {args.out_counts}")
+        return
 
     features = set()
     sample_counts = []
     for path, sample in zip(args.tables, args.sample_names):
         if not os.path.exists(path):
             sys.exit(f"error: missing count table for sample '{sample}': {path}")
-        if isinstance(feature_keys, str):
-            # telocal shape-based filtering: keep TE loci or genes per flag
-            want_te = feature_keys == "TE"
-            counts = {
-                key: n
-                for key, n in load_counts(path, None).items()
-                if is_telocal_te(key) == want_te
-            }
-        else:
-            counts = load_counts(path, feature_keys)
+        counts = load_counts(path, feature_keys)
         sample_counts.append((sample, counts))
         features.update(counts)
 

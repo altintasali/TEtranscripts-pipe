@@ -16,7 +16,7 @@ if ! snakemake --configfile "$T/qc_off.yaml" -n --cores 1 >"$T/qc_off.log" 2>&1;
   echo "ERROR: qc-off config must dry-run"; tail -40 "$T/qc_off.log"; FAIL=1
 elif ! grep -q "tecount_summary" "$T/qc_off.log"; then
   echo "ERROR: tecount_summary not planned with tetranscripts.qc.enabled false"; tail -40 "$T/qc_off.log"; FAIL=1
-elif grep -qE "tecount_counts|tecount_qc_transform" "$T/qc_off.log"; then
+elif grep -qE "tecount_counts|tecount_qc_counts|tecount_qc_transform" "$T/qc_off.log"; then
   echo "ERROR: R-based tecount QC rules still planned with tetranscripts.qc.enabled false"; tail -40 "$T/qc_off.log"; FAIL=1
 fi
 

@@ -204,7 +204,9 @@ properties:
             description: >-
               Which features the QC-view counts matrix keeps: TE (TE subfamily
               names only, the default), gene (gene ids only), or all (genes +
-              TEs, exactly what TEcount reports).
+              TEs, exactly what TEcount reports). Only this QC-view copy is
+              filtered -- results/tecount/counts_matrix.tsv.gz always holds
+              every feature TEcount reports, unfiltered.
         required: [enabled, min_samples_present, min_total_counts, min_events,
                    pca_transform, feature_class]
     required: [mode]
@@ -433,7 +435,10 @@ properties:
             description: >-
               Which features the QC-view counts matrix keeps: TE (TE loci
               only, the default), gene (gene ids only), or all (genes +
-              loci, exactly what the TElocal cntTables report).
+              loci, exactly what the TElocal cntTables report). Only this
+              QC-view copy is filtered -- results/telocal/counts_matrix.tsv.gz
+              always holds every feature the TElocal cntTables report,
+              unfiltered.
         required: [enabled, min_samples_present, min_total_counts, min_events,
                    pca_transform, feature_class]
     required: [enabled]
