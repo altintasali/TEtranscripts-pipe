@@ -1,6 +1,6 @@
 # -----------------------------------------------------------------------------
 # Chimera sample-QC: PCA / sample-distance views of the chimera counts
-# matrix (results/chimera/counts_matrix.tsv), DESeq2-normalized
+# matrix (results/chimera/reads/counts_matrix.tsv), DESeq2-normalized
 # (vst/rlog) or log2. The views are written as MultiQC custom-content JSON
 # (pca_{transform}_mqc.json, heatmap_{transform}_mqc.json) and rendered
 # interactively inside multiqc_report.html.
@@ -21,7 +21,7 @@ rule chimera_reads_sample_qc_transform:
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/sample_qc.R",
-        counts="results/chimera/counts_matrix.tsv.gz",
+        counts="results/chimera/reads/counts_matrix.tsv.gz",
     output:
         "results/chimera/qc/{transform}_counts.tsv.gz",
     params:

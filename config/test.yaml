@@ -87,14 +87,13 @@ chimera:
     outputs:
       write_igv_bed: true
       write_counts_matrix: true
+      write_candidates_explorer: true
   assembly:
     # matches the shipped default, so CI exercises the default DAG
     enabled: true
     breakpoint_tolerance: 5
     min_transcript_tpm: 1
     outputs:
-      # true (unlike the config.example.yaml default) so a guard flipping
-      # this screen on also exercises the IGV export path.
       write_igv_bed: true
 
 tetranscripts:

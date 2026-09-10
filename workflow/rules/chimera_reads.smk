@@ -34,6 +34,9 @@ import os
 
 WRITE_COUNTS = bool(config["chimera"]["reads"]["outputs"]["write_counts_matrix"])
 WRITE_IGV_BED = bool(config["chimera"]["reads"]["outputs"]["write_igv_bed"])
+WRITE_CANDIDATES_EXPLORER = bool(
+    config["chimera"]["reads"]["outputs"]["write_candidates_explorer"]
+)
 # CHIMERA_QC now lives in common/runtime.smk -- the assembly screen needs it
 # too, and this file is not included when the junction screen is off.
 
@@ -72,10 +75,12 @@ def all_chimera_outputs():
     files += [
         "results/chimera/reads/all_events.tsv.gz",
         "results/chimera/reads/te-gene-chimeras.tsv.gz",
-        "results/chimera/counts_matrix.tsv.gz",
+        "results/chimera/reads/counts_matrix.tsv.gz",
+        "results/chimera/reads/cpm_matrix.tsv.gz",
         "results/chimera/candidates.tsv.gz",
-        "results/chimera/candidates_explorer.html",
     ]
+    if WRITE_CANDIDATES_EXPLORER:
+        files.append("results/chimera/candidates_explorer.html")
     files += [
         f"results/chimera/reads/per_sample/{s}_chimera_reads_qc.tsv.gz"
         for s in SAMPLES
@@ -243,9 +248,12 @@ rule chimera_telocal_annotate:
 
 
 rule chimera_reads_counts:
-    # Merges every sample's junction table into the all-events catalog and
-    # the event x sample counts matrix (chimera_reads_counts.py). The counts matrix
-    # feeds the sample-QC PCA/clustering stage.
+    # Merges every sample's junction table into the all-events catalog, the
+    # event x sample raw-counts matrix, and its CPM-normalized sibling
+    # (chimera_reads_counts.py). counts_matrix feeds the sample-QC
+    # PCA/clustering stage; cpm_matrix is a library-size-normalized view for
+    # cross-sample comparison (CPM, not TPM -- a chimeric junction event has
+    # no meaningful "length" to normalize by).
     input:
         # Declared so that EDITING the script re-runs the rule.
         # Snakemake's code trigger hashes the shell command STRING,
@@ -255,7 +263,8 @@ rule chimera_reads_counts:
         tables=chimera_reads_counts_input(),
     output:
         events="results/chimera/reads/all_events.tsv.gz",
-        counts="results/chimera/counts_matrix.tsv.gz",
+        counts="results/chimera/reads/counts_matrix.tsv.gz",
+        cpm="results/chimera/reads/cpm_matrix.tsv.gz",
         te_events="results/chimera/reads/te-gene-chimeras.tsv.gz",
     params:
         sample_names=lambda wc, input: " ".join(SAMPLES),
@@ -273,6 +282,7 @@ rule chimera_reads_counts:
         "--sample-names {params.sample_names} "
         "--out-events {output.events} "
         "--out-counts {output.counts} "
+        "--out-cpm {output.cpm} "
         "--out-te-events {output.te_events} > {log} 2>&1"
 
 
@@ -415,6 +425,71 @@ rule chimera_candidates_table:
         "--out {output} > {log} 2>&1"
 
 
+def _candidates_explorer_shell():
+    # Assembled once at parse time (TELOCAL_ENABLED/CHIMERA_ASSEMBLY_ENABLED
+    # are already known config-derived constants) since the two extra joins
+    # below are entirely optional -- a shell string cannot reference
+    # {input.telocal_matrix} at all when that input key doesn't exist for
+    # this run, so the string itself must branch here rather than at
+    # runtime.
+    lines = [
+        "genes_ids={resources.tmpdir}/candidates_gene_ids.txt",
+        "te_ids={resources.tmpdir}/candidates_te_ids.txt",
+        "genes_filtered={resources.tmpdir}/candidates_genes.bed",
+        "te_filtered={resources.tmpdir}/candidates_te.bed",
+        "telocal_totals={resources.tmpdir}/candidates_telocal_totals.tsv",
+        "assembly_totals={resources.tmpdir}/candidates_assembly_totals.tsv",
+        "gzip -dc {input.evidence} | tail -n +2 | cut -f1 | sort -u > \"$genes_ids\"",
+        "gzip -dc {input.evidence} | tail -n +2 | cut -f2 | sort -u > \"$te_ids\"",
+        "awk -F'\\t' 'NR==FNR{{ids[$1]=1; next}} ($4 in ids)' "
+        "\"$genes_ids\" {input.genes_bed} > \"$genes_filtered\"",
+        "awk -F'\\t' 'NR==FNR{{ids[$1]=1; next}} ($4 in ids)' "
+        "\"$te_ids\" {input.te_bed} > \"$te_filtered\"",
+    ]
+    if TELOCAL_ENABLED:
+        lines += [
+            "telocal_keys={resources.tmpdir}/candidates_telocal_keys.txt",
+            # telocal_locus is chimera_evidence.py's OUT_COLUMNS[15]
+            # (1-based column 16) -- kept in sync by eye, same caveat as the
+            # gene_id/te_id cut -f1/-f2 above.
+            # `|| true`: grep -v exits 1 when EVERY row is "." (no
+            # telocal_locus at all in this cohort) -- under this rule's
+            # `set -euo pipefail` that would otherwise abort the whole
+            # chain even though an empty keys file is a legitimate,
+            # meaningful result (chimera_candidates_matrix_totals.py
+            # handles zero requested keys fine).
+            "gzip -dc {input.evidence} | tail -n +2 | cut -f16 | "
+            "grep -v '^\\.$' | sort -u > \"$telocal_keys\" || true",
+            "python3 {input.totals_script} --matrix {input.telocal_matrix} "
+            "--keys \"$telocal_keys\" --out \"$telocal_totals\"",
+        ]
+    else:
+        lines.append("printf 'key\\ttotal\\n' > \"$telocal_totals\"")
+    if CHIMERA_ASSEMBLY_ENABLED:
+        lines += [
+            "assembly_keys={resources.tmpdir}/candidates_assembly_keys.txt",
+            # assembly_transcript_ids is OUT_COLUMNS[19] (1-based column
+            # 20) -- comma-joined, split into individual transcript_ids
+            # before summing (a candidate can be backed by several).
+            # `|| true`: same empty-match/pipefail caveat as telocal_keys
+            # above -- a candidates.tsv.gz with no assembly-backed rows at
+            # all (every assembly_transcript_ids == ".") is legitimate.
+            "gzip -dc {input.evidence} | tail -n +2 | cut -f20 | "
+            "grep -v '^\\.$' | tr ',' '\\n' | sort -u > \"$assembly_keys\" || true",
+            "python3 {input.totals_script} --matrix {input.assembly_matrix} "
+            "--keys \"$assembly_keys\" --out \"$assembly_totals\"",
+        ]
+    else:
+        lines.append("printf 'key\\ttotal\\n' > \"$assembly_totals\"")
+    lines.append(
+        "Rscript {input.script} "
+        "{input.evidence} {input.gene_names} \"$genes_filtered\" \"$te_filtered\" "
+        "\"$telocal_totals\" \"$assembly_totals\" "
+        "{output} > {log} 2>&1"
+    )
+    return " && ".join(lines)
+
+
 rule chimera_candidates_explorer:
     # Standalone, self-contained interactive HTML over the FULL candidates
     # catalogue -- the top_n cap on chimera_candidates_table above exists
@@ -427,7 +502,12 @@ rule chimera_candidates_explorer:
     # always written whenever a chimera screen is enabled -- unlike the
     # optional, differently-keyed chimera_reads_igv_bed/
     # chimera_assembly_igv_bed tracks, which cannot be searched by
-    # candidate name).
+    # candidate name); and, when the corresponding screen is enabled, a real
+    # cohort-total read count per candidate joined from
+    # results/telocal/counts_matrix.tsv.gz and
+    # results/chimera/assembly/counts_matrix.tsv.gz via
+    # chimera_candidates_matrix_totals.py (see that script for why this
+    # isn't just loaded directly into R).
     #
     # genes.bed/te.bed are GENOME-WIDE -- every gene and every TE insertion
     # in the annotation, not just the ones with a candidate. te.bed
@@ -439,17 +519,23 @@ rule chimera_candidates_explorer:
     # candidates.tsv.gz actually references, BEFORE R ever sees them, is
     # the same fix as rseqc_gene_body_coverage's BED thinning in
     # bam_qc.smk: cheap, streaming, and keeps R's peak memory proportional
-    # to candidate count instead of genome size.
+    # to candidate count instead of genome size. The TElocal/assembly count
+    # joins use the exact same discipline (see chimera_candidates_matrix_totals.py).
     input:
         # Declared so that EDITING the script re-runs the rule.
         # Snakemake's code trigger hashes the shell command STRING,
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/chimera_candidates_explorer.R",
+        totals_script=f"{SCRIPTS_DIR}/chimera_candidates_matrix_totals.py",
         evidence="results/chimera/candidates.tsv.gz",
         gene_names="results/reference/gene_id_to_name.tsv.gz",
         genes_bed="results/reference/genes.bed",
         te_bed="results/reference/te.bed",
+        **({"telocal_matrix": "results/telocal/counts_matrix.tsv.gz"}
+           if TELOCAL_ENABLED else {}),
+        **({"assembly_matrix": "results/chimera/assembly/counts_matrix.tsv.gz"}
+           if CHIMERA_ASSEMBLY_ENABLED else {}),
     output:
         "results/chimera/candidates_explorer.html",
     threads: get_resources("chimera_candidates_explorer")["threads"]
@@ -463,19 +549,7 @@ rule chimera_candidates_explorer:
     conda:
         CANDIDATES_EXPLORER_ENV
     shell:
-        "genes_ids={resources.tmpdir}/candidates_gene_ids.txt; "
-        "te_ids={resources.tmpdir}/candidates_te_ids.txt; "
-        "genes_filtered={resources.tmpdir}/candidates_genes.bed; "
-        "te_filtered={resources.tmpdir}/candidates_te.bed; "
-        "gzip -dc {input.evidence} | tail -n +2 | cut -f1 | sort -u > \"$genes_ids\" && "
-        "gzip -dc {input.evidence} | tail -n +2 | cut -f2 | sort -u > \"$te_ids\" && "
-        "awk -F'\\t' 'NR==FNR{{ids[$1]=1; next}} ($4 in ids)' "
-        "\"$genes_ids\" {input.genes_bed} > \"$genes_filtered\" && "
-        "awk -F'\\t' 'NR==FNR{{ids[$1]=1; next}} ($4 in ids)' "
-        "\"$te_ids\" {input.te_bed} > \"$te_filtered\" && "
-        "Rscript {input.script} "
-        "{input.evidence} {input.gene_names} \"$genes_filtered\" \"$te_filtered\" "
-        "{output} > {log} 2>&1"
+        _candidates_explorer_shell()
 
 
 rule chimera_evidence_guide:

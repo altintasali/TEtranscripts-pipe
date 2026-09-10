@@ -295,9 +295,18 @@ properties:
             properties:
               write_igv_bed:
                 type: boolean
+                description: Default true.
               write_counts_matrix:
                 type: boolean
-            required: [write_igv_bed, write_counts_matrix]
+              write_candidates_explorer:
+                type: boolean
+                description: >-
+                  Write the standalone, self-contained
+                  results/chimera/candidates_explorer.html (full,
+                  sortable/searchable/filterable candidate catalogue). On a
+                  real cohort it can embed hundreds of thousands of rows.
+                  Default true.
+            required: [write_igv_bed, write_counts_matrix, write_candidates_explorer]
         required: [enabled, star, breakpoint_tolerance, require_canonical_junction,
                    qc, outputs]
       assembly:
@@ -354,7 +363,7 @@ properties:
                   Write a BED track (results/chimera/assembly/igv/
                   candidates.bed) spanning each candidate's TE-overlapping
                   exon, colored by chimera_type, for loading alongside
-                  chimera.reads's own IGV track. Default false.
+                  chimera.reads's own IGV track. Default true.
             required: [write_igv_bed]
         required: [enabled, breakpoint_tolerance, min_transcript_tpm, outputs]
     required: [reads, assembly]

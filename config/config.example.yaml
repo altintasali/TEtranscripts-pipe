@@ -223,8 +223,9 @@ chimera:
     require_canonical_junction: false
     qc:
       # Filters applied to the chimera count matrix *for the PCA/clustering
-      # view only* -- they never remove events from all_events.tsv or the
-      # counts matrix. min_events is the floor for drawing the QC plots.
+      # view only* -- they never remove events from all_events.tsv or
+      # results/chimera/reads/counts_matrix.tsv.gz. min_events is the floor
+      # for drawing the QC plots.
       min_samples_present: 2
       min_total_counts: 5
       min_events: 10
@@ -233,10 +234,16 @@ chimera:
       pca_transform: vst
     outputs:
       # Which chimera artifacts to write. The per-sample junction tables, the
-      # all-events catalog, the counts matrix, and the junction-QC summaries
-      # are always written; these toggles cover the optional extras.
-      write_igv_bed: false
+      # all-events catalog, results/chimera/reads/counts_matrix.tsv.gz and
+      # cpm_matrix.tsv.gz, and the junction-QC summaries are always written;
+      # these toggles cover the optional extras.
+      write_igv_bed: true
       write_counts_matrix: true
+      # The standalone, self-contained results/chimera/candidates_explorer.html
+      # (full, sortable/searchable/filterable candidate catalogue). Set to
+      # false to skip it -- on a real cohort it can embed hundreds of
+      # thousands of rows and take a while to build/open.
+      write_candidates_explorer: true
   assembly:
     # StringTie-assembly chimera screen: catches TE-initiated/exonized/
     # terminated transcripts spliced via an ordinary, canonical intron --
@@ -278,14 +285,15 @@ chimera:
     # Not applied automatically -- candidates are always fully reported,
     # same annotate-first philosophy as chimera.reads. This is just the
     # threshold used when reading results/chimera/assembly/tpm_matrix.tsv.gz
-    # yourself downstream.
+    # yourself downstream (results/chimera/assembly/counts_matrix.tsv.gz and
+    # cpm_matrix.tsv.gz are also always written, alongside tpm_matrix.tsv.gz).
     min_transcript_tpm: 1
     outputs:
       # Write a BED track (results/chimera/assembly/igv/candidates.bed)
       # spanning each candidate's TE-overlapping exon, colored by
       # chimera_type, for loading alongside chimera.reads's own IGV
       # track.
-      write_igv_bed: false
+      write_igv_bed: true
 
 # Locus-level TE quantification (TElocal) -- a complement to TEcount's
 # subfamily-level quantification. TElocal resolves TEs per genomic instance

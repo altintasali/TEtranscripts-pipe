@@ -98,6 +98,7 @@ flowchart LR
     chimera_assembly_cross_evidence --> chimera_assembly_summary_mqc
     chimera_assembly_qc_transform --> chimera_assembly_qc
     chimera_assembly_quantify --> chimera_assembly_qc_transform
+    chimera_assembly_quantify --> chimera_candidates_explorer
     chimera_evidence --> chimera_candidates_explorer
     chimera_evidence --> chimera_candidates_table
     chimera_evidence --> chimera_evidence_guide
@@ -156,6 +157,7 @@ flowchart LR
     star_merge_junctions --> star_align_for_assembly
     stringtie_assemble --> stringtie_merge
     stringtie_merge --> chimera_assembly_classify
+    stringtie_merge --> chimera_assembly_quantify
     stringtie_merge --> stringtie_requantify
     stringtie_requantify --> chimera_assembly_quantify
     tecount --> tecount_counts
@@ -167,6 +169,7 @@ flowchart LR
     telocal --> cleanup_telocal_index
     telocal --> telocal_counts
     telocal --> telocal_summary
+    telocal_counts --> chimera_candidates_explorer
     telocal_counts --> telocal_qc_counts
     telocal_locations --> chimera_telocal_index
     telocal_locind --> telocal

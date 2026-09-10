@@ -36,6 +36,8 @@ def all_chimera_assembly_outputs():
     files = [
         "results/chimera/assembly/transcripts.tsv.gz",
         "results/chimera/assembly/tpm_matrix.tsv.gz",
+        "results/chimera/assembly/counts_matrix.tsv.gz",
+        "results/chimera/assembly/cpm_matrix.tsv.gz",
         "results/chimera/qc/chimera_assembly_classes_mqc.json",
         "results/chimera/qc/chimera_assembly_highlights_mqc.json",
         "results/chimera/qc/chimera_assembly_strand_rate_mqc.json",
@@ -256,10 +258,14 @@ rule chimera_assembly_classify:
 
 
 rule chimera_assembly_quantify:
-    # Pulls per-sample TPM for every candidate transcript_id out of the
-    # re-quantified GTFs -- an expression matrix to threshold/filter on
-    # downstream (min TPM, min replicates), same "annotate-only, filter
-    # later" philosophy as the junction screen.
+    # Pulls per-sample TPM, plus estimated raw counts and CPM, for every
+    # candidate transcript_id out of the re-quantified GTFs -- an expression
+    # matrix to threshold/filter on downstream (min TPM, min replicates),
+    # same "annotate-only, filter later" philosophy as the junction screen.
+    # counts_matrix is an ESTIMATE (cov * length / read_length, StringTie's
+    # own prepDE.py convention for turning -e/-B coverage into a
+    # DESeq2/edgeR-style count matrix), not a literal aligned-read count --
+    # see quantify_chimera_assembly.py's docstring.
     input:
         # Declared so that EDITING the script re-runs the rule.
         # Snakemake's code trigger hashes the shell command STRING,
@@ -267,11 +273,18 @@ rule chimera_assembly_quantify:
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/quantify_chimera_assembly.py",
         candidates="results/chimera/assembly/transcripts.tsv.gz",
+        merged="results/chimera/assembly/stringtie_merge.gtf",
         quant=expand("results/chimera/assembly/per_sample/quant/{sample}.transcripts.gtf", sample=SAMPLES),
     output:
-        matrix="results/chimera/assembly/tpm_matrix.tsv.gz",
+        tpm="results/chimera/assembly/tpm_matrix.tsv.gz",
+        counts="results/chimera/assembly/counts_matrix.tsv.gz",
+        cpm="results/chimera/assembly/cpm_matrix.tsv.gz",
     params:
         sample_names=" ".join(SAMPLES),
+        # Reuses ref.smk's cohort-wide auto-detected read length (the same
+        # value STAR's sjdbOverhang is built from) rather than adding a
+        # second detection path or a new config knob.
+        read_length=SJDB_OVERHANG + 1,
     threads: get_resources("chimera_assembly_quantify")["threads"]
     resources:
         mem_mb=get_scaled_mem_mb("chimera_assembly_quantify"),
@@ -283,7 +296,10 @@ rule chimera_assembly_quantify:
     shell:
         "python3 {input.script} "
         "--candidates {input.candidates} --quant {input.quant} "
-        "--sample-names {params.sample_names} --out {output.matrix} > {log} 2>&1"
+        "--merged-gtf {input.merged} --read-length {params.read_length} "
+        "--sample-names {params.sample_names} "
+        "--out-tpm {output.tpm} --out-counts {output.counts} "
+        "--out-cpm {output.cpm} > {log} 2>&1"
 
 
 if CHIMERA_READS_ENABLED:

@@ -11,6 +11,12 @@ Outputs:
   counts_matrix.tsv  event_id x sample read-count matrix (0 where a sample has
                    no reads supporting the event). Written only when the
                    chimera.outputs.write_counts_matrix config is true.
+  cpm_matrix.tsv   the same matrix, each column divided by that sample's
+                   column total and multiplied by 1e6 (CPM, not TPM -- a
+                   chimeric junction event has no meaningful "length" the
+                   way a transcript does, so length-normalizing it the way
+                   TPM does would misdescribe it. 0 for a sample whose
+                   column total is 0). Written whenever --out-cpm is given.
   te-gene-chimeras.tsv  the all_events catalog filtered to gene<->TE events
                    (direction gene_to_te / te_to_gene), written when
                    --out-te-events is given -- the TE chimeras as their own
@@ -57,6 +63,7 @@ def main():
     ap.add_argument("--sample-names", required=True, nargs="+")
     ap.add_argument("--out-events", required=True)
     ap.add_argument("--out-counts", required=False)
+    ap.add_argument("--out-cpm", required=False)
     ap.add_argument(
         "--out-te-events", required=False,
         help="Optional output: the all-events catalog filtered to gene<->TE "
@@ -101,6 +108,22 @@ def main():
                 ev = events[eid]
                 counts = [ev["counts"].get(s, 0) for s in args.sample_names]
                 fh.write(eid + "\t" + "\t".join(str(c) for c in counts) + "\n")
+
+    if args.out_cpm:
+        totals = dict.fromkeys(args.sample_names, 0)
+        for eid in order:
+            counts = events[eid]["counts"]
+            for s in args.sample_names:
+                totals[s] += counts.get(s, 0)
+        with open_write(args.out_cpm) as fh:
+            fh.write("event_id\t" + "\t".join(args.sample_names) + "\n")
+            for eid in order:
+                counts = events[eid]["counts"]
+                cpm = [
+                    0 if totals[s] == 0 else counts.get(s, 0) / totals[s] * 1e6
+                    for s in args.sample_names
+                ]
+                fh.write(eid + "\t" + "\t".join(f"{v:.3f}" for v in cpm) + "\n")
 
     if args.out_te_events:
         with open_write(args.out_te_events) as fh:

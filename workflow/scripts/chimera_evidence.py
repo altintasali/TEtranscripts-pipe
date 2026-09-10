@@ -104,7 +104,7 @@ OUT_COLUMNS = [
     "found_by", "evidence", "n_evidence",
     "junction_events", "junction_reads", "junction_max_samples",
     "junction_canonical", "junction_chimera_types",
-    "telocal_active", "telocal_count",
+    "telocal_active", "telocal_count", "telocal_locus",
     "assembly_transcripts", "assembly_chimera_types",
     "assembly_strand_match", "assembly_transcript_ids",
 ]
@@ -115,7 +115,7 @@ def _blank():
         "te_subfamily": ".", "te_family": ".", "te_class": ".",
         "junction_events": 0, "junction_reads": 0, "junction_max_samples": 0,
         "junction_canonical": "no", "junction_types": set(),
-        "telocal_active": ".", "telocal_count": 0,
+        "telocal_active": ".", "telocal_count": 0, "telocal_locus": ".",
         "assembly_transcripts": 0, "assembly_types": set(),
         "assembly_strand_match": ".", "assembly_tids": [],
     }
@@ -167,6 +167,15 @@ def main():
         # would multiply one measurement by how many junctions happened to hit
         # it. Max reads as "the most this locus was expressed in any sample".
         p["telocal_count"] = max(p["telocal_count"], _int(r.get("telocal_count", 0)))
+        # First non-"." locus key seen, same convention as te_subfamily/
+        # te_family/te_class above -- it's the TElocal cntTable key for this
+        # TE copy, breakpoint-deterministic like the rest of the annotation,
+        # so every row for a pair agrees. Needed to join a real cohort-total
+        # TElocal count from results/telocal/counts_matrix.tsv.gz downstream
+        # (candidates_explorer.html); telocal_count above is a max-across-
+        # one-sample proxy, not that total.
+        if p["telocal_locus"] == "." and r.get("telocal_locus", ".") != ".":
+            p["telocal_locus"] = r["telocal_locus"]
 
     if args.assembly:
         for r in load(args.assembly):
@@ -232,6 +241,7 @@ def main():
             # telocal_active already draws.
             "telocal_count": ("." if p["telocal_active"] == "."
                               else p["telocal_count"]),
+            "telocal_locus": p["telocal_locus"],
             "assembly_transcripts": p["assembly_transcripts"],
             "assembly_chimera_types": ",".join(sorted(p["assembly_types"])) or ".",
             "assembly_strand_match": p["assembly_strand_match"],

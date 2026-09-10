@@ -43,8 +43,9 @@ check(d.get("plot_type") == "table",
 # every signal is its own column, so any of them can be sorted on -- Gene and
 # TE insertion included, so a reader can find a specific gene
 headers = d.get("headers", {})
-for col in ("Gene", "TE insertion", "Evidence types", "Splice motif",
-            "Samples", "Found by", "Strand match", "Reads"):
+for col in ("Gene", "TE insertion", "Evidence count", "Splice motif",
+            "Chimeric junction samples", "Found by", "Strand match",
+            "Chimeric reads"):
     check(col in headers, f"column {col!r} missing -- the reader cannot sort on it")
 # the table opens on the evidence count; sort_rows alone does not stick
 check(d["pconfig"].get("defaultsort"),
@@ -59,7 +60,7 @@ check(all("/" not in r for r in rows),
       f"row keys must not contain '/' -- MultiQC strips everything before it; got {rows[:2]}")
 check(rows[0].startswith("GAPDH |"),
       f"gene symbols must be resolved and the densest-evidence pair first; got {rows[0]!r}")
-n_ev = [d["data"][r]["Evidence types"] for r in rows]
+n_ev = [d["data"][r]["Evidence count"] for r in rows]
 check(n_ev == sorted(n_ev, reverse=True),
       f"default order must follow n_evidence descending; got {n_ev}")
 

@@ -44,31 +44,32 @@ COLUMNS = [
     ("te_id", "TE insertion",
      "The individual TE copy (transcript_id in the TE GTF), not the "
      "subfamily. Joins against TElocal rows.", "str"),
-    ("n_evidence", "Evidence types",
+    ("n_evidence", "Evidence count",
      "How many of the five evidence flags this pair carries. A count, not a "
      "score -- the flags are unweighted.", "int"),
     ("junction_canonical", "Splice motif",
      "A recognised splice motif on at least one junction (STAR). The guide "
      "above calls this the best artifact discriminator available.", "yesno"),
-    ("junction_max_samples", "Samples",
-     "Most samples any one junction for this pair was seen in (STAR).", "int"),
+    ("junction_max_samples", "Chimeric junction samples",
+     "Most samples any one chimeric junction for this pair was seen in (STAR).", "int"),
     ("found_by", "Found by",
      "Which screens called it: reads (STAR), assembly (StringTie), or "
      "both. Agreement measured near its chance rate -- see the guide.", "str"),
     ("assembly_strand_match", "Strand match",
      "The assembled transcript's strand agrees with the gene's (StringTie).",
      "yesno"),
-    ("junction_reads", "Reads",
+    ("junction_reads", "Chimeric reads",
      "Chimeric reads supporting this pair (STAR). The metric most inflated by "
      "artifacts -- shown last on purpose.", "int"),
     # Reported, never counted as evidence. It is in candidates.tsv.gz and the
     # guide discusses it at length, so leaving it out of the table meant the
     # one place a reader looks did not show it -- and its absence read as the
     # column not existing rather than as a deliberate exclusion.
-    ("telocal_count", "TE locus reads",
-     "TElocal read count for the TE copy itself -- how strongly the locus is "
-     "transcribed, not just whether it is. A nonzero count counts toward "
-     "Evidence types. One small run had it anti-correlated with the splice "
+    ("telocal_count", "TElocal reads (best sample)",
+     "TElocal read count for the TE copy itself, in whichever ONE sample "
+     "recorded it first -- not a cohort total (see "
+     "candidates_explorer.html for that). A nonzero count counts toward "
+     "Evidence count. One small run had it anti-correlated with the splice "
      "motif (6.7% vs 10.2% canonical), which is not enough to demote it -- "
      "see the guide. Blank means TElocal did not run; 0 means it ran and "
      "found nothing.", "intna"),
@@ -170,7 +171,7 @@ def main():
         "<p>The <strong>{n_shown:,}</strong> of {n_total:,} gene-TE pairs "
         "carrying the most evidence types, from <code>{src}</code>. "
         "<strong>Click any column header to sort.</strong></p>"
-        "<p>Ordered by <em>Evidence types</em> — an unweighted count of flags, "
+        "<p>Ordered by <em>Evidence count</em> — an unweighted count of flags, "
         "<strong>not a score</strong>, and tilted toward the assembly screen "
         "(two of the five flags need it). See <strong>How to weigh this "
         "evidence</strong> above, and validate candidates manually.</p>"
@@ -193,7 +194,7 @@ def main():
                 # arrive alphabetised by name whatever this says. Measured.
                 # Stating the intended sort explicitly is the reliable route.
                 "sort_rows": False,
-                "defaultsort": [{"column": "Evidence types", "direction": "desc"}],
+                "defaultsort": [{"column": "Evidence count", "direction": "desc"}],
                 "no_violin": True,
             },
             "headers": headers,
