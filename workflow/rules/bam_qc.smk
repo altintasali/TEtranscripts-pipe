@@ -88,6 +88,20 @@ rule rseqc_gene_body_coverage:
     # every line and the count only ever errs high (at most ~2x) rather than
     # low. The other two RSeQC rules stream the BAM once and are not slow, so
     # they keep using the full annotation.bed12.
+    #
+    # geneBody_coverage.py hardcodes open('log.txt', 'a') -- a RELATIVE path,
+    # opened in APPEND mode, independent of this rule's own `> {log} 2>&1`
+    # (that only captures the process's stdout/stderr; this file handle is
+    # opened directly by the script, bypassing it entirely). Since Snakemake
+    # always runs from the repo root and this rule runs once per sample,
+    # every invocation ever appended to the SAME results/log.txt at the repo
+    # root forever, with concurrent samples' lines interleaved and nothing
+    # ever cleaning it up -- and it isn't gitignored. Fixed by giving each
+    # sample its own private scratch subdirectory and `cd`-ing into it before
+    # running the tool, using absolute paths (captured via $root before the
+    # cd) for the real input/output/log so those still land where Snakemake
+    # expects; RSeQC's own log.txt lands in the scratch subdirectory instead,
+    # isolated per sample, and is never read by anything.
     input:
         aln="results/star/{sample}_Aligned.sortedByCoord.out.bam",
         bai="results/star/{sample}_Aligned.sortedByCoord.out.bam.bai",
@@ -108,9 +122,12 @@ rule rseqc_gene_body_coverage:
     conda:
         RSEQC_ENV
     shell:
+        "root=$(pwd); "
         "bed={resources.tmpdir}/{wildcards.sample}.genebody.bed12; "
         "k=$(( $(wc -l < {input.refgene}) / {params.n_transcripts} )); "
         "k=$(( k > 0 ? k : 1 )); "
         "awk -v k=\"$k\" 'NR % k == 0' {input.refgene} > \"$bed\" && "
-        "geneBody_coverage.py -i {input.aln} -r \"$bed\" "
-        "-o {params.prefix} > {log} 2>&1"
+        "workdir={resources.tmpdir}/genebody_{wildcards.sample} && "
+        "mkdir -p \"$workdir\" && cd \"$workdir\" && "
+        "geneBody_coverage.py -i \"$root/{input.aln}\" -r \"$bed\" "
+        "-o \"$root/{params.prefix}\" > \"$root/{log}\" 2>&1"
