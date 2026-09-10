@@ -39,7 +39,6 @@ CONFIG_EXAMPLE = os.path.join(REPO_ROOT, "config", "config.example.yaml")
 SAMPLES_EXAMPLE = os.path.join(REPO_ROOT, "config", "samples.example.csv")
 DEFAULT_INPUT_DIR = os.path.join(REPO_ROOT, "input")
 DEFAULT_CONFIG = os.path.join(DEFAULT_INPUT_DIR, "config.yaml")
-DEFAULT_SHEET = os.path.join(DEFAULT_INPUT_DIR, "samples.csv")
 
 FASTQ_SUFFIXES = (".fastq.gz", ".fq.gz", ".fastq", ".fq")
 
@@ -98,11 +97,18 @@ def _write_yaml(path, data):
 
 
 def _resolve_input_dir(value):
+    # CWD-relative, not REPO_ROOT-relative: this CLI is often installed in a
+    # different (possibly shared) checkout than the analysis directory it's
+    # invoked from (see the module docstring's "workflow/ symlink" case).
+    # Defaulting to REPO_ROOT here meant `init`/`samples` silently wrote into
+    # the CLI's OWN checkout's input/ -- a real collision when two analyses
+    # share one deployed checkout. `run` already gets this right via
+    # analysis_root; this mirrors that for init/samples.
     if value is None:
-        return DEFAULT_INPUT_DIR
+        return os.path.join(os.getcwd(), "input")
     if os.path.isabs(value):
         return value
-    return os.path.join(REPO_ROOT, value)
+    return os.path.join(os.getcwd(), value)
 
 
 def _find_repo_root(config_path):
@@ -277,7 +283,11 @@ def cmd_samples(args):
     if args.dry_run:
         _emit_csv(sys.stdout, rows)
         return 0
-    sheet = _repo_abspath(args.samplesheet) if args.samplesheet else DEFAULT_SHEET
+    # CWD-relative default/resolution -- see _resolve_input_dir's comment;
+    # plain os.path.abspath (not _repo_abspath) resolves against the
+    # caller's cwd, not this CLI's own checkout.
+    sheet = (os.path.abspath(args.samplesheet) if args.samplesheet
+             else os.path.join(os.getcwd(), "input", "samples.csv"))
     if os.path.exists(sheet) and not args.force:
         _die(f"{sheet} already exists; re-run with --force to overwrite")
     os.makedirs(os.path.dirname(sheet), exist_ok=True)
@@ -463,7 +473,7 @@ def _build_parser():
     )
     p_init.add_argument(
         "--input-dir", metavar="DIR",
-        help="directory for the input files (default: <repo>/input)",
+        help="directory for the input files (default: ./input)",
     )
     p_init.add_argument(
         "--force", action="store_true",
@@ -487,7 +497,7 @@ def _build_parser():
     )
     p_samples.add_argument(
         "--samplesheet", metavar="PATH",
-        help="output CSV (default: <repo>/input/samples.csv)",
+        help="output CSV (default: ./input/samples.csv)",
     )
     p_samples.add_argument(
         "--dry-run", action="store_true",
