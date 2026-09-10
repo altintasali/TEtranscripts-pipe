@@ -15,22 +15,28 @@ except NameError:
     snakemake = None
 
 
-def _read_version(snakemake_obj):
-    """Return the pipeline version string, or 'unknown' if VERSION is missing."""
+def _read_version():
+    """Return the pipeline version string, or 'unknown' if VERSION is missing.
+
+    Resolved from this script's own __file__ (workflow/scripts/ -> workflow
+    -> repo root), not from the `snakemake` script object: Snakemake's
+    `script:` directive does not expose a `.snakefile` attribute (only
+    input/output/params/wildcards/threads/resources/log/config/rule/
+    scriptdir/bench_iteration are), so the previous attempt to read
+    `snakemake_obj.snakefile` always raised AttributeError and silently
+    returned "unknown" -- verified: the field showed "unknown" in every
+    generated config_used_mqc.json. workflow/scripts/tetranscripts-pipe and
+    .tests/check_version_sync.py already solve this exact problem correctly
+    via __file__; this follows the same pattern (and, via __file__, still
+    resolves through a `workflow/` symlink to a shared checkout -- see the
+    tetranscripts-pipe CLI's own docstring for that deployment shape).
+    """
+    repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     try:
-        snakefile = str(snakemake_obj.snakefile)
-    except AttributeError:
-        snakefile = ""
-    if snakefile:
-        version_path = os.path.join(
-            os.path.dirname(os.path.dirname(snakefile)), "VERSION"
-        )
-        try:
-            with open(version_path) as fh:
-                return fh.read().strip()
-        except OSError:
-            pass
-    return "unknown"
+        with open(os.path.join(repo_root, "VERSION")) as fh:
+            return fh.read().strip()
+    except OSError:
+        return "unknown"
 
 
 def main(smk):
@@ -65,7 +71,7 @@ def main(smk):
     keep_telocal_index = params.get("_keep_telocal_index", "")
 
     rows = {
-        "pipeline_version": _read_version(smk),
+        "pipeline_version": _read_version(),
         "samples": f"{sample_count} ({sample_names})",
         "ref.fasta": str(config.get("ref", {}).get("fasta", "(not provided)")),
         "ref.gtf": str(config["ref"]["gtf"]),
