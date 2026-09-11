@@ -93,6 +93,7 @@ LABELS = {
     "stringtie_requantify": ("StringTie requantify", "Chimera screen"),
     "chimera_assembly_classify": ("classify assembled chimeric transcripts", "Chimera screen"),
     "chimera_assembly_quantify": ("assembly quantification", "Chimera screen"),
+    "chimera_assembly_aggregate_counts": ("gene-TE-chimera-type counts (DE-ready)", "Chimera screen"),
     "chimera_assembly_cross_evidence": ("cross-evidence catalogue", "Chimera screen"),
     "chimera_assembly_summary_mqc": ("assembly summary barplots", "Chimera screen"),
     "chimera_assembly_igv_bed": ("assembly IGV BED track", "Chimera screen"),

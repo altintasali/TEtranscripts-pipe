@@ -70,6 +70,7 @@ flowchart LR
         stringtie_requantify["StringTie requantify"]
         chimera_assembly_classify["classify assembled chimeric transcripts"]
         chimera_assembly_quantify["assembly quantification"]
+        chimera_assembly_aggregate_counts["gene-TE-chimera-type counts (DE-ready)"]
         chimera_assembly_cross_evidence["cross-evidence catalogue"]
         chimera_assembly_summary_mqc["assembly summary barplots"]
         chimera_assembly_igv_bed["assembly IGV BED track"]
@@ -91,12 +92,14 @@ flowchart LR
     cat_fastq --> fastqc_raw
     cat_fastq --> trim_galore_pe
     cat_fastq --> trim_galore_se
+    chimera_assembly_classify --> chimera_assembly_aggregate_counts
     chimera_assembly_classify --> chimera_assembly_cross_evidence
     chimera_assembly_classify --> chimera_assembly_quantify
     chimera_assembly_classify --> chimera_evidence
     chimera_assembly_cross_evidence --> chimera_assembly_igv_bed
     chimera_assembly_cross_evidence --> chimera_assembly_summary_mqc
     chimera_assembly_qc_transform --> chimera_assembly_qc
+    chimera_assembly_quantify --> chimera_assembly_aggregate_counts
     chimera_assembly_quantify --> chimera_assembly_qc_transform
     chimera_assembly_quantify --> chimera_candidates_explorer
     chimera_evidence --> chimera_candidates_explorer
