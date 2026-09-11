@@ -85,6 +85,7 @@ flowchart LR
         tecount_qc_counts["tecount_qc_counts"]
         telocal_qc_counts["telocal_qc_counts"]
     end
+    annotation_to_bed --> chimera_assembly_aggregate_counts
     annotation_to_bed --> chimera_assembly_classify
     annotation_to_bed --> chimera_candidates_explorer
     annotation_to_bed --> chimera_reads_classify
@@ -125,6 +126,7 @@ flowchart LR
     determine_strandedness --> tecount
     determine_strandedness --> telocal
     determine_strandedness --> tetranscripts_diffexp
+    gene_name_lookup --> chimera_assembly_aggregate_counts
     gene_name_lookup --> chimera_candidates_explorer
     gene_name_lookup --> chimera_candidates_table
     gene_name_lookup --> chimera_evidence_heatmap

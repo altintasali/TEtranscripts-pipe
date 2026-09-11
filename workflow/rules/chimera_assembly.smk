@@ -52,6 +52,7 @@ def all_chimera_assembly_outputs():
         files.append("results/chimera/assembly/transcripts_with_read_support.tsv.gz")
     if WRITE_GENE_TE_CHIMERA_COUNTS:
         files.append("results/chimera/assembly/gene_te_chimera_counts_matrix.tsv.gz")
+        files.append("results/chimera/assembly/gene_te_chimera_counts_annotation.tsv.gz")
     if WRITE_IGV_BED_ASSEMBLY:
         files.append("results/chimera/assembly/igv/transcripts.bed")
     return files
@@ -327,8 +328,12 @@ if WRITE_GENE_TE_CHIMERA_COUNTS:
             script=f"{SCRIPTS_DIR}/aggregate_chimera_assembly_counts.py",
             candidates="results/chimera/assembly/transcripts.tsv.gz",
             counts="results/chimera/assembly/counts_matrix.tsv.gz",
+            gene_names="results/reference/gene_id_to_name.tsv.gz",
+            genes="results/reference/genes.bed",
+            te="results/reference/te.bed",
         output:
-            "results/chimera/assembly/gene_te_chimera_counts_matrix.tsv.gz",
+            counts="results/chimera/assembly/gene_te_chimera_counts_matrix.tsv.gz",
+            annotation="results/chimera/assembly/gene_te_chimera_counts_annotation.tsv.gz",
         threads: get_resources("chimera_assembly_aggregate_counts")["threads"]
         resources:
             mem_mb=get_resources("chimera_assembly_aggregate_counts")["mem_mb"],
@@ -341,7 +346,10 @@ if WRITE_GENE_TE_CHIMERA_COUNTS:
         shell:
             "python3 {input.script} "
             "--transcripts {input.candidates} --counts {input.counts} "
-            "--out {output} > {log} 2>&1"
+            "--gene-names {input.gene_names} "
+            "--genes-bed {input.genes} --te-bed {input.te} "
+            "--out-counts {output.counts} --out-annotation {output.annotation} "
+            "> {log} 2>&1"
 
 
 if CHIMERA_READS_ENABLED:
