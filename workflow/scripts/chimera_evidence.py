@@ -162,18 +162,23 @@ def main():
             p["telocal_active"] = "no"
         # chimera_telocal_annotate.py already measured the locus's read count
         # and this step used to throw it away, keeping only the boolean it was
-        # derived from. MAX, not sum: telocal_count is one locus's count in one
-        # sample, and the same locus recurs across a pair's events, so summing
-        # would multiply one measurement by how many junctions happened to hit
-        # it. Max reads as "the most this locus was expressed in any sample".
+        # derived from. MAX, not sum: telocal_count is already a COHORT-WIDE
+        # total for that locus (TelocalIndex.build in chimera_telocal_index.py
+        # sums every sample's cntTable into one shared index before any
+        # per-sample annotate job ever sees it -- it is NOT a per-sample
+        # figure despite the name), and the same locus recurs across a pair's
+        # events, so summing here would multiply that one cohort total by how
+        # many junctions happened to hit it. Max just re-selects the same
+        # constant value rather than inflating it.
         p["telocal_count"] = max(p["telocal_count"], _int(r.get("telocal_count", 0)))
         # First non-"." locus key seen, same convention as te_subfamily/
         # te_family/te_class above -- it's the TElocal cntTable key for this
         # TE copy, breakpoint-deterministic like the rest of the annotation,
         # so every row for a pair agrees. Needed to join a real cohort-total
         # TElocal count from results/telocal/counts_matrix.tsv.gz downstream
-        # (candidates_explorer.html); telocal_count above is a max-across-
-        # one-sample proxy, not that total.
+        # (candidates_explorer.html) -- which will agree with telocal_count
+        # above, since both are cohort-wide sums computed two different ways;
+        # the matrix join is kept as the one actually displayed there.
         if p["telocal_locus"] == "." and r.get("telocal_locus", ".") != ".":
             p["telocal_locus"] = r["telocal_locus"]
 

@@ -59,16 +59,20 @@ COLUMNS = [
      "The assembled transcript's strand agrees with the gene's (StringTie).",
      "yesno"),
     ("junction_reads", "Chimeric reads",
-     "Chimeric reads supporting this pair (STAR). The metric most inflated by "
-     "artifacts -- shown last on purpose.", "int"),
+     "Chimeric reads supporting this pair (STAR), summed across every sample "
+     "that saw any of this pair's junction events -- a real cohort total. "
+     "The metric most inflated by artifacts -- shown last on purpose.", "int"),
     # Reported, never counted as evidence. It is in candidates.tsv.gz and the
     # guide discusses it at length, so leaving it out of the table meant the
     # one place a reader looks did not show it -- and its absence read as the
     # column not existing rather than as a deliberate exclusion.
-    ("telocal_count", "TElocal reads (best sample)",
-     "TElocal read count for the TE copy itself, in whichever ONE sample "
-     "recorded it first -- not a cohort total (see "
-     "candidates_explorer.html for that). A nonzero count counts toward "
+    ("telocal_count", "TElocal reads (cohort total)",
+     "TElocal read count for the TE copy itself, summed across every sample "
+     "(chimera_telocal_index.py builds one shared, all-samples index up "
+     "front, so this is already a cohort total, not a single sample's "
+     "count -- candidates_explorer.html's own \"TElocal reads (cohort "
+     "total)\" column reaches the same number by joining "
+     "counts_matrix.tsv.gz directly). A nonzero count counts toward "
      "Evidence count. One small run had it anti-correlated with the splice "
      "motif (6.7% vs 10.2% canonical), which is not enough to demote it -- "
      "see the guide. Blank means TElocal did not run; 0 means it ran and "

@@ -3,7 +3,11 @@
 
 Strategy A: For each gene<->TE chimera event, check whether the TE breakpoint
 overlaps a TElocal locus that has nonzero read counts.  Add three columns:
-  telocal_count    read count from the best-matching TElocal locus (0 if none)
+  telocal_count    the best-matching TElocal locus's read count (0 if none)
+                   -- COHORT-WIDE, not this sample's own count: --telocal-index
+                   is the shared, all-samples-summed index built once by
+                   build_chimera_telocal_index.py, so every sample's annotate
+                   job reports the same total for a given locus.
   telocal_locus    the TElocal locus key, or "." if no overlap
   telocal_active   "yes" if telocal_count > 0, else "no"
 

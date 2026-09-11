@@ -172,14 +172,13 @@ df <- data.frame(
     "Splice motif" = factor(candidates$junction_canonical),
     "Chimeric junction samples" = int_or_na(candidates$junction_max_samples),
     "Junction events" = int_or_na(candidates$junction_events),
-    "Chimeric reads" = int_or_na(candidates$junction_reads),
-    "Junction chimera types" = candidates$junction_chimera_types,
+    "Junction reads (cohort total)" = int_or_na(candidates$junction_reads),
+    "TE type (reads)" = candidates$junction_chimera_types,
     "TElocal active" = factor(candidates$telocal_active),
-    "TElocal reads (best sample)" = int_or_na(candidates$telocal_count),
     "TElocal reads (cohort total)" = telocal_cohort_total,
     "Assembly transcript count" = int_or_na(candidates$assembly_transcripts),
     "Assembly reads (cohort total)" = assembly_cohort_total,
-    "Assembly chimera types" = candidates$assembly_chimera_types,
+    "TE type (assembly)" = candidates$assembly_chimera_types,
     "Strand match" = factor(candidates$assembly_strand_match),
     "Assembly transcript IDs" = candidates$assembly_transcript_ids,
     check.names = FALSE,
@@ -214,13 +213,15 @@ descriptions <- c(
           "The best artifact discriminator available."),
     "Most samples any one chimeric junction for this pair was seen in (STAR).",
     "Distinct chimeric junction events backing this pair (STAR).",
-    paste("Chimeric reads supporting this pair (STAR). The metric most",
-          "inflated by artifacts -- shown last on purpose."),
-    "Chimera type(s) seen across this pair's junction events (STAR).",
+    paste("Chimeric reads supporting this pair (STAR), summed across every",
+          "sample that saw any of this pair's junction events -- a real",
+          "cohort total, not a per-sample figure. The metric most inflated",
+          "by artifacts -- shown last on purpose."),
+    paste("TE-chimera class(es) seen across this pair's junction events",
+          "(STAR): te_initiated, te_terminated, te_exonized (see",
+          "classify_chimera_reads.py); \".\" when not classifiable",
+          "(e.g. trans events on different chromosomes)."),
     "Whether TElocal called this TE locus expressed in at least one sample.",
-    paste("TElocal read count for the TE copy itself, in whichever ONE",
-          "sample recorded it first -- not a cohort total. Blank means",
-          "TElocal did not run; 0 means it ran and found nothing."),
     paste("Sum of this TE locus's TElocal read count across every sample",
           "(results/telocal/counts_matrix.tsv.gz). Blank means TElocal",
           "did not run."),
@@ -228,7 +229,10 @@ descriptions <- c(
     paste("Sum of this pair's assembled transcript(s) estimated read count",
           "across every sample",
           "(results/chimera/assembly/counts_matrix.tsv.gz; StringTie)."),
-    "Chimera type(s) seen across this pair's assembled transcripts (StringTie).",
+    paste("TE-chimera class(es) seen across this pair's assembled",
+          "transcripts (StringTie): te_initiated, te_terminated,",
+          "te_exonized (see classify_chimera_assembly.py); \".\" when not",
+          "classifiable (e.g. trans events on different chromosomes)."),
     "The assembled transcript's strand agrees with the gene's (StringTie).",
     "StringTie transcript_id(s) backing this pair."
 )
@@ -238,9 +242,11 @@ evidence_col <- which(colnames(df) == "Evidence count") - 1L
 # Hidden by default (still present, searchable, exportable) -- reduces
 # initial layout/render cost at high row/column counts without dropping any
 # data. Computed from column NAME, not a hardcoded position, so this can't
-# silently drift if a column is added/reordered above.
-hidden_cols <- which(colnames(df) %in%
-    c("gene_id", "Junction chimera types", "Assembly chimera types")) - 1L
+# silently drift if a column is added/reordered above. "TE type (reads)" /
+# "TE type (assembly)" (te_initiated/te_terminated/te_exonized) stay visible
+# -- these are the TE-chimera classes readers come here looking for, unlike
+# gene_id which is redundant with the "Gene" column right next to it.
+hidden_cols <- which(colnames(df) %in% c("gene_id")) - 1L
 
 header_titles <- descriptions
 sketch <- htmltools::withTags(table(

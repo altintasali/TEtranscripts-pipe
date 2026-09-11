@@ -166,10 +166,10 @@ else
   for h in "Gene" "TE insertion" "Gene locus" "TE locus" "TE subfamily" \
            "TE family" "TE class" "Found by" "Evidence flags" \
            "Evidence count" "Splice motif" "Chimeric junction samples" \
-           "Junction events" "Chimeric reads" "Junction chimera types" \
-           "TElocal active" "TElocal reads (best sample)" \
+           "Junction events" "Junction reads (cohort total)" "TE type (reads)" \
+           "TElocal active" \
            "TElocal reads (cohort total)" "Assembly transcript count" \
-           "Assembly reads (cohort total)" "Assembly chimera types" \
+           "Assembly reads (cohort total)" "TE type (assembly)" \
            "Strand match" "Assembly transcript IDs"; do
     if ! grep -qF "\"$h\"" "$T/exp/out.html"; then
       echo "ERROR: expected column header missing: $h"; FAIL=1
