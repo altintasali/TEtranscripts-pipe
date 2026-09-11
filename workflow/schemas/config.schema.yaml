@@ -364,7 +364,17 @@ properties:
                   candidates.bed) spanning each candidate's TE-overlapping
                   exon, colored by chimera_type, for loading alongside
                   chimera.reads's own IGV track. Default true.
-            required: [write_igv_bed]
+              write_gene_te_chimera_counts:
+                type: boolean
+                description: >-
+                  Write results/chimera/assembly/
+                  gene_te_chimera_counts_matrix.tsv.gz: counts_matrix.tsv.gz
+                  (transcript_id x sample) summed to one row per
+                  (matched_gene_id, te_id, chimera_type) -- the grain to
+                  feed DESeq2/edgeR at, not raw transcript_id or
+                  (gene_id, te_id) alone. See
+                  aggregate_chimera_assembly_counts.py. Default true.
+            required: [write_igv_bed, write_gene_te_chimera_counts]
         required: [enabled, breakpoint_tolerance, min_transcript_tpm, outputs]
     required: [reads, assembly]
 

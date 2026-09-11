@@ -645,6 +645,15 @@ resources:
     mem_per_sample: 150
     runtime: 30
 
+  chimera_assembly_aggregate_counts:
+    # Reads transcripts.tsv.gz + counts_matrix.tsv.gz, both already
+    # restricted to the small candidate-transcript set (not genome/cohort
+    # scale) -- same shape as chimera_assembly_cross_evidence's single
+    # table join, no per-sample scaling needed.
+    threads: 1
+    mem_mb: 2000
+    runtime: 30
+
   chimera_assembly_cross_evidence:
     # Single-threaded python; one table join, no per-sample scaling.
     threads: 1

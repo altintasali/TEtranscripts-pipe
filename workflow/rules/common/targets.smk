@@ -299,6 +299,10 @@ def all_benchmark_files():
             )
         if config["chimera"]["assembly"]["outputs"]["write_igv_bed"]:
             files.append(f"{B}/chimera_assembly_igv_bed/chimera_assembly_igv_bed.txt")
+        if config["chimera"]["assembly"]["outputs"]["write_gene_te_chimera_counts"]:
+            files.append(
+                f"{B}/chimera_assembly_aggregate_counts/chimera_assembly_aggregate_counts.txt"
+            )
         # The assembly QC view is log2-fixed (its outputs carry no
         # {transform} wildcard), unlike the reads screen's.
         files += [

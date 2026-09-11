@@ -29,6 +29,9 @@
 import os
 
 WRITE_IGV_BED_ASSEMBLY = bool(config["chimera"]["assembly"]["outputs"]["write_igv_bed"])
+WRITE_GENE_TE_CHIMERA_COUNTS = bool(
+    config["chimera"]["assembly"]["outputs"]["write_gene_te_chimera_counts"]
+)
 
 
 def all_chimera_assembly_outputs():
@@ -47,6 +50,8 @@ def all_chimera_assembly_outputs():
     ]
     if CHIMERA_READS_ENABLED:
         files.append("results/chimera/assembly/transcripts_with_read_support.tsv.gz")
+    if WRITE_GENE_TE_CHIMERA_COUNTS:
+        files.append("results/chimera/assembly/gene_te_chimera_counts_matrix.tsv.gz")
     if WRITE_IGV_BED_ASSEMBLY:
         files.append("results/chimera/assembly/igv/transcripts.bed")
     return files
@@ -300,6 +305,43 @@ rule chimera_assembly_quantify:
         "--sample-names {params.sample_names} "
         "--out-tpm {output.tpm} --out-counts {output.counts} "
         "--out-cpm {output.cpm} > {log} 2>&1"
+
+
+if WRITE_GENE_TE_CHIMERA_COUNTS:
+
+    rule chimera_assembly_aggregate_counts:
+        # Sums the transcript_id x sample counts matrix down to one row per
+        # (matched_gene_id, te_id, chimera_type) -- the grain DESeq2/edgeR
+        # should test at, not raw MSTRG transcript_id (too fragmented -- see
+        # classify_chimera_assembly.py) and not (gene, te) alone (a pair can
+        # carry mechanistically distinct te_initiated/te_terminated/
+        # te_exonized isoforms that pooling would cancel out or mask). Rows
+        # with matched_gene_id=="." or te_id=="." (te_initiated_intergenic,
+        # unspliced_te_only) are excluded, same filter chimera_evidence.py
+        # uses. See aggregate_chimera_assembly_counts.py's docstring.
+        input:
+            # Declared so that EDITING the script re-runs the rule.
+            # Snakemake's code trigger hashes the shell command STRING,
+            # not the file it names, so without this an edit to the
+            # script leaves stale outputs in place silently.
+            script=f"{SCRIPTS_DIR}/aggregate_chimera_assembly_counts.py",
+            candidates="results/chimera/assembly/transcripts.tsv.gz",
+            counts="results/chimera/assembly/counts_matrix.tsv.gz",
+        output:
+            "results/chimera/assembly/gene_te_chimera_counts_matrix.tsv.gz",
+        threads: get_resources("chimera_assembly_aggregate_counts")["threads"]
+        resources:
+            mem_mb=get_resources("chimera_assembly_aggregate_counts")["mem_mb"],
+            runtime=get_resources("chimera_assembly_aggregate_counts")["runtime"],
+        benchmark:
+            "results/pipeline_info/benchmarks/chimera_assembly_aggregate_counts/"
+            "chimera_assembly_aggregate_counts.txt",
+        log:
+            "results/pipeline_info/logs/chimera_assembly/aggregate_counts.log",
+        shell:
+            "python3 {input.script} "
+            "--transcripts {input.candidates} --counts {input.counts} "
+            "--out {output} > {log} 2>&1"
 
 
 if CHIMERA_READS_ENABLED:

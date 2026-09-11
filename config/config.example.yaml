@@ -294,6 +294,15 @@ chimera:
       # chimera_type, for loading alongside chimera.reads's own IGV
       # track.
       write_igv_bed: true
+      # results/chimera/assembly/gene_te_chimera_counts_matrix.tsv.gz:
+      # counts_matrix.tsv.gz (transcript_id x sample) summed to one row per
+      # (matched_gene_id, te_id, chimera_type) -- the grain to feed
+      # DESeq2/edgeR at, not raw transcript_id (StringTie routinely splits
+      # one real event into several near-identical isoforms) or
+      # (gene_id, te_id) alone (a pair can carry mechanistically distinct
+      # te_initiated/te_terminated/te_exonized isoforms that summing would
+      # cancel out or mask). See aggregate_chimera_assembly_counts.py.
+      write_gene_te_chimera_counts: true
 
 # Locus-level TE quantification (TElocal) -- a complement to TEcount's
 # subfamily-level quantification. TElocal resolves TEs per genomic instance
