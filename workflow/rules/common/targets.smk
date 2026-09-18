@@ -339,10 +339,15 @@ def all_benchmark_files():
     # additionally requires telocal.qc.enabled.
     if TELOCAL_ENABLED:
         files += [
-            "results/pipeline_info/benchmarks/telocal_locind/locind.txt",
             "results/pipeline_info/benchmarks/telocal_summary/telocal_summary.txt",
             "results/pipeline_info/benchmarks/telocal_locations/locations.txt",
         ]
+        # telocal_locind only runs (and only has a benchmark to request) on
+        # the auto-build path -- a user-provided telocal.locind is only ever
+        # read, never built, so requesting its benchmark here would force a
+        # redundant auto-build just to produce this file.
+        if not _telocal_locind_cfg:
+            files.append("results/pipeline_info/benchmarks/telocal_locind/locind.txt")
         for s in SAMPLES:
             files.append(f"results/pipeline_info/benchmarks/telocal/{s}.txt")
         if TELOCAL_QC_ENABLED:
