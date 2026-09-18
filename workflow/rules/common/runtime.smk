@@ -231,17 +231,77 @@ if TELOCAL_ENABLED and TELOCAL_QC_ENABLED and TELOCAL_QC["pca_transform"] in ("v
     )
 
 
-def _telocal_locind_path():
-    """Return the .locInd path for the telocal rule.
-
-    When the user provides a path, use it directly.  When locind is empty,
-    auto-build from the TE GTF (telocal_locind rule) into results/telocal/.
-    The name must keep the .locInd suffix -- TElocal rejects any --TE file
-    whose path does not end in .locInd.
+def _telocal_locind_storage_path():
+    """The telocal.locind file as built or as given by the user -- always
+    resolvable to a snakemake target (produced by telocal_locind when
+    auto-built, or read directly as a user-provided source otherwise). May
+    be a plain .locInd or a gzipped .locInd.gz -- see _resolve_telocal_locind
+    below for the runtime path TElocal itself reads. Used by
+    cleanup_telocal_index (telocal.smk), which needs the actual stored
+    file, not the transient decompressed copy _telocal_locind_path returns.
     """
     if _telocal_locind_cfg:
         return _telocal_locind_cfg
-    return "results/telocal/telocal.locInd"
+    # Gzipped: a real mouse/human TE annotation's pickled index is hundreds
+    # of MB to ~1GB plain; gzip cuts that by roughly 70% (see
+    # config.example.yaml's telocal.locind comment) for negligible cost
+    # against telocal_locind's own multi-minute build time.
+    return "results/telocal/telocal.locInd.gz"
+
+
+def _resolve_telocal_locind(path):
+    """Resolve a (possibly gzipped) telocal.locind storage path to the
+    always-plain, literal '.locInd'-suffixed path TElocal's --TE flag
+    needs -- transparently decompressing via the same gunzip_reference
+    machinery ref.fasta/gtf/te_gtf use (REFERENCE_GZ_SOURCES/
+    DECOMPRESS_DIR, refs.smk). Covers both a user-provided .locInd.gz (e.g.
+    an mghlab.org prebuilt index, downloaded gzipped) and our own
+    auto-built one (telocal_locind, now always gzipped -- see its output
+    comment). TElocal rejects any --TE path that doesn't literally end in
+    '.locInd' ("TE annotation file needs to be a TElocal index, which will
+    end in .locInd" -- a real run failure this fixes), so the .gz form must
+    decompress to a filename ending in that suffix -- checked eagerly so a
+    bad filename fails at parse time, not hours into a queued run.
+    """
+    if not path.endswith(".gz"):
+        return path
+    stem = os.path.basename(path)[:-3]  # strip trailing ".gz"
+    if not stem.endswith(".locInd"):
+        raise WorkflowError(
+            f"telocal.locind {path!r} is gzipped but doesn't decompress to "
+            f"a '.locInd' file ({stem!r}) -- TElocal rejects any --TE path "
+            "that doesn't end in '.locInd'. Rename the file so its "
+            "basename (after stripping .gz) ends in .locInd."
+        )
+    decompressed = f"{DECOMPRESS_DIR}/{stem}"
+    if stem in REFERENCE_GZ_SOURCES and REFERENCE_GZ_SOURCES[stem] != path:
+        raise ValueError(
+            f"Two different .gz files decompress to the same filename "
+            f"'{stem}' ({decompressed}) -- rename one of them so their "
+            "basenames are unique."
+        )
+    REFERENCE_GZ_SOURCES[stem] = path
+    return decompressed
+
+
+# Registered eagerly here (not deferred to telocal.smk's later rule
+# parsing) so REFERENCE_GZ_SOURCES already has this entry when
+# targets.smk's all_benchmark_files() runs right after this file is
+# included -- otherwise its `for stem in REFERENCE_GZ_SOURCES` loop would
+# silently miss the gunzip_reference benchmark for this stem, the same
+# class of bug just fixed for telocal_locind's own benchmark target (see
+# targets.smk's `if not _telocal_locind_cfg:` guard).
+_TELOCAL_LOCIND_RUNTIME_PATH = (
+    _resolve_telocal_locind(_telocal_locind_storage_path())
+    if TELOCAL_ENABLED
+    else None
+)
+
+
+def _telocal_locind_path():
+    """Return the .locInd path the telocal rule's --TE flag reads -- always
+    plain, never .gz (see _resolve_telocal_locind's docstring)."""
+    return _TELOCAL_LOCIND_RUNTIME_PATH
 
 # TrimGalore! always appends _trimmed (single-end) or _val_1/_val_2 (paired)
 # to the *input* basename, and its --basename normalization only strips a

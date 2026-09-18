@@ -319,8 +319,12 @@ telocal:
   #   TElocal_indexer --afile TE.gtf --itype TE
   # (requires ~30 GB RAM for a human genome). Or download prebuilt indices
   # from https://www.mghlab.org/software/telocal
+  # Plain or gzipped (.locInd.gz) both work -- gzipped is decompressed
+  # automatically (same as ref.fasta/gtf/te_gtf above), and is worth
+  # keeping as the canonical copy: ~70% smaller than plain for a real
+  # mouse/human TE annotation.
   # When empty, the workflow auto-builds the index from the TE GTF into
-  # results/telocal/telocal.locInd (kept unless
+  # results/telocal/telocal.locInd.gz (kept unless
   # outputs.keep_telocal_index: false), using the method set by `indexer`.
   locind: ""
   # Only used when locind is empty (auto-build).
@@ -368,8 +372,9 @@ outputs:
   # next run.
   keep_star_index: true
   # Whether to keep the auto-built TElocal .locInd index
-  # (results/telocal/telocal.locInd) after all samples' TElocal runs finish.
-  # Setting to false deletes it once quantification is done, saving disk at
-  # the cost of re-building on the next run. Never applies to a user-provided
-  # telocal.locind path -- that file is only ever read, never deleted.
+  # (results/telocal/telocal.locInd.gz) after all samples' TElocal runs
+  # finish. Setting to false deletes it once quantification is done, saving
+  # disk at the cost of re-building on the next run. Never applies to a
+  # user-provided telocal.locind path -- that file is only ever read, never
+  # deleted.
   keep_telocal_index: true
