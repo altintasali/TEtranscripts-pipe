@@ -8,8 +8,8 @@ set -uo pipefail
 guard_init
 
 # --- The report's reading guide is generated from the resolved
-# switches, so its central claim -- that the two chimera screens
-# are the only independent pair -- must track them.
+# switches, so its central claim -- how many independent chimera screens
+# are running, and which -- must track them.
 mkdir -p "$T/eo/qc"
 python3 - "$T/eo/qc/evidence_overview_mqc.json" <<'PY' || FAIL=1
 # run_name must be __main__: these scripts guard their main() call so
@@ -22,14 +22,17 @@ out = sys.argv[1]
 ok = True
 cases = [
     (dict(_telocal_enabled=True, _chimera_reads_enabled=True,
-          _chimera_assembly_enabled=True, _two_pass="cohort",
-          _has_condition=True), "Two independent"),
+          _chimera_assembly_enabled=True, _chimera_sj_enabled=True,
+          _two_pass="cohort"), "3 independent"),
+    (dict(_telocal_enabled=True, _chimera_reads_enabled=True,
+          _chimera_assembly_enabled=True, _chimera_sj_enabled=False,
+          _two_pass="cohort"), "2 independent"),
     (dict(_telocal_enabled=False, _chimera_reads_enabled=True,
-          _chimera_assembly_enabled=False, _two_pass="none",
-          _has_condition=False), "One chimera screen"),
+          _chimera_assembly_enabled=False, _chimera_sj_enabled=False,
+          _two_pass="none"), "One chimera screen"),
     (dict(_telocal_enabled=False, _chimera_reads_enabled=False,
-          _chimera_assembly_enabled=False, _two_pass="per_sample",
-          _has_condition=False), "quantification only"),
+          _chimera_assembly_enabled=False, _chimera_sj_enabled=False,
+          _two_pass="per_sample"), "quantification only"),
 ]
 for params, expected in cases:
     builtins.snakemake = types.SimpleNamespace(

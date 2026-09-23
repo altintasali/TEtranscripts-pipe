@@ -11,27 +11,49 @@ that case instead, using StringTie's assembled transcript structure.
 
 Method: for every multi-exon transcript in the merged StringTie GTF, exons
 are ordered 5'->3' by the transcript's own strand, then, in priority order:
-  1. first exon overlaps a TE, a downstream exon overlaps an annotated gene
-     exon -> te_initiated
-  2. first exon overlaps a TE, no downstream exon matches any annotated gene
-     -> te_initiated_intergenic (a fully novel, TE-driven transcript)
-  3. (else) last exon overlaps a TE, an earlier exon matches an annotated
+  1. the transcript's TSS falls inside a TE overlapping the first exon (see
+     --require-tss-in-te below), and the first exon also overlaps an
+     ANNOTATED transcript's first exon (--first-exons) -> not a chimera --
+     this is a known promoter with a TE embedded in/near it, not a novel
+     TE-driven transcript -> annotated_promoter_embedded_te
+  2. TSS-in-TE as above, a downstream exon overlaps an annotated gene exon,
+     no annotated-first-exon match -> te_initiated
+  3. TSS-in-TE as above, no downstream exon matches any annotated gene ->
+     te_initiated_intergenic (a fully novel, TE-driven transcript)
+  4. (else) last exon overlaps a TE, an earlier exon matches an annotated
      gene -> te_terminated (TE-overlapping last exon with no matching gene
      is not a real chimera -- nothing to terminate -- and is skipped)
-  4. (else) an internal exon (not first, not last) overlaps a TE, and some
+  5. (else) an internal exon (not first, not last) overlaps a TE, and some
      other exon matches an annotated gene -> te_exonized
-A transcript whose first exon overlaps a TE never falls through to the
-te_terminated/te_exonized checks even if a later exon also touches a TE --
-first-exon evidence takes priority; this only matters for the rare
-transcript with TEs at both ends.
+A transcript whose first exon overlaps a TE (and clears the TSS-in-TE gate)
+never falls through to the te_terminated/te_exonized checks even if a later
+exon also touches a TE -- first-exon evidence takes priority; this only
+matters for the rare transcript with TEs at both ends.
+
+--require-tss-in-te (config chimera.assembly.require_tss_in_te, default
+true): by default, a first-exon TE overlap only counts toward
+te_initiated/te_initiated_intergenic/annotated_promoter_embedded_te when the
+transcript's own TSS (not just any part of its first exon) falls inside the
+TE interval, +/- --breakpoint-tolerance. Without this, an ordinary gene with
+a TE anywhere in its 5' UTR is indistinguishable from a real TE-driven
+promoter. When a first-exon TE hit exists but fails the TSS gate, it is
+treated exactly as if the first exon had no TE hit at all (falls through to
+the te_terminated/te_exonized checks). Pass --no flag (omit the flag) to
+restore the looser any-overlap behavior.
+
+TE orientation: every classified row reports te_strand and
+te_orientation_match (transcript strand vs. TE strand, "yes"/"no"/"NA") --
+orientation matters for LTR-promoter chimeras, where the promoter only
+drives transcription in the LTR's own orientation.
 
 Single-exon transcripts overlapping a TE have no splice evidence to confirm
 they connect to anything -> unspliced_te_only, reported separately at lower
 confidence rather than classified.
 
 Reuses the same reference tracks the junction screen already builds
-(results/reference/genes.bed, exons.bed, te.bed from annotation_to_bed.py) --
-no new reference files needed.
+(results/reference/genes.bed, exons.bed, te.bed from annotation_to_bed.py),
+plus first_exons.bed (also from annotation_to_bed.py) -- no new reference
+files needed.
 
 Ambiguity: like classify_chimera_reads.py, the reported te_id/
 matched_gene_id at a multi-copy/nested locus use the first hit -- the full
@@ -43,8 +65,8 @@ Output columns (results/chimera/assembly/transcripts.tsv):
     te_exon_start, te_exon_end (the SPECIFIC exon that overlaps the TE --
         not always the first exon; use this, not transcript_start/end, to
         jump straight to the breakpoint e.g. for an IGV track),
-    te_id, te_subfamily, te_family, te_class, te_overlap_exon_rank,
-    te_hits_all,
+    te_id, te_subfamily, te_family, te_class, te_strand, te_overlap_exon_rank,
+    te_hits_all, te_orientation_match (transcript strand vs. TE strand),
     matched_gene_id, matched_gene_strand, gene_hits_all, strand_match,
     chimera_type
 
@@ -55,7 +77,8 @@ Apply your own per-sample expression / replicate-support filter downstream
 
 Usage:
   classify_chimera_assembly.py --gtf stringtie_merge.gtf \\
-      --genes genes.bed --exons exons.bed --te te.bed \\
+      --genes genes.bed --exons exons.bed --first-exons first_exons.bed \\
+      --te te.bed \\
       --breakpoint-tolerance 5 --out candidates.tsv.gz
 """
 import argparse
@@ -146,6 +169,16 @@ def load_transcripts(gtf_path):
     return transcripts
 
 
+def orientation_match(transcript_strand, te_strand):
+    """"yes"/"no" when both strands are known, else "NA" -- used for
+    te_orientation_match, the LTR-promoter-relevant signal that compares the
+    assembled transcript's strand to the TE's own strand (not the matched
+    gene's, which strand_match already covers)."""
+    if transcript_strand not in ("+", "-") or te_strand not in ("+", "-"):
+        return "NA"
+    return "yes" if transcript_strand == te_strand else "no"
+
+
 def find_gene_match(exons, exclude_rank, exons_track, chrom, tol):
     """First exon (transcription-order rank, skipping exclude_rank) that
     overlaps an annotated gene exon. Returns (gene_id, gene_strand,
@@ -165,13 +198,20 @@ def main():
     ap.add_argument("--gtf", required=True, help="StringTie merged/assembled GTF")
     ap.add_argument("--genes", required=True, help="results/reference/genes.bed")
     ap.add_argument("--exons", required=True, help="results/reference/exons.bed")
+    ap.add_argument("--first-exons", required=True,
+                     help="results/reference/first_exons.bed")
     ap.add_argument("--te", required=True, help="results/reference/te.bed")
     ap.add_argument("--breakpoint-tolerance", type=int, default=0)
     ap.add_argument("--min-exons-for-splice-call", type=int, default=2)
+    ap.add_argument("--require-tss-in-te", action="store_true",
+                     help="Only call te_initiated when the transcript's own "
+                          "TSS falls inside the TE, not merely its first "
+                          "exon (config chimera.assembly.require_tss_in_te).")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
     exons_track = load_bed(args.exons)
+    first_exons_track = load_bed(args.first_exons)
     te = load_bed(args.te, n_extra=3)
     tol = max(args.breakpoint_tolerance, 0)
 
@@ -181,8 +221,8 @@ def main():
         "transcript_id", "gtf_gene_id", "chrom", "strand", "n_exons",
         "transcript_start", "transcript_end",
         "te_exon_start", "te_exon_end",
-        "te_id", "te_subfamily", "te_family", "te_class",
-        "te_overlap_exon_rank", "te_hits_all",
+        "te_id", "te_subfamily", "te_family", "te_class", "te_strand",
+        "te_overlap_exon_rank", "te_hits_all", "te_orientation_match",
         "matched_gene_id", "matched_gene_strand", "gene_hits_all", "strand_match",
         "chimera_type",
     ]
@@ -205,7 +245,8 @@ def main():
                     rows.append([
                         tid, t["gene_id"], chrom, strand or ".", n_exons,
                         transcript_start, transcript_end, s, e,
-                        te_id, te_sub, te_fam, te_cls, 1, ",".join(te_all),
+                        te_id, te_sub, te_fam, te_cls, te_strand, 1,
+                        ",".join(te_all), orientation_match(strand, te_strand),
                         ".", ".", "", "NA", "unspliced_te_only",
                     ])
                     break
@@ -216,22 +257,43 @@ def main():
         te_first_hits = overlapping(te, chrom, first_s - tol, first_e + tol)
         te_last_hits = overlapping(te, chrom, last_s - tol, last_e + tol)
 
+        # TSS = the transcript's own 5' boundary, which is first_s on "+" and
+        # first_e on "-" (ex[0] is already the 5'-most exon). Gate first-exon
+        # TE evidence on the TSS actually falling inside the TE, not merely
+        # any overlap with the exon -- an ordinary gene with a TE anywhere in
+        # its 5' UTR would otherwise also qualify. See --require-tss-in-te.
+        te_first_hits_init = te_first_hits
+        if args.require_tss_in_te and te_first_hits:
+            tss = first_e if strand == "-" else first_s
+            te_first_hits_init = [
+                h for h in te_first_hits if h[0] - tol <= tss <= h[1] + tol
+            ]
+
         chimera_type = te_rank = None
-        te_id = te_fam = te_cls = "."
+        te_id = te_fam = te_cls = te_strand = "."
         te_hits_all = []
         matched_gene_id = matched_gene_strand = "."
         gene_hits_all = []
         te_exon_s = te_exon_e = None
 
-        if te_first_hits:
-            te_id, _, te_strand, te_fam, te_cls, te_sub = te_first_hits[0][2]
-            te_hits_all = sorted({h[2][0] for h in te_first_hits})
+        if te_first_hits_init:
+            te_id, _, te_strand, te_fam, te_cls, te_sub = te_first_hits_init[0][2]
+            te_hits_all = sorted({h[2][0] for h in te_first_hits_init})
             te_rank = 1
             te_exon_s, te_exon_e = first_s, first_e
             matched_gene_id, matched_gene_strand, gene_hits_all = find_gene_match(
                 ex, te_rank, exons_track, chrom, tol
             )
-            chimera_type = "te_initiated" if matched_gene_id != "." else "te_initiated_intergenic"
+            first_exon_hits = overlapping(
+                first_exons_track, chrom, first_s - tol, first_e + tol
+            )
+            if first_exon_hits:
+                # First exon lines up with a KNOWN transcript's own first
+                # exon -- an annotated promoter with an embedded TE, not a
+                # novel TE-driven transcript.
+                chimera_type = "annotated_promoter_embedded_te"
+            else:
+                chimera_type = "te_initiated" if matched_gene_id != "." else "te_initiated_intergenic"
         elif te_last_hits:
             te_id, _, te_strand, te_fam, te_cls, te_sub = te_last_hits[0][2]
             te_hits_all = sorted({h[2][0] for h in te_last_hits})
@@ -269,7 +331,8 @@ def main():
         rows.append([
             tid, t["gene_id"], chrom, strand, n_exons,
             transcript_start, transcript_end, te_exon_s, te_exon_e,
-            te_id, te_sub, te_fam, te_cls, te_rank, ",".join(te_hits_all),
+            te_id, te_sub, te_fam, te_cls, te_strand, te_rank,
+            ",".join(te_hits_all), orientation_match(strand, te_strand),
             matched_gene_id, matched_gene_strand, ",".join(gene_hits_all), strand_match,
             chimera_type,
         ])

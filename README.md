@@ -3,7 +3,7 @@
 ![CI](https://img.shields.io/github/actions/workflow/status/altintasali/TEtranscripts-pipe/ci.yml?label=CI)
 ![License](https://img.shields.io/github/license/altintasali/TEtranscripts-pipe?color=blue)
 ![Platform](https://img.shields.io/badge/platform-Python-blue)
-![Version](https://img.shields.io/badge/version-0.11.0-blue)
+![Version](https://img.shields.io/badge/version-0.14.2-blue)
 
 A Snakemake workflow that quantifies genes **and** transposable elements (TEs)
 from RNA-seq data with [TEtranscripts/TEcount](https://github.com/mhammell-laboratory/TEtranscripts),
@@ -16,8 +16,10 @@ flowchart LR
     align --> quant["Gene + TE quantification<br/>(TEcount / TElocal)"]
     align --> rdev["Chimeras: read evidence"]
     align --> asm["Chimeras: transcript evidence<br/>(2nd STAR pass)"]
+    align --> sjdev["Chimeras: SJ-junction evidence<br/>(off by default)"]
     rdev --> cand["Gene-TE candidates<br/>(evidence, not a score)"]
     asm --> cand
+    sjdev --> cand
     quant --> report["MultiQC report"]
     cand --> report
 ```
@@ -32,8 +34,9 @@ The workflow builds a STAR index and an RSeQC gene model (BED12) **once**, then
 for every sample concatenates split lanes, optionally trims with TrimGalore!,
 aligns with STAR, and auto-detects library strandedness from the sorted BAM.
 TEcount quantifies genes + TEs per sample (subfamily-level); TElocal provides
-locus-level TE quantification from the same alignment. If your sample sheet has
-a `condition` column, TEtranscripts + DESeq2 also runs every pairwise contrast.
+locus-level TE quantification from the same alignment. The pipeline does not
+run any differential-expression analysis itself -- take the per-sample TEcount
+tables into your own DESeq2/edgeR analysis downstream.
 The per-sample TEcount tables also drive a sample-QC view (PCA + sample
 clustering, on by default) and per-sample summary barplots (gene-vs-TE
 assignment and TE class composition), rendered inside the MultiQC report;
@@ -41,19 +44,25 @@ the TElocal tables drive the same section set for the locus-level counts.
 
 ### Gene-TE chimeras
 
-Two **independent** screens look for gene-TE chimeric transcripts, and both
-are **on by default**:
+Up to three **independent** screens look for gene-TE chimeric transcripts:
 
 - **Read evidence** (`chimera.reads`) annotates STAR's chimeric junction
   reads — reads that cannot be explained by one linear alignment. It is
   annotation-blind, so it catches breakpoints no assembler would predict, and
   reuses the same alignment as quantification (no extra STAR pass).
+  **On by default.**
 - **Transcript evidence** (`chimera.assembly`) infers chimeras from StringTie
   assembly structure, catching TE-initiated/exonized/terminated transcripts
   spliced through an ordinary canonical intron — which the read screen
   structurally cannot see. **This costs a second, dedicated STAR pass per
   sample**; set `chimera.assembly.enabled: false` to skip it. It is newer and
-  less validated than the read screen.
+  less validated than the read screen. **On by default.**
+- **SJ-junction evidence** (`chimera.sj_junctions`) catches the same
+  ordinary-canonical-intron blind spot as the assembly screen, but from
+  STAR's own splice junctions (SJ.out.tab, already produced by the main
+  alignment) at the individual read-junction level — no assembly, no extra
+  STAR pass. Set `chimera.sj_junctions.enabled: true` to turn it on. **Off by
+  default** — brand new and unvalidated on real data.
 
 **When to use the assembly screen.** It pays off most on genomes with
 well-annotated TEs (human, mouse), where it recovers chimeras spliced through
@@ -64,9 +73,10 @@ STAR's chimeric junctions need no annotation at all. The cost is dominated by
 the second STAR pass — roughly double the alignment time and peak disk;
 StringTie and the classification that follow are cheap by comparison.
 
-The two are merged into one catalogue at `results/chimera/candidates.tsv.gz`
-— one row per (gene, TE insertion) pair, carrying every line of evidence
-either screen produced. The report's **Chimera** section opens with that list
+All enabled screens are merged into one catalogue at
+`results/chimera/candidates.tsv.gz` — one row per (gene, TE insertion) pair,
+carrying every line of evidence any screen produced. The report's **Chimera**
+section opens with that list
 as a sortable table, followed by a guide to what each signal is worth, then
 each screen's own evidence.
 
@@ -87,12 +97,12 @@ resource-usage table.
 
 This README covers getting the pipeline installed and running. Everything
 else — every config key, the CLI, HPC/SLURM setup, and how each stage
-(strandedness, STAR 2-pass, TEcounts/TElocal sample-QC, the two chimera
+(strandedness, STAR 2-pass, TEcounts/TElocal sample-QC, the chimera
 screens) actually works — lives in the
 **[wiki](https://github.com/altintasali/TEtranscripts-pipe/wiki)**:
 
 - **Configuration & running**: [Configuration Reference](https://github.com/altintasali/TEtranscripts-pipe/wiki/Configuration-Reference) · [Command-Line Interface](https://github.com/altintasali/TEtranscripts-pipe/wiki/Command-Line-Interface) · [Running the Pipeline](https://github.com/altintasali/TEtranscripts-pipe/wiki/Running-the-Pipeline) · [HPC and SLURM](https://github.com/altintasali/TEtranscripts-pipe/wiki/HPC-and-SLURM) · [Resource Usage and Reports](https://github.com/altintasali/TEtranscripts-pipe/wiki/Resource-Usage-and-Reports) · [Tool Versions](https://github.com/altintasali/TEtranscripts-pipe/wiki/Tool-Versions)
-- **How each stage works**: [Strandedness and STAR 2-pass](https://github.com/altintasali/TEtranscripts-pipe/wiki/Strandedness-and-STAR-2-pass) · [Automatic Differential Analysis](https://github.com/altintasali/TEtranscripts-pipe/wiki/Automatic-Differential-Analysis) · [TEcounts Sample-QC](https://github.com/altintasali/TEtranscripts-pipe/wiki/TEcounts-Sample-QC) · [TElocal](https://github.com/altintasali/TEtranscripts-pipe/wiki/TElocal) · [Chimera Detection](https://github.com/altintasali/TEtranscripts-pipe/wiki/Chimera-Detection)
+- **How each stage works**: [Strandedness and STAR 2-pass](https://github.com/altintasali/TEtranscripts-pipe/wiki/Strandedness-and-STAR-2-pass) · [TEcounts Sample-QC](https://github.com/altintasali/TEtranscripts-pipe/wiki/TEcounts-Sample-QC) · [TElocal](https://github.com/altintasali/TEtranscripts-pipe/wiki/TElocal) · [Chimera Detection](https://github.com/altintasali/TEtranscripts-pipe/wiki/Chimera-Detection)
 - **Reference**: [Output Layout](https://github.com/altintasali/TEtranscripts-pipe/wiki/Output-Layout)
 
 ## Quick start
@@ -194,7 +204,6 @@ reference for both files, see the wiki's
 - Gzipped fastqs are read natively by STAR, so merged/trimmed intermediates stay
   gzipped; gzipped references (`.fa.gz`/`.gtf.gz`) decompress once automatically.
   Mix and match freely.
-- TEtranscripts/DESeq2 needs at least 2 replicates per group in a contrast.
 - STAR indexing and TEtranscripts are memory-hungry (TEtranscripts: ~20-30 GB
   recommended for human data).
 

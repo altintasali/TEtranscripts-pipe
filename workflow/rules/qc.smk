@@ -209,10 +209,10 @@ rule evidence_overview:
         "results/pipeline_info/logs/multiqc/evidence_overview.log",
     params:
         _sample_count=len(SAMPLES),
-        _has_condition=HAS_CONDITION,
         _telocal_enabled=TELOCAL_ENABLED,
         _chimera_reads_enabled=CHIMERA_READS_ENABLED,
         _chimera_assembly_enabled=CHIMERA_ASSEMBLY_ENABLED,
+        _chimera_sj_enabled=CHIMERA_SJ_ENABLED,
         _two_pass=STAR_TWO_PASS,
     script:
         "../scripts/evidence_overview_mqc.py"

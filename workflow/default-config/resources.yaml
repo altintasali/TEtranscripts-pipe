@@ -141,6 +141,14 @@ resources:
     mem_per_sample: 50
     runtime: 30
 
+  star_filter_primary:
+    # samtools view -F 0x800 streaming filter over the STAR BAM; only runs
+    # when chimera.reads.enabled (see align.smk's quant_bam_input). I/O-bound
+    # like samtools_sort/samtools_index, same ballpark resource footprint.
+    threads: 2
+    mem_mb: 4000
+    runtime: 60
+
   samtools_sort:
     # Coordinate sorting is I/O-bound in practice; measured runs used <=3
     # cores regardless of allocation, so 2 threads suffice. -m per-thread
@@ -298,13 +306,6 @@ resources:
     mem_mb: 8000
     runtime: 30
 
-  tetranscripts_diffexp:
-    # Pools every treatment/control BAM in a contrast at once, so scales
-    # with both annotation size and total mapped reads across all samples.
-    threads: 4
-    mem_mb: 32000
-    runtime: 360
-
   # ---- TEcounts sample-QC (only when tetranscripts.qc.enabled) ----------
   # These rules only run when tetranscripts.qc.enabled is true (the default,
   # see common.smk); the entries are inert otherwise.
@@ -371,6 +372,43 @@ resources:
     threads: 1
     mem_mb: 8000
     runtime: 120
+
+  # ---- Chimera SJ.out.tab junction screen (only when enabled) -------------
+  # These rules only run when chimera.sj_junctions.enabled (see common.smk);
+  # the entries are inert otherwise.
+
+  chimera_sj_classify:
+    # Annotating one sample's SJ.out.tab against the gene/TE tracks;
+    # single-threaded python. SJ.out.tab is already deduplicated per
+    # junction (unlike Chimeric.out.junction's one-row-per-read), so this is
+    # lighter than chimera_reads_classify despite the same gene/TE tracks.
+    threads: 1
+    mem_mb: 4000
+    runtime: 60
+
+  chimera_sj_counts:
+    # Merging per-sample junction tables; single-threaded python (2nd
+    # thread reserved as scheduler headroom), same shape as
+    # chimera_reads_counts. Base 2 GB + 75 MB per sample (SJ.out.tab-derived
+    # tables are smaller than the chimeric-read screen's).
+    threads: 2
+    mem_mb: 2000
+    mem_per_sample: 75
+    runtime: 30
+
+  chimera_sj_qc_transform:
+    # DESeq2 vst/rlog on the SJ-junction counts matrix; R is single-threaded.
+    threads: 1
+    mem_mb: 4000
+    mem_per_sample: 300
+    runtime: 60
+
+  chimera_sj_qc:
+    # PCA + sample-distance heatmap in R; single-threaded.
+    threads: 1
+    mem_mb: 2000
+    mem_per_sample: 100
+    runtime: 30
 
   chimera_telocal_index:
     # Builds the merged all-samples TElocal interval index ONCE (previously

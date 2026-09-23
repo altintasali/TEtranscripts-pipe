@@ -4,7 +4,7 @@
 # chimera_reads_qc.smk / tecount_qc.smk / telocal.smk.
 #
 # The first two arguments select the mode and the view being served:
-#   view   "chimera", "tecount" or "telocal" -- namespaces the MultiQC
+#   view   "chimera", "assembly", "sj", "tecount" or "telocal" -- namespaces the MultiQC
 #          custom-content ids/titles so all views can render in one report
 #          without colliding.
 # Two modes, selected by the script's argument vector:
@@ -62,6 +62,14 @@ VIEWS <- list(
         noun_plural = "assembled chimeric transcripts",
         noun_singular = "transcript"
     ),
+    sj = list(
+        id = "chimera_sj",
+        parent = "chimera",
+        label = "Chimera",
+        section_prefix = "SJ junctions - ",
+        noun_plural = "splice junctions",
+        noun_singular = "junction"
+    ),
     tecount = list(
         id = "tecount",
         parent = "tecount",
@@ -83,7 +91,7 @@ VIEWS <- list(
 view_params <- function(view) {
     if (!view %in% names(VIEWS)) {
         stop(paste("unknown view:", view,
-                   "(expected chimera, tecount or telocal)"))
+                   "(expected chimera, assembly, sj, tecount or telocal)"))
     }
     VIEWS[[view]]
 }

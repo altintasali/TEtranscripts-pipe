@@ -44,7 +44,9 @@ PARENT_NAME = "Chimera"
 FLAGS = [
     ("canonical", "Splice motif"),
     ("multi_sample", "Replicate support"),
+    ("sj_canonical", "Splice motif (SJ junctions)"),
     ("both_screens", "Called by both screens"),
+    ("all_three_screens", "Called by all three screens"),
     ("assembly_strand_match", "Assembly strand match"),
     ("telocal_expressed", "TE locus expressed"),
 ]
@@ -60,7 +62,7 @@ SIGNALS = [
     (
         "Splice motif",
         "STAR (chimeric junctions)",
-        "A recognised splice motif on at least one junction "
+        "A recognised splice motif on at least one chimeric-junction read "
         "(<code>canonical</code>).",
         "The best artifact discriminator available here. Real introns are "
         "~100% canonical, while template-switching, ligation and PCR chimeras "
@@ -70,12 +72,29 @@ SIGNALS = [
     ),
     (
         "Replicate support",
-        "STAR (chimeric junctions)",
+        "STAR (chimeric junctions or SJ.out.tab)",
         "Seen in more than one sample (<code>multi_sample</code>).",
         "Weaker than it looks. A sequence-driven template switch recurs across "
         "libraries too, so recurrence does not separate a real chimera from a "
         "reproducible artifact.",
         "mixed",
+    ),
+    (
+        "Splice motif (SJ junctions)",
+        "STAR (SJ.out.tab)",
+        "A recognised splice motif on at least one normal splice junction "
+        "from the sj_junctions screen (<code>sj_canonical</code>) &mdash; "
+        "kept separate from the reads-screen's own <code>canonical</code> "
+        "flag above since the two are structurally independent "
+        "measurements (chimeric-junction typing vs. SJ.out.tab motif).",
+        "This screen (chimera.sj_junctions) is brand new and has not been "
+        "run on real project data yet, so nothing here is measured -- "
+        "requiring canonical for admission by default (require_canonical: "
+        "true) means most rows already carry this flag, so on its own it "
+        "discriminates little within this screen's own output; its value "
+        "is mainly in cross-checking against the other two screens (see "
+        "both_screens / all_three_screens below).",
+        "unresolved",
     ),
     (
         "Called by both screens",
@@ -87,6 +106,19 @@ SIGNALS = [
         "came out near its <strong>chance rate</strong>. Treat it as "
         "unresolved, and check the <strong>Evidence structure</strong> "
         "sections below for your own data before relying on it.",
+        "unresolved",
+    ),
+    (
+        "Called by all three screens",
+        "STAR + StringTie + STAR (SJ.out.tab)",
+        "Found by the reads, assembly, <em>and</em> sj_junctions screens "
+        "(<code>all_three_screens</code>).",
+        "Not measured -- chimera.sj_junctions is new, off by default, and "
+        "has not been run on real project data. Requiring three independent "
+        "methods to agree is a stronger signal in principle than the "
+        "two-screen case above, but that case's own measured near-chance "
+        "agreement rate is reason enough not to assume this one is any "
+        "better without checking it the same way first.",
         "unresolved",
     ),
     (
@@ -286,12 +318,14 @@ def main():
         "description": (
             "How many gene-TE pairs carry each line of evidence. "
             "<strong>These bars overlap and do not sum to the cohort.</strong> "
-            "A single pair can carry all five flags at once, so it is counted "
+            "A single pair can carry every flag at once, so it is counted "
             "in several bars &mdash; they are independent counts, not slices "
             "of a whole, which is why they are drawn separately rather than "
             "stacked. Sources: splice motif and replicate support from STAR "
             "chimeric junctions, assembly strand match from StringTie, "
-            "both-screens from the two together."
+            "splice motif (SJ junctions) from STAR's SJ.out.tab (when "
+            "chimera.sj_junctions is enabled), both/all-three-screens from "
+            "the screens together."
         ),
         **composition_body,
     }

@@ -127,6 +127,57 @@ rule star_align:
         "tail -n 60 {log} >&2; exit 1; fi))"
 
 
+rule star_filter_primary:
+    # Only wired in when the chimera-reads screen is enabled. --chimOutType
+    # WithinBAM SoftClip (star_align, above) writes a chimeric read's second
+    # segment as a supplementary (SAM flag 0x800) record in the SAME BAM
+    # TEcount/TElocal read -- kept there on purpose, since its SA tag is what
+    # lets IGV re-inspect the chimeric alignment (see star_align's comment).
+    #
+    # TEToolkit's own BAM parser (verified against the version this repo
+    # pins: TEToolkit/ShortRead/ParseBEDFile.py) only discards unmapped/
+    # QC-fail/duplicate records, then groups ALL remaining records sharing a
+    # QNAME to decide unique-vs-multi. A uniquely mapped chimeric read's
+    # extra supplementary record makes it look like a 2-way multimapper --
+    # dropped entirely in "uniq" mode, or split 50/50 across two loci in
+    # "multi" mode -- silently undercounting exactly the gene-TE reads this
+    # pipeline exists to study.
+    #
+    # This rule gives TEcount/TElocal a private, supplementary-filtered copy
+    # instead; the main results/star/{sample}_Aligned.out.bam (used by
+    # samtools_sort/IGV/QC) is untouched. -F 0x800 preserves record order, so
+    # the output stays STAR's native unsorted order -- still valid TEcount/
+    # TElocal input (see star_align's comment on that requirement).
+    input:
+        "results/star/{sample}_Aligned.out.bam",
+    output:
+        temp("results/star/{sample}_Aligned.primary.bam"),
+    threads: get_resources("star_filter_primary")["threads"]
+    resources:
+        mem_mb=get_resources("star_filter_primary")["mem_mb"],
+        runtime=get_resources("star_filter_primary")["runtime"],
+    benchmark:
+        "results/pipeline_info/benchmarks/star_filter_primary/{sample}.txt",
+    log:
+        "results/pipeline_info/logs/star/filter_primary/{sample}.log",
+    conda:
+        SAMTOOLS_ENV
+    shell:
+        "samtools view -@ {threads} -F 0x800 -b -o {output} {input} > {log} 2>&1"
+
+
+def quant_bam_input(wildcards):
+    """BAM path TEcount/TElocal should read: the supplementary-filtered copy
+    (star_filter_primary) when the chimera-reads screen is enabled -- its
+    WithinBAM SoftClip supplementary records would otherwise be miscounted
+    as multimappers, see that rule's comment -- otherwise the raw STAR
+    output directly (nothing to filter when WithinBAM SoftClip was never
+    requested, so no supplementary records exist)."""
+    if CHIMERA_READS_ENABLED:
+        return f"results/star/{wildcards.sample}_Aligned.primary.bam"
+    return f"results/star/{wildcards.sample}_Aligned.out.bam"
+
+
 def _samtools_sort_mem(wildcards):
     """samtools sort -m flag (max memory *per thread*), derived from this
     rule's mem_mb/threads resources so it scales with input/resources.yaml

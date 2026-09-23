@@ -231,9 +231,9 @@ rule stringtie_requantify:
 
 
 rule chimera_assembly_classify:
-    # Structural classification against the SAME genes.bed/exons.bed/te.bed
-    # the junction screen uses (ref.smk's annotation_to_bed) -- no separate
-    # reference-track build needed.
+    # Structural classification against the SAME genes.bed/exons.bed/
+    # first_exons.bed/te.bed the junction screen (partially) uses (ref.smk's
+    # annotation_to_bed) -- no separate reference-track build needed.
     input:
         # Declared so that EDITING the script re-runs the rule.
         # Snakemake's code trigger hashes the shell command STRING,
@@ -243,11 +243,16 @@ rule chimera_assembly_classify:
         gtf="results/chimera/assembly/stringtie_merge.gtf",
         genes="results/reference/genes.bed",
         exons="results/reference/exons.bed",
+        first_exons="results/reference/first_exons.bed",
         te="results/reference/te.bed",
     output:
         candidates="results/chimera/assembly/transcripts.tsv.gz",
     params:
         tolerance=config["chimera"]["assembly"]["breakpoint_tolerance"],
+        require_tss_flag=(
+            "--require-tss-in-te"
+            if config["chimera"]["assembly"]["require_tss_in_te"] else ""
+        ),
     threads: get_resources("chimera_assembly_classify")["threads"]
     resources:
         mem_mb=get_resources("chimera_assembly_classify")["mem_mb"],
@@ -258,7 +263,9 @@ rule chimera_assembly_classify:
         "results/pipeline_info/logs/chimera_assembly/classify.log",
     shell:
         "python3 {input.script} "
-        "--gtf {input.gtf} --genes {input.genes} --exons {input.exons} --te {input.te} "
+        "--gtf {input.gtf} --genes {input.genes} --exons {input.exons} "
+        "--first-exons {input.first_exons} --te {input.te} "
+        "{params.require_tss_flag} "
         "--breakpoint-tolerance {params.tolerance} "
         "--out {output.candidates} > {log} 2>&1"
 

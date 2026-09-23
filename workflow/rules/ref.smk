@@ -185,14 +185,15 @@ rule genepred_to_bed12:
         "genePredToBed {input.genepred} {output.bed12} > {log} 2>&1"
 
 
-if CHIMERA_READS_ENABLED or CHIMERA_ASSEMBLY_ENABLED:
+if CHIMERA_READS_ENABLED or CHIMERA_ASSEMBLY_ENABLED or CHIMERA_SJ_ENABLED:
 
     rule annotation_to_bed:
         # Converts the gene GTF + the curated TE GTF into the BED tracks
         # both chimera screens' breakpoint/exon-overlap tests run against
-        # (genes.bed, exons.bed, te.bed) -- shared by chimera_reads.smk
-        # and chimera_assembly.smk, so it lives here (built whenever either
-        # is enabled) rather than in either one specifically.
+        # (genes.bed, exons.bed, first_exons.bed, te.bed) -- shared by
+        # chimera_reads.smk and chimera_assembly.smk, so it lives here
+        # (built whenever either is enabled) rather than in either one
+        # specifically.
         # Pure-python (annotation_to_bed.py), so it runs in the base
         # environment.
         input:
@@ -206,6 +207,7 @@ if CHIMERA_READS_ENABLED or CHIMERA_ASSEMBLY_ENABLED:
         output:
             genes="results/reference/genes.bed",
             exons="results/reference/exons.bed",
+            first_exons="results/reference/first_exons.bed",
             te="results/reference/te.bed",
         params:
             outdir="results/reference",

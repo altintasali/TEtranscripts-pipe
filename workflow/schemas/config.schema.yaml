@@ -153,6 +153,19 @@ properties:
         type: number
         minimum: 0
         maximum: 1
+      balanced_max:
+        type: number
+        minimum: 0
+        maximum: 1
+        description: >-
+          Optional (default 0.55). Below min_fraction, the dominant
+          forward/reverse fraction is checked against this second, lower
+          threshold: under it, the library is called confidently
+          unstranded ("no"); between it and min_fraction, neither
+          confidently stranded nor confidently balanced, so it is reported
+          as "undetermined" (quantification still uses "no" -- the safe
+          choice, since it discards no reads -- but the report flags the
+          ambiguity separately from a genuinely unstranded library).
       check_provided:
         type: boolean
         default: true
@@ -171,9 +184,6 @@ properties:
       mode:
         type: string
         enum: ["multi", "uniq"]
-      padj: {type: number}
-      foldchange: {type: number}
-      minread: {type: integer}
       extra: {type: string}
       qc:
         type: object
@@ -352,6 +362,13 @@ properties:
               -- this is the threshold the report/README examples use when
               reading results/chimera/assembly/tpm_matrix.tsv.gz. No rule
               currently filters on it automatically.
+          require_tss_in_te:
+            type: boolean
+            description: >-
+              Require the transcript's own TSS (not just any part of its
+              first exon) to fall inside the TE (+/- breakpoint_tolerance)
+              before calling te_initiated. Default true; set false to
+              restore the looser any-overlap behavior.
           outputs:
             type: object
             additionalProperties: false
@@ -375,8 +392,74 @@ properties:
                   (gene_id, te_id) alone. See
                   aggregate_chimera_assembly_counts.py. Default true.
             required: [write_igv_bed, write_gene_te_chimera_counts]
-        required: [enabled, breakpoint_tolerance, min_transcript_tpm, outputs]
-    required: [reads, assembly]
+        required: [enabled, breakpoint_tolerance, min_transcript_tpm,
+                   require_tss_in_te, outputs]
+      sj_junctions:
+        type: object
+        additionalProperties: false
+        description: >-
+          Gene-TE chimera screen from STAR's own splice junctions
+          (SJ.out.tab), a third and independent evidence source alongside
+          reads and assembly: it catches the same blind spot as assembly (a
+          TE splicing into a gene through an ordinary, canonical intron
+          never reaches the reads screen) but at the individual
+          read-junction level, needing no StringTie assembly and no extra
+          STAR pass. OFF by default -- brand new and unvalidated on real
+          data, unlike the other two screens.
+        properties:
+          enabled:
+            type: boolean
+            description: Default false.
+          breakpoint_tolerance:
+            type: integer
+            minimum: 0
+          min_unique_reads:
+            type: integer
+            minimum: 0
+            description: >-
+              Minimum STAR-reported unique-read support (SJ.out.tab column
+              7) for a junction to be classified at all. Default 1 (no
+              filtering).
+          require_canonical:
+            type: boolean
+            description: >-
+              Require a canonical splice motif (SJ.out.tab column 5 != 0).
+              Default true -- opposite of chimera.reads.
+              require_canonical_junction -- since this screen's strand call
+              on unstranded data depends on STAR's own motif-based
+              inference, which only exists for canonical junctions.
+          qc:
+            type: object
+            additionalProperties: false
+            description: >-
+              Filters applied to the SJ-junction count matrix *for the
+              PCA/clustering view only* -- they never remove events from
+              all_events.tsv or the counts matrix.
+            properties:
+              min_samples_present:
+                type: integer
+                minimum: 1
+              min_total_counts:
+                type: integer
+                minimum: 1
+              min_events:
+                type: integer
+                minimum: 1
+              pca_transform:
+                type: string
+                enum: ["vst", "rlog", "log2"]
+            required: [min_samples_present, min_total_counts, min_events, pca_transform]
+          outputs:
+            type: object
+            additionalProperties: false
+            description: Which SJ-junction-screen artifacts to write.
+            properties:
+              write_counts_matrix:
+                type: boolean
+            required: [write_counts_matrix]
+        required: [enabled, breakpoint_tolerance, min_unique_reads,
+                   require_canonical, qc, outputs]
+    required: [reads, assembly, sj_junctions]
 
   telocal:
     type: object

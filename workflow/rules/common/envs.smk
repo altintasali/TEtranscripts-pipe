@@ -61,7 +61,9 @@ FASTQC_ENV = _write_env("fastqc", [f"fastqc={V['fastqc']}"])
 # systems (`ImportError: libcrypto.so.1.0.0: cannot open shared object
 # file`). Pinning a modern floor forces the solver toward current,
 # self-consistent builds instead.
-RSEQC_ENV = _write_env("rseqc", [f"rseqc={V['rseqc']}", "python>=3.9"])
+RSEQC_ENV = _write_env(
+    "rseqc", [f"rseqc={V['rseqc']}", "python>=3.9", f"samtools={V['samtools']}"]
+)
 MULTIQC_ENV = _write_env("multiqc", [f"multiqc={V['multiqc']}", "python>=3.9"])
 
 # Absolute path to workflow/scripts: shell directives that run the workflow's

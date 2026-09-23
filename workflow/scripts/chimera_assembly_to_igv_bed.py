@@ -23,6 +23,7 @@ from gz_io import open_read
 CLASS_COLOR = {
     "te_initiated": "31,119,180",
     "te_initiated_intergenic": "150,190,220",
+    "annotated_promoter_embedded_te": "148,103,189",
     "te_exonized": "255,127,14",
     "te_terminated": "44,160,44",
     "unspliced_te_only": "150,150,150",

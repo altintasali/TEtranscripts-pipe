@@ -95,7 +95,6 @@ samples = (
 )
 
 SAMPLES = list(samples["sample"])
-HAS_CONDITION = "condition" in samples.columns and samples["condition"].notna().all()
 
 
 def sample_fastqs(sample, read):

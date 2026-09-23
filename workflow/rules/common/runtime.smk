@@ -176,6 +176,17 @@ CHIMERA_ASSEMBLY_ENABLED = bool(
     config.get("chimera", {}).get("assembly", {}).get("enabled", False)
 )
 
+# Optional chimera-SJ.out.tab-junction screen (rules/chimera_sj.smk): STAR's
+# own normal splice junctions, a third evidence source complementing
+# CHIMERA_READS_ENABLED and CHIMERA_ASSEMBLY_ENABLED above -- same blind spot
+# as the assembly screen (a TE splicing into a gene through an ordinary,
+# canonical intron never reaches the reads screen) but at the read-junction
+# level, needing no StringTie assembly. Off by default -- brand new and
+# unvalidated on real data.
+CHIMERA_SJ_ENABLED = bool(
+    config.get("chimera", {}).get("sj_junctions", {}).get("enabled", False)
+)
+
 # Sample-QC thresholds for the chimera views (PCA / sample clustering). Lives
 # here, not in chimera_reads.smk, because BOTH screens' QC views use it and
 # that file is included only when the junction screen is on -- referencing it

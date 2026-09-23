@@ -196,10 +196,19 @@ report_section_order:
     order: -17
   chimera_assembly_chimera_reads_sample_qc_heatmap:
     order: -16
-  chimera_evidence_correlation:
+  # sample_qc.R's "sj" view id is "chimera_sj" (see VIEWS in that script),
+  # and write_pca_mqc/write_heatmap_mqc always append the literal
+  # "_chimera_reads_sample_qc_pca"/"_heatmap" suffix regardless of view --
+  # an established (if oddly-named) convention every other view already
+  # follows (e.g. chimera_assembly_chimera_reads_sample_qc_pca above).
+  chimera_sj_chimera_reads_sample_qc_pca:
     order: -15
-  chimera_evidence_candidates:
+  chimera_sj_chimera_reads_sample_qc_heatmap:
     order: -14
+  chimera_evidence_correlation:
+    order: -13
+  chimera_evidence_candidates:
+    order: -12
   # Module-level move: report_section_order's FIRST pass reorders whole
   # modules by anchor, and a custom-content group's anchor is its parent_id.
   # module_order alone does not do this -- a group absent from

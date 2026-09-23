@@ -29,9 +29,9 @@ def main():
     telocal = bool(p._telocal_enabled)
     junction = bool(p._chimera_reads_enabled)
     assembly = bool(p._chimera_assembly_enabled)
+    sj = bool(p._chimera_sj_enabled)
     two_pass = str(p._two_pass)
     n_samples = int(p._sample_count)
-    has_condition = bool(p._has_condition)
 
     on = "&#10003;"
     off = "&#8212;"
@@ -66,6 +66,14 @@ def main():
             not assembly,
         ),
         (
+            "Chimera (SJ junctions)", on if sj else off,
+            "<strong>Evidence</strong>: STAR's own splice junctions (SJ.out.tab)",
+            "Same blind spot as assembly (ordinary-intron TE splices "
+            "invisible to the junction screen), caught at the read-junction "
+            "level instead -- no assembly needed. Brand new, unvalidated.",
+            not sj,
+        ),
+        (
             "STAR 2-pass", f"{on} ({two_pass})" if two_pass != "none" else off,
             "Alignment setting, not a result",
             "Improves junction detection for everything above. Changes the "
@@ -79,25 +87,34 @@ def main():
     )
 
     # --- the one line that actually resolves the confusion --------------
-    if junction and assembly:
-        independence = (
-            "<p><strong>Two independent screens are running.</strong> They "
-            "look for gene-TE chimeras in ways that fail differently, so a "
-            "candidate found by <em>both</em> is the strongest call this "
-            "pipeline makes -- see <code>candidates_with_junction_evidence."
-            "tsv.gz</code>. Everything else is single-method evidence.</p>"
+    n_screens = sum([junction, assembly, sj])
+    if n_screens >= 2:
+        cross_ref = (
+            " Reads+assembly agreement additionally has its own "
+            "cross-referenced file, <code>candidates_with_junction_evidence."
+            "tsv.gz</code>." if junction and assembly else ""
         )
-    elif junction:
         independence = (
-            "<p><strong>One chimera screen is running</strong> (junction). "
-            "There is no second, independent method to cross-check its calls; "
-            "<code>chimera.assembly.enabled: true</code> adds one.</p>"
+            f"<p><strong>{n_screens} independent chimera screens are "
+            "running.</strong> They look for gene-TE chimeras in ways that "
+            "fail differently, so a candidate found by more than one is "
+            "stronger evidence than any single screen alone -- see "
+            "<code>results/chimera/candidates.tsv.gz</code>'s found_by/"
+            f"evidence columns.{cross_ref} Everything else is single-method "
+            "evidence.</p>"
         )
-    elif assembly:
+    elif n_screens == 1:
+        running = "junction" if junction else "assembly" if assembly else "sj_junctions"
+        others = ", ".join(
+            f"<code>chimera.{key}.enabled: true</code>"
+            for key, on_ in (("reads", junction), ("assembly", assembly),
+                              ("sj_junctions", sj))
+            if not on_
+        )
         independence = (
-            "<p><strong>One chimera screen is running</strong> (assembly). "
-            "There is no second, independent method to cross-check its calls; "
-            "<code>chimera.reads.enabled: true</code> adds one.</p>"
+            f"<p><strong>One chimera screen is running</strong> ({running}). "
+            f"There is no second, independent method to cross-check its "
+            f"calls; {others} adds one.</p>"
         )
     else:
         independence = (
@@ -123,17 +140,11 @@ def main():
             "<li>Open <em>Chimera (assembly) &rarr; What to look at</em>; "
             "prefer candidates marked as junction-confirmed.</li>"
         )
-    if has_condition:
-        steps.append(
-            "<li>Differential results are in "
-            "<code>results/tetranscripts/</code> -- the report does not "
-            "render them.</li>"
-        )
-    else:
-        steps.append(
-            "<li>No <code>condition</code> column in the sample sheet, so no "
-            "differential comparison was run.</li>"
-        )
+    steps.append(
+        "<li>The pipeline does not run differential-expression analysis "
+        "itself -- take the per-sample TEcount tables into your own "
+        "DESeq2/edgeR analysis downstream.</li>"
+    )
 
     html = f"""
 <p>This run processed <strong>{n_samples}</strong> sample(s). It answers two

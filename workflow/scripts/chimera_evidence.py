@@ -30,14 +30,32 @@ Two columns summarise what was observed, both deliberately unweighted:
               Unordered and unweighted -- the flags are names, not points:
 
                 canonical              a recognised splice motif on at least
-                                       one junction
+                                       one chimeric-junction read (reads
+                                       screen)
+                sj_canonical           a recognised splice motif on at least
+                                       one SJ.out.tab junction (sj screen) --
+                                       kept separate from canonical above:
+                                       structurally independent measurements
                 multi_sample           seen in more than one sample
-                both_screens           called by BOTH screens
+                both_screens           called by BOTH the reads and
+                                       assembly screens (narrower than
+                                       all_three_screens below -- kept
+                                       separate since StringTie
+                                       independently confirming a
+                                       chimeric-read call is its own
+                                       distinct fact)
+                all_three_screens      called by all three independent
+                                       screens (reads, assembly, and
+                                       sj_junctions)
                 assembly_strand_match  the assembled transcript's strand
                                        agrees with the gene's
                 telocal_expressed      TElocal reports the TE locus as
                                        expressed (unresolved signal -- see
                                        below)
+
+  found_by    which of the three independent screens (reads / assembly /
+              sj) contributed a row for this pair, "+"-joined (e.g.
+              "reads+sj"). Not itself weighted or ordered.
 
   n_evidence  how many of those flags are set.  A COUNT OF EVIDENCE TYPES,
               NOT A CONFIDENCE SCORE.  It weights every flag equally for the
@@ -49,8 +67,10 @@ Two columns summarise what was observed, both deliberately unweighted:
               Known bias, stated because the number invites over-reading:
               n_evidence structurally favours pairs the assembly screen found,
               since both_screens and assembly_strand_match are unreachable
-              without assembly support.  It is a tally of what was observed,
-              not a comparison of candidates.
+              without assembly support -- and favours pairs found by all
+              three screens even more, since all_three_screens needs every
+              one of them.  It is a tally of what was observed, not a
+              comparison of candidates.
 
 Read depth (junction_reads / junction_events) is deliberately NOT an
 evidence flag, because it looks like support and is not: the metric most
@@ -107,6 +127,8 @@ OUT_COLUMNS = [
     "telocal_active", "telocal_count", "telocal_locus",
     "assembly_transcripts", "assembly_chimera_types",
     "assembly_strand_match", "assembly_transcript_ids",
+    "sj_events", "sj_reads", "sj_max_samples",
+    "sj_canonical", "sj_chimera_types",
 ]
 
 
@@ -118,6 +140,8 @@ def _blank():
         "telocal_active": ".", "telocal_count": 0, "telocal_locus": ".",
         "assembly_transcripts": 0, "assembly_types": set(),
         "assembly_strand_match": ".", "assembly_tids": [],
+        "sj_events": 0, "sj_reads": 0, "sj_max_samples": 0,
+        "sj_canonical": "no", "sj_types": set(),
     }
 
 
@@ -128,6 +152,9 @@ def main():
     ap.add_argument("--assembly", default=None,
                     help="results/chimera/assembly/transcripts.tsv.gz "
                          "(omit when the assembly screen is disabled)")
+    ap.add_argument("--sj", default=None,
+                    help="results/chimera/sj/te-gene-junctions.tsv.gz "
+                         "(omit when the SJ.out.tab screen is disabled)")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
@@ -200,24 +227,73 @@ def main():
                 p["assembly_strand_match"] = r.get("strand_match", ".")
             p["assembly_tids"].append(r.get("transcript_id", "."))
 
+    if args.sj:
+        for r in load(args.sj):
+            gene, te = r.get("gene_id", "."), r.get("te_id", ".")
+            if gene in (".", "") or te in (".", ""):
+                continue
+            p = pairs.setdefault((gene, te), _blank())
+            for col in ("te_subfamily", "te_family", "te_class"):
+                if p[col] == "." and r.get(col, ".") != ".":
+                    p[col] = r[col]
+            p["sj_events"] += 1
+            p["sj_reads"] += _int(r.get("total_reads"))
+            p["sj_max_samples"] = max(
+                p["sj_max_samples"], _int(r.get("n_samples"))
+            )
+            if r.get("canonical") == "yes":
+                p["sj_canonical"] = "yes"
+            if r.get("chimera_type", ".") != ".":
+                p["sj_types"].add(r["chimera_type"])
+
     rows = []
     for (gene, te), p in pairs.items():
         in_junction = p["junction_events"] > 0
         in_assembly = p["assembly_transcripts"] > 0
-        found_by = (
-            "both" if in_junction and in_assembly
-            else "reads" if in_junction
-            else "assembly"
-        )
+        in_sj = p["sj_events"] > 0
+        sources = []
+        if in_junction:
+            sources.append("reads")
+        if in_assembly:
+            sources.append("assembly")
+        if in_sj:
+            sources.append("sj")
+        # Backward-compatible exact literals ("reads" / "assembly" / "both")
+        # for the two pre-existing screens -- other tooling may already
+        # match on these. Any combination involving the new sj screen has
+        # no such legacy expectation, so those are "+"-joined instead of
+        # inventing more single-word literals.
+        if sources == ["reads", "assembly"]:
+            found_by = "both"
+        elif len(sources) == 1:
+            found_by = sources[0]
+        else:
+            found_by = "+".join(sources)
         # Names, not points. Order here is presentational only -- nothing
         # downstream may treat position in this list as a weight.
         flags = []
         if p["junction_canonical"] == "yes":
             flags.append("canonical")
-        if p["junction_max_samples"] > 1:
+        if max(p["junction_max_samples"], p["sj_max_samples"]) > 1:
             flags.append("multi_sample")
-        if found_by == "both":
+        # Kept separate from "canonical" (reads-screen junction type) rather
+        # than merged: they are two structurally independent measurements
+        # (STAR chimeric-junction typing vs. STAR SJ.out.tab motif), and
+        # folding them into one flag would hide which one actually fired --
+        # against this file's own reason for having a "source" column at all.
+        if p["sj_canonical"] == "yes":
+            flags.append("sj_canonical")
+        # both_screens keeps its original, narrower meaning (reads +
+        # assembly agree) rather than being redefined by the new source --
+        # the specific reads<->assembly relationship it names (StringTie
+        # independently confirming a chimeric-read call) is still a
+        # distinct, separately meaningful fact from a 3-way agreement.
+        if in_junction and in_assembly:
             flags.append("both_screens")
+        # The strongest corroboration this pipeline can report: all three
+        # independent methods called the same gene-TE pair.
+        if in_junction and in_assembly and in_sj:
+            flags.append("all_three_screens")
         if p["assembly_strand_match"] == "yes":
             flags.append("assembly_strand_match")
         # TElocal expression COUNTS as evidence, deliberately. One 4-sample
@@ -251,6 +327,11 @@ def main():
             "assembly_chimera_types": ",".join(sorted(p["assembly_types"])) or ".",
             "assembly_strand_match": p["assembly_strand_match"],
             "assembly_transcript_ids": ",".join(p["assembly_tids"]) or ".",
+            "sj_events": p["sj_events"],
+            "sj_reads": p["sj_reads"],
+            "sj_max_samples": p["sj_max_samples"],
+            "sj_canonical": p["sj_canonical"],
+            "sj_chimera_types": ",".join(sorted(p["sj_types"])) or ".",
         })
 
     # Deterministic order: densest evidence first, then alphabetical. This is

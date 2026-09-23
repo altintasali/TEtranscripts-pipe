@@ -5,7 +5,6 @@
 # independent: each builds on names the previous ones defined.
 
 import gzip
-import itertools
 import os
 import re
 import tempfile

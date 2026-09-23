@@ -16,13 +16,6 @@ tetranscripts:
   # alignments (recommended, and the TEtranscripts default), "uniq" only uses
   # uniquely-mapping reads.
   mode: multi
-  # FDR cutoff for differential-expression significance (TEtranscripts --padj)
-  padj: 0.05
-  # Absolute log2 fold-change cutoff (TEtranscripts --foldchange). The value
-  # must be > 0; 1 is the effective "no filter" setting.
-  foldchange: 1
-  # Minimum read count cutoff (TEtranscripts --minread)
-  minread: 1
   # Extra command-line arguments passed verbatim to TEtranscripts/TEcount
   extra: ""
   qc:

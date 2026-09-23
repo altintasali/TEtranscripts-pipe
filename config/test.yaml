@@ -52,7 +52,7 @@ trimming:
 # self-sufficient on a fresh clone / in CI, where input/config.yaml has not
 # been created yet.
 strandedness:
-  min_fraction: 0.6
+  min_fraction: 0.8
 
 # Exercise the temp() fastq-removal path in CI: the merged + trimmed fastqs
 # are deleted once alignment is done (the FastQC reports persist, so MultiQC
@@ -93,15 +93,27 @@ chimera:
     enabled: true
     breakpoint_tolerance: 5
     min_transcript_tpm: 1
+    require_tss_in_te: true
     outputs:
       write_igv_bed: true
       write_gene_te_chimera_counts: true
+  sj_junctions:
+    # enabled: true (unlike the shipped default of false) so CI exercises
+    # this new screen too.
+    enabled: true
+    breakpoint_tolerance: 0
+    min_unique_reads: 1
+    require_canonical: true
+    qc:
+      min_samples_present: 2
+      min_total_counts: 5
+      min_events: 2
+      pca_transform: vst
+    outputs:
+      write_counts_matrix: true
 
 tetranscripts:
   mode: multi
-  padj: 0.05
-  foldchange: 1
-  minread: 1
   extra: ""
   # Sample-QC view: enabled so CI exercises the whole tecount sample-QC stage.
   # feature_class: all keeps the 100 test genes + the single TE (default TE
@@ -146,7 +158,6 @@ resources:
   rseqc_infer_experiment: {threads: 1, mem_mb: 1000, runtime: 5}
   determine_strandedness: {threads: 1, mem_mb: 1000, runtime: 5}
   tecount: {threads: 1, mem_mb: 1000, runtime: 10}
-  tetranscripts_diffexp: {threads: 1, mem_mb: 1000, runtime: 10}
   tecount_counts: {threads: 1, mem_mb: 500, runtime: 5}
   tecount_qc_counts: {threads: 1, mem_mb: 500, runtime: 5}
   tecount_qc_transform: {threads: 1, mem_mb: 1000, runtime: 5}

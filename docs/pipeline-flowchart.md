@@ -19,6 +19,7 @@ flowchart LR
         trim_galore_pe["Trim Galore! (paired)"]
         trim_galore_se["Trim Galore! (single-end)"]
         star_align["STAR align"]
+        star_filter_primary["filter supplementary alignments"]
         samtools_sort["samtools sort"]
         samtools_index["samtools index"]
         fastqc_raw["FastQC (raw)"]
@@ -32,7 +33,6 @@ flowchart LR
     end
     subgraph quantification_qc["Quantification + QC"]
         tecount["TEcount"]
-        tetranscripts_diffexp["TEtranscripts + DESeq2"]
         tecount_counts["tecount counts matrix"]
         tecount_qc_transform["sample-QC transform (vst/rlog/log2)"]
         tecount_qc["sample-QC plots (PCA + clustering)"]
@@ -80,6 +80,10 @@ flowchart LR
         chimera_reads_counts["chimera counts matrix"]
         chimera_reads_sample_qc_transform["sample-QC transform"]
         chimera_reads_sample_qc["sample-QC plots"]
+        chimera_sj_classify["classify SJ.out.tab junctions"]
+        chimera_sj_counts["SJ-junction counts matrix"]
+        chimera_sj_qc_transform["SJ-junction sample-QC transform"]
+        chimera_sj_qc["SJ-junction sample-QC plots"]
     end
     subgraph other["Other"]
         tecount_qc_counts["tecount_qc_counts"]
@@ -89,6 +93,7 @@ flowchart LR
     annotation_to_bed --> chimera_assembly_classify
     annotation_to_bed --> chimera_candidates_explorer
     annotation_to_bed --> chimera_reads_classify
+    annotation_to_bed --> chimera_sj_classify
     benchmark_summary --> multiqc
     cat_fastq --> fastqc_raw
     cat_fastq --> trim_galore_pe
@@ -117,15 +122,19 @@ flowchart LR
     chimera_reads_qc --> chimera_reads_qc_barplot
     chimera_reads_qc --> chimera_reads_te_type
     chimera_reads_sample_qc_transform --> chimera_reads_sample_qc
+    chimera_sj_classify --> chimera_sj_counts
+    chimera_sj_counts --> chimera_evidence
+    chimera_sj_counts --> chimera_sj_qc_transform
+    chimera_sj_qc_transform --> chimera_sj_qc
     chimera_telocal_annotate --> chimera_reads_counts
     chimera_telocal_index --> chimera_telocal_annotate
     determine_strandedness --> chimera_reads_classify
+    determine_strandedness --> chimera_sj_classify
     determine_strandedness --> strandedness_check
     determine_strandedness --> stringtie_assemble
     determine_strandedness --> stringtie_requantify
     determine_strandedness --> tecount
     determine_strandedness --> telocal
-    determine_strandedness --> tetranscripts_diffexp
     gene_name_lookup --> chimera_assembly_aggregate_counts
     gene_name_lookup --> chimera_candidates_explorer
     gene_name_lookup --> chimera_candidates_table
@@ -147,14 +156,15 @@ flowchart LR
     samtools_sort --> samtools_index
     software_versions --> multiqc
     star_align --> chimera_reads_classify
+    star_align --> chimera_sj_classify
     star_align --> cleanup_star_index
     star_align --> samtools_sort
-    star_align --> tecount
-    star_align --> telocal
-    star_align --> tetranscripts_diffexp
+    star_align --> star_filter_primary
     star_align_for_assembly --> stringtie_assemble
     star_align_for_assembly --> stringtie_requantify
     star_align_pass1 --> star_merge_junctions
+    star_filter_primary --> tecount
+    star_filter_primary --> telocal
     star_index --> star_align
     star_index --> star_align_for_assembly
     star_index --> star_align_pass1

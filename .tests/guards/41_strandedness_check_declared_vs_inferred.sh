@@ -53,13 +53,21 @@ fi
 # --- the table itself: OK / MISMATCH / auto-detected, and it must
 # render in a real MultiQC run next to the built-in RSeQC plot.
 mkstrand() {
+  # $1=sample $2=failed $3=fwd $4=rev $5=call(forward/reverse/no/undetermined)
+  # $6=operative(no/forward/reverse -- what determine_strandedness.py would
+  # actually feed TEcount; equals $5 except when $5 is "undetermined")
   printf '\n\nThis is PairEnd Data\nFraction of reads failed to determine: %s\nFraction of reads explained by "1++,1--,2+-,2-+": %s\nFraction of reads explained by "1+-,1-+,2++,2--": %s\n' \
     "$2" "$3" "$4" > "$T/strand/qc/$1_infer_experiment.txt"
-  printf '%s\n' "$5" > "$T/strand/$1_strandedness.txt"
+  printf '%s\n' "$6" > "$T/strand/$1_strandedness.txt"
+  printf '%s\n' "$5" > "$T/strand/$1_strandedness_call.txt"
 }
-mkstrand okS   0.05 0.03 0.92 reverse
-mkstrand badS  0.05 0.03 0.92 reverse
-mkstrand autoS 0.04 0.91 0.05 forward
+mkstrand okS    0.05 0.03 0.92 reverse reverse
+mkstrand badS   0.05 0.03 0.92 reverse reverse
+mkstrand autoS  0.04 0.91 0.05 forward forward
+# Neither clearly stranded (below min_fraction 0.8) nor clearly balanced
+# (dominant fraction 0.45 is above balanced_max 0.55's complement) --
+# forward=0.45/reverse=0.40 is skewed but not confidently either way.
+mkstrand uncertS 0.15 0.45 0.40 undetermined no
 python3 - "$T/strand" <<'PY' || FAIL=1
 # run_name must be __main__: these scripts guard their main() call so
 # the unit tests can import them, and snakemake's script: directive
@@ -68,13 +76,15 @@ import builtins, json, runpy, sys, types
 class NS(dict):
     def __getattr__(self, k): return self[k]
 T = sys.argv[1]
-smp = ["okS", "badS", "autoS"]
+smp = ["okS", "badS", "autoS", "uncertS"]
 out = f"{T}/qc/strandedness_check_mqc.json"
 builtins.snakemake = types.SimpleNamespace(
     params=NS(samples=smp,
-              declared={"okS": "reverse", "badS": "forward", "autoS": "auto"}),
+              declared={"okS": "reverse", "badS": "forward", "autoS": "auto",
+                        "uncertS": "forward"}),
     input=NS(reports=[f"{T}/qc/{s}_infer_experiment.txt" for s in smp],
-             calls=[f"{T}/{s}_strandedness.txt" for s in smp]),
+             calls=[f"{T}/{s}_strandedness_call.txt" for s in smp],
+             operative=[f"{T}/{s}_strandedness.txt" for s in smp]),
     output=[out])
 runpy.run_path("workflow/scripts/strandedness_check_mqc.py", run_name="__main__")
 d = json.load(open(out))
@@ -90,6 +100,10 @@ check(rows["badS"]["status"] == "MISMATCH", "disagreeing sample must be MISMATCH
 check(rows["badS"]["used"] == "forward", "MISMATCH must still USE the declared value")
 check(rows["autoS"]["status"] == "auto-detected", "auto sample mislabelled")
 check(rows["autoS"]["used"] == "forward", "auto sample must use the inferred value")
+check(rows["uncertS"]["status"] == "UNCERTAIN",
+      f"undetermined-vs-declared sample must be UNCERTAIN, not MISMATCH, got {rows['uncertS']['status']!r}")
+check(rows["uncertS"]["used"] == "forward", "UNCERTAIN must still USE the declared value")
+check(rows["uncertS"]["inferred"] == "undetermined", "uncertS inferred column must say undetermined")
 sys.exit(0 if ok else 1)
 PY
 if ! multiqc --force --no-ansi -c workflow/default-config/multiqc_config.yaml \

@@ -43,10 +43,11 @@ rule telocal:
     # Per-sample locus-level TE quantification (TElocal). Complements TEcount's
     # subfamily-level quantification by resolving TEs per genomic instance.
     # Uses the same unsorted BAM as TEcount; no re-alignment needed.
-    # TElocal has no --outdir flag, so we cd into the output directory before
-    # running it; {input.bam} resolves to an absolute path so the cd is safe.
+    # TElocal has no --outdir flag, so it writes {wildcards.sample}.cntTable
+    # into the current (repo-root) directory and this rule mv's it into
+    # results/telocal/ afterward.
     input:
-        bam="results/star/{sample}_Aligned.out.bam",
+        bam=quant_bam_input,
         gtf=GTF,
         locind=_telocal_locind_path(),
         strandedness=strandedness_input,

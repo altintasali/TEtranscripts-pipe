@@ -336,12 +336,18 @@ rule chimera_evidence:
         junction="results/chimera/reads/te-gene-chimeras.tsv.gz",
         **({"assembly": "results/chimera/assembly/transcripts.tsv.gz"}
            if CHIMERA_ASSEMBLY_ENABLED else {}),
+        **({"sj": "results/chimera/sj/te-gene-junctions.tsv.gz"}
+           if CHIMERA_SJ_ENABLED else {}),
     output:
         "results/chimera/candidates.tsv.gz",
     params:
         assembly=(
             "--assembly results/chimera/assembly/transcripts.tsv.gz"
             if CHIMERA_ASSEMBLY_ENABLED else ""
+        ),
+        sj=(
+            "--sj results/chimera/sj/te-gene-junctions.tsv.gz"
+            if CHIMERA_SJ_ENABLED else ""
         ),
     threads: get_resources("chimera_evidence")["threads"]
     resources:
@@ -353,7 +359,7 @@ rule chimera_evidence:
         "results/pipeline_info/logs/chimera_reads/chimera_evidence.log",
     shell:
         "python3 {input.script} "
-        "--junction {input.junction} {params.assembly} "
+        "--junction {input.junction} {params.assembly} {params.sj} "
         "--out {output} > {log} 2>&1"
 
 

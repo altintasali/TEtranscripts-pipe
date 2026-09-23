@@ -30,13 +30,14 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from gz_io import open_read, open_write
 
 CLASS_ORDER = [
-    "te_initiated", "te_initiated_intergenic", "te_exonized",
-    "te_terminated", "unspliced_te_only",
+    "te_initiated", "te_initiated_intergenic", "annotated_promoter_embedded_te",
+    "te_exonized", "te_terminated", "unspliced_te_only",
 ]
 
 CLASS_LABEL = {
     "te_initiated": "TE-initiated",
     "te_initiated_intergenic": "TE-initiated (no gene match)",
+    "annotated_promoter_embedded_te": "Annotated promoter (TE embedded)",
     "te_exonized": "TE-exonized",
     "te_terminated": "TE-terminated",
     "unspliced_te_only": "Unspliced (low confidence)",
