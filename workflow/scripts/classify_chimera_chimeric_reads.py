@@ -20,7 +20,7 @@ junction is enabled -- see the config schema; the default keeps everything).
 Filtering / evidence decisions are left to the user downstream -- the pipeline
 ships the full event table and the counts matrix instead.
 
-Output columns (results/chimera/reads/per_sample/{sample}_junctions.tsv.gz):
+Output columns (results/chimera/chimeric_reads/per_sample/{sample}_junctions.tsv.gz):
     event_id, sample, donor_chrom, donor_breakpoint, donor_strand,
     acceptor_chrom, acceptor_breakpoint, acceptor_strand, junction_type,
     canonical, repeat_flag, reads, donor_hits, acceptor_hits, direction,
@@ -34,7 +34,7 @@ so the gene-TE chimeras are available as their own table.
 
 junction_type/canonical: STAR's column-6 value (0 non-canonical .. 6) and a
 derived GT/AG-ish yes/no. TE-involved splicing is often non-canonical, so
-this is reported but never filtered (see require_canonical_junction config
+this is reported but never filtered (see require_canonical config
 for the opt-in).
 
 direction: gene_to_te / te_to_gene (the two primary classes -- the gene-TE

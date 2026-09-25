@@ -60,7 +60,7 @@ def main(smk):
     trim_enabled = params.get("_trim_enabled", "")
     tecount_qc_enabled = params.get("_tecount_qc_enabled", "")
     tecount_qc = params.get("_tecount_qc", {})
-    chimera_enabled = params.get("_chimera_enabled", "")
+    chimera_enabled = params.get("_chimera_chimeric_reads_enabled", "")
     telocal_enabled = params.get("_telocal_enabled", "")
     telocal_locind_auto = params.get("_telocal_locind_auto", "")
     telocal_qc_enabled = params.get("_telocal_qc_enabled", "")
@@ -89,10 +89,10 @@ def main(smk):
         "tetranscripts.qc.enabled": str(tecount_qc_enabled),
         "tetranscripts.qc.feature_class": tecount_qc.get("feature_class", ""),
         "tetranscripts.qc.pca_transform": tecount_qc.get("pca_transform", ""),
-        "chimera.reads.enabled": str(chimera_enabled),
-        "chimera.reads.breakpoint_tolerance": str(config.get("chimera", {}).get("reads", {}).get("breakpoint_tolerance", 0)),
-        "chimera.reads.require_canonical_junction": str(config.get("chimera", {}).get("reads", {}).get("require_canonical_junction", False)),
-        "chimera.reads.qc.pca_transform": config.get("chimera", {}).get("reads", {}).get("qc", {}).get("pca_transform", "vst"),
+        "chimera.chimeric_reads.enabled": str(chimera_enabled),
+        "chimera.chimeric_reads.breakpoint_tolerance": str(config.get("chimera", {}).get("chimeric_reads", {}).get("breakpoint_tolerance", 0)),
+        "chimera.chimeric_reads.require_canonical": str(config.get("chimera", {}).get("chimeric_reads", {}).get("require_canonical", False)),
+        "chimera.chimeric_reads.qc.pca_transform": config.get("chimera", {}).get("chimeric_reads", {}).get("qc", {}).get("pca_transform", "vst"),
         "chimera.assembly.enabled": str(config.get("chimera", {}).get("assembly", {}).get("enabled", False)),
         "chimera.assembly.breakpoint_tolerance": str(config.get("chimera", {}).get("assembly", {}).get("breakpoint_tolerance", 0)),
         "telocal.enabled": str(telocal_enabled),

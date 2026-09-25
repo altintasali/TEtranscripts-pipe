@@ -24,58 +24,86 @@ rungs, and the pipeline's own measurements contradicted its top rung (see
 chimera_evidence_heatmap.py: cross-screen agreement sits near its chance
 rate).
 
-Two columns summarise what was observed, both deliberately unweighted:
+Six columns summarise what was observed, all deliberately unweighted, in
+three pairs -- which screens found it / how many, what SCREEN-BOUND quality
+signal each of those screens gave it / how many, and what CROSS-CUTTING
+corroboration exists / how many:
 
-  evidence    the set of evidence types present, comma-joined ("." if none).
-              Unordered and unweighted -- the flags are names, not points:
+  found_by          which of the three independent screens (cr / assembly /
+                     sj) contributed a row for this pair, "+"-joined (e.g.
+                     "cr+sj"). Not itself weighted or ordered.
 
-                canonical              a recognised splice motif on at least
-                                       one chimeric-junction read (reads
-                                       screen)
-                sj_canonical           a recognised splice motif on at least
-                                       one SJ.out.tab junction (sj screen) --
-                                       kept separate from canonical above:
-                                       structurally independent measurements
-                multi_sample           seen in more than one sample
-                both_screens           called by BOTH the reads and
-                                       assembly screens (narrower than
-                                       all_three_screens below -- kept
-                                       separate since StringTie
-                                       independently confirming a
-                                       chimeric-read call is its own
-                                       distinct fact)
-                all_three_screens      called by all three independent
-                                       screens (reads, assembly, and
-                                       sj_junctions)
-                assembly_strand_match  the assembled transcript's strand
-                                       agrees with the gene's
-                telocal_expressed      TElocal reports the TE locus as
-                                       expressed (unresolved signal -- see
-                                       below)
+  n_screens         how many of those three screens found the pair (1-3). A
+                     plain count derived from found_by -- NOT summed into
+                     either count below. It used to be (see git history):
+                     two flags, both_screens and all_three_screens,
+                     duplicated this same found-by-N-screens fact and were
+                     counted a second time, so a pair found by all 3 screens
+                     got +2 just from that overlap on top of everything
+                     else. n_screens replaces both, without double-counting.
 
-  found_by    which of the three independent screens (reads / assembly /
-              sj) contributed a row for this pair, "+"-joined (e.g.
-              "reads+sj"). Not itself weighted or ordered.
+  screen_evidence    quality signals tied to a SPECIFIC screen, comma-joined
+                     ("." if none) -- each one can only be set if that
+                     screen's own rows are present for this pair, so this
+                     set is always a subset of what found_by names:
 
-  n_evidence  how many of those flags are set.  A COUNT OF EVIDENCE TYPES,
-              NOT A CONFIDENCE SCORE.  It weights every flag equally for the
-              specific reason that no weighting has been validated here.  The
-              file is sorted by it only so the order is deterministic and the
-              densely-evidenced rows are easy to find; it is not a claim that
-              those rows are correct.
+                       cr_canonical           a recognised splice motif on
+                                              at least one chimeric-junction
+                                              read (cr screen)
+                       sj_canonical           a recognised splice motif on
+                                              at least one SJ.out.tab
+                                              junction (sj screen) -- kept
+                                              separate from cr_canonical:
+                                              structurally independent
+                                              measurements
+                       assembly_strand_match  the assembled transcript's
+                                              strand agrees with the gene's
+                                              (assembly screen)
 
-              Known bias, stated because the number invites over-reading:
-              n_evidence structurally favours pairs the assembly screen found,
-              since both_screens and assembly_strand_match are unreachable
-              without assembly support -- and favours pairs found by all
-              three screens even more, since all_three_screens needs every
-              one of them.  It is a tally of what was observed, not a
-              comparison of candidates.
+  n_screen_evidence  how many of those three are set (0-3). Because each one
+                     requires its own screen to have found the pair,
+                     n_screen_evidence <= n_screens ALWAYS holds -- unlike
+                     corroboration below, this count really is bounded by
+                     how many screens fired.
 
-Read depth (junction_reads / junction_events) is deliberately NOT an
-evidence flag, because it looks like support and is not: the metric most
-inflated by artifacts -- a hot PCR chimera is often the deepest event in a
-run. It is still reported as a column.
+                     Residual bias, stated because the number invites
+                     over-reading: n_screen_evidence still favours pairs the
+                     assembly screen found, since assembly_strand_match is
+                     unreachable without assembly support. It is a tally of
+                     what was observed, not a comparison of candidates.
+
+  corroboration      signals that do NOT belong to any one screen,
+                     comma-joined ("." if none) -- unlike screen_evidence,
+                     these can be present even for a pair found by only one
+                     screen, which is exactly why they are kept in a
+                     separate column rather than folded into the same
+                     count as the screen-bound flags above:
+
+                       multi_sample        seen in more than one sample --
+                                           can fire from a SINGLE screen
+                                           alone, no second screen required
+                       telocal_expressed   TElocal reports the TE locus as
+                                           expressed (unresolved signal --
+                                           see below) -- from TElocal, a
+                                           FOURTH data source that is not
+                                           one of the three detection
+                                           screens at all
+
+  n_corroboration    how many of those two are set (0-2). Deliberately NOT
+                     comparable to n_screens or n_screen_evidence -- a pair
+                     found by exactly one screen can still reach
+                     n_corroboration == 2.
+
+Neither count is a confidence score. Both weight every flag inside them
+equally, for the specific reason that no weighting has been validated here.
+The file is sorted by (n_screens, n_screen_evidence, n_corroboration), all
+descending, only so the order is deterministic and the densely-evidenced
+rows are easy to find; it is not a claim that those rows are correct.
+
+Read depth (cr_reads / cr_events) is deliberately NOT a
+flag in either count, because it looks like support and is not: the metric
+most inflated by artifacts -- a hot PCR chimera is often the deepest event
+in a run. It is still reported as a column.
 
 TElocal expression of the TE locus (telocal_expressed) IS counted, but its
 standing is unresolved, not confirmed. Measured on a real 4-sample mouse
@@ -121,9 +149,11 @@ def _int(value):
 
 OUT_COLUMNS = [
     "gene_id", "te_id", "te_subfamily", "te_family", "te_class",
-    "found_by", "evidence", "n_evidence",
-    "junction_events", "junction_reads", "junction_max_samples",
-    "junction_canonical", "junction_chimera_types",
+    "found_by", "n_screens",
+    "screen_evidence", "n_screen_evidence",
+    "corroboration", "n_corroboration",
+    "cr_events", "cr_reads", "cr_max_samples",
+    "cr_canonical", "cr_chimera_types",
     "telocal_active", "telocal_count", "telocal_locus",
     "assembly_transcripts", "assembly_chimera_types",
     "assembly_strand_match", "assembly_transcript_ids",
@@ -135,8 +165,8 @@ OUT_COLUMNS = [
 def _blank():
     return {
         "te_subfamily": ".", "te_family": ".", "te_class": ".",
-        "junction_events": 0, "junction_reads": 0, "junction_max_samples": 0,
-        "junction_canonical": "no", "junction_types": set(),
+        "cr_events": 0, "cr_reads": 0, "cr_max_samples": 0,
+        "cr_canonical": "no", "junction_types": set(),
         "telocal_active": ".", "telocal_count": 0, "telocal_locus": ".",
         "assembly_transcripts": 0, "assembly_types": set(),
         "assembly_strand_match": ".", "assembly_tids": [],
@@ -148,12 +178,12 @@ def _blank():
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--junction", required=True,
-                    help="results/chimera/reads/te-gene-chimeras.tsv.gz")
+                    help="results/chimera/chimeric_reads/te-gene-chimeras.tsv.gz")
     ap.add_argument("--assembly", default=None,
                     help="results/chimera/assembly/transcripts.tsv.gz "
                          "(omit when the assembly screen is disabled)")
     ap.add_argument("--sj", default=None,
-                    help="results/chimera/sj/te-gene-junctions.tsv.gz "
+                    help="results/chimera/splice_junctions/te-gene-junctions.tsv.gz "
                          "(omit when the SJ.out.tab screen is disabled)")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
@@ -170,13 +200,13 @@ def main():
         for col in ("te_subfamily", "te_family", "te_class"):
             if p[col] == "." and r.get(col, ".") != ".":
                 p[col] = r[col]
-        p["junction_events"] += 1
-        p["junction_reads"] += _int(r.get("total_reads"))
-        p["junction_max_samples"] = max(
-            p["junction_max_samples"], _int(r.get("n_samples"))
+        p["cr_events"] += 1
+        p["cr_reads"] += _int(r.get("total_reads"))
+        p["cr_max_samples"] = max(
+            p["cr_max_samples"], _int(r.get("n_samples"))
         )
         if r.get("canonical") == "yes":
-            p["junction_canonical"] = "yes"
+            p["cr_canonical"] = "yes"
         if r.get("chimera_type", ".") != ".":
             p["junction_types"].add(r["chimera_type"])
         # "yes" for the pair if ANY event's TE locus is called expressed;
@@ -248,74 +278,82 @@ def main():
 
     rows = []
     for (gene, te), p in pairs.items():
-        in_junction = p["junction_events"] > 0
+        in_junction = p["cr_events"] > 0
         in_assembly = p["assembly_transcripts"] > 0
         in_sj = p["sj_events"] > 0
         sources = []
         if in_junction:
-            sources.append("reads")
+            sources.append("cr")
         if in_assembly:
             sources.append("assembly")
         if in_sj:
             sources.append("sj")
-        # Backward-compatible exact literals ("reads" / "assembly" / "both")
-        # for the two pre-existing screens -- other tooling may already
-        # match on these. Any combination involving the new sj screen has
-        # no such legacy expectation, so those are "+"-joined instead of
-        # inventing more single-word literals.
-        if sources == ["reads", "assembly"]:
-            found_by = "both"
-        elif len(sources) == 1:
-            found_by = sources[0]
-        else:
-            found_by = "+".join(sources)
+        # "+"-joined screen tags, matching the same abbreviations used in
+        # the evidence flags (cr_canonical / sj_canonical). No special-cased
+        # word for any one combination: an earlier version wrote "both" for
+        # exactly {reads, assembly} (back when those were the only two
+        # screens), but keeping one particular combination as a word while
+        # every other combination is "+"-joined was its own inconsistency
+        # once a third screen (sj) existed -- and "both" doesn't even parse
+        # once the reads screen's tag is "cr" instead of "reads".
+        found_by = "+".join(sources)
+        # How many of the three screens found this pair -- NOT summed into
+        # n_evidence below (see the module docstring: this replaces the old
+        # both_screens/all_three_screens flags, which duplicated this same
+        # fact and got double-counted).
+        n_screens = int(in_junction) + int(in_assembly) + int(in_sj)
         # Names, not points. Order here is presentational only -- nothing
         # downstream may treat position in this list as a weight.
-        flags = []
-        if p["junction_canonical"] == "yes":
-            flags.append("canonical")
-        if max(p["junction_max_samples"], p["sj_max_samples"]) > 1:
-            flags.append("multi_sample")
-        # Kept separate from "canonical" (reads-screen junction type) rather
-        # than merged: they are two structurally independent measurements
-        # (STAR chimeric-junction typing vs. STAR SJ.out.tab motif), and
-        # folding them into one flag would hide which one actually fired --
-        # against this file's own reason for having a "source" column at all.
+        #
+        # Split into two independent counts because they answer different
+        # questions and are NOT nested: screen_evidence flags can only fire
+        # if their own screen found the pair (so n_screen_evidence <=
+        # n_screens always), but corroboration flags can fire regardless of
+        # how many screens found it -- folding them into one count made
+        # n_evidence look like it should relate to n_screens when it
+        # structurally could not (a single-screen pair could still out-count
+        # a three-screen one).
+        screen_evidence = []
+        if p["cr_canonical"] == "yes":
+            screen_evidence.append("cr_canonical")
+        # Kept separate from "cr_canonical" (reads-screen junction type)
+        # rather than merged: they are two structurally independent
+        # measurements (STAR chimeric-junction typing vs. STAR SJ.out.tab
+        # motif), and folding them into one flag would hide which one
+        # actually fired -- against this file's own reason for having a
+        # "source" column at all.
         if p["sj_canonical"] == "yes":
-            flags.append("sj_canonical")
-        # both_screens keeps its original, narrower meaning (reads +
-        # assembly agree) rather than being redefined by the new source --
-        # the specific reads<->assembly relationship it names (StringTie
-        # independently confirming a chimeric-read call) is still a
-        # distinct, separately meaningful fact from a 3-way agreement.
-        if in_junction and in_assembly:
-            flags.append("both_screens")
-        # The strongest corroboration this pipeline can report: all three
-        # independent methods called the same gene-TE pair.
-        if in_junction and in_assembly and in_sj:
-            flags.append("all_three_screens")
+            screen_evidence.append("sj_canonical")
         if p["assembly_strand_match"] == "yes":
-            flags.append("assembly_strand_match")
-        # TElocal expression COUNTS as evidence, deliberately. One 4-sample
-        # run suggested it discriminates nothing (see the evidence guide), but
-        # a single small experiment is not enough to demote a signal: the
-        # correlation between junction-side pairs and locus expression has not
-        # been tested properly yet. It stays a flag until it has been.
+            screen_evidence.append("assembly_strand_match")
+
+        corroboration = []
+        if max(p["cr_max_samples"], p["sj_max_samples"]) > 1:
+            corroboration.append("multi_sample")
+        # TElocal expression COUNTS as corroboration, deliberately. One
+        # 4-sample run suggested it discriminates nothing (see the evidence
+        # guide), but a single small experiment is not enough to demote a
+        # signal: the correlation between junction-side pairs and locus
+        # expression has not been tested properly yet. It stays a flag
+        # until it has been.
         if p["telocal_active"] == "yes":
-            flags.append("telocal_expressed")
+            corroboration.append("telocal_expressed")
 
         rows.append({
             "gene_id": gene, "te_id": te,
             "te_subfamily": p["te_subfamily"], "te_family": p["te_family"],
             "te_class": p["te_class"],
             "found_by": found_by,
-            "evidence": ",".join(flags) or ".",
-            "n_evidence": len(flags),
-            "junction_events": p["junction_events"],
-            "junction_reads": p["junction_reads"],
-            "junction_max_samples": p["junction_max_samples"],
-            "junction_canonical": p["junction_canonical"],
-            "junction_chimera_types": ",".join(sorted(p["junction_types"])) or ".",
+            "n_screens": n_screens,
+            "screen_evidence": ",".join(screen_evidence) or ".",
+            "n_screen_evidence": len(screen_evidence),
+            "corroboration": ",".join(corroboration) or ".",
+            "n_corroboration": len(corroboration),
+            "cr_events": p["cr_events"],
+            "cr_reads": p["cr_reads"],
+            "cr_max_samples": p["cr_max_samples"],
+            "cr_canonical": p["cr_canonical"],
+            "cr_chimera_types": ",".join(sorted(p["junction_types"])) or ".",
             "telocal_active": p["telocal_active"],
             # "." rather than 0 when TElocal never ran, so "not measured" stays
             # distinguishable from "measured, no reads" -- the same distinction
@@ -334,11 +372,15 @@ def main():
             "sj_chimera_types": ",".join(sorted(p["sj_types"])) or ".",
         })
 
-    # Deterministic order: densest evidence first, then alphabetical. This is
-    # a sort, not a verdict -- n_evidence counts flags without weighting them,
-    # and gene/te break ties so two runs of the same data produce byte-identical
-    # files. Nothing here says a high-n_evidence pair is real.
-    rows.sort(key=lambda r: (-r["n_evidence"], r["gene_id"], r["te_id"]))
+    # Deterministic order: most screens first, then densest screen-bound
+    # evidence, then most corroboration, then alphabetical. This is a sort,
+    # not a verdict -- each count is flags without weighting them, and
+    # gene/te break ties so two runs of the same data produce byte-identical
+    # files. Nothing here says a row sorted first is real.
+    rows.sort(key=lambda r: (
+        -r["n_screens"], -r["n_screen_evidence"], -r["n_corroboration"],
+        r["gene_id"], r["te_id"],
+    ))
 
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
     with open_write(args.out) as fh:
@@ -348,7 +390,7 @@ def main():
 
     composition = {}
     for r in rows:
-        for flag in r["evidence"].split(","):
+        for flag in r["screen_evidence"].split(",") + r["corroboration"].split(","):
             if flag != ".":
                 composition[flag] = composition.get(flag, 0) + 1
     summary = ", ".join(

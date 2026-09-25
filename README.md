@@ -16,7 +16,7 @@ flowchart LR
     align --> quant["Gene + TE quantification<br/>(TEcount / TElocal)"]
     align --> rdev["Chimeras: read evidence"]
     align --> asm["Chimeras: transcript evidence<br/>(2nd STAR pass)"]
-    align --> sjdev["Chimeras: SJ-junction evidence<br/>(off by default)"]
+    align --> sjdev["Chimeras: SJ evidence<br/>(off by default)"]
     rdev --> cand["Gene-TE candidates<br/>(evidence, not a score)"]
     asm --> cand
     sjdev --> cand
@@ -46,28 +46,28 @@ the TElocal tables drive the same section set for the locus-level counts.
 
 Up to three **independent** screens look for gene-TE chimeric transcripts:
 
-- **Read evidence** (`chimera.reads`) annotates STAR's chimeric junction
+- **Chimeric-reads evidence** (`chimera.chimeric_reads`) annotates STAR's chimeric junction
   reads — reads that cannot be explained by one linear alignment. It is
   annotation-blind, so it catches breakpoints no assembler would predict, and
   reuses the same alignment as quantification (no extra STAR pass).
   **On by default.**
 - **Transcript evidence** (`chimera.assembly`) infers chimeras from StringTie
   assembly structure, catching TE-initiated/exonized/terminated transcripts
-  spliced through an ordinary canonical intron — which the read screen
-  structurally cannot see. **This costs a second, dedicated STAR pass per
+  spliced through an ordinary canonical intron — which the chimeric-reads
+  screen structurally cannot see. **This costs a second, dedicated STAR pass per
   sample**; set `chimera.assembly.enabled: false` to skip it. It is newer and
-  less validated than the read screen. **On by default.**
-- **SJ-junction evidence** (`chimera.sj_junctions`) catches the same
+  less validated than the chimeric-reads screen. **On by default.**
+- **SJ evidence** (`chimera.splice_junctions`) catches the same
   ordinary-canonical-intron blind spot as the assembly screen, but from
   STAR's own splice junctions (SJ.out.tab, already produced by the main
   alignment) at the individual read-junction level — no assembly, no extra
-  STAR pass. Set `chimera.sj_junctions.enabled: true` to turn it on. **Off by
+  STAR pass. Set `chimera.splice_junctions.enabled: true` to turn it on. **Off by
   default** — brand new and unvalidated on real data.
 
 **When to use the assembly screen.** It pays off most on genomes with
 well-annotated TEs (human, mouse), where it recovers chimeras spliced through
-an ordinary canonical intron that the read screen cannot see by construction.
-On novel or poorly annotated TEs the read screen is the better bet, since
+an ordinary canonical intron that the chimeric-reads screen cannot see by construction.
+On novel or poorly annotated TEs the chimeric-reads screen is the better bet, since
 assembly can only call a chimera whose TE is already in the annotation, while
 STAR's chimeric junctions need no annotation at all. The cost is dominated by
 the second STAR pass — roughly double the alignment time and peak disk;
@@ -86,7 +86,7 @@ contradict the obvious guesses — cross-screen agreement comes out near its
 chance rate, and TE-locus expression is anti-correlated with the splice motif.
 The table's default order is a *count* of how many evidence types a pair
 carries; sort it on whichever column your question needs, and expect to
-validate calls manually. Set `chimera.reads.enabled: false` to skip chimera
+validate calls manually. Set `chimera.chimeric_reads.enabled: false` to skip chimera
 detection entirely.
 
 A single MultiQC report pulls together FastQC, TrimGalore!, STAR, RSeQC, the

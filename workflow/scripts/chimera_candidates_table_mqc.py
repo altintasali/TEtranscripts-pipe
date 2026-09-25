@@ -12,10 +12,11 @@ disclosure line -- it is, key for key, the rank_key deleted in d927c8f.
 
 So the ordering is handed to the reader instead. MultiQC's native table
 (plot_type: "table") sorts on any column, every signal is its own column, and
-the default order is n_evidence -- a COUNT of how many evidence types a pair
-carries, which weights nothing precisely because no weighting has been
-established. Which column deserves weight is what the guide section above
-explains; the reader applies it by clicking a header.
+the default order is (Screens, Screen evidence count, Corroboration count),
+all descending -- COUNTS of how many screens/flags a pair carries, which
+weight nothing precisely because no weighting has been established. Which
+column deserves weight is what the guide section above explains; the reader
+applies it by clicking a header.
 
 Row cap: a real cohort produces tens of thousands of pairs and MultiQC embeds
 table data in the HTML, so only the top --top-n are rendered. The full
@@ -44,24 +45,51 @@ COLUMNS = [
     ("te_id", "TE insertion",
      "The individual TE copy (transcript_id in the TE GTF), not the "
      "subfamily. Joins against TElocal rows.", "str"),
-    ("n_evidence", "Evidence count",
-     "How many of the five evidence flags this pair carries. A count, not a "
-     "score -- the flags are unweighted.", "int"),
-    ("junction_canonical", "Splice motif",
+    ("n_screens", "Screens",
+     "How many of the 3 independent detection screens (cr, assembly, SJ) "
+     "found this pair (1-3). Informational, derived from Found by.", "int"),
+    ("n_screen_evidence", "Screen evidence count",
+     "How many screen-bound quality flags this pair carries (0-3: Splice "
+     "motif, Splice motif (SJ), Strand match). Each one can only be set if "
+     "its own screen found the pair, so this count can never exceed "
+     "Screens. A count, not a score -- the flags are unweighted.", "int"),
+    ("n_corroboration", "Corroboration count",
+     "How many cross-cutting corroboration flags this pair carries (0-2: "
+     "replicate support, TElocal expression). Deliberately NOT bounded by "
+     "Screens -- a pair found by only one screen can still carry both, "
+     "which is exactly why this is a separate count rather than folded "
+     "into Screen evidence count.", "int"),
+    ("cr_canonical", "Splice motif",
      "A recognised splice motif on at least one junction (STAR). The guide "
      "above calls this the best artifact discriminator available.", "yesno"),
-    ("junction_max_samples", "Chimeric junction samples",
+    ("cr_max_samples", "Chimeric junction samples",
      "Most samples any one chimeric junction for this pair was seen in (STAR).", "int"),
     ("found_by", "Found by",
-     "Which screens called it: reads (STAR), assembly (StringTie), or "
-     "both. Agreement measured near its chance rate -- see the guide.", "str"),
+     "Which screens called it, \"+\"-joined: cr (chimeric-reads screen, "
+     "STAR), assembly (StringTie), sj (SJ.out.tab screen, STAR) -- e.g. "
+     "\"cr+sj\". Agreement measured near its chance rate -- see the guide.",
+     "str"),
     ("assembly_strand_match", "Strand match",
      "The assembled transcript's strand agrees with the gene's (StringTie).",
      "yesno"),
-    ("junction_reads", "Chimeric reads",
+    ("cr_reads", "Chimeric reads",
      "Chimeric reads supporting this pair (STAR), summed across every sample "
      "that saw any of this pair's junction events -- a real cohort total. "
      "The metric most inflated by artifacts -- shown last on purpose.", "int"),
+    ("sj_canonical", "Splice motif (SJ)",
+     "A recognised splice motif on at least one SJ.out.tab junction "
+     "(chimera.splice_junctions) -- kept separate from Splice motif above: a "
+     "structurally independent measurement (STAR's normal-splice motif call, "
+     "not the chimeric-junction one). \".\" when that screen is disabled.",
+     "yesno"),
+    ("sj_max_samples", "SJ samples",
+     "Most samples any one SJ.out.tab junction for this pair was seen in "
+     "(chimera.splice_junctions).", "int"),
+    ("sj_reads", "SJ reads (cohort total)",
+     "STAR-reported unique reads across this pair's SJ.out.tab junctions "
+     "(chimera.splice_junctions), summed across every sample that saw any "
+     "of them -- a real cohort total, same caveat as Chimeric reads above.",
+     "int"),
     # Reported, never counted as evidence. It is in candidates.tsv.gz and the
     # guide discusses it at length, so leaving it out of the table meant the
     # one place a reader looks did not show it -- and its absence read as the
@@ -73,10 +101,10 @@ COLUMNS = [
      "count -- candidates_explorer.html's own \"TElocal reads (cohort "
      "total)\" column reaches the same number by joining "
      "counts_matrix.tsv.gz directly). A nonzero count counts toward "
-     "Evidence count. One small run had it anti-correlated with the splice "
-     "motif (6.7% vs 10.2% canonical), which is not enough to demote it -- "
-     "see the guide. Blank means TElocal did not run; 0 means it ran and "
-     "found nothing.", "intna"),
+     "Corroboration count. One small run had it anti-correlated with the "
+     "splice motif (6.7% vs 10.2% canonical), which is not enough to "
+     "demote it -- see the guide. Blank means TElocal did not run; 0 means "
+     "it ran and found nothing.", "intna"),
 ]
 
 
@@ -127,8 +155,9 @@ def main():
     rows = list(load(args.evidence))
     symbols = load_symbols(args.gene_names)
 
-    # candidates.tsv.gz is already written in n_evidence order; take the head
-    # rather than re-sorting, so the report and the file agree exactly.
+    # candidates.tsv.gz is already written in (n_screens, n_screen_evidence,
+    # n_corroboration) order; take the head rather than re-sorting, so the
+    # report and the file agree exactly.
     top = rows[: args.top_n]
 
     data = {}
@@ -173,12 +202,18 @@ def main():
     # "not a score", "sort" and "validate candidates manually".
     note = (
         "<p>The <strong>{n_shown:,}</strong> of {n_total:,} gene-TE pairs "
-        "carrying the most evidence types, from <code>{src}</code>. "
+        "carrying the most screens and evidence, from <code>{src}</code>. "
         "<strong>Click any column header to sort.</strong></p>"
-        "<p>Ordered by <em>Evidence count</em> — an unweighted count of flags, "
-        "<strong>not a score</strong>, and tilted toward the assembly screen "
-        "(two of the five flags need it). See <strong>How to weigh this "
-        "evidence</strong> above, and validate candidates manually.</p>"
+        "<p>Ordered by <em>Screens</em>, then <em>Screen evidence count</em>, "
+        "then <em>Corroboration count</em> — three unweighted counts, "
+        "<strong>not a score</strong>. Screen evidence count can never "
+        "exceed Screens (each flag needs its own screen to have found the "
+        "pair) and is still tilted toward the assembly screen "
+        "(assembly_strand_match needs it); Corroboration count is "
+        "deliberately NOT bounded by Screens — a pair found by only one "
+        "screen can still carry both of its flags. See <strong>How to "
+        "weigh this evidence</strong> above, and validate candidates "
+        "manually.</p>"
         "<p>For all <strong>{n_total:,}</strong> pairs in one sortable, "
         "filterable page — no MultiQC needed — open "
         "<code>{explorer}</code>.</p>"
@@ -198,7 +233,11 @@ def main():
                 # arrive alphabetised by name whatever this says. Measured.
                 # Stating the intended sort explicitly is the reliable route.
                 "sort_rows": False,
-                "defaultsort": [{"column": "Evidence count", "direction": "desc"}],
+                "defaultsort": [
+                    {"column": "Screens", "direction": "desc"},
+                    {"column": "Screen evidence count", "direction": "desc"},
+                    {"column": "Corroboration count", "direction": "desc"},
+                ],
                 "no_violin": True,
             },
             "headers": headers,

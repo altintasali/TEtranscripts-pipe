@@ -2,14 +2,14 @@ import os
 
 
 def _chim_star_args(wildcards):
-    """STAR chimeric-alignment parameters from config["chimera"]["reads"]["star"], or
+    """STAR chimeric-alignment parameters from config["chimera"]["chimeric_reads"]["star"], or
     nothing when the chimera screen is disabled (chimera.enabled: false).
     --chimOutType stays fixed (Junctions + WithinBAM SoftClip): the junction
     file feeds the chimera screen and the SA tags embedded in the BAM let the
     same alignment be re-inspected in IGV."""
-    if not CHIMERA_READS_ENABLED:
+    if not CHIMERA_CHIMERIC_READS_ENABLED:
         return ""
-    c = config["chimera"]["reads"]["star"]
+    c = config["chimera"]["chimeric_reads"]["star"]
     return " ".join(
         [
             f"--chimSegmentMin {c['segment_min']}",
@@ -26,7 +26,7 @@ rule star_align:
     # require either unsorted or queryname-sorted input, see
     # https://github.com/mhammell-laboratory/TEtranscripts#recommendations-for-tetranscripts-input-files
     # Runs the STAR version pinned in config["versions"]["star"].
-    # When the chimera stage is enabled (config["chimera"]["reads"]["enabled"]), the
+    # When the chimera stage is enabled (config["chimera"]["chimeric_reads"]["enabled"]), the
     # same run also detects chimeric junctions (--chimOutType Junctions
     # WithinBAM SoftClip) -- the {sample}_Chimeric.out.junction file that the
     # chimera screen consumes is a side output of this same alignment, no
@@ -60,7 +60,7 @@ rule star_align:
         # input) is only declared when the chimera stage is enabled;
         # otherwise it is not produced and not required.
         **({"chim": "results/star/{sample}_Chimeric.out.junction"}
-           if CHIMERA_READS_ENABLED else {}),
+           if CHIMERA_CHIMERIC_READS_ENABLED else {}),
     params:
         reads=star_reads_param,
         read_command=star_read_command_param,
@@ -68,7 +68,7 @@ rule star_align:
         tmpdir=lambda wc: os.path.join(STAR_TMPDIR, f"star_{wc.sample}"),
         chim=_chim_star_args,
         chim_out_type=(
-            "--chimOutType Junctions WithinBAM SoftClip " if CHIMERA_READS_ENABLED else ""
+            "--chimOutType Junctions WithinBAM SoftClip " if CHIMERA_CHIMERIC_READS_ENABLED else ""
         ),
         # STAR 2-pass mapping (config star.two_pass, see common.smk and the
         # README): "per_sample" is STAR's own --twopassMode Basic;
@@ -173,7 +173,7 @@ def quant_bam_input(wildcards):
     as multimappers, see that rule's comment -- otherwise the raw STAR
     output directly (nothing to filter when WithinBAM SoftClip was never
     requested, so no supplementary records exist)."""
-    if CHIMERA_READS_ENABLED:
+    if CHIMERA_CHIMERIC_READS_ENABLED:
         return f"results/star/{wildcards.sample}_Aligned.primary.bam"
     return f"results/star/{wildcards.sample}_Aligned.out.bam"
 

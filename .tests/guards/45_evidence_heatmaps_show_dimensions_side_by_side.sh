@@ -17,8 +17,9 @@ python3 - "$T/hm" <<'PY'
 import gzip, random, sys
 T = sys.argv[1]; random.seed(7)
 cols = ["gene_id","te_id","te_subfamily","te_family","te_class","found_by",
-      "evidence","n_evidence","junction_events","junction_reads","junction_max_samples",
-      "junction_canonical","junction_chimera_types","telocal_active","telocal_count",
+      "screen_evidence","n_screen_evidence","corroboration","n_corroboration",
+      "cr_events","cr_reads","cr_max_samples",
+      "cr_canonical","cr_chimera_types","telocal_active","telocal_count",
       "assembly_transcripts","assembly_chimera_types","assembly_strand_match",
       "assembly_transcript_ids"]
 with gzip.open(f"{T}/ev.tsv.gz","wt") as fh:
@@ -28,25 +29,27 @@ with gzip.open(f"{T}/ev.tsv.gz","wt") as fh:
       active = "yes" if random.random() < (0.80 if canon else 0.93) else "no"
       # the same anti-correlation, now as the COUNT the heatmap reads
       tl_count = random.randint(1, 200) if active == "yes" else 0
-      fb = "both" if random.random() < 0.0042 else ("reads" if random.random() < 0.6 else "assembly")
-      asm = random.randint(1,14) if fb in ("both","assembly") else 0
-      jr = random.randint(1,40) if fb in ("both","reads") else 0
+      fb = "cr+assembly" if random.random() < 0.0042 else ("cr" if random.random() < 0.6 else "assembly")
+      asm = random.randint(1,14) if fb in ("cr+assembly","assembly") else 0
+      jr = random.randint(1,40) if fb in ("cr+assembly","cr") else 0
       nsamp = (random.choice([1,1,1,1,2,3]) if jr else 0)
       strand = "yes" if asm and random.random()<0.7 else "."
-      flags = ([f for f, on in (("canonical", canon),
-                                ("multi_sample", nsamp > 1),
-                                ("both_screens", fb == "both"),
-                                ("assembly_strand_match", strand == "yes"))
-                if on])
+      screen_evidence = ([f for f, on in (("cr_canonical", canon),
+                                          ("assembly_strand_match", strand == "yes"))
+                          if on])
+      corroboration = ["multi_sample"] if nsamp > 1 else []
       r = {"gene_id":f"ENSMUSG{i:011d}","te_id":f"L1x_dup{i}","te_subfamily":"L1x",
            "te_family":"L1","te_class":"LINE","found_by":fb,
-           # mirrors chimera_evidence.py's flag set so the fixture
-           # stays the same shape as the real table
-           "evidence":",".join(flags) or ".","n_evidence":len(flags),
-           "junction_events":random.randint(1,3) if jr else 0,"junction_reads":jr,
-           "junction_max_samples":nsamp,
-           "junction_canonical":"yes" if canon else "no",
-           "junction_chimera_types":"te_exonized","telocal_active":active if jr else ".",
+           # mirrors chimera_evidence.py's screen_evidence/corroboration
+           # split so the fixture stays the same shape as the real table
+           "screen_evidence":",".join(screen_evidence) or ".",
+           "n_screen_evidence":len(screen_evidence),
+           "corroboration":",".join(corroboration) or ".",
+           "n_corroboration":len(corroboration),
+           "cr_events":random.randint(1,3) if jr else 0,"cr_reads":jr,
+           "cr_max_samples":nsamp,
+           "cr_canonical":"yes" if canon else "no",
+           "cr_chimera_types":"te_exonized","telocal_active":active if jr else ".",
            "telocal_count":tl_count if jr else ".",
            "assembly_transcripts":asm,"assembly_chimera_types":"te_exonized",
            "assembly_strand_match":strand,

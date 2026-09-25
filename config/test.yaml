@@ -69,7 +69,7 @@ outputs:
 # the synthetic test data; the single test TE is enough for junction parsing
 # + counts + sample-QC to run.
 chimera:
-  reads:
+  chimeric_reads:
     enabled: true
     star:
       segment_min: 12
@@ -77,7 +77,7 @@ chimera:
       score_drop_max: 20
       extra: ""
     breakpoint_tolerance: 0
-    require_canonical_junction: false
+    require_canonical: false
     qc:
       min_samples_present: 2
       min_total_counts: 5
@@ -97,7 +97,7 @@ chimera:
     outputs:
       write_igv_bed: true
       write_gene_te_chimera_counts: true
-  sj_junctions:
+  splice_junctions:
     # enabled: true (unlike the shipped default of false) so CI exercises
     # this new screen too.
     enabled: true
@@ -165,16 +165,16 @@ resources:
   tecount_summary: {threads: 1, mem_mb: 500, runtime: 5}
   annotation_to_bed: {threads: 1, mem_mb: 500, runtime: 5}
   parse_chimeric_junctions: {threads: 1, mem_mb: 500, runtime: 5}
-  chimera_reads_counts: {threads: 1, mem_mb: 500, runtime: 5}
-  chimera_reads_qc: {threads: 1, mem_mb: 500, runtime: 5}
-  chimera_reads_qc_barplot: {threads: 1, mem_mb: 500, runtime: 5}
-  chimera_reads_igv_bed: {threads: 1, mem_mb: 500, runtime: 5}
+  chimera_chimeric_reads_counts: {threads: 1, mem_mb: 500, runtime: 5}
+  chimera_chimeric_reads_qc: {threads: 1, mem_mb: 500, runtime: 5}
+  chimera_chimeric_reads_qc_barplot: {threads: 1, mem_mb: 500, runtime: 5}
+  chimera_chimeric_reads_igv_bed: {threads: 1, mem_mb: 500, runtime: 5}
   telocal_locind: {threads: 1, mem_mb: 500, runtime: 5}
   telocal_counts: {threads: 1, mem_mb: 500, runtime: 5}
   telocal_qc_counts: {threads: 1, mem_mb: 500, runtime: 5}
   telocal_qc_transform: {threads: 1, mem_mb: 1000, runtime: 5}
   telocal_qc: {threads: 1, mem_mb: 1000, runtime: 5}
-  chimera_reads_sample_qc_transform: {threads: 1, mem_mb: 1000, runtime: 5}
-  chimera_reads_sample_qc: {threads: 1, mem_mb: 1000, runtime: 5}
+  chimera_chimeric_reads_sample_qc_transform: {threads: 1, mem_mb: 1000, runtime: 5}
+  chimera_chimeric_reads_sample_qc: {threads: 1, mem_mb: 1000, runtime: 5}
   software_versions: {threads: 1, mem_mb: 500, runtime: 5}
   multiqc: {threads: 1, mem_mb: 500, runtime: 5}

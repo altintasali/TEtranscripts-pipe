@@ -48,7 +48,7 @@ from gz_io import open_read
 #
 # Each screen contributes its own columns and there is deliberately NO
 # combined "both screens" column. It used to be here, derived as
-# (junction_events > 0 and assembly_transcripts > 0) -- but it is a function
+# (cr_events > 0 and assembly_transcripts > 0) -- but it is a function
 # of the columns either side of it, so it added no information while looking
 # like an independent line of evidence. Collapsing two screens into one
 # boolean is the same premature aggregation that hid the tier-4 problem: read
@@ -60,10 +60,10 @@ from gz_io import open_read
 # source puts that in the axis instead of leaving the reader to infer it --
 # the same reason chimera_evidence_guide_mqc.py carries a source-tool column.
 DIMENSIONS = [
-    ("junction_reads", "Junction reads [STAR]", "num"),
-    ("junction_events", "Breakpoints [STAR]", "num"),
-    ("junction_max_samples", "Replicates [STAR]", "num"),
-    ("junction_canonical", "Splice motif [STAR]", "yes"),
+    ("cr_reads", "Junction reads [STAR]", "num"),
+    ("cr_events", "Breakpoints [STAR]", "num"),
+    ("cr_max_samples", "Replicates [STAR]", "num"),
+    ("cr_canonical", "Splice motif [STAR]", "yes"),
     ("assembly_transcripts", "Assembly transcripts [StringTie]", "num"),
     ("assembly_strand_match", "Assembly strand match [StringTie]", "yes"),
     # The COUNT, not the yes/no it was derived from. As a boolean this column
@@ -188,7 +188,7 @@ def main():
     # Restricted to pairs the junction screen found. Assembly-only pairs have
     # every junction_* field at 0, which would manufacture correlation between
     # all of them purely from that shared absence.
-    jrows = [r for r in rows if r.get("found_by") in ("reads", "both")]
+    jrows = [r for r in rows if "cr" in r.get("found_by", "").split("+")]
     cols = [[value(r, c, k) for r in jrows] for c, _, k in DIMENSIONS]
     rcols = [ranks(c) for c in cols]
     matrix = [[round(pearson(rcols[i], rcols[j]), 3) for j in range(len(cols))]

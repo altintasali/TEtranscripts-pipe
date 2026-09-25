@@ -144,25 +144,25 @@ def all_benchmark_files():
             f"results/pipeline_info/benchmarks/determine_strandedness/{s}.txt",
         ]
     # Chimera-screen rules only run when the chimera stage is enabled.
-    if CHIMERA_READS_ENABLED:
+    if CHIMERA_CHIMERIC_READS_ENABLED:
         files += [
             "results/pipeline_info/benchmarks/annotation_to_bed/annotation_to_bed.txt",
-            "results/pipeline_info/benchmarks/chimera_reads_counts/chimera_reads_counts.txt",
-            "results/pipeline_info/benchmarks/chimera_reads_highlights/"
-            "chimera_reads_highlights.txt",
+            "results/pipeline_info/benchmarks/chimera_chimeric_reads_counts/chimera_chimeric_reads_counts.txt",
+            "results/pipeline_info/benchmarks/chimera_chimeric_reads_highlights/"
+            "chimera_chimeric_reads_highlights.txt",
             "results/pipeline_info/benchmarks/chimera_evidence/"
             "chimera_evidence.txt",
             "results/pipeline_info/benchmarks/chimera_evidence_guide/"
             "chimera_evidence_guide.txt",
             "results/pipeline_info/benchmarks/chimera_candidates_table/"
             "chimera_candidates_table.txt",
-            "results/pipeline_info/benchmarks/chimera_reads_te_type/"
-            "chimera_reads_te_type.txt",
+            "results/pipeline_info/benchmarks/chimera_chimeric_reads_te_type/"
+            "chimera_chimeric_reads_te_type.txt",
             "results/pipeline_info/benchmarks/chimera_evidence_heatmap/"
             "chimera_evidence_heatmap.txt",
         ]
         files.append(
-            f"{B}/chimera_reads_qc_barplot/chimera_reads_qc_barplot.txt"
+            f"{B}/chimera_chimeric_reads_qc_barplot/chimera_chimeric_reads_qc_barplot.txt"
         )
         if TELOCAL_ENABLED:
             # The reads screen cross-references TElocal only when it ran.
@@ -170,21 +170,21 @@ def all_benchmark_files():
         for s in SAMPLES:
             files += [
                 f"{B}/star_filter_primary/{s}.txt",
-                f"{B}/chimera_reads_classify/{s}.txt",
-                f"{B}/chimera_reads_qc/{s}.txt",
+                f"{B}/chimera_chimeric_reads_classify/{s}.txt",
+                f"{B}/chimera_chimeric_reads_qc/{s}.txt",
             ]
             if TELOCAL_ENABLED:
                 files.append(f"{B}/chimera_telocal_annotate/{s}.txt")
-            if config["chimera"]["reads"]["outputs"]["write_igv_bed"]:
+            if config["chimera"]["chimeric_reads"]["outputs"]["write_igv_bed"]:
                 files.append(
-                    f"results/pipeline_info/benchmarks/chimera_reads_igv_bed/{s}.txt"
+                    f"results/pipeline_info/benchmarks/chimera_chimeric_reads_igv_bed/{s}.txt"
                 )
-        if config["chimera"]["reads"]["outputs"]["write_counts_matrix"]:
-            transform = config["chimera"]["reads"]["qc"]["pca_transform"]
+        if config["chimera"]["chimeric_reads"]["outputs"]["write_counts_matrix"]:
+            transform = config["chimera"]["chimeric_reads"]["qc"]["pca_transform"]
             files += [
                 f"results/pipeline_info/benchmarks/"
-                f"chimera_reads_sample_qc_transform/{transform}.txt",
-                f"results/pipeline_info/benchmarks/chimera_reads_sample_qc/{transform}.txt",
+                f"chimera_chimeric_reads_sample_qc_transform/{transform}.txt",
+                f"results/pipeline_info/benchmarks/chimera_chimeric_reads_sample_qc/{transform}.txt",
             ]
     # Assembly screen: its own STAR pass, StringTie, and everything after.
     # None of this was listed, so the second-heaviest stage in the workflow
@@ -202,7 +202,7 @@ def all_benchmark_files():
                 f"{B}/stringtie_assemble/{s}.txt",
                 f"{B}/stringtie_requantify/{s}.txt",
             ]
-        if CHIMERA_READS_ENABLED:
+        if CHIMERA_CHIMERIC_READS_ENABLED:
             files.append(
                 f"{B}/chimera_assembly_cross_evidence/chimera_assembly_cross_evidence.txt"
             )
@@ -227,15 +227,15 @@ def all_benchmark_files():
 
     # SJ.out.tab junction screen: no extra STAR pass (reuses star_align's
     # own SJ.out.tab), so only its own classify/counts/QC rules are new.
-    if CHIMERA_SJ_ENABLED:
-        files.append(f"{B}/chimera_sj_counts/chimera_sj_counts.txt")
+    if CHIMERA_SPLICE_JUNCTIONS_ENABLED:
+        files.append(f"{B}/chimera_splice_junctions_counts/chimera_splice_junctions_counts.txt")
         for s in SAMPLES:
-            files.append(f"{B}/chimera_sj_classify/{s}.txt")
-        if config["chimera"]["sj_junctions"]["outputs"]["write_counts_matrix"]:
-            transform = config["chimera"]["sj_junctions"]["qc"]["pca_transform"]
+            files.append(f"{B}/chimera_splice_junctions_classify/{s}.txt")
+        if config["chimera"]["splice_junctions"]["outputs"]["write_counts_matrix"]:
+            transform = config["chimera"]["splice_junctions"]["qc"]["pca_transform"]
             files += [
-                f"{B}/chimera_sj_qc_transform/{transform}.txt",
-                f"{B}/chimera_sj_qc/{transform}.txt",
+                f"{B}/chimera_splice_junctions_qc_transform/{transform}.txt",
+                f"{B}/chimera_splice_junctions_qc/{transform}.txt",
             ]
 
     # Report-assembly rules that are siblings of benchmark_summary (they do

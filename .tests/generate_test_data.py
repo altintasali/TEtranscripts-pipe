@@ -25,7 +25,7 @@ workflow's per-sample single/paired-end branching -- trimming (trim_galore
 vs trim_galore_se), STAR --readFilesIn, RSeQC strandedness auto-detection
 (which supports single-end BAMs), and the chimera screen's per-sample
 junction parsing. Every sample also carries a small number of SPLIT READS
-(gene segment + TE segment in one read, see CHIMERA_READS) so STAR emits
+(gene segment + TE segment in one read, see CHIMERA_CHIMERIC_READS) so STAR emits
 real gene-TE chimeric junctions and the chimera annotation / counts /
 sample-QC stages run on non-empty data instead of silently passing on
 zero-event inputs.
@@ -136,7 +136,7 @@ CHIMERA_JUNCTIONS = [
 ]
 # (reads for junction 0, junction 1, junction 2) per sample. All non-zero so
 # every event is present in all six samples and the DESeq2 QC view draws.
-CHIMERA_READS = {
+CHIMERA_CHIMERIC_READS = {
     "treatment_rep1": (5, 7, 3),
     "treatment_rep2": (8, 4, 6),
     "treatment_rep3": (6, 5, 4),
@@ -232,7 +232,7 @@ def gene_region(i):
     return start0, start0 + GENE_LEN
 
 
-def chimera_reads(genome, counts, seed):
+def chimera_chimeric_reads(genome, counts, seed):
     """Split reads for the chimera fixture: for each fixed junction in
     CHIMERA_JUNCTIONS, `counts[i]` copies of the same TE+gene 50bp read, so
     the same event_id shows up in every sample (see the CHIMERA_JUNCTIONS
@@ -361,7 +361,7 @@ def main():
         # paired-end samples the split reads go in R1 and a 50bp mate is
         # sampled from the same gene so R1/R2 stay paired; STAR still splits
         # R1 across loci.
-        chim = chimera_reads(genome, CHIMERA_READS[sample], seed=sidx * 10_000 + 5_000)
+        chim = chimera_chimeric_reads(genome, CHIMERA_CHIMERIC_READS[sample], seed=sidx * 10_000 + 5_000)
         if is_se:
             r1_reads.extend(chim)
         else:

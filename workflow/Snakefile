@@ -63,9 +63,19 @@ include: "rules/common.smk"
 #
 # re.escape because sample names come from the sample sheet and routinely
 # contain regex metacharacters (dots in particular).
+#
+# transform: without this, chimera_chimeric_reads_sample_qc_transform's
+# unconstrained {transform} (results/chimera/qc/{transform}_counts.tsv.gz)
+# ambiguously matches chimera_splice_junctions_qc_transform's own
+# splice_junctions_{transform}_counts.tsv.gz as a WHOLE (transform=
+# "splice_junctions_vst") -- AmbiguousRuleException on
+# results/chimera/qc/splice_junctions_vst_counts.tsv.gz, Snakemake unable to
+# choose between the reads screen's rule (with the whole prefix swallowed
+# into transform) and the SJ screen's rule (transform="vst" as intended).
 wildcard_constraints:
     sample="|".join(re.escape(s) for s in SAMPLES),
     read="[12]",
+    transform="vst|rlog|log2",
 
 
 include: "rules/ref.smk"
@@ -80,13 +90,13 @@ include: "rules/tetranscripts.smk"
 include: "rules/tecount_qc.smk"
 if TELOCAL_ENABLED:
     include: "rules/telocal.smk"
-if CHIMERA_READS_ENABLED:
-    include: "rules/chimera_reads.smk"
-    include: "rules/chimera_reads_qc.smk"
+if CHIMERA_CHIMERIC_READS_ENABLED:
+    include: "rules/chimera_chimeric_reads.smk"
+    include: "rules/chimera_chimeric_reads_qc.smk"
 if CHIMERA_ASSEMBLY_ENABLED:
     include: "rules/chimera_assembly.smk"
-if CHIMERA_SJ_ENABLED:
-    include: "rules/chimera_sj.smk"
+if CHIMERA_SPLICE_JUNCTIONS_ENABLED:
+    include: "rules/chimera_splice_junctions.smk"
 include: "rules/software_versions.smk"
 include: "rules/qc.smk"
 
@@ -101,19 +111,19 @@ rule all:
         # gene_id -> gene_name sidecar; every output is gene_id-keyed, so
         # this is how a symbol gets onto any of them.
         "results/reference/gene_id_to_name.tsv.gz",
-        # The chimera helper functions live in rules/chimera_reads.smk, only
+        # The chimera helper functions live in rules/chimera_chimeric_reads.smk, only
         # included when the chimera stage is enabled.
         **({"chimera": all_chimera_outputs(),
-            "chimera_reads_sample_qc": all_chimera_reads_sample_qc_outputs()} if CHIMERA_READS_ENABLED else {}),
+            "chimera_chimeric_reads_sample_qc": all_chimera_chimeric_reads_sample_qc_outputs()} if CHIMERA_CHIMERIC_READS_ENABLED else {}),
         # The chimera-assembly helpers live in rules/chimera_assembly.smk,
         # only included when that (off-by-default) screen is enabled.
         **({"chimera_assembly": all_chimera_assembly_outputs()}
            if CHIMERA_ASSEMBLY_ENABLED else {}),
-        # The chimera-SJ-junction helpers live in rules/chimera_sj.smk, only
+        # The chimera-SJ-junction helpers live in rules/chimera_splice_junctions.smk, only
         # included when that (off-by-default) screen is enabled.
-        **({"chimera_sj": all_chimera_sj_outputs(),
-            "chimera_sj_sample_qc": all_chimera_sj_sample_qc_outputs()}
-           if CHIMERA_SJ_ENABLED else {}),
+        **({"chimera_splice_junctions": all_chimera_splice_junctions_outputs(),
+            "chimera_splice_junctions_sample_qc": all_chimera_splice_junctions_sample_qc_outputs()}
+           if CHIMERA_SPLICE_JUNCTIONS_ENABLED else {}),
         # The TEcounts sample-QC helpers live in rules/tecount_qc.smk; the
         # PCA/clustering view only runs when tetranscripts.qc.enabled is
         # true (the default), while the summary barplots always render.

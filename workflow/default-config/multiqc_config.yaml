@@ -119,9 +119,9 @@ module_order:
 #                        Reads / Assembly / Evidence-structure grouping is
 #                        carried by section names and by report_section_order
 #                        below. Emitted by chimera_candidates_table_mqc,
-#                        chimera_evidence_guide_mqc, chimera_reads_te_type_mqc,
-#                        chimera_reads_qc_mqc,
-#                        chimera_reads_highlights_mqc, chimera_assembly_summary_mqc,
+#                        chimera_evidence_guide_mqc, chimera_chimeric_reads_te_type_mqc,
+#                        chimera_chimeric_reads_qc_mqc,
+#                        chimera_chimeric_reads_highlights_mqc, chimera_assembly_summary_mqc,
 #                        chimera_evidence_heatmap and sample_qc.R -- ALL of
 #                        which must use parent_id
 #                        "chimera" exactly, or the group silently splits.
@@ -167,11 +167,11 @@ report_section_order:
     order: -29
   chimera_evidence_composition:
     order: -28
-  chimera_reads_highlights:
+  chimera_chimeric_reads_highlights:
     order: -28
-  chimera_reads_te_type:
+  chimera_chimeric_reads_te_type:
     order: -27
-  chimera_reads_qc:
+  chimera_chimeric_reads_qc:
     order: -26
   chimera_canonical_rate:
     order: -25
@@ -182,9 +182,9 @@ report_section_order:
     order: -24
   chimera_te_gene_chimeras:
     order: -23
-  chimera_reads_sample_qc_pca:
+  chimera_chimeric_reads_sample_qc_pca:
     order: -22
-  chimera_reads_sample_qc_heatmap:
+  chimera_chimeric_reads_sample_qc_heatmap:
     order: -21
   chimera_assembly_highlights:
     order: -20
@@ -192,18 +192,18 @@ report_section_order:
     order: -19
   chimera_assembly_strand_rate:
     order: -18
-  chimera_assembly_chimera_reads_sample_qc_pca:
+  chimera_assembly_sample_qc_pca:
     order: -17
-  chimera_assembly_chimera_reads_sample_qc_heatmap:
+  chimera_assembly_sample_qc_heatmap:
     order: -16
-  # sample_qc.R's "sj" view id is "chimera_sj" (see VIEWS in that script),
+  # sample_qc.R's "sj" view id is "chimera_splice_junctions" (see VIEWS in that script),
   # and write_pca_mqc/write_heatmap_mqc always append the literal
-  # "_chimera_reads_sample_qc_pca"/"_heatmap" suffix regardless of view --
+  # "_sample_qc_pca"/"_heatmap" suffix regardless of view --
   # an established (if oddly-named) convention every other view already
-  # follows (e.g. chimera_assembly_chimera_reads_sample_qc_pca above).
-  chimera_sj_chimera_reads_sample_qc_pca:
+  # follows (e.g. chimera_assembly_sample_qc_pca above).
+  chimera_splice_junctions_sample_qc_pca:
     order: -15
-  chimera_sj_chimera_reads_sample_qc_heatmap:
+  chimera_splice_junctions_sample_qc_heatmap:
     order: -14
   chimera_evidence_correlation:
     order: -13

@@ -52,17 +52,17 @@ flowchart LR
     end
     subgraph chimera_screen["Chimera screen"]
         annotation_to_bed["annotation -> BED tracks"]
-        chimera_reads_classify["classify chimeric junctions"]
+        chimera_chimeric_reads_classify["classify chimeric junctions"]
         chimera_telocal_annotate["annotate junctions with TElocal counts"]
-        chimera_reads_qc["junction QC"]
-        chimera_reads_qc_barplot["junction QC barplot"]
-        chimera_reads_highlights["read-screen notes (blind spot + counts)"]
+        chimera_chimeric_reads_qc["junction QC"]
+        chimera_chimeric_reads_qc_barplot["junction QC barplot"]
+        chimera_chimeric_reads_highlights["read-screen notes (blind spot + counts)"]
         chimera_evidence["unified gene-TE evidence catalogue"]
         chimera_evidence_heatmap["evidence correlation + candidate heatmaps"]
         chimera_evidence_guide["how to weigh the evidence + composition"]
         chimera_candidates_table["candidate list (sortable table)"]
         chimera_candidates_explorer["standalone candidate explorer (all rows, IGV loci)"]
-        chimera_reads_te_type["reads TE type (per sample)"]
+        chimera_chimeric_reads_te_type["reads TE type (per sample)"]
         chimera_telocal_index["build TElocal index"]
         star_align_for_assembly["2nd STAR pass (assembly)"]
         stringtie_assemble["StringTie assemble"]
@@ -76,14 +76,14 @@ flowchart LR
         chimera_assembly_igv_bed["assembly IGV BED track"]
         chimera_assembly_qc_transform["assembly QC matrix (log2)"]
         chimera_assembly_qc["assembly PCA + sample clusters"]
-        chimera_reads_igv_bed["IGV BED track"]
-        chimera_reads_counts["chimera counts matrix"]
-        chimera_reads_sample_qc_transform["sample-QC transform"]
-        chimera_reads_sample_qc["sample-QC plots"]
-        chimera_sj_classify["classify SJ.out.tab junctions"]
-        chimera_sj_counts["SJ-junction counts matrix"]
-        chimera_sj_qc_transform["SJ-junction sample-QC transform"]
-        chimera_sj_qc["SJ-junction sample-QC plots"]
+        chimera_chimeric_reads_igv_bed["IGV BED track"]
+        chimera_chimeric_reads_counts["chimera counts matrix"]
+        chimera_chimeric_reads_sample_qc_transform["sample-QC transform"]
+        chimera_chimeric_reads_sample_qc["sample-QC plots"]
+        chimera_splice_junctions_classify["classify SJ.out.tab junctions"]
+        chimera_splice_junctions_counts["SJ-junction counts matrix"]
+        chimera_splice_junctions_qc_transform["SJ-junction sample-QC transform"]
+        chimera_splice_junctions_qc["SJ-junction sample-QC plots"]
     end
     subgraph other["Other"]
         tecount_qc_counts["tecount_qc_counts"]
@@ -92,8 +92,8 @@ flowchart LR
     annotation_to_bed --> chimera_assembly_aggregate_counts
     annotation_to_bed --> chimera_assembly_classify
     annotation_to_bed --> chimera_candidates_explorer
-    annotation_to_bed --> chimera_reads_classify
-    annotation_to_bed --> chimera_sj_classify
+    annotation_to_bed --> chimera_chimeric_reads_classify
+    annotation_to_bed --> chimera_splice_junctions_classify
     benchmark_summary --> multiqc
     cat_fastq --> fastqc_raw
     cat_fastq --> trim_galore_pe
@@ -108,28 +108,28 @@ flowchart LR
     chimera_assembly_quantify --> chimera_assembly_aggregate_counts
     chimera_assembly_quantify --> chimera_assembly_qc_transform
     chimera_assembly_quantify --> chimera_candidates_explorer
+    chimera_chimeric_reads_classify --> chimera_chimeric_reads_igv_bed
+    chimera_chimeric_reads_classify --> chimera_chimeric_reads_qc
+    chimera_chimeric_reads_classify --> chimera_telocal_annotate
+    chimera_chimeric_reads_counts --> chimera_assembly_cross_evidence
+    chimera_chimeric_reads_counts --> chimera_chimeric_reads_highlights
+    chimera_chimeric_reads_counts --> chimera_chimeric_reads_sample_qc_transform
+    chimera_chimeric_reads_counts --> chimera_evidence
+    chimera_chimeric_reads_qc --> chimera_chimeric_reads_qc_barplot
+    chimera_chimeric_reads_qc --> chimera_chimeric_reads_te_type
+    chimera_chimeric_reads_sample_qc_transform --> chimera_chimeric_reads_sample_qc
     chimera_evidence --> chimera_candidates_explorer
     chimera_evidence --> chimera_candidates_table
     chimera_evidence --> chimera_evidence_guide
     chimera_evidence --> chimera_evidence_heatmap
-    chimera_reads_classify --> chimera_reads_igv_bed
-    chimera_reads_classify --> chimera_reads_qc
-    chimera_reads_classify --> chimera_telocal_annotate
-    chimera_reads_counts --> chimera_assembly_cross_evidence
-    chimera_reads_counts --> chimera_evidence
-    chimera_reads_counts --> chimera_reads_highlights
-    chimera_reads_counts --> chimera_reads_sample_qc_transform
-    chimera_reads_qc --> chimera_reads_qc_barplot
-    chimera_reads_qc --> chimera_reads_te_type
-    chimera_reads_sample_qc_transform --> chimera_reads_sample_qc
-    chimera_sj_classify --> chimera_sj_counts
-    chimera_sj_counts --> chimera_evidence
-    chimera_sj_counts --> chimera_sj_qc_transform
-    chimera_sj_qc_transform --> chimera_sj_qc
-    chimera_telocal_annotate --> chimera_reads_counts
+    chimera_splice_junctions_classify --> chimera_splice_junctions_counts
+    chimera_splice_junctions_counts --> chimera_evidence
+    chimera_splice_junctions_counts --> chimera_splice_junctions_qc_transform
+    chimera_splice_junctions_qc_transform --> chimera_splice_junctions_qc
+    chimera_telocal_annotate --> chimera_chimeric_reads_counts
     chimera_telocal_index --> chimera_telocal_annotate
-    determine_strandedness --> chimera_reads_classify
-    determine_strandedness --> chimera_sj_classify
+    determine_strandedness --> chimera_chimeric_reads_classify
+    determine_strandedness --> chimera_splice_junctions_classify
     determine_strandedness --> strandedness_check
     determine_strandedness --> stringtie_assemble
     determine_strandedness --> stringtie_requantify
@@ -155,8 +155,8 @@ flowchart LR
     samtools_sort --> samtools_flagstat
     samtools_sort --> samtools_index
     software_versions --> multiqc
-    star_align --> chimera_reads_classify
-    star_align --> chimera_sj_classify
+    star_align --> chimera_chimeric_reads_classify
+    star_align --> chimera_splice_junctions_classify
     star_align --> cleanup_star_index
     star_align --> samtools_sort
     star_align --> star_filter_primary

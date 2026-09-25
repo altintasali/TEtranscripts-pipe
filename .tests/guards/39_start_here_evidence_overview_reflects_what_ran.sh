@@ -21,17 +21,17 @@ class NS(dict):
 out = sys.argv[1]
 ok = True
 cases = [
-    (dict(_telocal_enabled=True, _chimera_reads_enabled=True,
-          _chimera_assembly_enabled=True, _chimera_sj_enabled=True,
+    (dict(_telocal_enabled=True, _chimera_chimeric_reads_enabled=True,
+          _chimera_assembly_enabled=True, _chimera_splice_junctions_enabled=True,
           _two_pass="cohort"), "3 independent"),
-    (dict(_telocal_enabled=True, _chimera_reads_enabled=True,
-          _chimera_assembly_enabled=True, _chimera_sj_enabled=False,
+    (dict(_telocal_enabled=True, _chimera_chimeric_reads_enabled=True,
+          _chimera_assembly_enabled=True, _chimera_splice_junctions_enabled=False,
           _two_pass="cohort"), "2 independent"),
-    (dict(_telocal_enabled=False, _chimera_reads_enabled=True,
-          _chimera_assembly_enabled=False, _chimera_sj_enabled=False,
+    (dict(_telocal_enabled=False, _chimera_chimeric_reads_enabled=True,
+          _chimera_assembly_enabled=False, _chimera_splice_junctions_enabled=False,
           _two_pass="none"), "One chimera screen"),
-    (dict(_telocal_enabled=False, _chimera_reads_enabled=False,
-          _chimera_assembly_enabled=False, _chimera_sj_enabled=False,
+    (dict(_telocal_enabled=False, _chimera_chimeric_reads_enabled=False,
+          _chimera_assembly_enabled=False, _chimera_splice_junctions_enabled=False,
           _two_pass="per_sample"), "quantification only"),
 ]
 for params, expected in cases:

@@ -43,7 +43,8 @@ check(d.get("plot_type") == "table",
 # every signal is its own column, so any of them can be sorted on -- Gene and
 # TE insertion included, so a reader can find a specific gene
 headers = d.get("headers", {})
-for col in ("Gene", "TE insertion", "Evidence count", "Splice motif",
+for col in ("Gene", "TE insertion", "Screens", "Screen evidence count",
+            "Corroboration count", "Splice motif",
             "Chimeric junction samples", "Found by", "Strand match",
             "Chimeric reads"):
     check(col in headers, f"column {col!r} missing -- the reader cannot sort on it")
@@ -51,7 +52,8 @@ for col in ("Gene", "TE insertion", "Evidence count", "Splice motif",
 check(d["pconfig"].get("defaultsort"),
       "defaultsort must set the opening order -- sort_rows does not survive")
 
-# rows keep candidates.tsv.gz's own order (n_evidence desc, then alphabetical)
+# rows keep candidates.tsv.gz's own order ((n_screens, n_screen_evidence,
+# n_corroboration) desc, then alphabetical)
 rows = list(d["data"])
 # " | ", never " / ": MultiQC cleans table row names like filenames and splits
 # on "/", so a "GENE / te_id" key rendered as just the TE id and the gene
@@ -60,9 +62,11 @@ check(all("/" not in r for r in rows),
       f"row keys must not contain '/' -- MultiQC strips everything before it; got {rows[:2]}")
 check(rows[0].startswith("GAPDH |"),
       f"gene symbols must be resolved and the densest-evidence pair first; got {rows[0]!r}")
-n_ev = [d["data"][r]["Evidence count"] for r in rows]
-check(n_ev == sorted(n_ev, reverse=True),
-      f"default order must follow n_evidence descending; got {n_ev}")
+triples = [(d["data"][r]["Screens"], d["data"][r]["Screen evidence count"],
+            d["data"][r]["Corroboration count"]) for r in rows]
+check(triples == sorted(triples, reverse=True),
+      "default order must follow (Screens, Screen evidence count, "
+      f"Corroboration count) descending; got {triples}")
 
 # ANTI-REGRESSION: the ordering must be disclosed as a count, and the section
 # must not claim the top rows are correct. A four-key lexicographic sort on

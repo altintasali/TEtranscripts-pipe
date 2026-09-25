@@ -158,37 +158,37 @@ def _is_paired(sample):
 # -----------------------------------------------------------------------------
 TRIM_ENABLED = bool(config.get("trimming", {}).get("enabled", True))
 
-# Optional chimera-junction screen (rules/chimera_reads.smk +
-# chimera_reads_qc.smk). When enabled (the default), the STAR alignment emits
+# Optional chimera-junction screen (rules/chimera_chimeric_reads.smk +
+# chimera_chimeric_reads_qc.smk). When enabled (the default), the STAR alignment emits
 # chimeric junctions and the chimera rules annotate them; set
-# chimera.reads.enabled: false to opt out -- no chimera STAR flags are
+# chimera.chimeric_reads.enabled: false to opt out -- no chimera STAR flags are
 # passed, the chimera rules are not included, and the workflow behaves like
 # the plain quantification pipeline. See CHIMERA_ASSEMBLY_ENABLED below for
 # the complementary StringTie-assembly-based screen.
-CHIMERA_READS_ENABLED = bool(
-    config.get("chimera", {}).get("reads", {}).get("enabled", True)
+CHIMERA_CHIMERIC_READS_ENABLED = bool(
+    config.get("chimera", {}).get("chimeric_reads", {}).get("enabled", True)
 )
 
 # Optional chimera-assembly screen (rules/chimera_assembly.smk):
-# StringTie-assembly-based detection, complementing CHIMERA_READS_ENABLED
+# StringTie-assembly-based detection, complementing CHIMERA_CHIMERIC_READS_ENABLED
 # above. Off by default -- newer and less validated.
 CHIMERA_ASSEMBLY_ENABLED = bool(
     config.get("chimera", {}).get("assembly", {}).get("enabled", False)
 )
 
-# Optional chimera-SJ.out.tab-junction screen (rules/chimera_sj.smk): STAR's
+# Optional chimera-SJ.out.tab-junction screen (rules/chimera_splice_junctions.smk): STAR's
 # own normal splice junctions, a third evidence source complementing
-# CHIMERA_READS_ENABLED and CHIMERA_ASSEMBLY_ENABLED above -- same blind spot
+# CHIMERA_CHIMERIC_READS_ENABLED and CHIMERA_ASSEMBLY_ENABLED above -- same blind spot
 # as the assembly screen (a TE splicing into a gene through an ordinary,
 # canonical intron never reaches the reads screen) but at the read-junction
 # level, needing no StringTie assembly. Off by default -- brand new and
 # unvalidated on real data.
-CHIMERA_SJ_ENABLED = bool(
-    config.get("chimera", {}).get("sj_junctions", {}).get("enabled", False)
+CHIMERA_SPLICE_JUNCTIONS_ENABLED = bool(
+    config.get("chimera", {}).get("splice_junctions", {}).get("enabled", False)
 )
 
 # Sample-QC thresholds for the chimera views (PCA / sample clustering). Lives
-# here, not in chimera_reads.smk, because BOTH screens' QC views use it and
+# here, not in chimera_chimeric_reads.smk, because BOTH screens' QC views use it and
 # that file is included only when the junction screen is on -- referencing it
 # from chimera_assembly.smk would NameError on an assembly-only run, which is
 # exactly the configuration guard 27 pins.
@@ -196,7 +196,7 @@ CHIMERA_SJ_ENABLED = bool(
 # The assembly view borrows these rather than having a parallel config block:
 # the two views answer the same question and there is no evidence they want
 # different cut-offs. Split them if that stops being true.
-CHIMERA_QC = config["chimera"]["reads"]["qc"]
+CHIMERA_CHIMERIC_READS_QC = config["chimera"]["chimeric_reads"]["qc"]
 
 # How many candidate rows the report's table renders. MultiQC embeds table
 # data in the HTML and a real cohort produces tens of thousands of gene-TE

@@ -1,12 +1,12 @@
 # -----------------------------------------------------------------------------
 # Chimera-assembly screen: gene-TE chimera detection from StringTie assembly
-# structure, complementing chimera_reads.smk's read-level screen.
+# structure, complementing chimera_chimeric_reads.smk's read-level screen.
 #
 # EXPERIMENTAL and OFF BY DEFAULT: newer and less validated than
-# chimera_reads. STAR only flags a junction as "chimeric" when a read
+# chimera_chimeric_reads. STAR only flags a junction as "chimeric" when a read
 # can't be explained by one linear (possibly spliced) alignment -- a TE that
 # splices into a gene via an ordinary, canonical, nearby intron aligns as a
-# completely normal spliced read and never reaches chimera_reads at all.
+# completely normal spliced read and never reaches chimera_chimeric_reads at all.
 # This screen catches that case instead, from StringTie's assembled
 # transcript structure.
 #
@@ -21,10 +21,10 @@
 #   chimera_assembly_classify  structural classification (te_initiated/
 #                               te_exonized/te_terminated/unspliced_te_only)
 #   chimera_assembly_quantify  candidate x sample TPM matrix
-#   chimera_assembly_cross_evidence  cross-check against chimera_reads's calls
+#   chimera_assembly_cross_evidence  cross-check against chimera_chimeric_reads's calls
 #
 # genes.bed/exons.bed/te.bed are built by ref.smk's annotation_to_bed rule
-# (shared with chimera_reads.smk).
+# (shared with chimera_chimeric_reads.smk).
 # -----------------------------------------------------------------------------
 import os
 
@@ -48,7 +48,7 @@ def all_chimera_assembly_outputs():
         "results/chimera/qc/assembly_pca_log2_mqc.json",
         "results/chimera/qc/assembly_heatmap_log2_mqc.json",
     ]
-    if CHIMERA_READS_ENABLED:
+    if CHIMERA_CHIMERIC_READS_ENABLED:
         files.append("results/chimera/assembly/transcripts_with_read_support.tsv.gz")
     if WRITE_GENE_TE_CHIMERA_COUNTS:
         files.append("results/chimera/assembly/gene_te_chimera_counts_matrix.tsv.gz")
@@ -62,7 +62,7 @@ def _chimera_assembly_summary_input():
     """Prefer the cross-referenced candidates table (adds
     confirmed_by_junction_screen) when the junction screen also ran; fall
     back to the plain candidates table otherwise."""
-    if CHIMERA_READS_ENABLED:
+    if CHIMERA_CHIMERIC_READS_ENABLED:
         return "results/chimera/assembly/transcripts_with_read_support.tsv.gz"
     return "results/chimera/assembly/transcripts.tsv.gz"
 
@@ -80,7 +80,7 @@ def _assembly_two_pass_args(wildcards, input):
 
 def stringtie_strand_flag(wildcards, input):
     """--fr / --rf / nothing, from the same per-sample strandedness
-    resolution chimera_reads.smk/tetranscripts.smk already use.
+    resolution chimera_chimeric_reads.smk/tetranscripts.smk already use.
     StringTie infers per-transcript strand for spliced reads from the XS
     tag (see star_align_for_assembly's --outSAMstrandField intronMotif)
     even on unstranded libraries -- so "no" still yields usable multi-exon
@@ -359,7 +359,7 @@ if WRITE_GENE_TE_CHIMERA_COUNTS:
             "> {log} 2>&1"
 
 
-if CHIMERA_READS_ENABLED:
+if CHIMERA_CHIMERIC_READS_ENABLED:
 
     rule chimera_assembly_cross_evidence:
         # Cross-checks this screen's calls against the junction screen's
@@ -374,7 +374,7 @@ if CHIMERA_READS_ENABLED:
             # script leaves stale outputs in place silently.
             script=f"{SCRIPTS_DIR}/cross_evidence_chimera_assembly.py",
             candidates="results/chimera/assembly/transcripts.tsv.gz",
-            te_gene_chimeras="results/chimera/reads/te-gene-chimeras.tsv.gz",
+            te_gene_chimeras="results/chimera/chimeric_reads/te-gene-chimeras.tsv.gz",
         output:
             "results/chimera/assembly/transcripts_with_read_support.tsv.gz",
         threads: get_resources("chimera_assembly_cross_evidence")["threads"]
@@ -462,14 +462,14 @@ if WRITE_IGV_BED_ASSEMBLY:
 # Assembly sample-QC: the PCA / sample-distance view the read screen already
 # has, over this screen's own per-sample data (tpm_matrix.tsv.gz).
 #
-# These live HERE rather than in chimera_reads_qc.smk on purpose: that file is
+# These live HERE rather than in chimera_chimeric_reads_qc.smk on purpose: that file is
 # included only when the JUNCTION screen is on (Snakefile), and guard 27 pins
 # that the assembly screen runs independently of it. Putting them there would
 # silently drop this view whenever assembly runs alone.
 #
 # transform is log2, not vst/rlog: the matrix is already TPM, so DESeq2's
 # count-based normalization does not apply. Thresholds are borrowed from
-# chimera.reads.qc rather than adding a parallel config block -- the two
+# chimera.chimeric_reads.qc rather than adding a parallel config block -- the two
 # views answer the same question and there is no evidence they want different
 # cut-offs. Split them if that ever stops being true.
 # -----------------------------------------------------------------------------
@@ -485,8 +485,8 @@ rule chimera_assembly_qc_transform:
         "results/chimera/qc/assembly_log2_counts.tsv.gz",
     params:
         samples=config["samples"],
-        min_samples_present=CHIMERA_QC["min_samples_present"],
-        min_total_counts=CHIMERA_QC["min_total_counts"],
+        min_samples_present=CHIMERA_CHIMERIC_READS_QC["min_samples_present"],
+        min_total_counts=CHIMERA_CHIMERIC_READS_QC["min_total_counts"],
     threads: get_resources("chimera_assembly_qc_transform")["threads"]
     resources:
         mem_mb=get_scaled_mem_mb("chimera_assembly_qc_transform"),
@@ -517,7 +517,7 @@ rule chimera_assembly_qc:
         heatmap="results/chimera/qc/assembly_heatmap_log2_mqc.json",
     params:
         samples=config["samples"],
-        min_events=CHIMERA_QC["min_events"],
+        min_events=CHIMERA_CHIMERIC_READS_QC["min_events"],
     threads: get_resources("chimera_assembly_qc")["threads"]
     resources:
         mem_mb=get_scaled_mem_mb("chimera_assembly_qc"),

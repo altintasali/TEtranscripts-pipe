@@ -9,7 +9,7 @@ The two are shown SEPARATELY on purpose. Both emit te_initiated /
 te_exonized / te_terminated, so putting them in one plot invites reading
 agreement as corroboration -- and they are not the same measurement:
 
-  Read evidence (classify_chimera_reads.py) classifies by GENOMIC POSITION:
+  Read evidence (classify_chimera_chimeric_reads.py) classifies by GENOMIC POSITION:
   where the TE sits relative to the gene body, oriented by gene strand.
     te_initiated   TE lies upstream of the gene
     te_terminated  TE lies downstream
@@ -89,7 +89,7 @@ def main():
         data[sample] = {c: _int(m.get(f"chimera_type_{c}")) for c in CLASSES}
 
     doc = {
-        "id": "chimera_reads_te_type",
+        "id": "chimera_chimeric_reads_te_type",
         "parent_id": "chimera",
         "parent_name": "Chimera",
         "section_name": "Reads - TE type",
@@ -104,7 +104,7 @@ def main():
         doc.update({
             "plot_type": "bargraph",
             "pconfig": {
-                "id": "chimera_reads_te_type_plot",
+                "id": "chimera_chimeric_reads_te_type_plot",
                 "title": "Reads: chimeric junctions by TE type",
                 "ylab": "junctions",
                 # cpswitch gives the share-of-sample view, which is the right

@@ -27,9 +27,9 @@ def _row(cells, muted=False):
 def main():
     p = snakemake.params
     telocal = bool(p._telocal_enabled)
-    junction = bool(p._chimera_reads_enabled)
+    chimeric_reads = bool(p._chimera_chimeric_reads_enabled)
     assembly = bool(p._chimera_assembly_enabled)
-    sj = bool(p._chimera_sj_enabled)
+    sj = bool(p._chimera_splice_junctions_enabled)
     two_pass = str(p._two_pass)
     n_samples = int(p._sample_count)
 
@@ -52,11 +52,11 @@ def main():
             not telocal,
         ),
         (
-            "Chimera (junction)", on if junction else off,
+            "Chimera (chimeric reads)", on if chimeric_reads else off,
             "<strong>Evidence</strong>: reads STAR cannot align linearly",
             "Annotation-blind. Finds breakpoints; blind to chimeras spliced "
             "through an ordinary intron.",
-            not junction,
+            not chimeric_reads,
         ),
         (
             "Chimera (assembly)", on if assembly else off,
@@ -66,7 +66,7 @@ def main():
             not assembly,
         ),
         (
-            "Chimera (SJ junctions)", on if sj else off,
+            "Chimera (SJ)", on if sj else off,
             "<strong>Evidence</strong>: STAR's own splice junctions (SJ.out.tab)",
             "Same blind spot as assembly (ordinary-intron TE splices "
             "invisible to the junction screen), caught at the read-junction "
@@ -87,12 +87,12 @@ def main():
     )
 
     # --- the one line that actually resolves the confusion --------------
-    n_screens = sum([junction, assembly, sj])
+    n_screens = sum([chimeric_reads, assembly, sj])
     if n_screens >= 2:
         cross_ref = (
             " Reads+assembly agreement additionally has its own "
             "cross-referenced file, <code>candidates_with_junction_evidence."
-            "tsv.gz</code>." if junction and assembly else ""
+            "tsv.gz</code>." if chimeric_reads and assembly else ""
         )
         independence = (
             f"<p><strong>{n_screens} independent chimera screens are "
@@ -104,11 +104,11 @@ def main():
             "evidence.</p>"
         )
     elif n_screens == 1:
-        running = "junction" if junction else "assembly" if assembly else "sj_junctions"
+        running = "chimeric reads" if chimeric_reads else "assembly" if assembly else "SJ"
         others = ", ".join(
             f"<code>chimera.{key}.enabled: true</code>"
-            for key, on_ in (("reads", junction), ("assembly", assembly),
-                              ("sj_junctions", sj))
+            for key, on_ in (("chimeric_reads", chimeric_reads), ("assembly", assembly),
+                              ("splice_junctions", sj))
             if not on_
         )
         independence = (
@@ -130,7 +130,7 @@ def main():
              "<li>Read expression: <em>TEcount</em> for which subfamilies "
              "move" + (", then <em>TElocal</em> for which copy is "
                        "responsible" if telocal else "") + ".</li>"]
-    if junction:
+    if chimeric_reads:
         steps.append(
             "<li>Open <em>Chimera &rarr; What to look at</em> for the ranked "
             "gene-TE junctions, not the raw catalog.</li>"

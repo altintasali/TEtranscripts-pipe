@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Classify STAR's normal splice junctions (SJ.out.tab) as gene-TE chimera
 candidates -- a third, assembly-free line of evidence alongside
-classify_chimera_reads.py (STAR chimeric-junction reads) and
+classify_chimera_chimeric_reads.py (STAR chimeric-junction reads) and
 classify_chimera_assembly.py (StringTie assembly structure).
 
-Why this exists: chimera_reads.smk's screen only sees a junction when STAR
+Why this exists: chimera_chimeric_reads.smk's screen only sees a junction when STAR
 cannot explain the read as one linear (possibly spliced) alignment.  A TE
 sitting just upstream of a gene, spliced into it through a normal, canonical,
 nearby intron, aligns as a completely ordinary spliced read and never reaches
@@ -19,7 +19,7 @@ Unlike Chimeric.out.junction (one row per chimeric READ, many reads sharing
 one junction, requiring per-sample accumulation), STAR's SJ.out.tab already
 reports one deduplicated row per distinct (chrom, intron_start, intron_end,
 strand) junction, with its own unique_reads/multi_reads counts -- so this
-script needs no read-level grouping, unlike classify_chimera_reads.py.
+script needs no read-level grouping, unlike classify_chimera_chimeric_reads.py.
 
 SJ.out.tab is always CIS (same-chromosome) by construction -- a normal
 spliced alignment cannot jump chromosomes -- so, unlike the chimeric-read
@@ -42,8 +42,8 @@ is used as an arbitrary but consistent default -- in practice this only
 affects non-canonical (motif 0) junctions, which --require-canonical
 excludes by default anyway (see below).
 
---require-canonical (default ON here, opposite of chimera_reads's default
-require_canonical_junction: false): unlike a genuinely chimeric read, this
+--require-canonical (default ON here, opposite of chimera_chimeric_reads's default
+require_canonical: false): unlike a genuinely chimeric read, this
 screen's whole value proposition -- working on unstranded data via the
 splice motif -- depends on STAR having assigned a real strand, which only
 happens for canonical (motif != 0) junctions. Non-canonical "junctions" in
@@ -53,7 +53,7 @@ SJ.out.tab are also disproportionately alignment noise on their own.
 mapping reads spanning the junction) -- a lightweight floor against
 single-read noise, independent of --require-canonical.
 
-Output columns (results/chimera/sj/per_sample/{sample}_te_gene_junctions.tsv):
+Output columns (results/chimera/splice_junctions/per_sample/{sample}_te_gene_junctions.tsv):
     event_id, sample, chrom, intron_start, intron_end, strand, motif,
     canonical, annotated, unique_reads, multi_reads, overhang,
     donor_hits, acceptor_hits, direction, direction_ambiguous,
@@ -66,7 +66,7 @@ This step is ANNOTATE-ONLY like its two siblings: --min-unique-reads and
 filters. Apply your own filter downstream.
 
 Usage:
-  classify_chimera_sj.py --sj SJ.out.tab --genes genes.bed --exons exons.bed \\
+  classify_chimera_splice_junctions.py --sj SJ.out.tab --genes genes.bed --exons exons.bed \\
       --te te.bed --sample S1 --out S1_te_gene_junctions.tsv.gz
 """
 import argparse
@@ -80,7 +80,7 @@ from gz_io import open_write
 
 def load_bed(path, n_extra=0):
     """{chrom: (feats_sorted_by_start, running_max_end)} -- same interval
-    index as classify_chimera_reads.py's load_bed."""
+    index as classify_chimera_chimeric_reads.py's load_bed."""
     raw = {}
     with open(path) as fh:
         for line in fh:
@@ -139,8 +139,8 @@ def main():
     ap.add_argument(
         "--require-canonical", action="store_true",
         help="Only keep junctions with a canonical motif (STAR column 5 != "
-        "0). Default here mirrors config chimera.sj_junctions.require_"
-        "canonical (true by default, opposite of chimera.reads's).",
+        "0). Default here mirrors config chimera.splice_junctions.require_"
+        "canonical (true by default, opposite of chimera.chimeric_reads's).",
     )
     ap.add_argument(
         "--library-strandedness",

@@ -42,11 +42,9 @@ PARENT_NAME = "Chimera"
 # builds them. Presentational only -- the whole point of this section is that
 # no order among these is established.
 FLAGS = [
-    ("canonical", "Splice motif"),
+    ("cr_canonical", "Splice motif"),
     ("multi_sample", "Replicate support"),
-    ("sj_canonical", "Splice motif (SJ junctions)"),
-    ("both_screens", "Called by both screens"),
-    ("all_three_screens", "Called by all three screens"),
+    ("sj_canonical", "Splice motif (SJ)"),
     ("assembly_strand_match", "Assembly strand match"),
     ("telocal_expressed", "TE locus expressed"),
 ]
@@ -63,7 +61,7 @@ SIGNALS = [
         "Splice motif",
         "STAR (chimeric junctions)",
         "A recognised splice motif on at least one chimeric-junction read "
-        "(<code>canonical</code>).",
+        "(<code>cr_canonical</code>).",
         "The best artifact discriminator available here. Real introns are "
         "~100% canonical, while template-switching, ligation and PCR chimeras "
         "carry no motif at all. A low overall rate is normal &mdash; what "
@@ -73,52 +71,52 @@ SIGNALS = [
     (
         "Replicate support",
         "STAR (chimeric junctions or SJ.out.tab)",
-        "Seen in more than one sample (<code>multi_sample</code>).",
+        "Counted as corroboration, not screen evidence -- can fire from a "
+        "single screen alone, no second screen required. Seen in more than "
+        "one sample (<code>multi_sample</code>).",
         "Weaker than it looks. A sequence-driven template switch recurs across "
         "libraries too, so recurrence does not separate a real chimera from a "
         "reproducible artifact.",
         "mixed",
     ),
     (
-        "Splice motif (SJ junctions)",
+        "Splice motif (SJ)",
         "STAR (SJ.out.tab)",
         "A recognised splice motif on at least one normal splice junction "
-        "from the sj_junctions screen (<code>sj_canonical</code>) &mdash; "
-        "kept separate from the reads-screen's own <code>canonical</code> "
-        "flag above since the two are structurally independent "
-        "measurements (chimeric-junction typing vs. SJ.out.tab motif).",
-        "This screen (chimera.sj_junctions) is brand new and has not been "
+        "from the splice_junctions screen (<code>sj_canonical</code>) "
+        "&mdash; kept separate from the reads-screen's own "
+        "<code>cr_canonical</code> flag above since the two are structurally "
+        "independent measurements (chimeric-junction typing vs. SJ.out.tab "
+        "motif).",
+        "This screen (chimera.splice_junctions) is brand new and has not been "
         "run on real project data yet, so nothing here is measured -- "
         "requiring canonical for admission by default (require_canonical: "
         "true) means most rows already carry this flag, so on its own it "
         "discriminates little within this screen's own output; its value "
         "is mainly in cross-checking against the other two screens (see "
-        "both_screens / all_three_screens below).",
+        "Screens below).",
         "unresolved",
     ),
     (
-        "Called by both screens",
-        "STAR + StringTie",
-        "Found by the read-evidence <em>and</em> transcript-evidence screens "
-        "(<code>both_screens</code>).",
-        "Should be the strongest signal here &mdash; the two screens have "
-        "opposite blind spots. Measured across a cohort it was not: agreement "
-        "came out near its <strong>chance rate</strong>. Treat it as "
-        "unresolved, and check the <strong>Evidence structure</strong> "
-        "sections below for your own data before relying on it.",
-        "unresolved",
-    ),
-    (
-        "Called by all three screens",
+        "Screens",
         "STAR + StringTie + STAR (SJ.out.tab)",
-        "Found by the reads, assembly, <em>and</em> sj_junctions screens "
-        "(<code>all_three_screens</code>).",
-        "Not measured -- chimera.sj_junctions is new, off by default, and "
-        "has not been run on real project data. Requiring three independent "
-        "methods to agree is a stronger signal in principle than the "
-        "two-screen case above, but that case's own measured near-chance "
-        "agreement rate is reason enough not to assume this one is any "
-        "better without checking it the same way first.",
+        "How many of the 3 independent detection screens found this pair "
+        "(<code>n_screens</code>, 1-3) &mdash; informational, not itself an "
+        "evidence flag. Screen evidence count (Splice motif / Splice motif "
+        "(SJ) / Assembly strand match above) can never exceed it; "
+        "Corroboration count (Replicate support / TE locus expressed) is "
+        "deliberately NOT bounded by it.",
+        "n_screens &gt;= 2 should be the strongest signal here &mdash; the "
+        "chimeric-reads and assembly screens have opposite blind spots. "
+        "Measured across a cohort it was not: cr+assembly agreement came out near "
+        "its <strong>chance rate</strong>. chimera.splice_junctions is new, "
+        "off by default, and has not been run on real project data, so "
+        "n_screens == 3 is unmeasured too -- its own third-screen agreement "
+        "is a stronger signal in principle, but the two-screen case's "
+        "measured near-chance rate is reason enough not to assume it "
+        "without checking it the same way first. Check the "
+        "<strong>Evidence structure</strong> sections below for your own "
+        "data before relying on either.",
         "unresolved",
     ),
     (
@@ -135,7 +133,7 @@ SIGNALS = [
         "Read depth",
         "STAR (chimeric junctions)",
         "<strong>Not an evidence flag.</strong> Reported as "
-        "<code>junction_reads</code> / <code>junction_events</code>.",
+        "<code>cr_reads</code> / <code>cr_events</code>.",
         "The metric most inflated by artifacts &mdash; a hot PCR chimera is "
         "often the deepest event in a run. Depth never promotes a pair here, "
         "and a high-depth row with no flags means exactly that.",
@@ -144,8 +142,9 @@ SIGNALS = [
     (
         "TE locus expressed",
         "TElocal",
-        "Counted as an evidence flag. Reported as "
-        "<code>telocal_count</code> when TElocal ran.",
+        "Counted as corroboration, not screen evidence -- TElocal is a "
+        "fourth data source, not one of the three detection screens. "
+        "Reported as <code>telocal_count</code> when TElocal ran.",
         "One small 4-sample mouse experiment: 91% of junction-side pairs had "
         "an expressed locus, and the canonical rate was <em>lower</em> where "
         "it was (6.7% vs 10.2%, n&nbsp;=&nbsp;19,503). Too early to conclude "
@@ -230,7 +229,15 @@ def main():
     composition = {flag: 0 for flag, _ in FLAGS}
     n_no_flags = 0
     for r in rows:
-        present = [f for f in r.get("evidence", ".").split(",") if f != "."]
+        # screen_evidence and corroboration are the two independent counts
+        # chimera_evidence.py splits flags into (see its module docstring):
+        # the first is bounded by n_screens, the second deliberately is not.
+        # This section explains all five flags together regardless of which
+        # count they belong to, so both are read here.
+        present = [
+            f for col in ("screen_evidence", "corroboration")
+            for f in r.get(col, ".").split(",") if f != "."
+        ]
         if not present:
             n_no_flags += 1
         for flag in present:
@@ -323,9 +330,12 @@ def main():
             "of a whole, which is why they are drawn separately rather than "
             "stacked. Sources: splice motif and replicate support from STAR "
             "chimeric junctions, assembly strand match from StringTie, "
-            "splice motif (SJ junctions) from STAR's SJ.out.tab (when "
-            "chimera.sj_junctions is enabled), both/all-three-screens from "
-            "the screens together."
+            "splice motif (SJ) from STAR's SJ.out.tab (when "
+            "chimera.splice_junctions is enabled), TE locus expressed from "
+            "TElocal. How many screens agreed on a pair is shown separately "
+            "(the Screens column, and the correlation/leaders sections "
+            "below), not as a bar here -- it is derived from found_by, not "
+            "an independent evidence flag."
         ),
         **composition_body,
     }

@@ -104,34 +104,56 @@ def _chimera_qc_mqc_inputs():
     as interactive PCA + sample-distance plots inside the report). Only when
     the chimera stage is enabled and a counts matrix is written. Their
     directory is added to the MultiQC scan dirs via params.indirs."""
-    if not CHIMERA_READS_ENABLED:
+    if not CHIMERA_CHIMERIC_READS_ENABLED:
         return []
-    if not config["chimera"]["reads"]["outputs"]["write_counts_matrix"]:
+    if not config["chimera"]["chimeric_reads"]["outputs"]["write_counts_matrix"]:
         return []
-    transform = config["chimera"]["reads"]["qc"]["pca_transform"]
+    transform = config["chimera"]["chimeric_reads"]["qc"]["pca_transform"]
     return [
         f"results/chimera/qc/pca_{transform}_mqc.json",
         f"results/chimera/qc/heatmap_{transform}_mqc.json",
     ]
 
 
-def _chimera_reads_qc_mqc_inputs():
+def _chimera_chimeric_reads_qc_mqc_inputs():
     """MultiQC custom-content JSONs from the chimera junction-QC barplot
     (per-sample direction composition) and the gene-TE chimeras barplot (the
     gene<->TE subset). Only when the chimera stage is enabled; independent of
     write_counts_matrix, since junction QC runs for every sample the annotator
     produces."""
-    if not CHIMERA_READS_ENABLED:
+    if not CHIMERA_CHIMERIC_READS_ENABLED:
         return []
     return [
-        "results/chimera/qc/chimera_reads_qc_mqc.json",
-        "results/chimera/qc/chimera_reads_te_type_mqc.json",
+        "results/chimera/qc/chimera_chimeric_reads_qc_mqc.json",
+        "results/chimera/qc/chimera_chimeric_reads_te_type_mqc.json",
         "results/chimera/qc/te_gene_chimeras_mqc.json",
         "results/chimera/qc/canonical_rate_mqc.json",
         "results/chimera/qc/canonical_enrichment_mqc.json",
-        "results/chimera/qc/chimera_reads_highlights_mqc.json",
+        "results/chimera/qc/chimera_chimeric_reads_highlights_mqc.json",
         "results/chimera/qc/chimera_evidence_correlation_mqc.json",
         "results/chimera/qc/chimera_evidence_candidates_mqc.json",
+    ]
+
+
+def _chimera_splice_junctions_qc_mqc_inputs():
+    """MultiQC custom-content JSONs from the SJ.out.tab sample-QC view
+    (rendered as interactive PCA + sample-distance plots inside the report).
+    Only when chimera.splice_junctions is enabled and a counts matrix is
+    written -- mirrors _chimera_qc_mqc_inputs()'s gating for the reads
+    screen. Written under the SHARED results/chimera/qc/ directory,
+    splice_junctions_-prefixed (see chimera_splice_junctions.smk): MultiQC's
+    search directories only scan results/chimera/qc, not a per-screen qc/
+    subdirectory, so anything written elsewhere silently never reaches the
+    report -- exactly what left this screen missing from both the MultiQC
+    report and the candidates explorer before this was wired in."""
+    if not CHIMERA_SPLICE_JUNCTIONS_ENABLED:
+        return []
+    if not config["chimera"]["splice_junctions"]["outputs"]["write_counts_matrix"]:
+        return []
+    transform = config["chimera"]["splice_junctions"]["qc"]["pca_transform"]
+    return [
+        f"results/chimera/qc/splice_junctions_pca_{transform}_mqc.json",
+        f"results/chimera/qc/splice_junctions_heatmap_{transform}_mqc.json",
     ]
 
 
@@ -210,9 +232,9 @@ rule evidence_overview:
     params:
         _sample_count=len(SAMPLES),
         _telocal_enabled=TELOCAL_ENABLED,
-        _chimera_reads_enabled=CHIMERA_READS_ENABLED,
+        _chimera_chimeric_reads_enabled=CHIMERA_CHIMERIC_READS_ENABLED,
         _chimera_assembly_enabled=CHIMERA_ASSEMBLY_ENABLED,
-        _chimera_sj_enabled=CHIMERA_SJ_ENABLED,
+        _chimera_splice_junctions_enabled=CHIMERA_SPLICE_JUNCTIONS_ENABLED,
         _two_pass=STAR_TWO_PASS,
     script:
         "../scripts/evidence_overview_mqc.py"
@@ -239,7 +261,7 @@ rule config_used:
         _trim_enabled=TRIM_ENABLED,
         _tecount_qc_enabled=TECOUNT_QC_ENABLED,
         _tecount_qc=TECOUNT_QC,
-        _chimera_enabled=CHIMERA_READS_ENABLED,
+        _chimera_chimeric_reads_enabled=CHIMERA_CHIMERIC_READS_ENABLED,
         _telocal_enabled=TELOCAL_ENABLED,
         _telocal_locind_auto=not _telocal_locind_cfg,
         _telocal_qc_enabled=TELOCAL_QC_ENABLED,
@@ -258,7 +280,8 @@ rule multiqc:
     # auto-detection was used) RSeQC infer_experiment.py reports, the
     # always-on samtools flagstat + RSeQC read_distribution/geneBody_coverage
     # reports (all samples, not just AUTO_SAMPLES), the chimera
-    # sample-QC (PCA + sample distances) and junction-QC barplot, the TEcounts
+    # sample-QC (PCA + sample distances) and junction-QC barplot, the SJ.out.tab
+    # screen's own sample-QC (gated on chimera.splice_junctions.enabled), the TEcounts
     # sample-QC (gated on tetranscripts.qc.enabled) and the always-on
     # per-sample summary barplots, the TElocal summary barplots + sample-QC
     # view (the latter gated on telocal.qc.enabled), the per-rule
@@ -283,7 +306,8 @@ rule multiqc:
         "results/pipeline_info/evidence_overview_mqc.json",
         "results/versions/rnaseq_mqc_versions.yml",
         chimera_qc=_chimera_qc_mqc_inputs(),
-        chimera_reads_qc=_chimera_reads_qc_mqc_inputs(),
+        chimera_chimeric_reads_qc=_chimera_chimeric_reads_qc_mqc_inputs(),
+        chimera_splice_junctions_qc=_chimera_splice_junctions_qc_mqc_inputs(),
         tecount_qc=_tecount_qc_mqc_inputs(),
         tecount_summary=_tecount_summary_mqc_inputs(),
         telocal=_telocal_qc_mqc_inputs(),

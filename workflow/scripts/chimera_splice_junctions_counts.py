@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Merge the per-sample SJ.out.tab-derived junction tables
-(classify_chimera_sj.py) into the all-events catalog and the event x sample
-counts matrix -- the SJ-based screen's counterpart of chimera_reads_counts.py,
+(classify_chimera_splice_junctions.py) into the all-events catalog and the event x sample
+counts matrix -- the SJ-based screen's counterpart of chimera_chimeric_reads_counts.py,
 same shape, same conventions.
 
 Outputs:
@@ -16,12 +16,12 @@ Outputs:
   cpm_matrix.tsv   the same matrix, each column divided by that sample's
                    column total x 1e6 (CPM, not TPM -- a splice junction has
                    no meaningful "length" to normalize by, same rationale as
-                   chimera_reads_counts.py). Written when --out-cpm is given.
+                   chimera_chimeric_reads_counts.py). Written when --out-cpm is given.
   te-gene-junctions.tsv  the all_events catalog filtered to gene<->TE events
                    (direction gene_to_te / te_to_gene), written when
                    --out-te-events is given.
 
-Nothing is filtered here beyond what classify_chimera_sj.py itself already
+Nothing is filtered here beyond what classify_chimera_splice_junctions.py itself already
 applied (--min-unique-reads / --require-canonical) -- annotate-first, same as
 the other two screens.
 """

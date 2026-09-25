@@ -128,7 +128,7 @@ UCSC_TOOLS_ENV = _write_env(
 # A dedicated, narrow env: none of this is needed by any other rule, so
 # (unlike deseq2/r-base, which sample_qc.R's call sites all share) it does
 # not belong on TETRANSCRIPTS_ENV -- the same reasoning that led to dropping
-# the previous single-rule CHIMERA_QC_ENV in favor of TETRANSCRIPTS_ENV cuts
+# the previous single-rule CHIMERA_CHIMERIC_READS_QC_ENV in favor of TETRANSCRIPTS_ENV cuts
 # the other way here: that env was redundant (identical DESeq2/r-base need,
 # plus an unused r-pheatmap); this one is genuinely new and single-purpose.
 CANDIDATES_EXPLORER_ENV = _write_env(

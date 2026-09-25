@@ -5,17 +5,17 @@
 # into input/config.yaml and change what you need there instead.
 #
 # Three independent, complementary detection methods live under chimera.*:
-#   chimera.reads -- STAR chimeric-junction reads (on by default). Only
+#   chimera.chimeric_reads -- STAR chimeric-junction reads (on by default). Only
 #     sees reads STAR can't explain as one linear alignment.
 #   chimera.assembly -- StringTie assembly structure (also on by default;
-#     newer and less validated than chimera.reads). Catches
-#     ordinary-canonical-intron TE-initiated splices that chimera.reads
+#     newer and less validated than chimera.chimeric_reads). Catches
+#     ordinary-canonical-intron TE-initiated splices that chimera.chimeric_reads
 #     structurally cannot see. Costs a second, dedicated STAR pass per
 #     sample -- set enabled: false if you don't need it.
-#   chimera.sj_junctions -- STAR's normal splice junctions (SJ.out.tab, OFF
+#   chimera.splice_junctions -- STAR's normal splice junctions (SJ.out.tab, OFF
 #     by default). Catches the SAME blind spot as chimera.assembly (a TE
 #     splicing into a gene through an ordinary, canonical intron never
-#     reaches chimera.reads), but at the individual read-junction level
+#     reaches chimera.chimeric_reads), but at the individual read-junction level
 #     rather than requiring StringTie to successfully assemble a multi-exon
 #     transcript -- needs no extra STAR pass, reuses the main alignment's
 #     already-produced SJ.out.tab.
@@ -25,11 +25,11 @@
 # EXPERIMENTAL: all three stages are newer additions to the pipeline -- their
 # classification and QC-view behavior may still change between releases. Use
 # for exploration, and validate the output before relying on it for published
-# results. chimera.sj_junctions in particular is brand new and unvalidated on
+# results. chimera.splice_junctions in particular is brand new and unvalidated on
 # real data -- hence off by default, unlike the other two.
 # =============================================================================
 chimera:
-  reads:
+  chimeric_reads:
     enabled: true
     star:
       segment_min: 12
@@ -37,7 +37,7 @@ chimera:
       score_drop_max: 20
       extra: ""
     breakpoint_tolerance: 0
-    require_canonical_junction: false
+    require_canonical: false
     qc:
       min_samples_present: 2
       min_total_counts: 5
@@ -63,14 +63,14 @@ chimera:
     outputs:
       write_igv_bed: true
       write_gene_te_chimera_counts: true
-  sj_junctions:
+  splice_junctions:
     enabled: false
     breakpoint_tolerance: 0
     # STAR's own per-junction quality signal (SJ.out.tab column 7); a floor
     # against single-read noise. 1 = no filtering (annotate-first, same
     # philosophy as the other two screens).
     min_unique_reads: 1
-    # Opposite default of chimera.reads.require_canonical_junction: this
+    # Opposite default of chimera.chimeric_reads.require_canonical: this
     # screen's whole value on unstranded data comes from STAR's own
     # motif-based strand call, which only exists for canonical (motif != 0)
     # junctions -- so keeping non-canonical rows here mostly adds noise

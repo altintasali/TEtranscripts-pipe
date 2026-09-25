@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Guard 55: classify_chimera_sj.py classification logic
+# Guard 55: classify_chimera_splice_junctions.py classification logic
 #
-# Run on its own:   .tests/guards/55_classify_chimera_sj_py_classification_logic.sh
+# Run on its own:   .tests/guards/55_classify_chimera_splice_junctions_py_classification_logic.sh
 # Run all guards:   .tests/guards/run.sh
 set -uo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -33,12 +33,12 @@ printf "chr1\t700\t1000\t1\t1\t0\t5\t0\t20\n" > "$T/sj.tab"
 printf "chr1\t700\t1000\t1\t0\t0\t5\t0\t20\n" >> "$T/sj.tab"
 printf "chr1\t2700\t3000\t1\t1\t0\t1\t0\t20\n" >> "$T/sj.tab"
 
-if ! python3 workflow/scripts/classify_chimera_sj.py \
+if ! python3 workflow/scripts/classify_chimera_splice_junctions.py \
       --sj "$T/sj.tab" --genes "$T/genes.bed" --exons "$T/exons.bed" \
       --te "$T/te.bed" --sample S1 --breakpoint-tolerance 0 \
       --min-unique-reads 1 \
       --out "$T/lenient.tsv" > "$T/lenient.log" 2>&1; then
-  echo "ERROR: classify_chimera_sj.py (lenient) failed"; cat "$T/lenient.log"; FAIL=1
+  echo "ERROR: classify_chimera_splice_junctions.py (lenient) failed"; cat "$T/lenient.log"; FAIL=1
 else
   n_rows=$(($(wc -l < "$T/lenient.tsv") - 1))
   if [ "$n_rows" != "3" ]; then
@@ -69,12 +69,12 @@ else
   fi
 fi
 
-if ! python3 workflow/scripts/classify_chimera_sj.py \
+if ! python3 workflow/scripts/classify_chimera_splice_junctions.py \
       --sj "$T/sj.tab" --genes "$T/genes.bed" --exons "$T/exons.bed" \
       --te "$T/te.bed" --sample S1 --breakpoint-tolerance 0 \
       --min-unique-reads 1 --require-canonical \
       --out "$T/strict.tsv" > "$T/strict.log" 2>&1; then
-  echo "ERROR: classify_chimera_sj.py (--require-canonical) failed"; cat "$T/strict.log"; FAIL=1
+  echo "ERROR: classify_chimera_splice_junctions.py (--require-canonical) failed"; cat "$T/strict.log"; FAIL=1
 else
   n_rows=$(($(wc -l < "$T/strict.tsv") - 1))
   if [ "$n_rows" != "2" ]; then
@@ -83,12 +83,12 @@ else
   fi
 fi
 
-if ! python3 workflow/scripts/classify_chimera_sj.py \
+if ! python3 workflow/scripts/classify_chimera_splice_junctions.py \
       --sj "$T/sj.tab" --genes "$T/genes.bed" --exons "$T/exons.bed" \
       --te "$T/te.bed" --sample S1 --breakpoint-tolerance 0 \
       --min-unique-reads 2 \
       --out "$T/min_reads.tsv" > "$T/min_reads.log" 2>&1; then
-  echo "ERROR: classify_chimera_sj.py (--min-unique-reads 2) failed"; cat "$T/min_reads.log"; FAIL=1
+  echo "ERROR: classify_chimera_splice_junctions.py (--min-unique-reads 2) failed"; cat "$T/min_reads.log"; FAIL=1
 else
   n_rows=$(($(wc -l < "$T/min_reads.tsv") - 1))
   if [ "$n_rows" != "2" ]; then

@@ -23,14 +23,15 @@
 # Same non-ranking stance as the MultiQC table (chimera_candidates_table_mqc.py,
 # guards 36/50): every evidence column is shown exactly as chimera_evidence.py
 # wrote it, and NO combined/weighted "confidence" column is computed here --
-# ever. The table opens sorted by Evidence count only because DT needs some
-# initial order to open with; it is a COUNT of flags, not a score, and any
+# ever. The table opens sorted by Screens, Screen evidence count and
+# Corroboration count only because DT needs some initial order to open
+# with; each is a COUNT of flags, not a score, and any
 # column header re-sorts on click.
 #
 # Two columns are new here and don't exist in candidates.tsv.gz: "Gene locus"
 # and "TE locus", a ready-to-paste IGV coordinate ("chr:start-end") for every
 # row. The existing per-sample/per-transcript IGV BED tracks
-# (chimera_reads_igv_bed / chimera_assembly_igv_bed) are keyed on a
+# (chimera_chimeric_reads_igv_bed / chimera_assembly_igv_bed) are keyed on a
 # breakpoint-coordinate string or a StringTie transcript_id -- neither
 # matches a candidate's gene_id/te_id, so a biologist could not search IGV by
 # candidate name even with those tracks turned on (they default to off).
@@ -43,7 +44,7 @@
 # corresponding screen ran: "TElocal reads (cohort total)" and "Assembly
 # reads (cohort total)", from pre-summed lookup tables built by
 # chimera_candidates_matrix_totals.py (see that script and the rule in
-# chimera_reads.smk for why results/telocal/counts_matrix.tsv.gz and
+# chimera_chimeric_reads.smk for why results/telocal/counts_matrix.tsv.gz and
 # results/chimera/assembly/counts_matrix.tsv.gz are never loaded directly
 # here -- both can be genome/cohort-scale).
 #
@@ -167,13 +168,21 @@ df <- data.frame(
     "TE family" = candidates$te_family,
     "TE class" = factor(candidates$te_class),
     "Found by" = factor(candidates$found_by),
-    "Evidence flags" = candidates$evidence,
-    "Evidence count" = int_or_na(candidates$n_evidence),
-    "Splice motif" = factor(candidates$junction_canonical),
-    "Chimeric junction samples" = int_or_na(candidates$junction_max_samples),
-    "Junction events" = int_or_na(candidates$junction_events),
-    "Junction reads (cohort total)" = int_or_na(candidates$junction_reads),
-    "TE type (reads)" = candidates$junction_chimera_types,
+    "Screens" = int_or_na(candidates$n_screens),
+    "Screen evidence flags" = candidates$screen_evidence,
+    "Screen evidence count" = int_or_na(candidates$n_screen_evidence),
+    "Corroboration flags" = candidates$corroboration,
+    "Corroboration count" = int_or_na(candidates$n_corroboration),
+    "Splice motif" = factor(candidates$cr_canonical),
+    "Chimeric junction samples" = int_or_na(candidates$cr_max_samples),
+    "Junction events" = int_or_na(candidates$cr_events),
+    "Junction reads (cohort total)" = int_or_na(candidates$cr_reads),
+    "TE type (reads)" = candidates$cr_chimera_types,
+    "Splice motif (SJ)" = factor(candidates$sj_canonical),
+    "SJ samples" = int_or_na(candidates$sj_max_samples),
+    "SJ events" = int_or_na(candidates$sj_events),
+    "SJ reads (cohort total)" = int_or_na(candidates$sj_reads),
+    "TE type (SJ)" = candidates$sj_chimera_types,
     "TElocal active" = factor(candidates$telocal_active),
     "TElocal reads (cohort total)" = telocal_cohort_total,
     "Assembly transcript count" = int_or_na(candidates$assembly_transcripts),
@@ -185,9 +194,10 @@ df <- data.frame(
     stringsAsFactors = FALSE
 )
 # Row order is left exactly as chimera_evidence.py wrote it
-# (-n_evidence, gene_id, te_id) -- not re-sorted here, so this table and
-# candidates.tsv.gz always agree on order, same rationale as
-# chimera_candidates_table_mqc.py's "take the head rather than re-sort".
+# (-n_screens, -n_screen_evidence, -n_corroboration, gene_id, te_id) -- not
+# re-sorted here, so this table and candidates.tsv.gz always agree on
+# order, same rationale as chimera_candidates_table_mqc.py's "take the head
+# rather than re-sort".
 
 # One description per column, IN THE SAME ORDER as data.frame() above --
 # rendered as a hover tooltip on the header (see `sketch` below). Reused
@@ -204,11 +214,26 @@ descriptions <- c(
     "TE annotation field from the curated TE GTF.",
     "TE annotation field from the curated TE GTF.",
     "TE annotation field from the curated TE GTF.",
-    paste("Which screens called it: reads (STAR), assembly (StringTie),",
-          "or both. Agreement measured near its chance rate."),
-    "Named evidence signals this pair carries -- see Evidence count.",
-    paste("How many of the five evidence flags this pair carries.",
-          "A count, not a score -- the flags are unweighted."),
+    paste("Which screens called it, \"+\"-joined: cr (chimeric-reads",
+          "screen, STAR), assembly (StringTie), sj (SJ.out.tab screen,",
+          "STAR) -- e.g. \"cr+sj\". Agreement measured near its chance",
+          "rate."),
+    paste("How many of the 3 independent detection screens found this pair",
+          "(1-3). Informational, derived from Found by."),
+    paste("Screen-bound quality signals this pair carries -- see Screen",
+          "evidence count. Each one can only be set if its own screen",
+          "found the pair."),
+    paste("How many screen-bound quality flags this pair carries (0-3).",
+          "Can never exceed Screens (each flag needs its own screen to",
+          "have found the pair). A count, not a score -- the flags are",
+          "unweighted."),
+    paste("Cross-cutting corroboration signals this pair carries -- see",
+          "Corroboration count. Unlike Screen evidence flags, these do NOT",
+          "require any particular screen."),
+    paste("How many cross-cutting corroboration flags this pair carries",
+          "(0-2: replicate support, TElocal expression). Deliberately NOT",
+          "bounded by Screens -- a pair found by only one screen can",
+          "still carry both."),
     paste("A recognised splice motif on at least one junction (STAR).",
           "The best artifact discriminator available."),
     "Most samples any one chimeric junction for this pair was seen in (STAR).",
@@ -219,8 +244,24 @@ descriptions <- c(
           "by artifacts -- shown last on purpose."),
     paste("TE-chimera class(es) seen across this pair's junction events",
           "(STAR): te_initiated, te_terminated, te_exonized (see",
-          "classify_chimera_reads.py); \".\" when not classifiable",
+          "classify_chimera_chimeric_reads.py); \".\" when not classifiable",
           "(e.g. trans events on different chromosomes)."),
+    paste("A recognised splice motif on at least one SJ.out.tab junction",
+          "(chimera.splice_junctions) -- kept separate from Splice motif",
+          "above: a structurally independent measurement (STAR's",
+          "normal-splice motif call, not the chimeric-junction one).",
+          "\".\" when that screen is disabled."),
+    paste("Most samples any one SJ.out.tab junction for this pair was seen",
+          "in (chimera.splice_junctions)."),
+    "Distinct SJ.out.tab junction events backing this pair (chimera.splice_junctions).",
+    paste("STAR-reported unique reads across this pair's SJ.out.tab",
+          "junctions (chimera.splice_junctions), summed across every sample",
+          "that saw any of them -- a real cohort total, same caveat as",
+          "Junction reads above."),
+    paste("TE-chimera class(es) seen across this pair's SJ.out.tab junction",
+          "events (chimera.splice_junctions): te_initiated, te_terminated,",
+          "te_exonized (see classify_chimera_splice_junctions.py); \".\"",
+          "when not classifiable or that screen is disabled."),
     "Whether TElocal called this TE locus expressed in at least one sample.",
     paste("Sum of this TE locus's TElocal read count across every sample",
           "(results/telocal/counts_matrix.tsv.gz). Blank means TElocal",
@@ -238,7 +279,9 @@ descriptions <- c(
 )
 stopifnot(length(descriptions) == ncol(df))
 
-evidence_col <- which(colnames(df) == "Evidence count") - 1L
+screens_col <- which(colnames(df) == "Screens") - 1L
+screen_evidence_col <- which(colnames(df) == "Screen evidence count") - 1L
+corroboration_col <- which(colnames(df) == "Corroboration count") - 1L
 # Hidden by default (still present, searchable, exportable) -- reduces
 # initial layout/render cost at high row/column counts without dropping any
 # data. Computed from column NAME, not a hardcoded position, so this can't
@@ -273,13 +316,20 @@ widget <- DT::datatable(
         htmltools::strong("No combined score or ranking is computed here."),
         " Click a header to sort (hover a header for what it means); use the",
         " boxes/sliders under the headers to filter. Gene locus / TE locus",
-        " are ready to paste into IGV's locus box."
+        " are ready to paste into IGV's locus box.",
+        htmltools::tags$br(), htmltools::tags$br(),
+        htmltools::em(
+            "Acronyms: TE = transposable element. In Found by / Evidence",
+            "flags, cr = chimeric-reads screen (STAR), sj = SJ.out.tab",
+            "screen (STAR), assembly = StringTie screen."
+        )
     ),
     options = list(
         pageLength = 25,
         lengthMenu = list(c(25, 50, 100, 500, -1), c("25", "50", "100", "500", "All")),
         scrollX = TRUE,
-        order = list(list(evidence_col, "desc")),
+        order = list(list(screens_col, "desc"), list(screen_evidence_col, "desc"),
+                     list(corroboration_col, "desc")),
         # Large-table performance: deferRender skips per-row work until a
         # row is actually displayed; autoWidth off skips DataTables'
         # automatic column-width measurement pass across every row/column.

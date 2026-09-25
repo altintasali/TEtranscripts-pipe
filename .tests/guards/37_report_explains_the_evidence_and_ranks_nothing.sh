@@ -69,7 +69,13 @@ check(c["pconfig"].get("stacking") == "group",
       "composition must not stack: the counts overlap, they are not a partition")
 counts = {k: v["Gene-TE pairs"] for k, v in c["data"].items()}
 check(counts.get("Splice motif") == 2, f"splice-motif count wrong: {counts}")
-check(counts.get("Called by both screens") == 1, f"both-screens count wrong: {counts}")
+# "Called by both screens" is gone: it duplicated found_by/n_screens and was
+# double-counted into the combined evidence count that has itself since
+# been split into screen_evidence/corroboration (see chimera_evidence.py's
+# module docstring) -- screen agreement is no longer one of the
+# composition bars.
+check("Called by both screens" not in counts,
+      f"removed bar leaked back into composition: {counts}")
 check(counts.get("No evidence flag") == 1, f"no-flag count wrong: {counts}")
 check("do not sum" in b or "overlap" in b,
       "the section must say the bars overlap rather than partition the cohort")
@@ -91,7 +97,7 @@ fi
 # produces NO REPORT AT ALL. Rendering the empty case is the only way that
 # regression is visible; asserting the script survived is not enough.
 mkdir -p "$T/cand/empty_qc"
-printf 'gene_id\tte_id\tevidence\tn_evidence\tfound_by\n' \
+printf 'gene_id\tte_id\tscreen_evidence\tn_screen_evidence\tcorroboration\tn_corroboration\tfound_by\n' \
   | gzip -c > "$T/cand/empty.tsv.gz"
 if ! python3 workflow/scripts/chimera_evidence_guide_mqc.py \
       --evidence "$T/cand/empty.tsv.gz" \

@@ -22,16 +22,19 @@ guard_init
 # Same non-ranking stance as guards 36/50: every evidence column is shown
 # as-is and no combined/weighted score is ever computed here.
 mkdir -p "$T/exp"
-cols="gene_id\tte_id\tte_subfamily\tte_family\tte_class\tfound_by\tevidence\tn_evidence\tjunction_events\tjunction_reads\tjunction_max_samples\tjunction_canonical\tjunction_chimera_types\ttelocal_active\ttelocal_count\ttelocal_locus\tassembly_transcripts\tassembly_chimera_types\tassembly_strand_match\tassembly_transcript_ids"
+cols="gene_id\tte_id\tte_subfamily\tte_family\tte_class\tfound_by\tn_screens\tscreen_evidence\tn_screen_evidence\tcorroboration\tn_corroboration\tcr_events\tcr_reads\tcr_max_samples\tcr_canonical\tcr_chimera_types\ttelocal_active\ttelocal_count\ttelocal_locus\tassembly_transcripts\tassembly_chimera_types\tassembly_strand_match\tassembly_transcript_ids\tsj_events\tsj_reads\tsj_max_samples\tsj_canonical\tsj_chimera_types"
 {
   printf "%b\n" "$cols"
   # resolved-symbol row (Gapdh), telocal ran and found reads, both cohort
   # totals available (telocal_locus / assembly_transcript_ids match the
-  # totals fixtures below)
-  printf 'ENSMUSG00000057666\tL1PA2_dup1\tL1PA2\tL1\tLINE\tboth\tcanonical,multi_sample,both_screens,assembly_strand_match,telocal_expressed\t5\t2\t60\t3\tyes\tte_terminated\tyes\t42\tL1PA2_dup1:L1PA2:L1PA2fam:LINE\t2\tte_terminated\tyes\tMSTRG.1.1\n'
+  # totals fixtures below). found_by "cr+assembly" -> n_screens 2; SJ
+  # columns carry _blank()'s own defaults (SJ screen found nothing for
+  # this pair). screen_evidence/corroboration split per chimera_evidence.py.
+  printf 'ENSMUSG00000057666\tL1PA2_dup1\tL1PA2\tL1\tLINE\tcr+assembly\t2\tcr_canonical,assembly_strand_match\t2\tmulti_sample,telocal_expressed\t2\t2\t60\t3\tyes\tte_terminated\tyes\t42\tL1PA2_dup1:L1PA2:L1PA2fam:LINE\t2\tte_terminated\tyes\tMSTRG.1.1\t0\t0\t0\tno\t.\n'
   # gene_id-fallback row (no symbol), telocal NEVER RAN ("." must stay blank,
-  # not 0) and its assembly transcript has no matching totals row (blank too)
-  printf 'ENSMUSG99999999999\tAluY_dup9\tAluY\tAlu\tSINE\tassembly\t.\t0\t0\t0\t0\tno\t.\t.\t.\t.\t1\tte_exonized\t.\tMSTRG.2.1\n'
+  # not 0) and its assembly transcript has no matching totals row (blank
+  # too). found_by "assembly" -> n_screens 1.
+  printf 'ENSMUSG99999999999\tAluY_dup9\tAluY\tAlu\tSINE\tassembly\t1\t.\t0\t.\t0\t0\t0\t0\tno\t.\t.\t.\t.\t1\tte_exonized\t.\tMSTRG.2.1\t0\t0\t0\tno\t.\n'
 } | gzip -c > "$T/exp/candidates.tsv.gz"
 
 { printf 'gene_id\tgene_name\n'; printf 'ENSMUSG00000057666\tGapdh\n'; } \
@@ -59,7 +62,7 @@ printf 'key\ttotal\nMSTRG.1.1\t77.000\n' \
 # TE annotation. Loading the unfiltered file OOM-killed a real run (2.3 GB
 # against a 2.4 GB request) even though a candidate-count-sized dev fixture
 # never caught it. This exercises the EXACT awk command from
-# workflow/rules/chimera_reads.smk (kept in sync by eye -- if that command
+# workflow/rules/chimera_chimeric_reads.smk (kept in sync by eye -- if that command
 # changes, update this copy too) against a small stand-in for a genome-wide
 # BED that mixes candidate and non-candidate ids, and pins that only the
 # candidate rows survive. Needs no R, so it runs even where Rscript/DT are
@@ -124,7 +127,7 @@ fi
 # candidates.tsv.gz where every assembly_transcript_ids was "." (no
 # assembly-screen candidates at all) killed chimera_candidates_explorer
 # outright. Pins that the rule's own key-extraction lines (kept in sync by
-# eye with chimera_reads.smk's _candidates_explorer_shell(), same caveat as
+# eye with chimera_chimeric_reads.smk's _candidates_explorer_shell(), same caveat as
 # the awk commands above) tolerate an all-"." column.
 printf '.\n.\n.\n' | gzip -c > "$T/exp/all_dot_candidates.tsv.gz"
 if ! bash -c '
@@ -164,9 +167,12 @@ else
     echo "ERROR: no recognizable DataTables markup in the output"; FAIL=1
   fi
   for h in "Gene" "TE insertion" "Gene locus" "TE locus" "TE subfamily" \
-           "TE family" "TE class" "Found by" "Evidence flags" \
-           "Evidence count" "Splice motif" "Chimeric junction samples" \
+           "TE family" "TE class" "Found by" "Screens" "Screen evidence flags" \
+           "Screen evidence count" "Corroboration flags" "Corroboration count" \
+           "Splice motif" "Chimeric junction samples" \
            "Junction events" "Junction reads (cohort total)" "TE type (reads)" \
+           "Splice motif (SJ)" "SJ samples" "SJ events" \
+           "SJ reads (cohort total)" "TE type (SJ)" \
            "TElocal active" \
            "TElocal reads (cohort total)" "Assembly transcript count" \
            "Assembly reads (cohort total)" "TE type (assembly)" \

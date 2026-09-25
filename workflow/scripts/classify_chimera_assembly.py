@@ -2,7 +2,7 @@
 """Classify StringTie-assembled transcripts as gene-TE chimera candidates,
 using assembly structure rather than STAR chimeric-junction reads.
 
-Complements chimera_reads.smk's read-level chimera screen: STAR only
+Complements chimera_chimeric_reads.smk's read-level chimera screen: STAR only
 flags a junction as "chimeric" when a read can't be explained by one linear
 (possibly spliced) alignment. A TE sitting just upstream of a gene that
 splices into it via an ordinary, canonical, nearby intron aligns as a normal
@@ -55,7 +55,7 @@ Reuses the same reference tracks the junction screen already builds
 plus first_exons.bed (also from annotation_to_bed.py) -- no new reference
 files needed.
 
-Ambiguity: like classify_chimera_reads.py, the reported te_id/
+Ambiguity: like classify_chimera_chimeric_reads.py, the reported te_id/
 matched_gene_id at a multi-copy/nested locus use the first hit -- the full
 overlap set is preserved in te_hits_all/gene_hits_all for inspection.
 
@@ -70,7 +70,7 @@ Output columns (results/chimera/assembly/transcripts.tsv):
     matched_gene_id, matched_gene_strand, gene_hits_all, strand_match,
     chimera_type
 
-This step is ANNOTATE-ONLY like classify_chimera_reads.py: nothing is
+This step is ANNOTATE-ONLY like classify_chimera_chimeric_reads.py: nothing is
 filtered here except -m/-c thresholds already applied by StringTie itself.
 Apply your own per-sample expression / replicate-support filter downstream
 (see quantify_chimera_assembly.py).
@@ -100,7 +100,7 @@ def parse_attrs(field):
 
 def load_bed(path, n_extra=0):
     """{chrom: (feats_sorted_by_start, running_max_end)} -- same interval
-    index as classify_chimera_reads.py's load_bed."""
+    index as classify_chimera_chimeric_reads.py's load_bed."""
     raw = {}
     opener = gzip.open if path.endswith(".gz") else open
     with opener(path, "rt") as fh:
