@@ -167,20 +167,65 @@ else
     echo "ERROR: no recognizable DataTables markup in the output"; FAIL=1
   fi
   for h in "Gene" "TE insertion" "Gene locus" "TE locus" "TE subfamily" \
-           "TE family" "TE class" "Found by" "Screens" "Screen evidence flags" \
+           "TE family" "TE class" "Screens" "Found by" "Screen evidence flags" \
            "Screen evidence count" "Corroboration flags" "Corroboration count" \
-           "Splice motif" "Chimeric junction samples" \
-           "Junction events" "Junction reads (cohort total)" "TE type (reads)" \
-           "Splice motif (SJ)" "SJ samples" "SJ events" \
-           "SJ reads (cohort total)" "TE type (SJ)" \
-           "TElocal active" \
-           "TElocal reads (cohort total)" "Assembly transcript count" \
-           "Assembly reads (cohort total)" "TE type (assembly)" \
-           "Strand match" "Assembly transcript IDs"; do
+           "CR motif" "CR samples" "CR reads" "CR events" "CR TE type" \
+           "SJ motif" "SJ samples" "SJ reads" "SJ events" "SJ TE type" \
+           "Assembly strand" "Assembly transcripts" \
+           "Assembly reads (cohort total)" "Assembly TE type" \
+           "Assembly transcript IDs" "Replicated" "TElocal active" \
+           "TElocal reads"; do
     if ! grep -qF "\"$h\"" "$T/exp/out.html"; then
       echo "ERROR: expected column header missing: $h"; FAIL=1
     fi
   done
+  # ANTI-REGRESSION: the old interleaved/duplicated names must not leak back.
+  for gone in "Splice motif\"" "Chimeric junction samples" "Junction events" \
+              "Junction reads (cohort total)" "TE type (reads)" \
+              "Splice motif (SJ)" "SJ reads (cohort total)" "TE type (SJ)" \
+              "Assembly transcript count" "TE type (assembly)" \
+              "\"Strand match\"" "TElocal reads (cohort total)"; do
+    if grep -qF "$gone" "$T/exp/out.html"; then
+      echo "ERROR: old column name leaked back into the explorer: $gone"; FAIL=1
+    fi
+  done
+  # Replicated must agree with the multi_sample flag in Corroboration flags
+  # for every row: row 1's corroboration is "multi_sample,telocal_expressed"
+  # (Replicated=yes), row 2's is "." (Replicated=no). DT's htmlwidgets
+  # payload stores the table column-major as "data":[[col0...],[col1...],
+  # ...],"container":"<table>...</table>" -- header order (and so which
+  # column index is which) is read from the container's own <th> sequence
+  # rather than hardcoded, so this survives a future column reorder.
+  if ! python3 - "$T/exp/out.html" <<'PY'
+import json, re, sys
+h = open(sys.argv[1]).read()
+m = re.search(r'"data":(\[\[.*?\]\]),"container":"(.*?)"(?=,")', h, re.DOTALL)
+if not m:
+    print("ERROR: could not find the DT widget's data payload"); sys.exit(1)
+cols = json.loads(m.group(1))
+container = m.group(2)
+headers = re.findall(r'<th[^>]*>([^<]+)<\\/th>', container)
+ok = True
+def check(c, msg):
+    global ok
+    if not c:
+        print("ERROR:", msg); ok = False
+check(len(headers) == len(cols),
+      f"header count ({len(headers)}) != data column count ({len(cols)})")
+name_to_idx = {name: i for i, name in enumerate(headers)}
+for want in ("Corroboration flags", "Replicated"):
+    check(want in name_to_idx, f"column {want!r} not found in rendered headers: {headers}")
+if "Corroboration flags" in name_to_idx and "Replicated" in name_to_idx:
+    corrob = cols[name_to_idx["Corroboration flags"]]
+    replicated = cols[name_to_idx["Replicated"]]
+    want = ["yes" if "multi_sample" in (c or "").split(",") else "no" for c in corrob]
+    check(replicated == want,
+          f"Replicated does not agree with the multi_sample flag: corroboration={corrob}, Replicated={replicated}, want={want}")
+sys.exit(0 if ok else 1)
+PY
+  then
+    FAIL=1
+  fi
   # BED "chr1 999 2000" -> IGV locus "chr1:1000-2000": pins the +1 exactly.
   if ! grep -qF "chr1:1000-2000" "$T/exp/out.html"; then
     echo "ERROR: gene locus off-by-one wrong -- expected chr1:1000-2000 (BED start 999 + 1)"

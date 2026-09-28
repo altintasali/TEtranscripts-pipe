@@ -12,11 +12,21 @@ disclosure line -- it is, key for key, the rank_key deleted in d927c8f.
 
 So the ordering is handed to the reader instead. MultiQC's native table
 (plot_type: "table") sorts on any column, every signal is its own column, and
-the default order is (Screens, Screen evidence count, Corroboration count),
-all descending -- COUNTS of how many screens/flags a pair carries, which
-weight nothing precisely because no weighting has been established. Which
-column deserves weight is what the guide section above explains; the reader
-applies it by clicking a header.
+the default order is Screens descending only -- a COUNT of how many
+independent screens found a pair, which weighs nothing precisely because no
+weighting has been established. Two per-pair counts used to break ties here
+before (n_screen_evidence, n_corroboration); they are gone from this view
+because the flags behind them are now their own columns (CR/SJ motif,
+Assembly strand, Replicated, TElocal reads) -- summarising them a second
+time as a silent tie-break was exactly the redundancy this rewrite removes.
+Which column deserves weight is what the guide section above explains; the
+reader applies it by clicking a header.
+
+Columns are grouped by screen and coloured accordingly (CR = blue, SJ =
+green, Assembly = orange, Support = purple) so the blocks are visible at a
+glance; Gene and TE insertion are still their own columns (so the reader can
+sort/filter on either alone) but hidden by default since both already
+appear in the row key.
 
 Row cap: a real cohort produces tens of thousands of pairs and MultiQC embeds
 table data in the HTML, so only the top --top-n are rendered. The full
@@ -34,78 +44,120 @@ PARENT_ID = "chimera"
 PARENT_NAME = "Chimera"
 
 # (column in candidates.tsv.gz, header, description, kind)
-# kind: "int" -> numeric, right-aligned; "yesno" -> rendered as a yes/no string
+# kind: "int" -> numeric, right-aligned; "yesno" -> rendered as a yes/no
+# string; "replicated" is the one synthetic column -- not a candidates.tsv.gz
+# field, derived in the loop below from the corroboration column instead.
+#
+# Grouped by block, and within a block always motif -> samples -> reads, so
+# the three screens read the same way left to right: Pair, Overview
+# (cross-screen), then one block per screen (CR / SJ / Assembly), then
+# Support (cross-cutting corroboration). The CR / SJ / Assembly header
+# prefixes deliberately match found_by's own tokens (cr / sj / assembly) --
+# see that column's description.
 COLUMNS = [
     # Gene and TE get their own columns, not just the row key: the key is one
     # string, so without these you cannot sort by gene, and a reader scanning
-    # for a specific gene has nothing to sort on.
+    # for a specific gene has nothing to sort on. Hidden by default (see
+    # HIDDEN_HEADERS below) since both already appear in the row key -- kept
+    # as real columns, not dropped, so sort/filter-by-gene still works.
     ("gene_label", "Gene",
      "Gene symbol where the reference GTF provides one, otherwise the "
-     "gene_id.", "str"),
+     "gene_id. Hidden by default -- already shown in the row key; use this "
+     "column to sort or filter on gene alone.", "str"),
     ("te_id", "TE insertion",
      "The individual TE copy (transcript_id in the TE GTF), not the "
-     "subfamily. Joins against TElocal rows.", "str"),
+     "subfamily. Joins against TElocal rows. Hidden by default -- already "
+     "shown in the row key.", "str"),
+    ("te_subfamily", "TE subfamily",
+     "TE annotation field from the curated TE GTF.", "str"),
+    ("te_class", "TE class",
+     "TE annotation field from the curated TE GTF.", "str"),
     ("n_screens", "Screens",
-     "How many of the 3 independent detection screens (cr, assembly, SJ) "
+     "How many of the 3 independent detection screens (cr, assembly, sj) "
      "found this pair (1-3). Informational, derived from Found by.", "int"),
-    ("n_screen_evidence", "Screen evidence count",
-     "How many screen-bound quality flags this pair carries (0-3: Splice "
-     "motif, Splice motif (SJ), Strand match). Each one can only be set if "
-     "its own screen found the pair, so this count can never exceed "
-     "Screens. A count, not a score -- the flags are unweighted.", "int"),
-    ("n_corroboration", "Corroboration count",
-     "How many cross-cutting corroboration flags this pair carries (0-2: "
-     "replicate support, TElocal expression). Deliberately NOT bounded by "
-     "Screens -- a pair found by only one screen can still carry both, "
-     "which is exactly why this is a separate count rather than folded "
-     "into Screen evidence count.", "int"),
-    ("cr_canonical", "Splice motif",
-     "A recognised splice motif on at least one junction (STAR). The guide "
-     "above calls this the best artifact discriminator available.", "yesno"),
-    ("cr_max_samples", "Chimeric junction samples",
-     "Most samples any one chimeric junction for this pair was seen in (STAR).", "int"),
     ("found_by", "Found by",
      "Which screens called it, \"+\"-joined: cr (chimeric-reads screen, "
      "STAR), assembly (StringTie), sj (SJ.out.tab screen, STAR) -- e.g. "
-     "\"cr+sj\". Agreement measured near its chance rate -- see the guide.",
-     "str"),
-    ("assembly_strand_match", "Strand match",
-     "The assembled transcript's strand agrees with the gene's (StringTie).",
-     "yesno"),
-    ("cr_reads", "Chimeric reads",
-     "Chimeric reads supporting this pair (STAR), summed across every sample "
-     "that saw any of this pair's junction events -- a real cohort total. "
-     "The metric most inflated by artifacts -- shown last on purpose.", "int"),
-    ("sj_canonical", "Splice motif (SJ)",
+     "\"cr+sj\". Agreement measured near its chance rate -- see the guide. "
+     "The CR / SJ / Assembly column-block headers below match these same "
+     "three tokens.", "str"),
+    ("cr_canonical", "CR motif",
+     "A recognised splice motif on at least one chimeric-junction read "
+     "(STAR, chimeric-reads screen). The guide above calls this the best "
+     "artifact discriminator available.", "yesno"),
+    ("cr_max_samples", "CR samples",
+     "Most samples any one chimeric junction for this pair was seen in "
+     "(STAR, chimeric-reads screen).", "int"),
+    ("cr_reads", "CR reads",
+     "Chimeric reads supporting this pair (STAR, chimeric-reads screen), "
+     "summed across every sample that saw any of this pair's junction "
+     "events -- a real cohort total. The metric most inflated by "
+     "artifacts -- shown last in this block on purpose.", "int"),
+    ("sj_canonical", "SJ motif",
      "A recognised splice motif on at least one SJ.out.tab junction "
-     "(chimera.splice_junctions) -- kept separate from Splice motif above: a "
-     "structurally independent measurement (STAR's normal-splice motif call, "
-     "not the chimeric-junction one). \".\" when that screen is disabled.",
-     "yesno"),
+     "(chimera.splice_junctions screen) -- kept separate from CR motif "
+     "above: a structurally independent measurement (STAR's normal-splice "
+     "motif call, not the chimeric-junction one). \".\" when that screen "
+     "is disabled.", "yesno"),
     ("sj_max_samples", "SJ samples",
      "Most samples any one SJ.out.tab junction for this pair was seen in "
-     "(chimera.splice_junctions).", "int"),
-    ("sj_reads", "SJ reads (cohort total)",
+     "(chimera.splice_junctions screen).", "int"),
+    ("sj_reads", "SJ reads",
      "STAR-reported unique reads across this pair's SJ.out.tab junctions "
-     "(chimera.splice_junctions), summed across every sample that saw any "
-     "of them -- a real cohort total, same caveat as Chimeric reads above.",
-     "int"),
+     "(chimera.splice_junctions screen), summed across every sample that "
+     "saw any of them -- a real cohort total, same caveat as CR reads "
+     "above.", "int"),
+    ("assembly_strand_match", "Assembly strand",
+     "The assembled transcript's strand agrees with the gene's (StringTie, "
+     "assembly screen).", "yesno"),
+    ("assembly_transcripts", "Assembly transcripts",
+     "Number of StringTie-assembled transcripts classified as this "
+     "gene-TE chimera (StringTie, assembly screen).", "int"),
+    # Cross-cutting corroboration -- can fire regardless of how many screens
+    # found the pair, unlike the screen-bound flags above. Not a
+    # candidates.tsv.gz column: derived here from the corroboration column,
+    # mirroring chimera_evidence.py's own multi_sample rule exactly (see the
+    # data-population loop below) rather than re-deriving it independently.
+    ("replicated", "Replicated",
+     "Seen in more than one sample by either the CR or SJ screen (the "
+     "greater of CR samples / SJ samples is above 1). Corroboration, not "
+     "screen-bound evidence -- can fire from a single screen alone. "
+     "Mirrors the multi_sample flag in candidates.tsv.gz's corroboration "
+     "column.", "yesno"),
     # Reported, never counted as evidence. It is in candidates.tsv.gz and the
     # guide discusses it at length, so leaving it out of the table meant the
     # one place a reader looks did not show it -- and its absence read as the
     # column not existing rather than as a deliberate exclusion.
-    ("telocal_count", "TElocal reads (cohort total)",
+    ("telocal_count", "TElocal reads",
      "TElocal read count for the TE copy itself, summed across every sample "
      "(chimera_telocal_index.py builds one shared, all-samples index up "
      "front, so this is already a cohort total, not a single sample's "
      "count -- candidates_explorer.html's own \"TElocal reads (cohort "
      "total)\" column reaches the same number by joining "
-     "counts_matrix.tsv.gz directly). A nonzero count counts toward "
-     "Corroboration count. One small run had it anti-correlated with the "
-     "splice motif (6.7% vs 10.2% canonical), which is not enough to "
-     "demote it -- see the guide. Blank means TElocal did not run; 0 means "
-     "it ran and found nothing.", "intna"),
+     "counts_matrix.tsv.gz directly). Counted as corroboration when "
+     "nonzero. One small run had it anti-correlated with the splice motif "
+     "(6.7% vs 10.2% canonical), which is not enough to demote it -- see "
+     "the guide. Blank means TElocal did not run; 0 means it ran and "
+     "found nothing.", "intna"),
 ]
+
+# Columns present so the reader can sort/filter on gene or TE alone, but
+# hidden from the initial view since both already appear in the row key --
+# same "still there, just not always-rendered" pattern used for the guide's
+# detailed table (moved into helptext, not deleted).
+HIDDEN_HEADERS = {"Gene", "TE insertion"}
+
+# Colour each screen's block distinctly (only the numeric columns -- a
+# background colour scale reduces a yes/no string to a single flat colour
+# via MultiQC's own scale lookup, which is not useful, so those columns keep
+# the table's plain default instead). Verified by rendering: MultiQC 1.33
+# accepts a named ColorBrewer scale per header with no other config.
+SCALE_BY_HEADER = {
+    "CR samples": "Blues", "CR reads": "Blues",
+    "SJ samples": "Greens", "SJ reads": "Greens",
+    "Assembly transcripts": "Oranges",
+    "TElocal reads": "Purples",
+}
 
 
 def load(path):
@@ -154,26 +206,56 @@ def main():
 
     rows = list(load(args.evidence))
     symbols = load_symbols(args.gene_names)
+    for r in rows:
+        r["_gene_label"] = symbols.get(r.get("gene_id", "."), r.get("gene_id", "."))
 
-    # candidates.tsv.gz is already written in (n_screens, n_screen_evidence,
-    # n_corroboration) order; take the head rather than re-sorting, so the
-    # report and the file agree exactly.
+    # Selection: most screens first, ties broken alphabetically -- a sort
+    # that asserts nothing beyond screen count. candidates.tsv.gz's own
+    # order additionally breaks ties by n_screen_evidence/n_corroboration
+    # (see chimera_evidence.py), but this table no longer shows either of
+    # those as columns, so re-using the file's finer tie-break here would
+    # silently choose which rows are shown on signals the reader can no
+    # longer see or verify -- the report and the file therefore do NOT
+    # always agree on row order within a tied Screens value any more.
+    # candidates.tsv.gz remains the source of truth for the full, finely
+    # sorted catalogue.
+    rows.sort(key=lambda r: (
+        -_int(r.get("n_screens")), r["_gene_label"], r.get("te_id", "."),
+    ))
+
     top = rows[: args.top_n]
+
+    # How many pairs tie for the single highest Screens value in the WHOLE
+    # file -- disclosed below whenever that is more than top_n, since which
+    # of those tied pairs get shown is then an alphabetical accident, not a
+    # further ranking, and the reader should know more exist.
+    top_screens = _int(rows[0].get("n_screens")) if rows else 0
+    n_at_top_screens = sum(
+        1 for r in rows if _int(r.get("n_screens")) == top_screens
+    )
 
     data = {}
     for r in top:
-        gene_id = r.get("gene_id", ".")
-        gene = symbols.get(gene_id, gene_id)
+        gene = r["_gene_label"]
         # " | ", never " / ": MultiQC cleans table row names like filenames
         # and splits on "/", taking the basename -- which silently dropped the
         # gene and left only the TE id. Measured; guard 50 pins it.
         key = f"{gene} | {r.get('te_id', '.')}"
         # a duplicate key would silently drop a row; disambiguate with gene_id
         if key in data:
-            key = f"{key} ({gene_id})"
+            key = f"{key} ({r.get('gene_id', '.')})"
         entry = {}
         for col, header, _desc, kind in COLUMNS:
-            value = gene if col == "gene_label" else r.get(col, ".")
+            if col == "gene_label":
+                value = gene
+            elif col == "replicated":
+                # Mirrors chimera_evidence.py's own multi_sample rule
+                # exactly (max(cr_max_samples, sj_max_samples) > 1) rather
+                # than recomputing it from the raw sample counts here.
+                value = ("yes" if "multi_sample"
+                         in r.get("corroboration", ".").split(",") else "no")
+            else:
+                value = r.get(col, ".")
             if kind == "intna":
                 # Leave the cell UNSET when the measurement was not taken.
                 # _int(".") is 0, which would read as "TElocal ran and found
@@ -185,15 +267,28 @@ def main():
                 entry[header] = _int(value) if kind == "int" else str(value)
         data[key] = entry
 
-    headers = {
-        header: {
-            "title": header,
-            "description": desc,
-            **({"format": "{:,.0f}", "min": 0}
-               if kind in ("int", "intna") else {}),
-        }
-        for _col, header, desc, kind in COLUMNS
-    }
+    # placement guarantees column order regardless of dict/JSON key-order
+    # quirks -- explicit rather than relying on insertion order alone.
+    headers = {}
+    for i, (_col, header, desc, kind) in enumerate(COLUMNS):
+        h = {"title": header, "description": desc, "placement": i * 10}
+        if kind in ("int", "intna"):
+            h["format"] = "{:,.0f}"
+            h["min"] = 0
+        if header in HIDDEN_HEADERS:
+            h["hidden"] = True
+        if header in SCALE_BY_HEADER:
+            h["scale"] = SCALE_BY_HEADER[header]
+        headers[header] = h
+
+    tie_note = ""
+    if n_at_top_screens > args.top_n:
+        tie_note = (
+            f"{n_at_top_screens:,} pairs share the top Screens value "
+            f"({top_screens}) -- only the alphabetically first "
+            f"{args.top_n:,} of those are shown here; the rest are in "
+            "the explorer. "
+        )
 
     # Kept deliberately short: the full argument lives in "How to weigh this
     # evidence" one section up, and repeating it here buried the table. What
@@ -202,23 +297,24 @@ def main():
     # "not a score", "sort" and "validate candidates manually".
     note = (
         "<p>The <strong>{n_shown:,}</strong> of {n_total:,} gene-TE pairs "
-        "carrying the most screens and evidence, from <code>{src}</code>. "
-        "<strong>Click any column header to sort</strong> -- these are "
-        "three unweighted counts, <strong>not a score</strong>; see "
-        "<strong>How to weigh this evidence</strong> above, and validate "
-        "candidates manually. For all <strong>{n_total:,}</strong> pairs, "
-        "filterable, no MultiQC needed: <code>{explorer}</code>.</p>"
+        "shown here, from <code>{src}</code>: sorted by <strong>Screens"
+        "</strong> descending, ties broken alphabetically by gene then TE. "
+        "{tie_note}"
+        "<strong>Click any column header to sort</strong> -- every column "
+        "is an individual, unweighted signal, <strong>not a score</strong>; "
+        "see <strong>How to weigh this evidence</strong> above, and "
+        "validate candidates manually. For all <strong>{n_total:,}</strong> "
+        "pairs, filterable, no MultiQC needed: <code>{explorer}</code>.</p>"
     ).format(n_shown=len(top), n_total=len(rows), src=args.source_path,
-             explorer=args.explorer_path)
+             tie_note=tie_note, explorer=args.explorer_path)
     note_help = (
-        "<p>Ordered by <em>Screens</em>, then <em>Screen evidence count</em>, "
-        "then <em>Corroboration count</em> — three unweighted counts, "
-        "not a score. Screen evidence count can never exceed Screens (each "
-        "flag needs its own screen to have found the pair) and is still "
-        "tilted toward the assembly screen (assembly_strand_match needs "
-        "it); Corroboration count is deliberately NOT bounded by Screens "
-        "— a pair found by only one screen can still carry both of its "
-        "flags.</p>"
+        "<p>Ordered by <strong>Screens</strong> only -- the number of "
+        "independent screens (cr / assembly / sj) that found a pair -- "
+        "then alphabetically by gene, then TE. Screens is a count, not a "
+        "score: every other signal (CR motif, SJ motif, Assembly strand, "
+        "Replicated, TElocal reads) is its own column instead of being "
+        "folded into a second count, so nothing beyond screen agreement "
+        "decides which rows are shown first.</p>"
     )
 
     if top:
@@ -227,7 +323,7 @@ def main():
             "pconfig": {
                 "id": "chimera_candidates_table_plot",
                 "title": "Gene-TE chimera candidates",
-                "col1_header": "Gene | TE insertion",
+                "col1_header": "Gene | TE",
                 # defaultsort is what actually sets the opening order.
                 # sort_rows: False does NOT survive -- MultiQC re-populates its
                 # camelCase alias sortRows from the default (True), so the rows
@@ -236,8 +332,6 @@ def main():
                 "sort_rows": False,
                 "defaultsort": [
                     {"column": "Screens", "direction": "desc"},
-                    {"column": "Screen evidence count", "direction": "desc"},
-                    {"column": "Corroboration count", "direction": "desc"},
                 ],
                 "no_violin": True,
             },

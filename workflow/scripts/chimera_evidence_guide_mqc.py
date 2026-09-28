@@ -51,7 +51,7 @@ PARENT_NAME = "Chimera"
 FLAGS = [
     ("cr_canonical", "Splice motif"),
     ("multi_sample", "Replicate support"),
-    ("sj_canonical", "Splice motif (SJ)"),
+    ("sj_canonical", "SJ motif"),
     ("assembly_strand_match", "Assembly strand match"),
     ("telocal_expressed", "TE locus expressed"),
 ]
@@ -87,7 +87,7 @@ SIGNALS = [
         "mixed",
     ),
     (
-        "Splice motif (SJ)",
+        "SJ motif",
         "STAR (SJ.out.tab)",
         "A recognised splice motif on at least one normal splice junction "
         "from the splice_junctions screen (<code>sj_canonical</code>) "
@@ -109,10 +109,10 @@ SIGNALS = [
         "STAR + StringTie + STAR (SJ.out.tab)",
         "How many of the 3 independent detection screens found this pair "
         "(<code>n_screens</code>, 1-3) &mdash; informational, not itself an "
-        "evidence flag. Screen evidence count (Splice motif / Splice motif "
-        "(SJ) / Assembly strand match above) can never exceed it; "
-        "Corroboration count (Replicate support / TE locus expressed) is "
-        "deliberately NOT bounded by it.",
+        "evidence flag. Splice motif, SJ motif and Assembly strand match "
+        "above can each only be set by their own screen, so together they "
+        "can never total more than this; Replicate support and TE locus "
+        "expressed are corroboration, deliberately NOT bounded by it.",
         "n_screens &gt;= 2 should be the strongest signal here &mdash; the "
         "chimeric-reads and assembly screens have opposite blind spots. "
         "It was not: <strong>measured on a 4-sample mouse run</strong>, "
@@ -353,7 +353,7 @@ def main():
         "helptext": (
             "Sources: splice motif and replicate support from STAR "
             "chimeric junctions, assembly strand match from StringTie, "
-            "splice motif (SJ) from STAR's SJ.out.tab (when "
+            "SJ motif from STAR's SJ.out.tab (when "
             "chimera.splice_junctions is enabled), TE locus expressed from "
             "TElocal. How many screens agreed on a pair is shown separately "
             "(the Screens column in the Candidates table above), not as a "
