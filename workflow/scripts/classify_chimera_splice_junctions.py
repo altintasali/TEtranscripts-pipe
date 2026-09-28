@@ -53,13 +53,75 @@ SJ.out.tab are also disproportionately alignment noise on their own.
 mapping reads spanning the junction) -- a lightweight floor against
 single-read noise, independent of --require-canonical.
 
+chimera_type (gene_to_te / te_to_gene events only): BUG FIXED 2026 -- this
+used to be decided from where the TE's span sits relative to the GENE's
+overall span (TE entirely upstream of the gene -> te_initiated; entirely
+downstream -> te_terminated; anywhere else, including squarely inside an
+intron -> te_exonized). That is wrong for exactly the case this screen
+exists to catch: a TE sitting in an intron, acting as an alternative
+promoter that splices directly into a downstream exon, was scored
+te_exonized just because the TE's coordinates happen to fall within the
+gene's genomic span -- even though a te_to_gene junction landing there IS a
+TE-initiated transcript, not an internal exon. In mouse oocytes/early
+embryos, intronic MT2/MERVL promoters are a large share of the real
+TE-initiated transcripts, so the old logic missed the main biology this
+screen was built for.
+
+Fixed: chimera_type is now decided from the junction's DIRECTION plus the
+gene's own EXON STRUCTURE (from exons.bed, already loaded for donor/
+acceptor overlap), matching classify_chimera_assembly.py's vocabulary
+exactly (te_initiated / te_terminated / te_exonized -- names unchanged, so
+existing consumers of this column keep working):
+  te_to_gene (donor in TE, acceptor in a gene exon) -> te_initiated. The TE
+    is transcript-upstream of the exon it splices into, whatever its
+    genomic coordinate relative to the gene's overall span -- this is
+    exactly the assembly screen's own te_initiated test (TSS falls inside
+    the TE), just evaluated from one junction instead of an assembled
+    transcript's own TSS.
+  gene_to_te (donor in a gene exon, acceptor in TE) -> te_terminated if no
+    OTHER annotated exon of the same gene lies transcript-downstream of the
+    donor exon (nothing known follows -- the TE plausibly ends the
+    transcript); te_exonized if one does (the TE sits inside a region the
+    annotation says the gene's transcript continues past -- an internal
+    exon, not a true terminus). This mirrors assembly's own
+    te_terminated-needs-nothing-downstream / te_exonized-has-gene-exons-
+    around-it distinction, computed from the annotation instead of a
+    second observed junction (this screen only ever sees one junction at a
+    time, so it cannot itself confirm transcription resumes after the TE --
+    see the te_initiated_detail note below for the same limitation on the
+    other side).
+
+te_initiated_detail (te_to_gene events only, "." otherwise): a finer split
+that classify_chimera_assembly.py's own te_initiated does NOT distinguish
+(so it is reported as its own column, not folded into chimera_type, to keep
+chimera_type's vocabulary identical across both screens):
+  upstream  the acceptor exon is the gene's own most-5' annotated exon (per
+            exons.bed) -- the TE splices directly into where the gene
+            already starts.
+  internal  the gene has an annotated exon further upstream that this
+            junction's transcript skips -- the TE is acting as an
+            alternative, INTERNAL promoter (the intronic-MT2/MERVL case).
+
+Where the two screens genuinely cannot agree, even post-fix: assembly's
+te_initiated is decided from StringTie's own assembled TSS (real observed
+transcript start, from possibly many reads); this screen's te_initiated is
+decided from a single junction's direction against the ANNOTATED gene
+model, with no visibility into what StringTie would assemble at that locus
+in this sample. A borderline case -- e.g. a TE that StringTie extends into
+the ordinary 5' UTR rather than assembling as a distinct first exon -- can
+legitimately get te_initiated from this screen and no call (or
+annotated_promoter_embedded_te) from assembly, or vice versa. This is a
+structural difference in what evidence each screen has access to, not a
+bug in either; see the report's evidence guide for how much weight
+cross-screen (dis)agreement should carry.
+
 Output columns (results/chimera/splice_junctions/per_sample/{sample}_te_gene_junctions.tsv):
     event_id, sample, chrom, intron_start, intron_end, strand, motif,
     canonical, annotated, unique_reads, multi_reads, overhang,
     donor_hits, acceptor_hits, direction, direction_ambiguous,
     gene_id, gene_strand, te_id, te_subfamily, te_family, te_class,
-    chimera_type, antisense_flag, library_strand, transcript_strand,
-    gene_strand_match
+    chimera_type, te_initiated_detail, antisense_flag, library_strand,
+    transcript_strand, gene_strand_match
 
 This step is ANNOTATE-ONLY like its two siblings: --min-unique-reads and
 --require-canonical are STAR-native quality gates, not expression/evidence
@@ -158,6 +220,40 @@ def main():
     genes = load_bed(args.genes)
     exons = load_bed(args.exons)
     te = load_bed(args.te, n_extra=3)
+
+    # Per-gene exon positions, keyed by gene_id (exons.bed is gene_id-keyed,
+    # see annotation_to_bed.py -- a flattened union of every transcript's
+    # exons under that gene, same granularity the rest of this script
+    # already treats gene identity at). Used below to decide chimera_type
+    # from the gene's own exon structure instead of the TE's raw position
+    # relative to the gene's overall span -- see the module docstring for
+    # why the old span-containment test was wrong.
+    gene_exon_positions = {}
+    for _chrom, (feats, _max_end) in exons.items():
+        for s, e, ex in feats:
+            gene_exon_positions.setdefault(ex[0], []).append((s, e))
+
+    def _exon_upstream_of(gene_id, pos, gene_strand):
+        """True if gene_id has an annotated exon entirely transcript-upstream
+        (5') of genomic position pos, strand-aware."""
+        for s, e in gene_exon_positions.get(gene_id, []):
+            if gene_strand == "-":
+                if s > pos:
+                    return True
+            elif e < pos:
+                return True
+        return False
+
+    def _exon_downstream_of(gene_id, pos, gene_strand):
+        """True if gene_id has an annotated exon entirely transcript-
+        downstream (3') of genomic position pos, strand-aware."""
+        for s, e in gene_exon_positions.get(gene_id, []):
+            if gene_strand == "-":
+                if e < pos:
+                    return True
+            elif s > pos:
+                return True
+        return False
 
     tol = max(args.breakpoint_tolerance, 0)
     lib = args.library_strandedness
@@ -281,24 +377,35 @@ def main():
                 te_span = (ts, tee)
 
             chimera_type = "."
+            te_initiated_detail = "."
             antisense = "."
             if direction in ("gene_to_te", "te_to_gene") and gene_span and te_span:
                 gs, ge, gst = gene_span[0], gene_span[1], gene_strand
                 ts, tee = te_span[0], te_span[1]
-                if gst == "+":
-                    if tee < gs:
-                        chimera_type = "te_initiated"
-                    elif ts > ge:
-                        chimera_type = "te_terminated"
-                    else:
-                        chimera_type = "te_exonized"
-                elif gst == "-":
-                    if ts > ge:
-                        chimera_type = "te_initiated"
-                    elif tee < gs:
-                        chimera_type = "te_terminated"
-                    else:
-                        chimera_type = "te_exonized"
+
+                if direction == "te_to_gene":
+                    # Donor in TE, acceptor in a gene exon: the TE is
+                    # transcript-upstream of the exon it splices into,
+                    # whatever its genomic coordinate relative to the
+                    # gene's overall span -- see the module docstring for
+                    # why span-containment was wrong here.
+                    chimera_type = "te_initiated"
+                    accept_pos = (acceptor0 + acceptor1) // 2
+                    te_initiated_detail = (
+                        "internal" if _exon_upstream_of(gene_id, accept_pos, gst)
+                        else "upstream"
+                    )
+                else:  # gene_to_te
+                    # Donor in a gene exon, acceptor in TE: terminated only
+                    # if no OTHER annotated exon of this gene lies further
+                    # downstream than the donor exon (nothing known follows
+                    # the TE); exonized if one does (the annotation says
+                    # the gene's transcript continues past this point).
+                    donor_pos = (donor0 + donor1) // 2
+                    chimera_type = (
+                        "te_exonized" if _exon_downstream_of(gene_id, donor_pos, gst)
+                        else "te_terminated"
+                    )
 
                 te_chrom = chrom  # SJ.out.tab is always cis
                 for _s, _e, ex in overlapping(genes, te_chrom, ts, tee):
@@ -329,7 +436,8 @@ def main():
                 gene_id if gene_id is not None else ".",
                 gene_strand,
                 te_id if te_id is not None else ".",
-                te_subfamily, te_family, te_class, chimera_type, antisense,
+                te_subfamily, te_family, te_class, chimera_type,
+                te_initiated_detail, antisense,
                 lib, transcript_strand, match,
             ])
 
@@ -339,8 +447,8 @@ def main():
         "multi_reads", "overhang", "donor_hits", "acceptor_hits",
         "direction", "direction_ambiguous",
         "gene_id", "gene_strand", "te_id", "te_subfamily", "te_family",
-        "te_class", "chimera_type", "antisense_flag", "library_strand",
-        "transcript_strand", "gene_strand_match",
+        "te_class", "chimera_type", "te_initiated_detail", "antisense_flag",
+        "library_strand", "transcript_strand", "gene_strand_match",
     ]
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
     with open_write(args.out) as fh:

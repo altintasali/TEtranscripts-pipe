@@ -49,6 +49,7 @@ else
   j1_gene=$(awk -F'\t' 'NR==2{print $17}' "$T/lenient.tsv")
   j1_te=$(awk -F'\t' 'NR==2{print $19}' "$T/lenient.tsv")
   j1_type=$(awk -F'\t' 'NR==2{print $23}' "$T/lenient.tsv")
+  j1_detail=$(awk -F'\t' 'NR==2{print $24}' "$T/lenient.tsv")
   j1_canon=$(awk -F'\t' 'NR==2{print $8}' "$T/lenient.tsv")
   if [ "$j1_dir" != "te_to_gene" ]; then
     echo "ERROR: J1 direction should be te_to_gene, got '$j1_dir'"; FAIL=1
@@ -57,7 +58,16 @@ else
     echo "ERROR: J1 gene_id/te_id should be GENE1/TE_A, got '$j1_gene'/'$j1_te'"; FAIL=1
   fi
   if [ "$j1_type" != "te_initiated" ]; then
-    echo "ERROR: J1 chimera_type should be te_initiated (TE upstream of GENE1 on + strand), got '$j1_type'"
+    echo "ERROR: J1 chimera_type should be te_initiated (donor in TE, acceptor in a gene exon), got '$j1_type'"
+    FAIL=1
+  fi
+  # te_initiated_detail: GENE1's only exon (1000,1200) has no OTHER
+  # annotated exon of GENE1 upstream of it, so this is the "upstream" case,
+  # not "internal" -- see .tests/unit/test_classify_chimera_splice_junctions.py
+  # for the case where an earlier exon exists and this must instead read
+  # "internal" (the actual bug this classifier used to get wrong).
+  if [ "$j1_detail" != "upstream" ]; then
+    echo "ERROR: J1 te_initiated_detail should be upstream (no earlier GENE1 exon annotated), got '$j1_detail'"
     FAIL=1
   fi
   if [ "$j1_canon" != "yes" ]; then
