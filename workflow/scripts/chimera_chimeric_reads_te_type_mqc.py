@@ -92,7 +92,7 @@ def main():
         "id": "chimera_chimeric_reads_te_type",
         "parent_id": "chimera",
         "parent_name": "Chimera",
-        "section_name": "Reads - TE type",
+        "section_name": "Chimeric reads - TE type",
         "description": (
             "Per-sample chimeric junctions by TE type, from STAR's chimeric "
             "reads. The assembly screen uses these <strong>same words for "

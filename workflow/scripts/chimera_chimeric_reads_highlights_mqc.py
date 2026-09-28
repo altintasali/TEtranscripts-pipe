@@ -119,7 +119,7 @@ the assembly screen's into the <strong>Candidates</strong> table above.</p>
         "id": "chimera_chimeric_reads_highlights",
         "parent_id": "chimera",
         "parent_name": "Chimera",
-        "section_name": "Reads - what this screen sees",
+        "section_name": "Chimeric reads - what this screen sees",
         "description": (
             "The read-evidence screen's blind spot, and the counts that "
             "qualify its output."

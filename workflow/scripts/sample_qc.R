@@ -48,7 +48,7 @@ VIEWS <- list(
         id = "chimera_chimeric_reads",
         parent = "chimera",
         label = "Chimera",
-        section_prefix = "Reads - ",
+        section_prefix = "Chimeric reads - ",
         noun_plural = "chimeric events",
         noun_singular = "event"
     ),
@@ -64,10 +64,7 @@ VIEWS <- list(
         id = "chimera_splice_junctions",
         parent = "chimera",
         label = "Chimera",
-        # Short "SJ" form, not spelled-out "Splice junctions": SJ already
-        # means splice junction, so "SJ junctions" repeated itself. Matches
-        # this screen's report label "Chimera (SJ)".
-        section_prefix = "SJ - ",
+        section_prefix = "Splice junctions - ",
         noun_plural = "splice junctions",
         noun_singular = "junction"
     ),

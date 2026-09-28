@@ -58,7 +58,6 @@ flowchart LR
         chimera_chimeric_reads_qc_barplot["junction QC barplot"]
         chimera_chimeric_reads_highlights["read-screen notes (blind spot + counts)"]
         chimera_evidence["unified gene-TE evidence catalogue"]
-        chimera_evidence_heatmap["evidence correlation + candidate heatmaps"]
         chimera_evidence_guide["how to weigh the evidence + composition"]
         chimera_candidates_table["candidate list (sortable table)"]
         chimera_candidates_explorer["standalone candidate explorer (all rows, IGV loci)"]
@@ -82,6 +81,7 @@ flowchart LR
         chimera_chimeric_reads_sample_qc["sample-QC plots"]
         chimera_splice_junctions_classify["classify SJ.out.tab junctions"]
         chimera_splice_junctions_counts["SJ-junction counts matrix"]
+        chimera_splice_junctions_summary_mqc["SJ-junction screen notes + TE-type composition"]
         chimera_splice_junctions_qc_transform["SJ-junction sample-QC transform"]
         chimera_splice_junctions_qc["SJ-junction sample-QC plots"]
     end
@@ -121,10 +121,11 @@ flowchart LR
     chimera_evidence --> chimera_candidates_explorer
     chimera_evidence --> chimera_candidates_table
     chimera_evidence --> chimera_evidence_guide
-    chimera_evidence --> chimera_evidence_heatmap
     chimera_splice_junctions_classify --> chimera_splice_junctions_counts
+    chimera_splice_junctions_classify --> chimera_splice_junctions_summary_mqc
     chimera_splice_junctions_counts --> chimera_evidence
     chimera_splice_junctions_counts --> chimera_splice_junctions_qc_transform
+    chimera_splice_junctions_counts --> chimera_splice_junctions_summary_mqc
     chimera_splice_junctions_qc_transform --> chimera_splice_junctions_qc
     chimera_telocal_annotate --> chimera_chimeric_reads_counts
     chimera_telocal_index --> chimera_telocal_annotate
@@ -138,7 +139,6 @@ flowchart LR
     gene_name_lookup --> chimera_assembly_aggregate_counts
     gene_name_lookup --> chimera_candidates_explorer
     gene_name_lookup --> chimera_candidates_table
-    gene_name_lookup --> chimera_evidence_heatmap
     genepred_to_bed12 --> rseqc_gene_body_coverage
     genepred_to_bed12 --> rseqc_infer_experiment
     genepred_to_bed12 --> rseqc_read_distribution

@@ -6,9 +6,16 @@ This pipeline does not rank chimera candidates.  It used to: a four-tier
 confidence ladder, rendered here as the report's first chimera section.  The
 ladder was removed because no experiment in this project established the
 relative weight of its rungs, and the pipeline's own cohort analysis
-contradicted the top one -- chimera_evidence_heatmap.py measured cross-screen
-agreement sitting near its chance rate, the same class of result that had
-already removed TElocal expression from the ladder (0d04e43).
+contradicted the top one -- a dimension-by-dimension comparison of the
+evidence columns measured cross-screen agreement sitting near its chance
+rate, the same class of result that had already removed TElocal expression
+from the ladder (0d04e43). That comparison's own correlation/leaders
+heatmaps (chimera_evidence_heatmap.py, removed 2026) were dropped in turn --
+they characterised the method on a biased subset of pairs (only ones the
+chimeric-reads screen found), not the cohort as a whole, so they were not
+per-run QC. The measured findings they surfaced are restated below, in the
+Screens and TE locus expressed rows, as dated statements tied to the cohort
+they came from rather than a live plot.
 
 Ranking on an unvalidated weighting is worse than not ranking, because a
 tier column in a report is read as a verdict.  So the report now states what
@@ -108,15 +115,18 @@ SIGNALS = [
         "deliberately NOT bounded by it.",
         "n_screens &gt;= 2 should be the strongest signal here &mdash; the "
         "chimeric-reads and assembly screens have opposite blind spots. "
-        "Measured across a cohort it was not: cr+assembly agreement came out near "
-        "its <strong>chance rate</strong>. chimera.splice_junctions is new, "
-        "off by default, and has not been run on real project data, so "
-        "n_screens == 3 is unmeasured too -- its own third-screen agreement "
-        "is a stronger signal in principle, but the two-screen case's "
-        "measured near-chance rate is reason enough not to assume it "
-        "without checking it the same way first. Check the "
-        "<strong>Evidence structure</strong> sections below for your own "
-        "data before relying on either.",
+        "It was not: <strong>measured on a 4-sample mouse run</strong>, "
+        "restricted to pairs the chimeric-reads screen found (a "
+        "<em>biased</em> subset -- assembly-only and splice_junctions-only "
+        "pairs were not part of this measurement), cr+assembly agreement "
+        "came out near its <strong>chance rate</strong>. chimera.splice_junctions "
+        "is new, off by default, and has not been run on real project data, "
+        "so n_screens == 3 is unmeasured too -- its own third-screen "
+        "agreement is a stronger signal in principle, but the two-screen "
+        "case's measured near-chance rate is reason enough not to assume it "
+        "without checking it yourself first, e.g. by cross-tabulating "
+        "found_by against the screen-bound flags in your own "
+        "candidates.tsv.gz.",
         "unresolved",
     ),
     (
@@ -145,12 +155,17 @@ SIGNALS = [
         "Counted as corroboration, not screen evidence -- TElocal is a "
         "fourth data source, not one of the three detection screens. "
         "Reported as <code>telocal_count</code> when TElocal ran.",
-        "One small 4-sample mouse experiment: 91% of junction-side pairs had "
-        "an expressed locus, and the canonical rate was <em>lower</em> where "
-        "it was (6.7% vs 10.2%, n&nbsp;=&nbsp;19,503). Too early to conclude "
-        "anything from a single run &mdash; the correlation between "
-        "junction-side pairs and TE locus expression needs testing properly. "
-        "It stays a flag until that test exists &mdash; one small experiment "
+        "<strong>Measured on a 4-sample mouse run</strong>, restricted to "
+        "pairs the chimeric-reads screen found (the same "
+        "<em>biased</em> subset as the Screens row above -- assembly-only "
+        "and splice_junctions-only pairs were excluded from this "
+        "measurement): 91% of those pairs had an expressed locus, and the "
+        "canonical rate was <em>lower</em> where it was (6.7% vs 10.2%, "
+        "n&nbsp;=&nbsp;19,503). Too early to conclude anything from a "
+        "single run, on a subset at that &mdash; the correlation between "
+        "junction-side pairs and TE locus expression needs testing "
+        "properly, ideally without the found_by restriction. It stays a "
+        "flag until that test exists &mdash; one small, biased experiment "
         "is not enough to demote a signal.",
         "unresolved",
     ),
@@ -341,9 +356,9 @@ def main():
             "splice motif (SJ) from STAR's SJ.out.tab (when "
             "chimera.splice_junctions is enabled), TE locus expressed from "
             "TElocal. How many screens agreed on a pair is shown separately "
-            "(the Screens column, and the correlation/leaders sections "
-            "below), not as a bar here -- it is derived from found_by, not "
-            "an independent evidence flag."
+            "(the Screens column in the Candidates table above), not as a "
+            "bar here -- it is derived from found_by, not an independent "
+            "evidence flag."
         ),
         **composition_body,
     }

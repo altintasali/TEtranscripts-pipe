@@ -89,13 +89,12 @@ def all_chimera_outputs():
         "results/chimera/qc/chimera_chimeric_reads_qc_mqc.json",
         "results/chimera/qc/te_gene_chimeras_mqc.json",
         "results/chimera/qc/canonical_rate_mqc.json",
+        "results/chimera/chimeric_reads/canonical_enrichment.tsv.gz",
         "results/chimera/qc/chimera_chimeric_reads_highlights_mqc.json",
         "results/chimera/qc/chimera_candidates_table_mqc.json",
         "results/chimera/qc/chimera_chimeric_reads_te_type_mqc.json",
         "results/chimera/qc/chimera_evidence_guide_mqc.json",
         "results/chimera/qc/chimera_evidence_composition_mqc.json",
-        "results/chimera/qc/chimera_evidence_correlation_mqc.json",
-        "results/chimera/qc/chimera_evidence_candidates_mqc.json",
     ]
     if WRITE_IGV_BED:
         files += [
@@ -598,42 +597,6 @@ rule chimera_evidence_guide:
         "--out-composition {output.composition} > {log} 2>&1"
 
 
-rule chimera_evidence_heatmap:
-    # Two heatmaps over chimera_evidence.tsv.gz and NO score
-    # (chimera_evidence_heatmap.py): dimension x dimension correlation, and
-    # the union of the per-dimension leaders as a candidate view.
-    #
-    # Exists because collapsing these measurements into one ordinal tier hid
-    # the opposite of what was assumed, twice -- TElocal expression is
-    # anti-correlated with the splice motif, and screen agreement sits near
-    # its chance rate. Both were plain the moment the dimensions were shown
-    # against each other. Judge the evidence, then decide on a ranking.
-    input:
-        # Declared so that EDITING the script re-runs the rule.
-        # Snakemake's code trigger hashes the shell command STRING,
-        # not the file it names, so without this an edit to the
-        # script leaves stale outputs in place silently.
-        script=f"{SCRIPTS_DIR}/chimera_evidence_heatmap.py",
-        evidence="results/chimera/candidates.tsv.gz",
-        gene_names="results/reference/gene_id_to_name.tsv.gz",
-    output:
-        correlation="results/chimera/qc/chimera_evidence_correlation_mqc.json",
-        candidates="results/chimera/qc/chimera_evidence_candidates_mqc.json",
-    threads: get_resources("chimera_evidence_heatmap")["threads"]
-    resources:
-        mem_mb=get_scaled_mem_mb("chimera_evidence_heatmap"),
-        runtime=get_resources("chimera_evidence_heatmap")["runtime"],
-    benchmark:
-        "results/pipeline_info/benchmarks/chimera_evidence_heatmap/chimera_evidence_heatmap.txt",
-    log:
-        "results/pipeline_info/logs/chimera_chimeric_reads/evidence_heatmap.log",
-    shell:
-        "python3 {input.script} "
-        "--evidence {input.evidence} --gene-names {input.gene_names} "
-        "--out-correlation {output.correlation} "
-        "--out-candidates {output.candidates} > {log} 2>&1"
-
-
 rule chimera_chimeric_reads_highlights:
     # The junction screen's "what to look at first" guide + ranked top-N
     # table (chimera_chimeric_reads_highlights_mqc.py) -- the mirror of the assembly
@@ -665,11 +628,16 @@ rule chimera_chimeric_reads_highlights:
 
 
 rule chimera_chimeric_reads_qc_barplot:
-    # Merges the per-sample junction QC tables into two MultiQC bar-plot
+    # Merges the per-sample junction QC tables into MultiQC bar-plot
     # custom-content documents (chimera_chimeric_reads_qc_mqc.py): per-sample direction
-    # composition as counts and % of total junctions, plus the gene<->TE
-    # subset (the gene-TE chimeras view), rendered inside multiqc_report.html in
-    # the custom_content module.
+    # composition as counts and % of total junctions, the gene<->TE
+    # subset (the gene-TE chimeras view), and the splice-motif rate (whose
+    # description carries a one-sentence pooled-Fisher summary), rendered
+    # inside multiqc_report.html in the custom_content module. The full
+    # per-sample+pooled Fisher table behind that sentence is NOT a report
+    # section (BUG FIXED 2026 -- see the script's module docstring): it is
+    # canonical_enrichment.tsv.gz, a plain data file under
+    # results/chimera/chimeric_reads/, same as this screen's other outputs.
     input:
         # Declared so that EDITING the script re-runs the rule.
         # Snakemake's code trigger hashes the shell command STRING,
@@ -683,7 +651,7 @@ rule chimera_chimeric_reads_qc_barplot:
         junction="results/chimera/qc/chimera_chimeric_reads_qc_mqc.json",
         te_gene_chimeras="results/chimera/qc/te_gene_chimeras_mqc.json",
         canonical="results/chimera/qc/canonical_rate_mqc.json",
-        enrichment="results/chimera/qc/canonical_enrichment_mqc.json",
+        enrichment="results/chimera/chimeric_reads/canonical_enrichment.tsv.gz",
     params:
         samples=lambda wc, input: " ".join(SAMPLES),
     threads: get_resources("chimera_chimeric_reads_qc_barplot")["threads"]

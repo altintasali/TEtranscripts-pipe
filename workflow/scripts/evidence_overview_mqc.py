@@ -90,7 +90,7 @@ def main():
     n_screens = sum([chimeric_reads, assembly, sj])
     if n_screens >= 2:
         cross_ref = (
-            " Reads+assembly agreement additionally has its own "
+            " Chimeric-reads+assembly agreement additionally has its own "
             "cross-referenced file, <code>candidates_with_junction_evidence."
             "tsv.gz</code>." if chimeric_reads and assembly else ""
         )
@@ -132,8 +132,8 @@ def main():
                        "responsible" if telocal else "") + ".</li>"]
     # BUG FIXED 2026: this used to point at "Chimera -> What to look at" /
     # "Chimera (assembly) -> What to look at", two sections that no longer
-    # exist (the report's per-screen sections are now "Reads - what this
-    # screen sees" / "Assembly - what this screen sees", describing each
+    # exist (the report's per-screen sections are now "Chimeric reads - what
+    # this screen sees" / "Assembly - what this screen sees", describing each
     # screen's blind spots, not a candidate list -- see guard 38) and called
     # the result "ranked", which the pipeline never does (guard 50). The
     # actual unified, cross-screen, sortable-not-ranked candidate table is

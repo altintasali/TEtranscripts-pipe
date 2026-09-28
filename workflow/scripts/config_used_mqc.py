@@ -132,9 +132,6 @@ def main(smk):
         "outputs.keep_trimmed_fastq": str(keep_trimmed),
         "outputs.keep_star_index": str(keep_star_index),
         "outputs.keep_telocal_index": str(keep_telocal_index),
-        "outputs.report_resource_usage": str(
-            config.get("outputs", {}).get("report_resource_usage", False)
-        ),
     }
 
     doc = {

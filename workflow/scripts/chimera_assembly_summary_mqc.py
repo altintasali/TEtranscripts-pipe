@@ -11,11 +11,12 @@
 
 This section used to also rank and render this run's top candidates, keyed
 (junction-confirmed, strand-matched, highest TPM).  It was one of three
-rankings shipping in the same report, and it led on the one signal
-chimera_evidence_heatmap.py measured at roughly its chance rate.  All three
-are gone -- the pipeline no longer ranks candidates at all (see
-chimera_evidence_guide_mqc.py); dropping the table here also dropped this
-script's only use of tpm_matrix.tsv.gz, so it is no longer an input.
+rankings shipping in the same report, and it led on the one signal a
+dimension-by-dimension comparison of the evidence columns measured at
+roughly its chance rate (see chimera_evidence_guide_mqc.py's "Screens"
+row).  All three are gone -- the pipeline no longer ranks candidates at all;
+dropping the table here also dropped this script's only use of
+tpm_matrix.tsv.gz, so it is no longer an input.
 
 Reads the candidates table (or, when present, the cross-referenced
 transcripts_with_read_support.tsv.gz -- pass whichever is available as
@@ -119,7 +120,7 @@ def main():
                 "Here a class is decided by <em>transcript structure</em> "
                 "&mdash; whether the TE hits the first, last or an "
                 "internal exon of the assembled transcript. In "
-                "<strong>Reads - TE type</strong> it is decided by "
+                "<strong>Chimeric reads - TE type</strong> it is decided by "
                 "<em>genomic position</em>, where the TE sits relative to "
                 "the gene body. A TE in a gene\'s intron that becomes the "
                 "transcript\'s first exon is <code>te_initiated</code> "
@@ -271,9 +272,10 @@ def main():
     # This section used to render its own ranked top-N, keyed
     # (junction-confirmed, strand-matched, TPM). That was one of three
     # rankings shipping in the same report, and it led on the very signal
-    # chimera_evidence_heatmap.py measured at roughly its chance rate. The
-    # pipeline no longer ranks candidates anywhere; what stays here is what
-    # only this screen can say about itself.
+    # a dimension-by-dimension comparison of the evidence columns measured
+    # at roughly its chance rate (see chimera_evidence_guide_mqc.py's
+    # "Screens" row). The pipeline no longer ranks candidates anywhere;
+    # what stays here is what only this screen can say about itself.
     n_total = len(rows)
     n_confirmed = (
         sum(1 for r in rows if r.get("confirmed_by_junction_screen") == "yes")
@@ -287,11 +289,10 @@ def main():
     confirmed_line = (
         f"<li><strong>{n_confirmed} of {n_total}</strong> candidates are also "
         "found by the read-evidence screen. The two methods have opposite "
-        "blind spots, so agreement should be meaningful &mdash; but measured "
-        "across a cohort it has come out near its <strong>chance rate</strong>. "
-        "It carries no more weight than any other flag here; see "
-        "the <strong>Evidence structure</strong> sections below for your "
-        "own data.</li>"
+        "blind spots, so agreement should be meaningful &mdash; but on a "
+        "4-sample mouse run it came out near its <strong>chance rate</strong> "
+        "(see <strong>How to weigh this evidence</strong>'s Screens row). "
+        "It carries no more weight than any other flag here.</li>"
         if has_cross_evidence else
         "<li>chimera.chimeric_reads is currently disabled, so no cross-confirmation "
         "is available &mdash; enabling it adds an independent evidence source "

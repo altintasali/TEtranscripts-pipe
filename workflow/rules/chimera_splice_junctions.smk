@@ -24,6 +24,8 @@
 #   chimera_splice_junctions_classify      per-sample SJ.out.tab annotation (+ the gene-TE subset)
 #   chimera_splice_junctions_counts        merge per-sample tables -> all_events + counts
 #                            + te-gene-junctions
+#   chimera_splice_junctions_summary_mqc   this screen's own MultiQC report presence:
+#                            blind-spot note + direction composition, TE-type composition
 #   chimera_splice_junctions_qc_transform  count-matrix transform for the sample-QC view
 #   chimera_splice_junctions_qc            sample-QC PCA / sample-distance plots
 # -----------------------------------------------------------------------------
@@ -53,6 +55,8 @@ def all_chimera_splice_junctions_outputs():
     files += [
         "results/chimera/splice_junctions/all_events.tsv.gz",
         "results/chimera/splice_junctions/te-gene-junctions.tsv.gz",
+        "results/chimera/qc/chimera_splice_junctions_highlights_mqc.json",
+        "results/chimera/qc/chimera_splice_junctions_te_type_mqc.json",
     ]
     if WRITE_SPLICE_JUNCTIONS_COUNTS:
         files += [
@@ -129,6 +133,46 @@ rule chimera_splice_junctions_classify:
         "--library-strandedness {params.library} "
         "--out {output.junctions} "
         "--te-out {output.te_gene_junctions} > {log} 2>&1"
+
+
+rule chimera_splice_junctions_summary_mqc:
+    # MultiQC custom content: this screen's blind-spot note + per-sample
+    # direction composition, and cohort-wide TE-type composition (with
+    # te_initiated split into upstream/internal). Modelled on
+    # chimera_assembly_summary_mqc.py; unlike that rule this one is NOT
+    # gated on a separate write_* flag -- it only reads outputs
+    # chimera_splice_junctions_classify/counts already always produce.
+    input:
+        # Declared so that EDITING the script re-runs the rule.
+        # Snakemake's code trigger hashes the shell command STRING,
+        # not the file it names, so without this an edit to the
+        # script leaves stale outputs in place silently.
+        script=f"{SCRIPTS_DIR}/chimera_splice_junctions_summary_mqc.py",
+        te_events="results/chimera/splice_junctions/te-gene-junctions.tsv.gz",
+        per_sample=[
+            f"results/chimera/splice_junctions/per_sample/{s}_junctions_te-gene-junctions.tsv.gz"
+            for s in SAMPLES
+        ],
+    output:
+        highlights="results/chimera/qc/chimera_splice_junctions_highlights_mqc.json",
+        te_type="results/chimera/qc/chimera_splice_junctions_te_type_mqc.json",
+    params:
+        sample_names=" ".join(SAMPLES),
+    threads: get_resources("chimera_splice_junctions_summary_mqc")["threads"]
+    resources:
+        mem_mb=get_resources("chimera_splice_junctions_summary_mqc")["mem_mb"],
+        runtime=get_resources("chimera_splice_junctions_summary_mqc")["runtime"],
+    benchmark:
+        "results/pipeline_info/benchmarks/chimera_splice_junctions_summary_mqc/chimera_splice_junctions_summary_mqc.txt",
+    log:
+        "results/pipeline_info/logs/chimera_splice_junctions/summary_mqc.log",
+    shell:
+        "python3 {input.script} "
+        "--te-events {input.te_events} "
+        "--per-sample {input.per_sample} "
+        "--sample-names {params.sample_names} "
+        "--out-highlights {output.highlights} "
+        "--out-te-type {output.te_type} > {log} 2>&1"
 
 
 rule chimera_splice_junctions_counts:

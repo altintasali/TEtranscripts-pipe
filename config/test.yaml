@@ -60,9 +60,6 @@ strandedness:
 outputs:
   keep_merged_fastq: false
   keep_trimmed_fastq: false
-  # enabled: true (unlike the shipped default of false) so CI exercises the
-  # Resource Usage section too.
-  report_resource_usage: true
 
 # Chimera screen settings (see config/config.example.yaml for the meanings).
 # enabled: true so the CI test exercises the full chimera stage (this is now

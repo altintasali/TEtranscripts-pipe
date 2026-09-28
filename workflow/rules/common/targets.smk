@@ -158,8 +158,6 @@ def all_benchmark_files():
             "chimera_candidates_table.txt",
             "results/pipeline_info/benchmarks/chimera_chimeric_reads_te_type/"
             "chimera_chimeric_reads_te_type.txt",
-            "results/pipeline_info/benchmarks/chimera_evidence_heatmap/"
-            "chimera_evidence_heatmap.txt",
         ]
         files.append(
             f"{B}/chimera_chimeric_reads_qc_barplot/chimera_chimeric_reads_qc_barplot.txt"
@@ -232,6 +230,10 @@ def all_benchmark_files():
     # own SJ.out.tab), so only its own classify/counts/QC rules are new.
     if CHIMERA_SPLICE_JUNCTIONS_ENABLED:
         files.append(f"{B}/chimera_splice_junctions_counts/chimera_splice_junctions_counts.txt")
+        files.append(
+            f"{B}/chimera_splice_junctions_summary_mqc/"
+            "chimera_splice_junctions_summary_mqc.txt"
+        )
         for s in SAMPLES:
             files.append(f"{B}/chimera_splice_junctions_classify/{s}.txt")
         if (config["chimera"]["splice_junctions"]["outputs"]["write_counts_matrix"]

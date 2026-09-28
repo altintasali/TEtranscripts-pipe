@@ -62,8 +62,11 @@ if isinstance(config.get("chimera"), dict) and "reads" in config["chimera"]:
 # Renamed: chimera.sj_junctions -> chimera.splice_junctions. "sj_junctions"
 # repeated itself ("SJ" already means splice junction), and the abbreviated
 # "sj" was hard to read as an identifier elsewhere in the config/code: the
-# spelled-out form is now used consistently everywhere except the already-
-# compact report display text ("Chimera (SJ)", "SJ - ...").
+# spelled-out form is now used consistently everywhere, including report
+# section titles ("Splice junctions - ..."); the short "(SJ)" form only
+# survives in a few compact column/status labels (e.g. evidence_overview's
+# "Chimera (SJ)" run-status row, candidates table's "Splice motif (SJ)"
+# column) where the full name would not fit.
 if isinstance(config.get("chimera"), dict) and "sj_junctions" in config["chimera"]:
     raise WorkflowError(
         "config key 'chimera.sj_junctions' was renamed to "

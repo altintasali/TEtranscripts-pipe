@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Guard 59: benchmark_summary.py reports ONE adaptive wall-time column
-# (not six fixed h/min/s mean/max columns), and the whole "Resource Usage"
-# section is gated behind outputs.report_resource_usage (default off).
+# (not six fixed h/min/s mean/max columns), and the "Resource Usage"
+# section always renders (no config gate -- reverted after 2026 feedback
+# that it should just be there, not opt-in).
 #
-# Run on its own:   .tests/guards/59_benchmark_summary_py_adaptive_walltime_and_default_off_gate.sh
+# Run on its own:   .tests/guards/59_benchmark_summary_py_adaptive_walltime_column.sh
 # Run all guards:   .tests/guards/run.sh
 set -uo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -53,35 +54,24 @@ if [ "${FAIL:-0}" != "0" ]; then
   echo "ERROR: benchmark_summary.py adaptive-walltime check failed"
 fi
 
-# --- part 2: default-off gate, real DAG -------------------------------
-# config/test.yaml sets report_resource_usage: true so CI exercises the
-# section; flip it off here and confirm benchmark_summary drops out of the
-# planned DAG (nothing else requests its output), then confirm the shipped
-# built-in default (no override at all) is also off.
-sed 's/report_resource_usage: true/report_resource_usage: false/' config/test.yaml > "$T/off.yaml"
-if ! snakemake --configfile "$T/off.yaml" -n --cores 1 > "$T/off.log" 2>&1; then
-  echo "ERROR: dry run with report_resource_usage: false failed"
-  tail -30 "$T/off.log"; FAIL=1
-elif grep -qE "^benchmark_summary\b" "$T/off.log"; then
-  echo "ERROR: benchmark_summary rule still scheduled with report_resource_usage: false"
-  FAIL=1
-fi
-
-if ! snakemake --configfile config/test.yaml -n --cores 1 > "$T/on.log" 2>&1; then
-  echo "ERROR: dry run with report_resource_usage: true (config/test.yaml) failed"
-  tail -30 "$T/on.log"; FAIL=1
-elif ! grep -qE "^benchmark_summary\b" "$T/on.log"; then
-  echo "ERROR: benchmark_summary rule NOT scheduled with report_resource_usage: true"
+# --- part 2: Resource Usage always renders, no config key needed ------
+# ANTI-REGRESSION: this section was briefly gated behind
+# outputs.report_resource_usage (default off) -- reverted; benchmark_summary
+# must be unconditionally in the planned DAG, and the config key must be
+# gone from the schema (a stale key nobody reads is worse than no key).
+if ! snakemake --configfile config/test.yaml -n --cores 1 > "$T/plan.log" 2>&1; then
+  echo "ERROR: dry run failed"; tail -30 "$T/plan.log"; FAIL=1
+elif ! grep -qE "^benchmark_summary\b" "$T/plan.log"; then
+  echo "ERROR: benchmark_summary rule not scheduled -- Resource Usage must always render"
   FAIL=1
 fi
 
 python3 - <<'PY' || FAIL=1
 import yaml
-d = yaml.safe_load(open("workflow/default-config/chimera.yaml"))  # unrelated but cheap import check
 schema = yaml.safe_load(open("workflow/schemas/config.schema.yaml"))
 prop = schema["properties"]["outputs"]["properties"].get("report_resource_usage")
-if prop is None or prop.get("type") != "boolean":
-    print("ERROR: outputs.report_resource_usage missing from config.schema.yaml")
+if prop is not None:
+    print("ERROR: outputs.report_resource_usage should be gone from config.schema.yaml, found it still declared")
     raise SystemExit(1)
 PY
 

@@ -622,17 +622,6 @@ properties:
           false deletes it once quantification is done, saving disk at the
           cost of re-building on the next run. Never applies to a
           user-provided telocal.locind path.
-      report_resource_usage:
-        type: boolean
-        description: >-
-          Whether multiqc_report.html includes the "Resource Usage" section
-          (per-rule wall time / CPU / RAM table, benchmark_summary.py).
-          Default false -- one of the largest single sections, most useful
-          while sizing resources.yaml for a cluster, not on a routine read
-          of the report. Every rule's own Snakemake `benchmark:` file
-          (results/pipeline_info/benchmarks/) is written regardless of this
-          setting; it only controls whether they get aggregated into the
-          report.
 
 required:
   - samples

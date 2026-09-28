@@ -49,7 +49,7 @@ reads = json.load(open(f"{d}/chimera_chimeric_reads_te_type_mqc.json"))
 asm = json.load(open(f"{d}/chimera_assembly_classes_mqc.json"))
 
 # one section per screen, both inside the single Chimera group
-check(reads["section_name"] == "Reads - TE type",
+check(reads["section_name"] == "Chimeric reads - TE type",
       f"read section misnamed: {reads['section_name']!r}")
 check(asm["section_name"] == "Assembly - TE type",
       f"assembly section misnamed: {asm['section_name']!r}")
@@ -65,7 +65,7 @@ check(reads["data"]["s1"]["te_initiated"] == 10,
 
 # THE POINT: each section must say the other screen means something else by
 # the same words, or a reader reads agreement as corroboration
-for doc, name, other in ((reads, "Reads", "transcript structure"),
+for doc, name, other in ((reads, "Chimeric reads", "transcript structure"),
                          (asm, "Assembly", "genomic position")):
     desc = doc["description"]
     check("same words for a different measurement" in desc,
@@ -83,7 +83,7 @@ if ! multiqc --force --no-ansi -c workflow/default-config/multiqc_config.yaml \
   echo "ERROR: multiqc failed on the TE type sections"
   tail -30 "$T/tt/render.log"; FAIL=1
 else
-  for want in "Reads - TE type" "Assembly - TE type"; do
+  for want in "Chimeric reads - TE type" "Assembly - TE type"; do
     grep -q "$want" "$T/tt/out/r.html" || { echo "ERROR: '$want' not rendered"; FAIL=1; }
   done
 fi

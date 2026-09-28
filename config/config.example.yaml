@@ -409,10 +409,3 @@ outputs:
   # the cost of re-building on the next run. Never applies to a user-provided
   # telocal.locind path -- that file is only ever read, never deleted.
   keep_telocal_index: true
-  # Whether multiqc_report.html includes the "Resource Usage" section
-  # (per-rule wall time / CPU / RAM table). Default false -- useful while
-  # sizing resources.yaml for a cluster, not on a routine read of the
-  # report. Every rule's own benchmark file
-  # (results/pipeline_info/benchmarks/) is written regardless of this
-  # setting; it only controls whether they get aggregated into the report.
-  report_resource_usage: false

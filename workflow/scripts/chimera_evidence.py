@@ -21,8 +21,9 @@ does not decide which are real -- that is a manual call, made against these
 columns.  An earlier version carried a four-tier confidence ladder; it was
 removed because no experiment here established the relative weight of its
 rungs, and the pipeline's own measurements contradicted its top rung (see
-chimera_evidence_heatmap.py: cross-screen agreement sits near its chance
-rate).
+chimera_evidence_guide_mqc.py's "Screens" row: cross-screen agreement sits
+near its chance rate, measured on a 4-sample run restricted to pairs the
+chimeric-reads screen found).
 
 Six columns summarise what was observed, all deliberately unweighted, in
 three pairs -- which screens found it / how many, what SCREEN-BOUND quality

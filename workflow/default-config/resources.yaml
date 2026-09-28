@@ -386,6 +386,14 @@ resources:
     mem_mb: 4000
     runtime: 60
 
+  chimera_splice_junctions_summary_mqc:
+    # Single-threaded python; reads the cohort-level te-gene-junctions table
+    # once plus one small per-sample table per sample, writes two small JSON
+    # files. Same shape as chimera_assembly_summary_mqc.
+    threads: 1
+    mem_mb: 2000
+    runtime: 30
+
   chimera_splice_junctions_counts:
     # Merging per-sample junction tables; single-threaded python (2nd
     # thread reserved as scheduler headroom), same shape as
@@ -576,14 +584,6 @@ resources:
     threads: 1
     mem_mb: 1000
     mem_per_sample: 100
-    runtime: 30
-
-  chimera_evidence_heatmap:
-    # Ranks every evidence column of chimera_evidence.tsv.gz; holds the table
-    # plus one rank vector per dimension, so it scales with cohort size.
-    threads: 2
-    mem_mb: 1000
-    mem_per_sample: 60
     runtime: 30
 
   chimera_chimeric_reads_highlights:
