@@ -179,7 +179,8 @@ def all_benchmark_files():
                 files.append(
                     f"results/pipeline_info/benchmarks/chimera_chimeric_reads_igv_bed/{s}.txt"
                 )
-        if config["chimera"]["chimeric_reads"]["outputs"]["write_counts_matrix"]:
+        if (config["chimera"]["chimeric_reads"]["outputs"]["write_counts_matrix"]
+                and config["chimera"]["chimeric_reads"]["qc"].get("enabled", False)):
             transform = config["chimera"]["chimeric_reads"]["qc"]["pca_transform"]
             files += [
                 f"results/pipeline_info/benchmarks/"
@@ -213,11 +214,13 @@ def all_benchmark_files():
                 f"{B}/chimera_assembly_aggregate_counts/chimera_assembly_aggregate_counts.txt"
             )
         # The assembly QC view is log2-fixed (its outputs carry no
-        # {transform} wildcard), unlike the reads screen's.
-        files += [
-            f"{B}/chimera_assembly_qc_transform/chimera_assembly_qc_transform.txt",
-            f"{B}/chimera_assembly_qc/chimera_assembly_qc.txt",
-        ]
+        # {transform} wildcard), unlike the reads screen's. Borrows
+        # chimera.chimeric_reads.qc.enabled (no qc block of its own).
+        if config["chimera"]["chimeric_reads"]["qc"].get("enabled", False):
+            files += [
+                f"{B}/chimera_assembly_qc_transform/chimera_assembly_qc_transform.txt",
+                f"{B}/chimera_assembly_qc/chimera_assembly_qc.txt",
+            ]
 
     # Cohort-wide STAR 2-pass: a pass-1 alignment per sample plus one merge.
     if STAR_TWO_PASS == "cohort":
@@ -231,7 +234,8 @@ def all_benchmark_files():
         files.append(f"{B}/chimera_splice_junctions_counts/chimera_splice_junctions_counts.txt")
         for s in SAMPLES:
             files.append(f"{B}/chimera_splice_junctions_classify/{s}.txt")
-        if config["chimera"]["splice_junctions"]["outputs"]["write_counts_matrix"]:
+        if (config["chimera"]["splice_junctions"]["outputs"]["write_counts_matrix"]
+                and config["chimera"]["splice_junctions"]["qc"].get("enabled", False)):
             transform = config["chimera"]["splice_junctions"]["qc"]["pca_transform"]
             files += [
                 f"{B}/chimera_splice_junctions_qc_transform/{transform}.txt",

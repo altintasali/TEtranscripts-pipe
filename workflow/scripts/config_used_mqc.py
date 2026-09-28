@@ -15,6 +15,23 @@ except NameError:
     snakemake = None
 
 
+def row_label(key):
+    """Turn a dotted config-path key into this table's row label/id.
+
+    See the "data" field's comment in main() for why this exists: MultiQC's
+    custom-content loader runs every row key through its generic sample-name
+    cleaner regardless of whether the key is actually a sample name, and
+    that cleaner's ~150+ built-in patterns (plus this repo's own
+    extra_fn_clean_exts) are almost all anchored on a literal "." or "_" --
+    both of which are all over a dotted config path. Neutralizing them
+    avoids the whole collision surface instead of chasing individual
+    patterns. Exposed as its own function so
+    .tests/unit/test_config_used_mqc.py can verify against the exact
+    transform actually used, not a re-implementation of it.
+    """
+    return key.replace(".", " > ").replace("_", " ")
+
+
 def _read_version():
     """Return the pipeline version string, or 'unknown' if VERSION is missing.
 
@@ -92,9 +109,17 @@ def main(smk):
         "chimera.chimeric_reads.enabled": str(chimera_enabled),
         "chimera.chimeric_reads.breakpoint_tolerance": str(config.get("chimera", {}).get("chimeric_reads", {}).get("breakpoint_tolerance", 0)),
         "chimera.chimeric_reads.require_canonical": str(config.get("chimera", {}).get("chimeric_reads", {}).get("require_canonical", False)),
+        "chimera.chimeric_reads.qc.enabled": str(config.get("chimera", {}).get("chimeric_reads", {}).get("qc", {}).get("enabled", False)),
         "chimera.chimeric_reads.qc.pca_transform": config.get("chimera", {}).get("chimeric_reads", {}).get("qc", {}).get("pca_transform", "vst"),
         "chimera.assembly.enabled": str(config.get("chimera", {}).get("assembly", {}).get("enabled", False)),
         "chimera.assembly.breakpoint_tolerance": str(config.get("chimera", {}).get("assembly", {}).get("breakpoint_tolerance", 0)),
+        "chimera.assembly.require_tss_in_te": str(config.get("chimera", {}).get("assembly", {}).get("require_tss_in_te", True)),
+        "chimera.splice_junctions.enabled": str(config.get("chimera", {}).get("splice_junctions", {}).get("enabled", False)),
+        "chimera.splice_junctions.breakpoint_tolerance": str(config.get("chimera", {}).get("splice_junctions", {}).get("breakpoint_tolerance", 0)),
+        "chimera.splice_junctions.min_unique_reads": str(config.get("chimera", {}).get("splice_junctions", {}).get("min_unique_reads", 1)),
+        "chimera.splice_junctions.require_canonical": str(config.get("chimera", {}).get("splice_junctions", {}).get("require_canonical", True)),
+        "chimera.splice_junctions.qc.enabled": str(config.get("chimera", {}).get("splice_junctions", {}).get("qc", {}).get("enabled", False)),
+        "chimera.splice_junctions.qc.pca_transform": config.get("chimera", {}).get("splice_junctions", {}).get("qc", {}).get("pca_transform", "vst"),
         "telocal.enabled": str(telocal_enabled),
         "telocal.locind": (
             "(auto-build from TE GTF)" if telocal_locind_auto in (True, "True", "")
@@ -107,6 +132,9 @@ def main(smk):
         "outputs.keep_trimmed_fastq": str(keep_trimmed),
         "outputs.keep_star_index": str(keep_star_index),
         "outputs.keep_telocal_index": str(keep_telocal_index),
+        "outputs.report_resource_usage": str(
+            config.get("outputs", {}).get("report_resource_usage", False)
+        ),
     }
 
     doc = {
@@ -124,7 +152,15 @@ def main(smk):
             "sort_rows": False,
         },
         "headers": {"value": {"title": "Value"}},
-        "data": {k: {"value": v} for k, v in rows.items()},
+        # BUG FIXED 2026: row_label() neutralizes "." and "_" so MultiQC's
+        # generic sample-name cleaner (applied unconditionally to every
+        # dict-shaped custom-content row key, sample name or not -- see
+        # row_label()'s docstring) can't truncate these labels. Verified:
+        # not only this repo's own extra_fn_clean_exts caused this --
+        # "trimming.trim_nextseq" collided with MultiQC's OWN default
+        # ".trim" pattern (for Trim Galore log filenames) and was truncated
+        # to "trimming" even before this repo's settings applied.
+        "data": {row_label(k): {"value": v} for k, v in rows.items()},
     }
 
     # Ensure the output directory exists.

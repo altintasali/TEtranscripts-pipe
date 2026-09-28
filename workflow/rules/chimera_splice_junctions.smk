@@ -70,8 +70,11 @@ def all_chimera_splice_junctions_sample_qc_outputs():
     prefixed, matching chimera_assembly.smk's convention -- MultiQC's search
     directories (multiqc_config.yaml) only scan results/chimera/qc, not a
     per-screen qc/ subdirectory, so anything written elsewhere silently never
-    reaches the report."""
-    if not WRITE_SPLICE_JUNCTIONS_COUNTS:
+    reaches the report. Also gated by chimera.splice_junctions.qc.enabled
+    (default false as of 2026 -- see chimera.chimeric_reads.qc.enabled's
+    schema description for why); the matrix itself is still written
+    whenever WRITE_SPLICE_JUNCTIONS_COUNTS is true, independent of this."""
+    if not WRITE_SPLICE_JUNCTIONS_COUNTS or not CHIMERA_SPLICE_JUNCTIONS_QC.get("enabled", False):
         return []
     transform = CHIMERA_SPLICE_JUNCTIONS_QC["pca_transform"]
     return [

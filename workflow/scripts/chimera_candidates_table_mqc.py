@@ -203,22 +203,23 @@ def main():
     note = (
         "<p>The <strong>{n_shown:,}</strong> of {n_total:,} gene-TE pairs "
         "carrying the most screens and evidence, from <code>{src}</code>. "
-        "<strong>Click any column header to sort.</strong></p>"
-        "<p>Ordered by <em>Screens</em>, then <em>Screen evidence count</em>, "
-        "then <em>Corroboration count</em> — three unweighted counts, "
-        "<strong>not a score</strong>. Screen evidence count can never "
-        "exceed Screens (each flag needs its own screen to have found the "
-        "pair) and is still tilted toward the assembly screen "
-        "(assembly_strand_match needs it); Corroboration count is "
-        "deliberately NOT bounded by Screens — a pair found by only one "
-        "screen can still carry both of its flags. See <strong>How to "
-        "weigh this evidence</strong> above, and validate candidates "
-        "manually.</p>"
-        "<p>For all <strong>{n_total:,}</strong> pairs in one sortable, "
-        "filterable page — no MultiQC needed — open "
-        "<code>{explorer}</code>.</p>"
+        "<strong>Click any column header to sort</strong> -- these are "
+        "three unweighted counts, <strong>not a score</strong>; see "
+        "<strong>How to weigh this evidence</strong> above, and validate "
+        "candidates manually. For all <strong>{n_total:,}</strong> pairs, "
+        "filterable, no MultiQC needed: <code>{explorer}</code>.</p>"
     ).format(n_shown=len(top), n_total=len(rows), src=args.source_path,
              explorer=args.explorer_path)
+    note_help = (
+        "<p>Ordered by <em>Screens</em>, then <em>Screen evidence count</em>, "
+        "then <em>Corroboration count</em> — three unweighted counts, "
+        "not a score. Screen evidence count can never exceed Screens (each "
+        "flag needs its own screen to have found the pair) and is still "
+        "tilted toward the assembly screen (assembly_strand_match needs "
+        "it); Corroboration count is deliberately NOT bounded by Screens "
+        "— a pair found by only one screen can still carry both of its "
+        "flags.</p>"
+    )
 
     if top:
         body = {
@@ -264,6 +265,7 @@ def main():
         "parent_name": PARENT_NAME,
         "section_name": "Candidates",
         "description": note,
+        "helptext": note_help,
         **body,
     }
 

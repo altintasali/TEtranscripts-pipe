@@ -31,6 +31,20 @@ except NameError:  # pragma: no cover
     snakemake = None
 
 
+def _fmt_duration(seconds):
+    """Human-scale duration string, unit chosen per value: seconds under a
+    minute, minutes under an hour, hours above. BUG FIXED 2026: this used to
+    be six fixed columns (mean/max x h/min/s, three of them hidden by
+    default) because no single fixed unit reads well across a workflow whose
+    rules range from sub-second to multi-hour -- hours rounds a fast rule to
+    "0.000". One adaptive column reads right at every scale instead."""
+    if seconds < 60:
+        return f"{seconds:.1f}s"
+    if seconds < 3600:
+        return f"{seconds / 60.0:.2f}min"
+    return f"{seconds / 3600.0:.3f}h"
+
+
 def _as_float(val, default=0.0):
     """Coerce a benchmark cell to float; benchmark files can hold 'NA' for
     memory/CPU when a job was too fast to sample, and missing columns return
@@ -94,21 +108,12 @@ def main():
         cpu_alloc_cores = int(alloc.get("threads") or 0)
         ram_alloc_gb = float(alloc.get("mem_mb") or 0) / 1024.0
 
+        mean_s = statistics.mean(walltimes)
+        max_s = max(walltimes)
         row = {
             "n": len(rows),
-            # The same two measurements in three units. Hours is the default
-            # view (it is what matters when sizing an HPC job), but in hours
-            # anything under ~1.8s rounds to 0.000 at 3 decimals -- which on
-            # a normal run is most of the table. Minutes and seconds are
-            # emitted alongside and hidden; "Configure columns" in the report
-            # switches between them, so a short rule is still readable
-            # without making the default view useless for a long one.
-            "walltime_mean_h": round(statistics.mean(walltimes) / 3600.0, 3),
-            "walltime_max_h": round(max(walltimes) / 3600.0, 3),
-            "walltime_mean_min": round(statistics.mean(walltimes) / 60.0, 2),
-            "walltime_max_min": round(max(walltimes) / 60.0, 2),
-            "walltime_mean_s": round(statistics.mean(walltimes), 1),
-            "walltime_max_s": round(max(walltimes), 1),
+            # One adaptive column, not six -- see _fmt_duration()'s docstring.
+            "walltime": f"{_fmt_duration(mean_s)} (max {_fmt_duration(max_s)})",
             "cpu_alloc_cores": cpu_alloc_cores,
             "cpu_used_mean_cores": round(statistics.mean(loads), 3),
             "cpu_used_max_cores": round(max(loads), 3),
@@ -126,15 +131,20 @@ def main():
         "id": "resource_usage",
         "section_name": "Resource Usage",
         "description": (
-            "Wall time is shown in <strong>hours</strong>; minutes and "
-            "seconds are available under <em>Configure columns</em> for the "
-            "many rules that finish in well under a minute. "
-            "Per-rule job count, wall time, and resource efficiency -- for "
-            "CPU and RAM: the allocated amount (resources.yaml), the mean/max "
-            "amount actually used (Snakemake benchmark files in "
-            "results/pipeline_info/benchmarks/), and the mean used/allocated "
-            "ratio. Useful for sizing resources on your cluster before a full "
-            "run."
+            "Per-rule job count, wall time, and CPU/RAM allocated vs. "
+            "actually used. A low efficiency % means resources.yaml is "
+            "over-provisioned for that rule."
+        ),
+        "helptext": (
+            "Wall time shows mean and slowest-job time together, e.g. "
+            "\"45.2s (max 3.20min)\" -- unit picked per value (s / min / h) "
+            "so both a fast and a slow rule stay readable in the same "
+            "column. For CPU and RAM: the allocated amount is from "
+            "resources.yaml, the used amount is the mean/max actually "
+            "measured (Snakemake benchmark files in "
+            "results/pipeline_info/benchmarks/), and efficiency is mean "
+            "used / allocated. Useful for sizing resources on your cluster "
+            "before a full run."
         ),
         "plot_type": "table",
         "pconfig": {
@@ -150,47 +160,10 @@ def main():
                 "format": "{:,d}",
                 "min": 0,
             },
-            # Hours shown by default; minutes and seconds are one click away
-            # under "Configure columns".
-            "walltime_mean_h": {
-                "title": "Wall time mean (h)",
-                "description": "Mean wall-clock hours per job",
-                "format": "{:,.3f}",
-                "min": 0,
-            },
-            "walltime_max_h": {
-                "title": "Wall time max (h)",
-                "description": "Slowest single job, wall-clock hours",
-                "format": "{:,.3f}",
-                "min": 0,
-            },
-            "walltime_mean_min": {
-                "title": "Wall time mean (min)",
-                "description": "Mean wall-clock minutes per job",
-                "format": "{:,.2f}",
-                "min": 0,
-                "hidden": True,
-            },
-            "walltime_max_min": {
-                "title": "Wall time max (min)",
-                "description": "Slowest single job, wall-clock minutes",
-                "format": "{:,.2f}",
-                "min": 0,
-                "hidden": True,
-            },
-            "walltime_mean_s": {
-                "title": "Wall time mean (s)",
-                "description": "Mean wall-clock seconds per job",
-                "format": "{:,.1f}",
-                "min": 0,
-                "hidden": True,
-            },
-            "walltime_max_s": {
-                "title": "Wall time max (s)",
-                "description": "Slowest single job, wall-clock seconds",
-                "format": "{:,.1f}",
-                "min": 0,
-                "hidden": True,
+            "walltime": {
+                "title": "Wall time (mean, max)",
+                "description": "Mean and slowest-job wall-clock time, unit "
+                "chosen per value (s / min / h)",
             },
             "cpu_alloc_cores": {
                 "title": "CPU allocated (cores)",

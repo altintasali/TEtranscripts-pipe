@@ -60,6 +60,9 @@ strandedness:
 outputs:
   keep_merged_fastq: false
   keep_trimmed_fastq: false
+  # enabled: true (unlike the shipped default of false) so CI exercises the
+  # Resource Usage section too.
+  report_resource_usage: true
 
 # Chimera screen settings (see config/config.example.yaml for the meanings).
 # enabled: true so the CI test exercises the full chimera stage (this is now
@@ -79,6 +82,10 @@ chimera:
     breakpoint_tolerance: 0
     require_canonical: false
     qc:
+      # enabled: true (unlike the shipped default of false) so CI exercises
+      # the sample-QC views for chimeric_reads AND assembly (which borrows
+      # this same flag).
+      enabled: true
       min_samples_present: 2
       min_total_counts: 5
       # 4 test samples, one TE: keep the floor low so the QC plots draw.
@@ -105,6 +112,9 @@ chimera:
     min_unique_reads: 1
     require_canonical: true
     qc:
+      # enabled: true (unlike the shipped default of false) so CI exercises
+      # this screen's sample-QC view too.
+      enabled: true
       min_samples_present: 2
       min_total_counts: 5
       min_events: 2

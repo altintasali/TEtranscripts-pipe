@@ -259,10 +259,17 @@ def main():
         "section_name": "How to weigh this evidence",
         "description": (
             "What each line of chimera evidence is worth, and what this "
-            "pipeline has actually measured about it. No ranking is produced."
+            "pipeline has actually measured about it -- click Help for the "
+            "full signal-by-signal table. No ranking is produced."
         ),
+        "helptext": guide_html(n_pairs, composition, n_no_flags),
         "plot_type": "html",
-        "data": guide_html(n_pairs, composition, n_no_flags),
+        "data": (
+            "<p>Sort the <strong>Candidates</strong> table above on the "
+            "signal your question needs; click <strong>Help</strong> "
+            "(top right of this section) for what each column is worth and "
+            "what this project has measured about it.</p>"
+        ),
     }
 
     # Composition, not a ranking: how much of each signal the cohort produced.
@@ -324,11 +331,12 @@ def main():
         "section_name": "Evidence composition",
         "description": (
             "How many gene-TE pairs carry each line of evidence. "
-            "<strong>These bars overlap and do not sum to the cohort.</strong> "
-            "A single pair can carry every flag at once, so it is counted "
-            "in several bars &mdash; they are independent counts, not slices "
-            "of a whole, which is why they are drawn separately rather than "
-            "stacked. Sources: splice motif and replicate support from STAR "
+            "<strong>These bars overlap and do not sum to the cohort</strong> "
+            "-- a pair can carry every flag at once, so they are independent "
+            "counts, not slices of a whole."
+        ),
+        "helptext": (
+            "Sources: splice motif and replicate support from STAR "
             "chimeric junctions, assembly strand match from StringTie, "
             "splice motif (SJ) from STAR's SJ.out.tab (when "
             "chimera.splice_junctions is enabled), TE locus expressed from "

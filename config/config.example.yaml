@@ -220,6 +220,13 @@ chimera:
     # the default (false) keeps everything and records the type.
     require_canonical: false
     qc:
+      # Whether to render the PCA + sample-distance-heatmap sample-QC view
+      # in multiqc_report.html. Default false -- turning this on does not
+      # affect whether results/chimera/chimeric_reads/counts_matrix.tsv.gz
+      # itself gets written (see outputs.write_counts_matrix below for
+      # that). Also gates chimera.assembly's own sample-QC view -- it has
+      # no qc block of its own and borrows this one.
+      enabled: false
       # Filters applied to the chimera count matrix *for the PCA/clustering
       # view only* -- they never remove events from all_events.tsv or
       # results/chimera/chimeric_reads/counts_matrix.tsv.gz. min_events is the floor
@@ -323,6 +330,9 @@ chimera:
     # motif-based inference, which only exists for canonical junctions.
     require_canonical: true
     qc:
+      # Sample-QC OFF by default -- same reasoning as
+      # chimera.chimeric_reads.qc.enabled above.
+      enabled: false
       min_samples_present: 2
       min_total_counts: 5
       min_events: 10
@@ -399,3 +409,10 @@ outputs:
   # the cost of re-building on the next run. Never applies to a user-provided
   # telocal.locind path -- that file is only ever read, never deleted.
   keep_telocal_index: true
+  # Whether multiqc_report.html includes the "Resource Usage" section
+  # (per-rule wall time / CPU / RAM table). Default false -- useful while
+  # sizing resources.yaml for a cluster, not on a routine read of the
+  # report. Every rule's own benchmark file
+  # (results/pipeline_info/benchmarks/) is written regardless of this
+  # setting; it only controls whether they get aggregated into the report.
+  report_resource_usage: false

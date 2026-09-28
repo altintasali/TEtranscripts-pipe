@@ -108,22 +108,25 @@ def main():
     if any(sum(v.values()) for v in counts.values()):
         classes_doc.update({
             "description": (
-                "<strong>The read screen uses these same words for a "
-                "different measurement.</strong> Here a class is decided by "
-                "<em>transcript structure</em> &mdash; whether the TE hits "
-                "the first, last or an internal exon of the assembled "
-                "transcript. In <strong>Reads - TE type</strong> it is "
-                "decided by <em>genomic position</em>, where the TE sits "
-                "relative to the gene body. A TE in a gene\'s intron that "
-                "becomes the transcript\'s first exon is "
-                "<code>te_initiated</code> here and <code>te_exonized</code> "
-                "there, and neither is wrong. Do not read agreement between "
-                "the two as corroboration. "
+                "StringTie-assembly chimera candidates by chimera_type. "
+                "The read screen uses these <strong>same words for a "
+                "different measurement</strong> -- decided by genomic "
+                "position there, not transcript structure; neither is "
+                "wrong, but do not read agreement as corroboration (see "
+                "Help). " + data_labels_note
+            ),
+            "helptext": (
+                "Here a class is decided by <em>transcript structure</em> "
+                "&mdash; whether the TE hits the first, last or an "
+                "internal exon of the assembled transcript. In "
+                "<strong>Reads - TE type</strong> it is decided by "
+                "<em>genomic position</em>, where the TE sits relative to "
+                "the gene body. A TE in a gene\'s intron that becomes the "
+                "transcript\'s first exon is <code>te_initiated</code> "
+                "here and <code>te_exonized</code> there. "
                 "<code>te_initiated_intergenic</code> and "
                 "<code>unspliced_te_only</code> have no read-screen "
-                "equivalent at all.<br><br>"
-                "StringTie-assembly chimera candidates by chimera_type. "
-                + data_labels_note
+                "equivalent at all."
             ),
             "plot_type": "bar",
             "pconfig": {
@@ -238,6 +241,11 @@ def main():
         "parent_name": "Chimera",
         "section_name": "Assembly - strand-match rate by class",
         "description": (
+            "Share of each class's candidates where the assembled "
+            "transcript's strand matches the gene's -- a mismatch usually "
+            "means the gene hit is a spurious overlap, not a real fusion."
+        ),
+        "helptext": (
             "<em>What \"strand match\" means:</em> StringTie assembles each "
             "transcript on a strand, and the gene it overlaps is annotated on "
             "a strand. <strong>Strand match = those two agree.</strong> They "
@@ -247,13 +255,10 @@ def main():
             "the overlap is coincidental &mdash; the two features merely sit "
             "in the same place in the genome. "
             "<br><br><em>How to read it:</em> each bar is one chimera class, "
-            "scored independently, so the bars do not sum to anything. A "
-            "class with a low rate is one to distrust: for "
-            "<code>te_initiated</code> especially, a mismatch usually means "
-            "the gene hit is a spurious overlap rather than real transcript "
-            "connectivity. This is a consistency check on the assembly, not "
-            "independent support &mdash; the read screen\'s splice-motif "
-            "rate is the closer thing to evidence."
+            "scored independently, so the bars do not sum to anything. This "
+            "is a consistency check on the assembly, not independent "
+            "support &mdash; the read screen\'s splice-motif rate is the "
+            "closer thing to evidence."
         ),
         **strand_body,
     }
@@ -293,17 +298,18 @@ def main():
         "for these same candidates.</li>"
     )
 
-    html = f"""
+    html = """
 <p><strong>What this screen sees.</strong> Gene-TE chimeras inferred from
 StringTie assembly structure: TE-initiated, exonized and TE-terminated
 transcripts spliced through an ordinary, canonical intron.</p>
 
 <p><strong>What it cannot see.</strong> Any structure an assembler would not
-build &mdash; the breakpoints that only show up as reads STAR cannot explain
-with one linear alignment. That gap is what the read-evidence screen covers,
-which is why the two are kept separate rather than merged.</p>
+build -- the breakpoints that only show up as reads STAR cannot explain with
+one linear alignment. That is the read-evidence screen's job instead. See
+Help for the counts that qualify this screen's own output.</p>
+"""
 
-<p><strong>Qualifying this screen's output:</strong></p>
+    help_body = f"""
 <ul>
 {confirmed_line}
 <li><strong>{n_strand_ok} of {n_total}</strong> candidates have
@@ -338,6 +344,7 @@ above.</p>
             "The transcript-evidence screen's blind spot, and the counts that "
             "qualify its output."
         ),
+        "helptext": help_body,
         "plot_type": "html",
         "data": html,
     }

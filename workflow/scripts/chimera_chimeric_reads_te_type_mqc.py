@@ -95,10 +95,12 @@ def main():
         "section_name": "Reads - TE type",
         "description": (
             "Per-sample chimeric junctions by TE type, from STAR's chimeric "
-            "reads. Only gene-TE junctions on one chromosome get a type: a "
-            "trans event has no meaningful position relative to the gene."
-            + CROSS_SCREEN_NOTE
+            "reads. The assembly screen uses these <strong>same words for "
+            "a different measurement</strong> -- decided by transcript "
+            "structure there, not genomic position; neither is wrong, but "
+            "do not read agreement as corroboration (see Help)."
         ),
+        "helptext": CROSS_SCREEN_NOTE.replace("<br><br>", ""),
     }
     if any(v for row in data.values() for v in row.values()):
         doc.update({

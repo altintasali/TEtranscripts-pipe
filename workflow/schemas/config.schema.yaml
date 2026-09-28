@@ -285,6 +285,19 @@ properties:
               view only* -- they never remove events from all_events.tsv or the
               counts matrix.
             properties:
+              enabled:
+                type: boolean
+                description: >-
+                  Whether to render the PCA + sample-distance-heatmap sample-QC
+                  view for this screen in multiqc_report.html. Default false
+                  (as of 2026 -- these views were previously always rendered
+                  whenever outputs.write_counts_matrix was true, which also
+                  controlled results/chimera/chimeric_reads/counts_matrix.tsv.gz
+                  itself; the two are now independent, so turning sample-QC off
+                  does not stop the counts matrix file from being written).
+                  This same flag also gates chimera.assembly's sample-QC view
+                  (see chimera.assembly's own description -- it has no qc block
+                  of its own and borrows this one, same as before this change).
               min_samples_present:
                 type: integer
                 minimum: 1
@@ -297,7 +310,7 @@ properties:
               pca_transform:
                 type: string
                 enum: ["vst", "rlog", "log2"]
-            required: [min_samples_present, min_total_counts, min_events, pca_transform]
+            required: [enabled, min_samples_present, min_total_counts, min_events, pca_transform]
           outputs:
             type: object
             additionalProperties: false
@@ -334,7 +347,9 @@ properties:
           data) -- this suppresses non-canonical-junction reads from that
           one private BAM only; the main alignment used by everything else
           is untouched. Disabled by default: newer and less validated than
-          chimera.chimeric_reads.
+          chimera.chimeric_reads. This screen's sample-QC view (PCA +
+          sample-distance heatmap) has no qc block of its own -- it is
+          gated by chimera.chimeric_reads.qc.enabled, see that key.
         properties:
           enabled:
             type: boolean
@@ -436,6 +451,14 @@ properties:
               PCA/clustering view only* -- they never remove events from
               all_events.tsv or the counts matrix.
             properties:
+              enabled:
+                type: boolean
+                description: >-
+                  Whether to render the PCA + sample-distance-heatmap
+                  sample-QC view for this screen in multiqc_report.html.
+                  Default false (as of 2026 -- see
+                  chimera.chimeric_reads.qc.enabled's description for why:
+                  same change, applied identically to this screen).
               min_samples_present:
                 type: integer
                 minimum: 1
@@ -448,7 +471,7 @@ properties:
               pca_transform:
                 type: string
                 enum: ["vst", "rlog", "log2"]
-            required: [min_samples_present, min_total_counts, min_events, pca_transform]
+            required: [enabled, min_samples_present, min_total_counts, min_events, pca_transform]
           outputs:
             type: object
             additionalProperties: false
@@ -599,6 +622,17 @@ properties:
           false deletes it once quantification is done, saving disk at the
           cost of re-building on the next run. Never applies to a
           user-provided telocal.locind path.
+      report_resource_usage:
+        type: boolean
+        description: >-
+          Whether multiqc_report.html includes the "Resource Usage" section
+          (per-rule wall time / CPU / RAM table, benchmark_summary.py).
+          Default false -- one of the largest single sections, most useful
+          while sizing resources.yaml for a cluster, not on a routine read
+          of the report. Every rule's own Snakemake `benchmark:` file
+          (results/pipeline_info/benchmarks/) is written regardless of this
+          setting; it only controls whether they get aggregated into the
+          report.
 
 required:
   - samples

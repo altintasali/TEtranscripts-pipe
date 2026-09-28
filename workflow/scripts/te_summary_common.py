@@ -32,7 +32,8 @@ class Flavour:
     """Everything that differs between the TEcount and TElocal sections."""
 
     def __init__(self, tool, parent_id, unit_label, min_key_fields,
-                 assignment_desc, class_desc, assignment_title, class_title):
+                 assignment_desc, class_desc, assignment_title, class_title,
+                 assignment_help=""):
         self.tool = tool
         # parent_id must match sample_qc.R's view id for this tool -- a
         # mismatch silently splits the group into two report sections.
@@ -40,6 +41,7 @@ class Flavour:
         self.unit_label = unit_label          # bar series name, e.g. "TE loci"
         self.min_key_fields = min_key_fields  # colon-separated fields => a TE
         self.assignment_desc = assignment_desc
+        self.assignment_help = assignment_help
         self.class_desc = class_desc
         self.assignment_title = assignment_title
         self.class_title = class_title
@@ -130,6 +132,7 @@ def build_docs(flavour, assign, classes):
         "parent_name": flavour.tool,
         "section_name": "Gene vs. TE Assignment",
         "description": flavour.assignment_desc,
+        **({"helptext": flavour.assignment_help} if flavour.assignment_help else {}),
         "plot_type": "bar",
         "pconfig": {
             "id": f"{flavour.parent_id}_assignment_plot",

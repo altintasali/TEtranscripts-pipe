@@ -108,6 +108,8 @@ def _chimera_qc_mqc_inputs():
         return []
     if not config["chimera"]["chimeric_reads"]["outputs"]["write_counts_matrix"]:
         return []
+    if not config["chimera"]["chimeric_reads"]["qc"].get("enabled", False):
+        return []
     transform = config["chimera"]["chimeric_reads"]["qc"]["pca_transform"]
     return [
         f"results/chimera/qc/pca_{transform}_mqc.json",
@@ -150,6 +152,8 @@ def _chimera_splice_junctions_qc_mqc_inputs():
         return []
     if not config["chimera"]["splice_junctions"]["outputs"]["write_counts_matrix"]:
         return []
+    if not config["chimera"]["splice_junctions"]["qc"].get("enabled", False):
+        return []
     transform = config["chimera"]["splice_junctions"]["qc"]["pca_transform"]
     return [
         f"results/chimera/qc/splice_junctions_pca_{transform}_mqc.json",
@@ -184,13 +188,26 @@ def _tecount_summary_mqc_inputs():
 def _chimera_assembly_mqc_inputs():
     """MultiQC custom-content JSONs from the chimera-assembly screen (candidates
     by class + the "what to look at" highlights). Only when chimera.assembly
-    is enabled (off by default)."""
+    is enabled (off by default). The PCA/Clusters sample-QC pair is listed
+    here too, BUG FIXED 2026: they used to reach the report only because
+    rule all's own (separate) target list requested them and they happened
+    to land in a directory multiqc already scans via other inputs -- not a
+    real dependency edge on this rule, so nothing guaranteed they existed
+    before multiqc ran. Gated on chimera.chimeric_reads.qc.enabled since
+    this screen has no qc block of its own (see that key's schema
+    description)."""
     if not CHIMERA_ASSEMBLY_ENABLED:
         return []
-    return [
+    files = [
         "results/chimera/qc/chimera_assembly_classes_mqc.json",
         "results/chimera/qc/chimera_assembly_highlights_mqc.json",
     ]
+    if config["chimera"]["chimeric_reads"]["qc"].get("enabled", False):
+        files += [
+            "results/chimera/qc/assembly_pca_log2_mqc.json",
+            "results/chimera/qc/assembly_heatmap_log2_mqc.json",
+        ]
+    return files
 
 
 def _telocal_qc_mqc_inputs():
@@ -301,10 +318,20 @@ rule multiqc:
         expand("results/rseqc/{sample}.geneBodyCoverage.txt", sample=SAMPLES),
         all_fastqc_reports(),
         all_raw_fastqc_reports(),
-        "results/pipeline_info/benchmark_summary_mqc.json",
         "results/pipeline_info/config_used_mqc.json",
         "results/pipeline_info/evidence_overview_mqc.json",
         "results/versions/rnaseq_mqc_versions.yml",
+        # BUG FIXED 2026: the "Resource Usage" section is now gated behind
+        # outputs.report_resource_usage (default false -- see
+        # REPORT_RESOURCE_USAGE's comment in common/runtime.smk). Nothing
+        # else requests results/pipeline_info/benchmark_summary_mqc.json, so
+        # leaving it out of this rule's inputs when the flag is off means
+        # the benchmark_summary rule itself simply never runs -- the raw
+        # per-job benchmark .txt files (results/pipeline_info/benchmarks/)
+        # are unaffected either way, since every rule's own `benchmark:`
+        # directive writes those regardless of this flag.
+        **({"benchmark_summary": "results/pipeline_info/benchmark_summary_mqc.json"}
+           if REPORT_RESOURCE_USAGE else {}),
         chimera_qc=_chimera_qc_mqc_inputs(),
         chimera_chimeric_reads_qc=_chimera_chimeric_reads_qc_mqc_inputs(),
         chimera_splice_junctions_qc=_chimera_splice_junctions_qc_mqc_inputs(),

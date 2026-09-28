@@ -152,9 +152,11 @@ def main():
             "RSeQC's infer_experiment.py says the reads actually look like, "
             "and which value was used for quantification. "
             f"<br><br>{verdict}"
-            "<br><br><em>Why this matters:</em> strandedness never fails a "
-            "job, it just changes the answer. Counting the wrong strand "
-            "roughly halves gene counts and inverts the antisense signal, and "
+        ),
+        "helptext": (
+            "<em>Why this matters:</em> strandedness never fails a job, it "
+            "just changes the answer. Counting the wrong strand roughly "
+            "halves gene counts and inverts the antisense signal, and "
             "everything downstream — TE quantification, the chimera "
             "screens' strand-match tests, differential results — "
             "inherits that silently."

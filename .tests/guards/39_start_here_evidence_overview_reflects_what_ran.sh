@@ -43,6 +43,21 @@ for params, expected in cases:
         print("ERROR: custom_content needs a top-level data key"); ok = False
     if expected not in doc["data"]:
         print(f"ERROR: expected {expected!r} for {params}"); ok = False
+    # BUG FIXED 2026: used to point at "Chimera -> What to look at" (no
+    # longer exists -- see chimera_chimeric_reads_highlights_mqc.py's
+    # section_name) and call the candidates "ranked" (the pipeline never
+    # ranks, guard 50). Only check when at least one chimera screen ran,
+    # since the reading-order list only appears then.
+    if params["_chimera_chimeric_reads_enabled"] or params["_chimera_assembly_enabled"]:
+        if "What to look at" in doc["data"]:
+            print(f"ERROR: stale 'What to look at' section reference leaked back in for {params}")
+            ok = False
+        if "the ranked" in doc["data"]:
+            print(f"ERROR: 'the ranked ...' wording leaked back in (pipeline never ranks) for {params}")
+            ok = False
+        if "Candidates" not in doc["data"]:
+            print(f"ERROR: reading-order guide should point at the 'Candidates' section for {params}")
+            ok = False
 sys.exit(0 if ok else 1)
 PY
 if ! multiqc --force --no-ansi -c workflow/default-config/multiqc_config.yaml \

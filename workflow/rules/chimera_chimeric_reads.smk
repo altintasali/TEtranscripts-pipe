@@ -107,8 +107,11 @@ def all_chimera_outputs():
 
 def all_chimera_chimeric_reads_sample_qc_outputs():
     """Sample-QC artifacts for the `all` target (Snakefile). Only produced
-    when a counts matrix is written (it is the QC view's input)."""
-    if not WRITE_COUNTS:
+    when a counts matrix is written (it is the QC view's input) AND
+    chimera.chimeric_reads.qc.enabled is true (default false as of 2026 --
+    these were the most report-bloating sections; the matrix itself is
+    still written whenever WRITE_COUNTS is true, independent of this)."""
+    if not WRITE_COUNTS or not CHIMERA_CHIMERIC_READS_QC.get("enabled", False):
         return []
     transform = CHIMERA_CHIMERIC_READS_QC["pca_transform"]
     return [

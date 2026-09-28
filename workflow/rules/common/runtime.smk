@@ -299,6 +299,18 @@ KEEP_TELOCAL_INDEX = bool(
     config.get("outputs", {}).get("keep_telocal_index", True)
 )
 
+# Whether the "Resource Usage" section (per-rule wall time / CPU / RAM table,
+# benchmark_summary.py) renders in multiqc_report.html. Default false (as of
+# 2026 -- it was one of the biggest single sections and most useful while
+# sizing resources.yaml for a cluster, not on every routine read of the
+# report). results/pipeline_info/benchmark_summary_mqc.json is still always
+# written (cheap -- it only aggregates the benchmark .txt files Snakemake
+# already writes per job) so it stays available to open by hand or feed into
+# another report; this flag only controls whether MultiQC's report includes it.
+REPORT_RESOURCE_USAGE = bool(
+    config.get("outputs", {}).get("report_resource_usage", False)
+)
+
 
 def _maybe_temp(path, keep):
     """A rule output path, wrapped in temp() unless the user opted to keep

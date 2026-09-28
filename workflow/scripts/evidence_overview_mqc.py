@@ -130,15 +130,20 @@ def main():
              "<li>Read expression: <em>TEcount</em> for which subfamilies "
              "move" + (", then <em>TElocal</em> for which copy is "
                        "responsible" if telocal else "") + ".</li>"]
-    if chimeric_reads:
+    # BUG FIXED 2026: this used to point at "Chimera -> What to look at" /
+    # "Chimera (assembly) -> What to look at", two sections that no longer
+    # exist (the report's per-screen sections are now "Reads - what this
+    # screen sees" / "Assembly - what this screen sees", describing each
+    # screen's blind spots, not a candidate list -- see guard 38) and called
+    # the result "ranked", which the pipeline never does (guard 50). The
+    # actual unified, cross-screen, sortable-not-ranked candidate table is
+    # the "Candidates" section (chimera_candidates_table_mqc.py); one bullet
+    # covers both screens since they share that one table.
+    if chimeric_reads or assembly:
         steps.append(
-            "<li>Open <em>Chimera &rarr; What to look at</em> for the ranked "
-            "gene-TE junctions, not the raw catalog.</li>"
-        )
-    if assembly:
-        steps.append(
-            "<li>Open <em>Chimera (assembly) &rarr; What to look at</em>; "
-            "prefer candidates marked as junction-confirmed.</li>"
+            "<li>Open <em>Candidates</em> for the unified gene-TE junction "
+            "table (sortable by evidence count, not ranked) instead of the "
+            "raw per-screen catalogs.</li>"
         )
     steps.append(
         "<li>The pipeline does not run differential-expression analysis "

@@ -44,10 +44,15 @@ def all_chimera_assembly_outputs():
         "results/chimera/qc/chimera_assembly_classes_mqc.json",
         "results/chimera/qc/chimera_assembly_highlights_mqc.json",
         "results/chimera/qc/chimera_assembly_strand_rate_mqc.json",
-        # the PCA/Clusters view, matching the read screen's
-        "results/chimera/qc/assembly_pca_log2_mqc.json",
-        "results/chimera/qc/assembly_heatmap_log2_mqc.json",
     ]
+    # PCA/Clusters view, matching the read screen's shape -- this screen has
+    # no qc block of its own, so it borrows chimera.chimeric_reads.qc.enabled
+    # (default false as of 2026; see that key's schema description).
+    if CHIMERA_CHIMERIC_READS_QC.get("enabled", False):
+        files += [
+            "results/chimera/qc/assembly_pca_log2_mqc.json",
+            "results/chimera/qc/assembly_heatmap_log2_mqc.json",
+        ]
     if CHIMERA_CHIMERIC_READS_ENABLED:
         files.append("results/chimera/assembly/transcripts_with_read_support.tsv.gz")
     if WRITE_GENE_TE_CHIMERA_COUNTS:

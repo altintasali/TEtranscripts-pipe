@@ -74,18 +74,20 @@ def main():
         "available for the TE side.</li>"
     )
 
-    body = f"""
+    # BUG FIXED 2026 (Task 3, report-bloat trim): the full qualifying-counts
+    # list moved to helptext (collapsed by default); "data" keeps only the
+    # blind-spot summary guard 38 requires to stay always-visible.
+    body = """
 <p><strong>What this screen sees.</strong> STAR's chimeric junctions: reads
-that cannot be explained by one linear alignment. It is annotation-blind by
-construction, so it catches breakpoints no assembler would predict.</p>
+that cannot be explained by one linear alignment.</p>
 
 <p><strong>What it cannot see.</strong> A gene-TE chimera spliced through an
-ordinary, canonical intron &mdash; that read aligns linearly, so it never
-reaches this screen at all. That gap is exactly what the transcript-evidence
-(assembly) screen covers, which is why the two are kept separate rather than
-merged.</p>
+ordinary, canonical intron never reaches this screen -- that is the
+transcript-evidence (assembly) screen's job instead. See Help for the counts
+that qualify this screen's own output.</p>
+"""
 
-<p><strong>Qualifying this screen's output:</strong></p>
+    help_body = f"""
 <ul>
 <li><strong>{n_canonical} of {n_total}</strong> gene-TE junctions
 ({pct:.1f}%) carry a recognised splice motif (<code>canonical: yes</code>).
@@ -122,6 +124,7 @@ the assembly screen's into the <strong>Candidates</strong> table above.</p>
             "The read-evidence screen's blind spot, and the counts that "
             "qualify its output."
         ),
+        "helptext": help_body,
         "plot_type": "html",
         "data": body,
     }

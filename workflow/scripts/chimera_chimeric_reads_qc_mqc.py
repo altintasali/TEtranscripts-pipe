@@ -173,23 +173,22 @@ def main():
         "section_name": "Reads - junction classes",
         "description": (
             "Per-sample composition of annotated chimeric junctions by "
-            "class, as counts and % of total junctions. "
-            "<br><br><em>What the class names mean:</em> a chimeric junction "
+            "class (counts / % of total). Only gene_to_te/te_to_gene are "
+            "gene-TE chimeras; nothing here is filtered -- see the "
+            "canonical-rate plot below before treating any class as real."
+        ),
+        "helptext": (
+            "<em>What the class names mean:</em> a chimeric junction "
             "joins two breakpoints, and the name reads "
             "<code>donor_to_acceptor</code> &mdash; what the read comes FROM, "
             "then what it goes TO. So <code>gene_to_te</code> is a transcript "
             "starting in a gene and continuing into a TE, and "
             "<code>te_to_gene</code> is the reverse; they are different "
-            "biology, not two labels for the same event. "
-            "<br><br><em>How to read this:</em> a junction is classified by "
-            "what its two breakpoints overlap. Only <code>gene_to_te</code> "
-            "and <code>te_to_gene</code> are gene\u2013TE chimeras. The other "
+            "biology, not two labels for the same event. The non-gene-TE "
             "classes are not merely leftovers - STAR calls a junction "
             "chimeric on alignment geometry alone, without reading any "
             "annotation, so they also collect circRNA back-splices, "
-            "read-through transcripts and PCR/ligation chimeras. Nothing is "
-            "filtered here; see the canonical-rate plot below before "
-            "treating any class as real."
+            "read-through transcripts and PCR/ligation chimeras."
         ),
         "plot_type": "bar",
         "pconfig": {
@@ -239,30 +238,32 @@ def main():
             "parent_name": "Chimera",
             "section_name": "Reads - splice-motif rate by junction class",
             "description": (
-                "Share of each direction's junctions for which STAR reported a "
-                "recognised splice motif (GT/AG, GC/AG, AT/AC and reverse "
-                "complements). "
-                "<br><br><em>Why this matters:</em> genuine spliced introns are "
-                "very nearly 100% canonical, so a junction with no motif is "
-                "most likely template switching, a ligation/PCR chimera or a "
-                "mismapping - not a transcript. Chimeric junctions are "
-                "overwhelmingly motif-less in practice, so <strong>read this "
-                "as enrichment, not as an absolute</strong>. "
-                "<br><br><strong>Compare within a donor group, not against "
-                "<code>other</code>.</strong> The donor side alone shifts the "
-                "rate a lot - on real data every <code>gene_to_*</code> "
-                "class sits near 8-10% while every <code>te_to_*</code> class "
-                "sits at 3-7% - so measuring <code>gene_to_te</code> "
-                "against <code>other</code> credits it for the donor being a "
-                "gene at all. The honest comparisons are "
-                "<code>gene_to_te</code> vs <code>gene_to_gene</code> / "
-                "<code>gene_to_other</code>, and <code>te_to_gene</code> vs "
-                "<code>te_to_te</code> / <code>te_to_other</code>. Both "
-                "gene\u2013TE directions beating their own donor group is "
-                "the evidence the classification captures something real; "
-                "the margin is modest (well under 2x), not several-fold. "
-                "The canonical subset of the gene\u2013TE classes is the "
-                "sensible working set."
+                "Share of each direction's junctions with a recognised "
+                "splice motif -- genuine introns are nearly 100% canonical, "
+                "so a low rate signals artifacts, not transcripts. Compare "
+                "gene_to_te/te_to_gene against their OWN donor group below, "
+                "not against <code>other</code> (see Help)."
+            ),
+            "helptext": (
+                "STAR-reported splice motifs are GT/AG, GC/AG, AT/AC and "
+                "reverse complements. Chimeric junctions are overwhelmingly "
+                "motif-less in practice, so read this as enrichment, not an "
+                "absolute. <strong>Compare within a donor group, not "
+                "against <code>other</code>.</strong> The donor side alone "
+                "shifts the rate a lot - on real data every "
+                "<code>gene_to_*</code> class sits near 8-10% while every "
+                "<code>te_to_*</code> class sits at 3-7% - so measuring "
+                "<code>gene_to_te</code> against <code>other</code> credits "
+                "it for the donor being a gene at all. The honest "
+                "comparisons are <code>gene_to_te</code> vs "
+                "<code>gene_to_gene</code> / <code>gene_to_other</code>, and "
+                "<code>te_to_gene</code> vs <code>te_to_te</code> / "
+                "<code>te_to_other</code>. Both gene\u2013TE directions "
+                "beating their own donor group is the evidence the "
+                "classification captures something real; the margin is "
+                "modest (well under 2x), not several-fold. The canonical "
+                "subset of the gene\u2013TE classes is the sensible working "
+                "set."
             ),
             "plot_type": "bar",
             "pconfig": {
@@ -365,21 +366,22 @@ def main():
             "parent_name": "Chimera",
             "section_name": "Reads - splice-motif enrichment",
             "description": (
-                "Fisher's exact test (two-sided) of each gene-TE direction's "
-                "splice-motif rate against its <em>own donor group</em>, the "
-                "comparison the plot above prescribes. Each row is one 2x2 of "
-                "canonical vs motif-less junctions in the class against the "
-                "same in the comparator."
-                "<br><br><em>How to read it:</em> the <strong>pooled</strong> "
-                "row has the power; the per-sample rows show whether the "
-                "effect reproduces, which one deep library cannot fake. "
-                "<code>q (BH)</code> corrects across every test in this table "
-                f"({len(entries)}). An odds ratio above 1 means the gene-TE "
-                "class carries the motif more often than its donor group."
-                "<br><br>This tests <em>enrichment only</em>. A motif-less "
-                "junction can still be real and a canonical one can still be "
-                "an artifact, so a small q is not a verdict on any individual "
-                "candidate."
+                "Fisher's exact test of each gene-TE direction's "
+                "splice-motif rate against its own donor group (the "
+                "comparison the plot above prescribes). Enrichment only -- "
+                "a small q is not a verdict on any individual candidate."
+            ),
+            "helptext": (
+                "Each row is one 2x2 of canonical vs motif-less junctions in "
+                "the class against the same in the comparator. The "
+                "<strong>pooled</strong> row has the power; the per-sample "
+                "rows show whether the effect reproduces, which one deep "
+                "library cannot fake. <code>q (BH)</code> corrects across "
+                f"every test in this table ({len(entries)}). An odds ratio "
+                "above 1 means the gene-TE class carries the motif more "
+                "often than its donor group. A motif-less junction can "
+                "still be real and a canonical one can still be an "
+                "artifact."
             ),
             "plot_type": "table",
             "pconfig": {
@@ -446,14 +448,10 @@ def main():
             "section_name": "Reads - gene-TE subset",
             "description": (
                 "Per-sample gene\u2194TE chimeric junctions (direction "
-                "gene_to_te / te_to_gene), as counts and % of total junctions. "
-                "<br><br><em>How to read this:</em> these are candidate "
-                "gene\u2013TE chimeras, annotated but <strong>not</strong> "
-                "filtered - no read-count, replicate or splice-motif "
-                "cutoff has been applied. Apply your own before treating a "
-                "call as confident, and check the canonical-rate plot: in "
-                "practice only a minority of chimeric junctions carry a "
-                "splice motif at all."
+                "gene_to_te / te_to_gene). Candidates only -- "
+                "<strong>not</strong> filtered by read count, replicate or "
+                "splice motif; see the canonical-rate plot before treating "
+                "a call as confident."
             ),
             "plot_type": "bar",
             "pconfig": {

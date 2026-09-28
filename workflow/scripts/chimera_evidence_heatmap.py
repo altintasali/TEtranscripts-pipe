@@ -127,7 +127,7 @@ def load(path):
 
 
 def heatmap_doc(doc_id, section, description, xcats, ycats, data, title,
-                ylab="Evidence type"):
+                ylab="Evidence type", helptext=""):
     return {
         "id": doc_id,
         # Its own group, NOT the read-evidence screen's. These heatmaps read
@@ -139,6 +139,7 @@ def heatmap_doc(doc_id, section, description, xcats, ycats, data, title,
         "parent_name": "Chimera",
         "section_name": section,
         "description": description,
+        **({"helptext": helptext} if helptext else {}),
         "plot_type": "heatmap",
         "pconfig": {
             "id": f"{doc_id}_plot",
@@ -195,28 +196,31 @@ def main():
               for i in range(len(cols))]
 
     corr_desc = (
-        f"Spearman correlation between the evidence columns of "
-        f"candidates.tsv.gz, across the {len(jrows):,} gene-TE pair(s) the "
-        "junction screen found (assembly-only pairs are excluded: their "
-        "junction fields are all zero, which would manufacture correlation "
-        "from shared absence). "
-        "<br><br><em>How to read it:</em> two dimensions that correlate "
-        "strongly are telling you the same thing, so treating them as "
-        "separate support double-counts. A dimension that correlates with "
-        "nothing else is either noise or the only independent information in "
-        "the table. A <strong>negative</strong> correlation with "
-        "<em>Splice motif</em> is the one to take seriously: the motif is "
-        "the best artifact discriminator here, so anything anti-correlated "
-        "with it is selecting against real splicing, not for it."
-        "<br><br><em>Note:</em> both axes are <strong>evidence types</strong>, "
-        "not samples. MultiQC labels every heatmap row a \"sample\" in its own "
-        "toolbox; here each row and column is one of the "
-        f"{len(DIMENSIONS)} evidence columns."
+        f"Spearman correlation between the {len(DIMENSIONS)} evidence types "
+        f"of candidates.tsv.gz, across the {len(jrows):,} gene-TE pair(s) "
+        "the junction screen found. Two dimensions that correlate strongly "
+        "are telling you the same thing; a negative correlation with "
+        "<em>Splice motif</em> is the one to take seriously (see Help)."
+    )
+    corr_help = (
+        "Assembly-only pairs are excluded: their junction fields are all "
+        "zero, which would manufacture correlation from shared absence. "
+        "<em>How to read it:</em> two dimensions that correlate strongly "
+        "are telling you the same thing, so treating them as separate "
+        "support double-counts. A dimension that correlates with nothing "
+        "else is either noise or the only independent information in the "
+        "table. A <strong>negative</strong> correlation with <em>Splice "
+        "motif</em> is the one to take seriously: the motif is the best "
+        "artifact discriminator here, so anything anti-correlated with it "
+        "is selecting against real splicing, not for it. Both axes are "
+        "evidence types, not samples -- MultiQC labels every heatmap row a "
+        "\"sample\" in its own toolbox."
     )
     corr = heatmap_doc(
         "chimera_evidence_correlation", "Evidence structure - correlation",
         corr_desc,
         labels, labels, matrix, "Spearman correlation between evidence types",
+        helptext=corr_help,
     )
 
     # --- candidates -----------------------------------------------------
@@ -244,16 +248,18 @@ def main():
 
     cand_desc = (
         f"The union of the top {args.top_n} pair(s) on <em>each</em> evidence "
-        "dimension, so a row is here because it leads on at least one axis. "
-        "Cells are within-cohort percentiles, not raw values, so columns "
-        "measured on different scales are comparable. "
-        "<br><br><em>How to read it:</em> a row that is bright across many "
-        "columns has broad support. A row bright in one column and dark in "
-        "the rest leads on that axis alone -- which is most of them, on real "
-        "data. If the picture is mostly diagonal, the dimensions disagree "
-        "about what the best candidates are, so no single column of the "
-        "Candidates table above should carry the decision on its own. That is "
-        "a finding about this cohort, not a failure of the plot."
+        "dimension (cells are within-cohort percentiles). A row bright in "
+        "one column and dark in the rest leads on that axis alone -- see "
+        "Help before reading it as broad support."
+    )
+    cand_help = (
+        "A row bright across many columns has broad support. A row bright "
+        "in one column and dark in the rest leads on that axis alone -- "
+        "which is most of them, on real data. If the picture is mostly "
+        "diagonal, the dimensions disagree about what the best candidates "
+        "are, so no single column of the Candidates table above should "
+        "carry the decision on its own. That is a finding about this "
+        "cohort, not a failure of the plot."
     )
     cand = heatmap_doc(
         "chimera_evidence_candidates",
@@ -261,6 +267,7 @@ def main():
         [label(i) for i in picked],
         [[pct[d][i] for d in range(len(DIMENSIONS))] for i in picked],
         "Evidence percentile per candidate",
+        helptext=cand_help,
         ylab="Gene / TE pair",
     )
 

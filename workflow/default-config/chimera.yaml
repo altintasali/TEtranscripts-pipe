@@ -39,6 +39,14 @@ chimera:
     breakpoint_tolerance: 0
     require_canonical: false
     qc:
+      # Sample-QC (PCA + sample-distance heatmap) OFF by default -- these
+      # were the most report-bloating sections and most useful once a run
+      # already looks right, not on first read. Also gates chimera.assembly's
+      # sample-QC view (it borrows this block -- see its own comment above).
+      # write_counts_matrix (outputs, below) is untouched -- the matrix
+      # itself is always written when write_counts_matrix is true; this only
+      # controls whether it also gets turned into report plots.
+      enabled: false
       min_samples_present: 2
       min_total_counts: 5
       min_events: 10
@@ -77,6 +85,9 @@ chimera:
     # without adding a usable strand signal.
     require_canonical: true
     qc:
+      # Sample-QC OFF by default -- same reasoning as chimera.chimeric_reads.qc
+      # above.
+      enabled: false
       min_samples_present: 2
       min_total_counts: 5
       min_events: 10

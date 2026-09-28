@@ -37,7 +37,12 @@ g = json.load(open(f"{d}/chimera_evidence_guide_mqc.json"))
 check("data" in g, "custom_content needs a top-level data key")
 check(g.get("parent_id") == "chimera",
       f"parent_id must be chimera, got {g.get('parent_id')!r}")
-b = g["data"]
+# BUG FIXED 2026 (Task 3, report-bloat trim): the guide's detailed
+# signal-by-signal table moved from "data" (always visible) into
+# "helptext" (collapsed behind a Help button) -- the whole content is still
+# there, just not always-rendered, so these checks now read both fields
+# together rather than "data" alone.
+b = g["data"] + g.get("helptext", "")
 # The "we don't rank" statement now lives ONCE, in the Candidates section --
 # it used to be repeated across five sections, which read as nagging next to
 # sortable content. The guide's job is explaining what each signal is worth.
