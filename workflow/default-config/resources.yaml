@@ -389,25 +389,50 @@ resources:
   chimera_splice_junctions_counts:
     # Merging per-sample junction tables; single-threaded python (2nd
     # thread reserved as scheduler headroom), same shape as
-    # chimera_chimeric_reads_counts. Base 2 GB + 75 MB per sample (SJ.out.tab-derived
-    # tables are smaller than the chimeric-read screen's).
+    # chimera_chimeric_reads_counts. This rule builds the FULL all_events
+    # catalog (every direction class, not just gene<->TE) in memory even
+    # though the matrix it also writes is now TE-restricted (see
+    # chimera_splice_junctions_counts.py's docstring) -- so its budget is
+    # sized off the unrestricted catalog. Measured 2026 under
+    # /usr/bin/time -v: 12 real mouse samples (full genome annotation,
+    # ~324k unique junctions) peaked at 963 MB; a synthetic cohort built to
+    # match this screen's own worst-case estimate (~1M unique junctions
+    # across 80 samples) peaked at 3.5 GB / 11m46s. 2 GB + 100 MB/sample
+    # gives 10 GB at 80 samples, ~2.9x that measured worst case.
     threads: 2
     mem_mb: 2000
-    mem_per_sample: 75
-    runtime: 30
+    mem_per_sample: 100
+    runtime: 45
 
   chimera_splice_junctions_qc_transform:
     # DESeq2 vst/rlog on the SJ-junction counts matrix; R is single-threaded.
+    # Since chimera_splice_junctions_counts.py restricts counts_matrix to
+    # gene<->TE events (measured 2026: ~13x fewer rows than the old
+    # unrestricted matrix -- 23,910 vs 323,919 unique events at 12 real
+    # samples), this budget only needs to cover the TE-restricted matrix,
+    # not the full catalog. Measured under /usr/bin/time -v: real data (12
+    # samples, 6,399 features after the existing min_samples_present/
+    # min_total_counts floor) ran a genuine vst() at 710 MB / 11s; a
+    # synthetic worst-case cohort (80 samples, ~200k TE-restricted features)
+    # peaked at 1.18 GB / 39s (vst() itself failed on that synthetic
+    # scatter -- "every gene contains at least one zero" -- and fell back to
+    # log2, which is the code's existing behaviour for sparse matrices, not
+    # a new failure mode). 1.2 GB + 35 MB/sample gives 4 GB at 80 samples,
+    # ~3.4x that measured worst case.
     threads: 1
-    mem_mb: 4000
-    mem_per_sample: 300
+    mem_mb: 1200
+    mem_per_sample: 35
     runtime: 60
 
   chimera_splice_junctions_qc:
-    # PCA + sample-distance heatmap in R; single-threaded.
+    # PCA + sample-distance heatmap in R; single-threaded. Reads the same
+    # TE-restricted transformed matrix as the transform step above. Measured
+    # under /usr/bin/time -v on the synthetic worst-case cohort (80 samples,
+    # ~200k TE-restricted features): 1.73 GB / 1m12s. 1.5 GB + 30 MB/sample
+    # gives 3.9 GB at 80 samples, ~2.3x that measured worst case.
     threads: 1
-    mem_mb: 2000
-    mem_per_sample: 100
+    mem_mb: 1500
+    mem_per_sample: 30
     runtime: 30
 
   chimera_telocal_index:
