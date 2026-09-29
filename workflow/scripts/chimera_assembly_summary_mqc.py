@@ -112,8 +112,8 @@ def main():
             "description": (
                 "StringTie-assembly chimera candidates by chimera_type. "
                 "The read screen uses these <strong>same words for a "
-                "different measurement</strong> -- decided by genomic "
-                "position there, not transcript structure; neither is "
+                "different measurement</strong> -- decided by junction "
+                "direction there, not transcript structure; neither is "
                 "wrong, but do not read agreement as corroboration (see "
                 "Help). " + data_labels_note
             ),
@@ -122,10 +122,12 @@ def main():
                 "&mdash; whether the TE hits the first, last or an "
                 "internal exon of the assembled transcript. In "
                 "<strong>Chimeric reads - TE type</strong> it is decided by "
-                "<em>genomic position</em>, where the TE sits relative to "
-                "the gene body. A TE in a gene\'s intron that becomes the "
-                "transcript\'s first exon is <code>te_initiated</code> "
-                "here and <code>te_exonized</code> there. "
+                "the junction's <em>direction</em> plus the gene's own "
+                "annotated exon structure. A TE in a gene\'s intron that "
+                "becomes the transcript\'s first exon is "
+                "<code>te_initiated</code> here, and <code>te_initiated</code> "
+                "there only if a chimeric read was actually observed "
+                "splicing into it -- otherwise <code>te_exonized</code>. "
                 "<code>te_initiated_intergenic</code> and "
                 "<code>unspliced_te_only</code> have no read-screen "
                 "equivalent at all."

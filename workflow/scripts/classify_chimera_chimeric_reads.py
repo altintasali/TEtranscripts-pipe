@@ -25,8 +25,8 @@ Output columns (results/chimera/chimeric_reads/per_sample/{sample}_junctions.tsv
     acceptor_chrom, acceptor_breakpoint, acceptor_strand, junction_type,
     canonical, repeat_flag, reads, donor_hits, acceptor_hits, direction,
     direction_ambiguous, gene_id, gene_strand, te_id, te_subfamily,
-    te_family, te_class, chimera_type, antisense_flag, library_strand,
-    transcript_strand, gene_strand_match
+    te_family, te_class, chimera_type, te_initiated_detail, antisense_flag,
+    library_strand, transcript_strand, gene_strand_match
 
 When --te-out is given, the gene<->TE events (direction gene_to_te /
 te_to_gene) are additionally written to that path with the same columns,
@@ -52,11 +52,57 @@ The reported direction (and the chimera_type derived from it) is then one
 defensible reading, not the only one; donor_hits/acceptor_hits carry the
 full gene+TE sets for those rows.
 
-chimera_type (only for gene<->TE events where donor and acceptor are on the
-same chromosome): te_initiated (TE upstream of the gene's TSS on the gene
-strand), te_terminated (TE downstream of the gene), te_exonized (TE within the
-gene body). For trans events (donor and acceptor on different chromosomes),
-chimera_type is ".".
+chimera_type (gene<->TE events only): BUG FIXED 2026 -- this used to be
+decided from where the TE's span sits relative to the GENE's overall
+genomic span (TE entirely upstream of the gene -> te_initiated; entirely
+downstream -> te_terminated; anywhere else, including squarely inside an
+intron -> te_exonized). That is wrong whenever the TE's genomic position
+doesn't match the junction's own DIRECTION: a gene_to_te junction into a
+TE that happens to sit upstream of the gene's span was scored
+te_initiated even though the read shows the gene transcribing INTO the
+TE, not the TE initiating anything; a te_to_gene junction from a TE
+sitting inside an intron, acting as an alternative promoter that splices
+directly into a downstream exon, was scored te_exonized just because the
+TE's coordinates fall within the gene's genomic span, even though the
+read IS a TE-initiated transcript. This is exactly the bug already fixed
+in classify_chimera_splice_junctions.py; see that module's own docstring
+for the full reasoning -- both fixes moved to a shared implementation
+(chimera_exon_context.py) so the two screens can't drift apart again.
+
+Fixed: chimera_type is now decided from the junction's DIRECTION plus the
+gene's own EXON STRUCTURE (from exons.bed, already loaded for donor/
+acceptor overlap), matching classify_chimera_assembly.py's vocabulary
+exactly (te_initiated / te_terminated / te_exonized -- names unchanged, so
+existing consumers of this column keep working), for events where donor
+and acceptor are on the SAME chromosome:
+  te_to_gene (donor in TE, acceptor in a gene exon) -> te_initiated. The TE
+    is transcript-upstream of the exon it splices into, whatever its
+    genomic coordinate relative to the gene's overall span.
+  gene_to_te (donor in a gene exon, acceptor in TE) -> te_terminated if no
+    OTHER annotated exon of the same gene lies transcript-downstream of the
+    donor exon (nothing known follows -- the TE plausibly ends the
+    transcript); te_exonized if one does (the TE sits inside a region the
+    annotation says the gene's transcript continues past -- an internal
+    exon, not a true terminus).
+For trans events (donor and acceptor on different chromosomes), chimera_type
+stays "." -- te_initiated/terminated/exonized would require comparing
+coordinates across two different chromosomes.
+
+Rows with direction_ambiguous = "yes" are typed the same way as any other
+gene<->TE event above -- direction_ambiguous only flags that the reported
+direction was one defensible reading among several (see above), it does not
+change how chimera_type is derived from whatever direction was recorded.
+
+te_initiated_detail (te_to_gene events only, "." otherwise): a finer split
+that classify_chimera_assembly.py's own te_initiated does NOT distinguish
+(so it is reported as its own column, not folded into chimera_type):
+  upstream  the acceptor exon is the gene's own most-5' annotated exon (per
+            exons.bed) -- the TE splices directly into where the gene
+            already starts.
+  internal  the gene has an annotated exon further upstream that this
+            junction's transcript skips -- the TE is acting as an
+            alternative, INTERNAL promoter (e.g. an intronic MT2/MERVL
+            case in mouse oocytes/early embryos).
 
 antisense_flag: "yes" when an annotated gene overlaps the TE insertion on the
 opposite strand of the assigned gene -- the embedded-TE / sense-antisense
@@ -75,6 +121,11 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from gz_io import open_write
+from chimera_exon_context import (
+    build_gene_exon_positions,
+    exon_downstream_of,
+    exon_upstream_of,
+)
 
 
 def load_bed(path, n_extra=0):
@@ -171,6 +222,14 @@ def main():
     genes = load_bed(args.genes)
     exons = load_bed(args.exons)
     te = load_bed(args.te, n_extra=3)
+
+    # Per-gene exon positions, keyed by gene_id -- used below to decide
+    # chimera_type from the gene's own exon structure instead of the TE's
+    # raw position relative to the gene's overall span. Shared with
+    # classify_chimera_splice_junctions.py via chimera_exon_context.py so
+    # the two screens' typing logic can't drift apart -- see the module
+    # docstring for why the old span-containment test was wrong.
+    gene_exon_positions = build_gene_exon_positions(exons)
 
     tol = max(args.breakpoint_tolerance, 0)
     lib = args.library_strandedness
@@ -355,30 +414,44 @@ def main():
             te_span = (ts, tee)
 
         chimera_type = "."
+        te_initiated_detail = "."
         antisense = "."
         same_chrom = donor_chrom == acceptor_chrom
-        if direction in ("gene_to_te", "te_to_gene") and gene_span and te_span:
-            if same_chrom:
-                gs, ge, gst = gene_span[0], gene_span[1], gene_strand
-                ts, te = te_span[0], te_span[1]
-                if gst == "+":
-                    if te < gs:
-                        chimera_type = "te_initiated"
-                    elif ts > ge:
-                        chimera_type = "te_terminated"
-                    else:
-                        chimera_type = "te_exonized"
-                elif gst == "-":
-                    if ts > ge:
-                        chimera_type = "te_initiated"
-                    elif te < gs:
-                        chimera_type = "te_terminated"
-                    else:
-                        chimera_type = "te_exonized"
-            # else: trans event (different chromosomes) -- chimera_type
-            # stays "." since te_initiated/terminated/exonized would require
-            # comparing coordinates across two different chromosomes.
+        # Trans events (different chromosomes) leave chimera_type as "." --
+        # te_initiated/terminated/exonized would require comparing
+        # coordinates across two different chromosomes.
+        if direction in ("gene_to_te", "te_to_gene") and gene_span and te_span and same_chrom:
+            gst = gene_strand
 
+            if direction == "te_to_gene":
+                # Donor in TE, acceptor in a gene exon: the TE is
+                # transcript-upstream of the exon it splices into, whatever
+                # its genomic coordinate relative to the gene's overall
+                # span -- see the module docstring for why span-containment
+                # was wrong here.
+                chimera_type = "te_initiated"
+                a0, a1 = acceptor_locus(acceptor_bp, acceptor_strand)
+                accept_pos = (a0 + a1) // 2
+                te_initiated_detail = (
+                    "internal"
+                    if exon_upstream_of(gene_exon_positions, gene_id, accept_pos, gst)
+                    else "upstream"
+                )
+            else:  # gene_to_te
+                # Donor in a gene exon, acceptor in TE: terminated only if
+                # no OTHER annotated exon of this gene lies further
+                # downstream than the donor exon (nothing known follows the
+                # TE); exonized if one does (the annotation says the gene's
+                # transcript continues past this point).
+                d0, d1 = donor_locus(donor_bp, donor_strand)
+                donor_pos = (d0 + d1) // 2
+                chimera_type = (
+                    "te_exonized"
+                    if exon_downstream_of(gene_exon_positions, gene_id, donor_pos, gst)
+                    else "te_terminated"
+                )
+
+        if direction in ("gene_to_te", "te_to_gene") and gene_span and te_span:
             # antisense: annotated gene overlapping the TE insertion on the
             # strand opposite the assigned gene.  TE is on the acceptor side
             # for gene_to_te, donor side for te_to_gene -- te_chrom is
@@ -419,7 +492,8 @@ def main():
                 gene_id if gene_id is not None else ".",
                 gene_strand,
                 te_id if te_id is not None else ".",
-                te_subfamily, te_family, te_class, chimera_type, antisense,
+                te_subfamily, te_family, te_class, chimera_type,
+                te_initiated_detail, antisense,
                 lib, transcript_strand, match,
             ]
         )
@@ -432,7 +506,8 @@ def main():
         "direction_ambiguous",
         "gene_id", "gene_strand", "te_id", "te_subfamily", "te_family",
         "te_class",
-        "chimera_type", "antisense_flag", "library_strand", "transcript_strand",
+        "chimera_type", "te_initiated_detail", "antisense_flag",
+        "library_strand", "transcript_strand",
         "gene_strand_match",
     ]
     os.makedirs(os.path.dirname(args.out), exist_ok=True)

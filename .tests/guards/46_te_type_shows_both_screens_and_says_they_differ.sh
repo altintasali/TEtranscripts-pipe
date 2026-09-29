@@ -66,7 +66,7 @@ check(reads["data"]["s1"]["te_initiated"] == 10,
 # THE POINT: each section must say the other screen means something else by
 # the same words, or a reader reads agreement as corroboration
 for doc, name, other in ((reads, "Chimeric reads", "transcript structure"),
-                         (asm, "Assembly", "genomic position")):
+                         (asm, "Assembly", "junction direction")):
     desc = doc["description"]
     check("same words for a different measurement" in desc,
           f"{name} section must warn the labels are not comparable")

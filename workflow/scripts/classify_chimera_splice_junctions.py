@@ -138,6 +138,11 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from gz_io import open_write
+from chimera_exon_context import (
+    build_gene_exon_positions,
+    exon_downstream_of,
+    exon_upstream_of,
+)
 
 
 def load_bed(path, n_extra=0):
@@ -221,39 +226,19 @@ def main():
     exons = load_bed(args.exons)
     te = load_bed(args.te, n_extra=3)
 
-    # Per-gene exon positions, keyed by gene_id (exons.bed is gene_id-keyed,
-    # see annotation_to_bed.py -- a flattened union of every transcript's
-    # exons under that gene, same granularity the rest of this script
-    # already treats gene identity at). Used below to decide chimera_type
-    # from the gene's own exon structure instead of the TE's raw position
-    # relative to the gene's overall span -- see the module docstring for
-    # why the old span-containment test was wrong.
-    gene_exon_positions = {}
-    for _chrom, (feats, _max_end) in exons.items():
-        for s, e, ex in feats:
-            gene_exon_positions.setdefault(ex[0], []).append((s, e))
+    # Per-gene exon positions, keyed by gene_id. Used below to decide
+    # chimera_type from the gene's own exon structure instead of the TE's
+    # raw position relative to the gene's overall span -- see the module
+    # docstring for why the old span-containment test was wrong. Shared
+    # with classify_chimera_chimeric_reads.py via chimera_exon_context.py
+    # so the two screens' typing logic can't drift apart.
+    gene_exon_positions = build_gene_exon_positions(exons)
 
     def _exon_upstream_of(gene_id, pos, gene_strand):
-        """True if gene_id has an annotated exon entirely transcript-upstream
-        (5') of genomic position pos, strand-aware."""
-        for s, e in gene_exon_positions.get(gene_id, []):
-            if gene_strand == "-":
-                if s > pos:
-                    return True
-            elif e < pos:
-                return True
-        return False
+        return exon_upstream_of(gene_exon_positions, gene_id, pos, gene_strand)
 
     def _exon_downstream_of(gene_id, pos, gene_strand):
-        """True if gene_id has an annotated exon entirely transcript-
-        downstream (3') of genomic position pos, strand-aware."""
-        for s, e in gene_exon_positions.get(gene_id, []):
-            if gene_strand == "-":
-                if e < pos:
-                    return True
-            elif s > pos:
-                return True
-        return False
+        return exon_downstream_of(gene_exon_positions, gene_id, pos, gene_strand)
 
     tol = max(args.breakpoint_tolerance, 0)
     lib = args.library_strandedness
