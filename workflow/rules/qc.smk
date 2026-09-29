@@ -295,6 +295,9 @@ rule config_used:
     log:
         "results/pipeline_info/logs/multiqc/config_used.log",
     params:
+        # a param, not computed in the script: a new commit must change this
+        # rule's params so it (and MultiQC) re-run -- see envs.smk
+        _pipeline_commit=PIPELINE_GIT_STATE,
         _samples=SAMPLES,
         _sample_count=len(SAMPLES),
         _sjdb_overhang=SJDB_OVERHANG,

@@ -90,6 +90,9 @@ def main(smk):
 
     rows = {
         "pipeline_version": _read_version(),
+        # which commit built this report -- VERSION alone does not change
+        # between commits (see PIPELINE_GIT_STATE in rules/common/envs.smk)
+        "pipeline_commit": str(params.get("_pipeline_commit", "unknown")),
         "samples": f"{sample_count} ({sample_names})",
         "ref.fasta": str(config.get("ref", {}).get("fasta", "(not provided)")),
         "ref.gtf": str(config["ref"]["gtf"]),

@@ -180,3 +180,27 @@ def test_row_labels_survive_multiqcs_sample_name_cleaning():
         if cleaned != label:
             mangled.append((label, cleaned))
     assert not mangled, f"row labels mangled by MultiQC's sample-name cleaning: {mangled}"
+
+
+def test_pipeline_commit_row_shows_the_rule_param():
+    """The report must say which commit built it: VERSION alone does not
+    change between commits, which is how an out-of-date report once passed
+    for a current one. The value comes from the rule's _pipeline_commit
+    param (PIPELINE_GIT_STATE in rules/common/envs.smk) so a new commit
+    re-runs config_used and MultiQC via the params trigger."""
+    import json
+    import config_used_mqc
+
+    config = {"ref": {"gtf": "g.gtf", "te_gtf": "te.gtf"},
+              "strandedness": {"min_fraction": 0.8},
+              "tetranscripts": {"mode": "multi"}}
+    out = "/tmp/test_config_used_mqc_commit.json"
+    smk = types.SimpleNamespace(
+        config=config,
+        params={"_pipeline_commit": "0123456789ab + uncommitted changes in workflow/"},
+        log="/tmp/test_config_used_mqc_commit.log", output=out)
+    config_used_mqc.main(smk)
+    with open(out) as fh:
+        data = json.load(fh)["data"]
+    label = config_used_mqc.row_label("pipeline_commit")
+    assert data[label]["value"] == "0123456789ab + uncommitted changes in workflow/"

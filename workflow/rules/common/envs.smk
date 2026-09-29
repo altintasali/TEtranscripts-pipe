@@ -141,3 +141,47 @@ CANDIDATES_EXPLORER_ENV = _write_env(
         f"pandoc={V['pandoc']}",
     ],
 )
+
+
+# -----------------------------------------------------------------------------
+# Which commit of this pipeline built the report. VERSION alone ("0.14.2")
+# does not change between commits, so a report built from an older checkout
+# -- or one whose report steps were never re-run after a fix -- looked exactly
+# like a current one. This records the git commit of the checkout that holds
+# workflow/ (resolved through a workflow/ symlink to a shared checkout, the
+# same way config_used_mqc.py's VERSION lookup does), plus whether workflow/
+# has uncommitted changes. Only workflow/ is checked: a user's own edited
+# config files are not pipeline code.
+#
+# Computed once at parse time and handed to rule config_used as a PARAM, so
+# a new commit changes that rule's params -> Snakemake's params rerun trigger
+# re-runs it -> MultiQC re-runs on its changed output. Never raises: outside a
+# git checkout (a release tarball, git missing) it reports why instead.
+# -----------------------------------------------------------------------------
+def _pipeline_git_state():
+    import subprocess
+
+    root = os.path.dirname(os.path.realpath("workflow"))
+    # -c safe.directory: shared/network checkouts owned by another user make
+    # git refuse to run ("dubious ownership"); command-line scope is honoured.
+    git = ["git", "-c", f"safe.directory={root}", "-C", root]
+    try:
+        head = subprocess.run(git + ["rev-parse", "--short=12", "HEAD"],
+                              capture_output=True, text=True, timeout=15)
+        if head.returncode != 0:
+            return "unknown (not a git checkout)"
+        dirty = subprocess.run(
+            git + ["status", "--porcelain", "--untracked-files=no", "--", "workflow"],
+            capture_output=True, text=True, timeout=15,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return "unknown (git not available)"
+    commit = head.stdout.strip()
+    if dirty.returncode != 0:
+        return f"{commit} (could not check for uncommitted changes)"
+    if dirty.stdout.strip():
+        return f"{commit} + uncommitted changes in workflow/"
+    return commit
+
+
+PIPELINE_GIT_STATE = _pipeline_git_state()
