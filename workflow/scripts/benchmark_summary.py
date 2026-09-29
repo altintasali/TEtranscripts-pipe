@@ -67,7 +67,9 @@ def main():
             allocated = getattr(params, "allocated", {}) or {}
 
     rows_by_rule = defaultdict(list)
-    for path in snakemake.input:
+    # input.benchmarks, not input: the rule also declares its own script as
+    # an input (guard 65), which is not a benchmark file.
+    for path in snakemake.input.benchmarks:
         rule = os.path.basename(os.path.dirname(path))
         rows_by_rule[rule].extend(_parse_benchmark(path))
 

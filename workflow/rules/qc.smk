@@ -80,7 +80,10 @@ rule benchmark_summary:
     # id resource_usage), rendered after the RSeQC section inside the
     # multiqc_report.html via module_order in multiqc_config.yaml.
     input:
-        all_benchmark_files(),
+        benchmarks=all_benchmark_files(),
+        # Declared so that EDITING the script re-runs the rule (guard 65):
+        # Snakemake does not reliably treat a script's content as rule code.
+        script=f"{SCRIPTS_DIR}/benchmark_summary.py",
     output:
         "results/pipeline_info/benchmark_summary_mqc.json",
     params:
@@ -249,6 +252,10 @@ rule evidence_overview:
     # actually produced and which of them are independent of each other.
     # Reads the resolved switches from params (like config_used) rather than
     # re-deriving them, so it cannot drift from what really ran.
+    input:
+        # Declared so that EDITING the script re-runs the rule (guard 65):
+        # Snakemake does not reliably treat a script's content as rule code.
+        script=f"{SCRIPTS_DIR}/evidence_overview_mqc.py",
     output:
         "results/pipeline_info/evidence_overview_mqc.json",
     threads: get_resources("evidence_overview")["threads"]
@@ -273,6 +280,10 @@ rule evidence_overview:
 rule config_used:
     # The resolved run config, written as a MultiQC custom-content table so
     # the report records exactly which settings were used.
+    input:
+        # Declared so that EDITING the script re-runs the rule (guard 65):
+        # Snakemake does not reliably treat a script's content as rule code.
+        script=f"{SCRIPTS_DIR}/config_used_mqc.py",
     output:
         "results/pipeline_info/config_used_mqc.json",
     threads: get_resources("config_used")["threads"]

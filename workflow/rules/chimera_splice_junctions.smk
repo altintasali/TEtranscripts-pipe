@@ -296,6 +296,9 @@ if WRITE_IGV_BED_SPLICE_JUNCTIONS:
         # config["chimera"]["splice_junctions"]["outputs"]["write_igv_bed"].
         input:
             "results/chimera/splice_junctions/per_sample/{sample}_junctions.tsv.gz",
+            # Declared so that EDITING the script re-runs the rule (guard 65):
+            # Snakemake does not reliably treat a script's content as rule code.
+            script=f"{SCRIPTS_DIR}/chimera_splice_junctions_to_igv_bed.py",
         output:
             "results/chimera/splice_junctions/igv/{sample}_junctions.bed",
         params:

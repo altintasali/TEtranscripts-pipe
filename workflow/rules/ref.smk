@@ -102,6 +102,9 @@ rule gene_name_lookup:
     # Pure-python, so it runs in the base environment.
     input:
         gtf=GTF,
+        # Declared so that EDITING the script re-runs the rule (guard 65):
+        # Snakemake does not reliably treat a script's content as rule code.
+        script=f"{SCRIPTS_DIR}/gene_name_lookup.py",
     output:
         "results/reference/gene_id_to_name.tsv.gz",
     threads: get_resources("gene_name_lookup")["threads"]

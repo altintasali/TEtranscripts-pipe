@@ -687,6 +687,9 @@ rule chimera_chimeric_reads_igv_bed:
     # config["chimera"]["chimeric_reads"]["outputs"]["write_igv_bed"].
     input:
         "results/chimera/chimeric_reads/per_sample/{sample}_junctions.tsv.gz",
+        # Declared so that EDITING the script re-runs the rule (guard 65):
+        # Snakemake does not reliably treat a script's content as rule code.
+        script=f"{SCRIPTS_DIR}/chimera_chimeric_reads_to_igv_bed.py",
     output:
         "results/chimera/chimeric_reads/igv/{sample}_junctions.bed",
     params:

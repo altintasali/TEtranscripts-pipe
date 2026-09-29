@@ -41,6 +41,9 @@ rule determine_strandedness:
     # check table -- see determine_strandedness.py's docstring.
     input:
         txt="results/rseqc/{sample}_infer_experiment.txt",
+        # Declared so that EDITING the script re-runs the rule (guard 65):
+        # Snakemake does not reliably treat a script's content as rule code.
+        script=f"{SCRIPTS_DIR}/determine_strandedness.py",
     output:
         txt="results/rseqc/{sample}_strandedness.txt",
         call="results/rseqc/{sample}_strandedness_call.txt",
@@ -82,6 +85,9 @@ rule strandedness_check:
             "results/rseqc/{sample}_strandedness.txt",
             sample=STRAND_CHECK_SAMPLES,
         ),
+        # Declared so that EDITING the script re-runs the rule (guard 65):
+        # Snakemake does not reliably treat a script's content as rule code.
+        script=f"{SCRIPTS_DIR}/strandedness_check_mqc.py",
     output:
         "results/rseqc/strandedness_check_mqc.json",
     params:

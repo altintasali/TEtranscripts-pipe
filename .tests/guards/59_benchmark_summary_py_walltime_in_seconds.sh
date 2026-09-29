@@ -36,7 +36,10 @@ class NS(dict):
     def __getattr__(self, k): return self[k]
 out = sys.argv[3]
 builtins.snakemake = types.SimpleNamespace(
-    input=[sys.argv[1], sys.argv[2]],
+    # the rule names its benchmark list (input.benchmarks) since it also
+    # declares its own script as an input -- see guard 65
+    input=types.SimpleNamespace(benchmarks=[sys.argv[1], sys.argv[2]],
+                                script="workflow/scripts/benchmark_summary.py"),
     params=NS(allocated={"star_index": {"threads": 4, "mem_mb": 8000},
                           "star_align": {"threads": 2, "mem_mb": 16000}}),
     output=[out],
