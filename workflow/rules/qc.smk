@@ -300,6 +300,7 @@ rule config_used:
         _keep_trimmed_fastq=KEEP_TRIMMED_FASTQ,
         _keep_star_index=KEEP_STAR_INDEX,
         _keep_telocal_index=KEEP_TELOCAL_INDEX,
+        _keep_assembly_bam=KEEP_ASSEMBLY_BAM,
     script:
         "../scripts/config_used_mqc.py"
 

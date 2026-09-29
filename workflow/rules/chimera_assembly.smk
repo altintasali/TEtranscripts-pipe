@@ -15,6 +15,7 @@
 #                             intronMotif, for StringTie's unstranded-data
 #                             strand inference) -- feeds ONLY this screen; the
 #                             main alignment everything else uses is untouched.
+#   chimera_assembly_bam_index  index that private BAM (outputs.keep_assembly_bam)
 #   stringtie_assemble        per-sample de novo assembly
 #   stringtie_merge           cross-sample structural union
 #   stringtie_requantify       per-sample re-quantification (-e -B) for TPM
@@ -60,6 +61,13 @@ def all_chimera_assembly_outputs():
         files.append("results/chimera/assembly/gene_te_chimera_counts_annotation.tsv.gz")
     if WRITE_IGV_BED_ASSEMBLY:
         files.append("results/chimera/assembly/igv/transcripts.bed")
+    # Indexing a BAM that's about to be temp()-deleted is pointless -- only
+    # requested when the BAM itself is kept (outputs.keep_assembly_bam).
+    if KEEP_ASSEMBLY_BAM:
+        files += [
+            f"results/chimera/assembly/per_sample/star/{s}_Aligned.sortedByCoord.out.bam.bai"
+            for s in SAMPLES
+        ]
     return files
 
 
@@ -112,7 +120,10 @@ rule star_align_for_assembly:
         **({"merged_sj": "results/star_pass1/merged_SJ.out.tab"}
            if STAR_TWO_PASS == "cohort" else {}),
     output:
-        aln="results/chimera/assembly/per_sample/star/{sample}_Aligned.sortedByCoord.out.bam",
+        aln=_maybe_temp(
+            "results/chimera/assembly/per_sample/star/{sample}_Aligned.sortedByCoord.out.bam",
+            KEEP_ASSEMBLY_BAM,
+        ),
         log_final="results/chimera/assembly/per_sample/star/{sample}_Log.final.out",
     params:
         reads=star_reads_param,
@@ -154,6 +165,36 @@ rule star_align_for_assembly:
         "grep -q 'ALL DONE!' {output.log_final}; then :; else "
         "echo '-- STAR failed for real; log tail --' >&2; "
         "tail -n 60 {log} >&2; exit 1; fi))"
+
+
+rule chimera_assembly_bam_index:
+    # Same shape as align.smk's samtools_index, for this screen's own
+    # private BAM -- lets it be browsed in IGV alongside the candidate
+    # tracks (chimera_assembly_igv_bed / chimera_chimeric_reads_igv_bed).
+    # Only requested when the BAM itself is kept (outputs.keep_assembly_bam);
+    # indexing a BAM about to be temp()-deleted would just leave an orphaned
+    # .bai behind.
+    input:
+        "results/chimera/assembly/per_sample/star/{sample}_Aligned.sortedByCoord.out.bam",
+    output:
+        _maybe_temp(
+            "results/chimera/assembly/per_sample/star/{sample}_Aligned.sortedByCoord.out.bam.bai",
+            KEEP_ASSEMBLY_BAM,
+        ),
+    params:
+        extra="",
+    threads: get_resources("chimera_assembly_bam_index")["threads"]
+    resources:
+        mem_mb=get_resources("chimera_assembly_bam_index")["mem_mb"],
+        runtime=get_resources("chimera_assembly_bam_index")["runtime"],
+    benchmark:
+        "results/pipeline_info/benchmarks/chimera_assembly_bam_index/{sample}.txt",
+    log:
+        "results/pipeline_info/logs/chimera_assembly/bam_index/{sample}.log",
+    conda:
+        SAMTOOLS_ENV
+    shell:
+        "samtools index {params.extra} -@ {threads} {input} {output} > {log} 2>&1"
 
 
 rule stringtie_assemble:

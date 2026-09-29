@@ -64,6 +64,7 @@ flowchart LR
         chimera_chimeric_reads_te_type["reads TE type (per sample)"]
         chimera_telocal_index["build TElocal index"]
         star_align_for_assembly["2nd STAR pass (assembly)"]
+        chimera_assembly_bam_index["index assembly BAM"]
         stringtie_assemble["StringTie assemble"]
         stringtie_merge["StringTie merge"]
         stringtie_requantify["StringTie requantify"]
@@ -162,6 +163,7 @@ flowchart LR
     star_align --> cleanup_star_index
     star_align --> samtools_sort
     star_align --> star_filter_primary
+    star_align_for_assembly --> chimera_assembly_bam_index
     star_align_for_assembly --> stringtie_assemble
     star_align_for_assembly --> stringtie_requantify
     star_align_pass1 --> star_merge_junctions

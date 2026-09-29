@@ -201,6 +201,8 @@ def all_benchmark_files():
                 f"{B}/stringtie_assemble/{s}.txt",
                 f"{B}/stringtie_requantify/{s}.txt",
             ]
+            if KEEP_ASSEMBLY_BAM:
+                files.append(f"{B}/chimera_assembly_bam_index/{s}.txt")
         if CHIMERA_CHIMERIC_READS_ENABLED:
             files.append(
                 f"{B}/chimera_assembly_cross_evidence/chimera_assembly_cross_evidence.txt"

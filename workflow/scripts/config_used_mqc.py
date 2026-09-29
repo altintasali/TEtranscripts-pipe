@@ -86,6 +86,7 @@ def main(smk):
     keep_trimmed = params.get("_keep_trimmed_fastq", "")
     keep_star_index = params.get("_keep_star_index", "")
     keep_telocal_index = params.get("_keep_telocal_index", "")
+    keep_assembly_bam = params.get("_keep_assembly_bam", "")
 
     rows = {
         "pipeline_version": _read_version(),
@@ -132,6 +133,7 @@ def main(smk):
         "outputs.keep_trimmed_fastq": str(keep_trimmed),
         "outputs.keep_star_index": str(keep_star_index),
         "outputs.keep_telocal_index": str(keep_telocal_index),
+        "outputs.keep_assembly_bam": str(keep_assembly_bam),
     }
 
     doc = {

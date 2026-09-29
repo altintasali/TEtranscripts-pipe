@@ -678,6 +678,12 @@ resources:
     mem_mb: 45000
     runtime: 600
 
+  chimera_assembly_bam_index:
+    # Same shape as samtools_index (align.smk); this screen's own private BAM.
+    threads: 2
+    mem_mb: 4000
+    runtime: 30
+
   stringtie_assemble:
     # Single-sample de novo assembly; scales with read depth and splice
     # complexity, not genome size the way STAR does.

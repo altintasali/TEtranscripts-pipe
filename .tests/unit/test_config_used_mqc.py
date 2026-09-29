@@ -103,6 +103,7 @@ def _config_used_rows():
         "_telocal_qc_enabled": True, "_telocal_qc": {},
         "_keep_merged_fastq": True, "_keep_trimmed_fastq": True,
         "_keep_star_index": True, "_keep_telocal_index": True,
+        "_keep_assembly_bam": True,
     }
     tmp_log = "/tmp/test_config_used_mqc.log"
     tmp_out = "/tmp/test_config_used_mqc.json"

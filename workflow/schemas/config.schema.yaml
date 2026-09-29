@@ -630,6 +630,22 @@ properties:
           false deletes it once quantification is done, saving disk at the
           cost of re-building on the next run. Never applies to a
           user-provided telocal.locind path.
+      keep_assembly_bam:
+        type: boolean
+        description: >-
+          Keep chimera.assembly's own dedicated per-sample STAR alignment
+          (results/chimera/assembly/per_sample/star/) after
+          stringtie_assemble/stringtie_requantify are done with it. This is
+          a SEPARATE alignment from the main results/star/ BAM everything
+          else uses (see chimera.assembly's own description for why one
+          screen needs its own STAR pass) -- effectively a second full
+          alignment per sample when chimera.assembly is enabled, so keeping
+          it is a real, deliberate disk cost. true (default) also indexes it
+          (.bam.bai) for IGV inspection; false marks both the BAM and its
+          index as Snakemake temp() outputs, deleted once nothing needs them
+          any more, at the cost of a full re-alignment if you need to
+          inspect it later. Only meaningful while chimera.assembly.enabled
+          is true.
 
 required:
   - samples

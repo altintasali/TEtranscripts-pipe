@@ -87,6 +87,7 @@ LABELS = {
     "chimera_chimeric_reads_te_type": ("reads TE type (per sample)", "Chimera screen"),
     "chimera_telocal_index": ("build TElocal index", "Chimera screen"),
     "star_align_for_assembly": ("2nd STAR pass (assembly)", "Chimera screen"),
+    "chimera_assembly_bam_index": ("index assembly BAM", "Chimera screen"),
     "stringtie_assemble": ("StringTie assemble", "Chimera screen"),
     "stringtie_merge": ("StringTie merge", "Chimera screen"),
     "stringtie_requantify": ("StringTie requantify", "Chimera screen"),

@@ -298,6 +298,10 @@ KEEP_STAR_INDEX = bool(config.get("outputs", {}).get("keep_star_index", True))
 KEEP_TELOCAL_INDEX = bool(
     config.get("outputs", {}).get("keep_telocal_index", True)
 )
+# chimera.assembly's own private STAR BAM (see chimera_assembly.smk's
+# star_align_for_assembly) -- a second full alignment per sample, kept by
+# default; false temp()s the BAM and its index together.
+KEEP_ASSEMBLY_BAM = bool(config.get("outputs", {}).get("keep_assembly_bam", True))
 
 
 def _maybe_temp(path, keep):
