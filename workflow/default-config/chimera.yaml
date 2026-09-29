@@ -93,4 +93,5 @@ chimera:
       min_events: 10
       pca_transform: vst
     outputs:
+      write_igv_bed: true
       write_counts_matrix: true

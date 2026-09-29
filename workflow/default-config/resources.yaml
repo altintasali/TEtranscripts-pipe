@@ -443,6 +443,13 @@ resources:
     mem_per_sample: 30
     runtime: 30
 
+  chimera_splice_junctions_igv_bed:
+    # Same shape as chimera_chimeric_reads_igv_bed: one pass over a single
+    # sample's per-sample junction table.
+    threads: 1
+    mem_mb: 2000
+    runtime: 30
+
   chimera_telocal_index:
     # Builds the merged all-samples TElocal interval index ONCE (previously
     # rebuilt from scratch in every chimera_telocal_annotate job -- see that

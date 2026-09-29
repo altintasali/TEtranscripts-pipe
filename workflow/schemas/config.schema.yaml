@@ -477,9 +477,17 @@ properties:
             additionalProperties: false
             description: Which SJ-junction-screen artifacts to write.
             properties:
+              write_igv_bed:
+                type: boolean
+                description: >-
+                  Write a per-sample BED track (results/chimera/
+                  splice_junctions/igv/{sample}_junctions.bed), one row per
+                  gene-TE junction, mirroring chimera.chimeric_reads's own
+                  track so the two screens load side by side in IGV.
+                  Default true.
               write_counts_matrix:
                 type: boolean
-            required: [write_counts_matrix]
+            required: [write_igv_bed, write_counts_matrix]
         required: [enabled, breakpoint_tolerance, min_unique_reads,
                    require_canonical, qc, outputs]
     required: [chimeric_reads, assembly, splice_junctions]

@@ -28,10 +28,12 @@
 #                            blind-spot note + direction composition, TE-type composition
 #   chimera_splice_junctions_qc_transform  count-matrix transform for the sample-QC view
 #   chimera_splice_junctions_qc            sample-QC PCA / sample-distance plots
+#   chimera_splice_junctions_igv_bed       per-sample IGV track (config-gated)
 # -----------------------------------------------------------------------------
 import os
 
 WRITE_SPLICE_JUNCTIONS_COUNTS = bool(config["chimera"]["splice_junctions"]["outputs"]["write_counts_matrix"])
+WRITE_IGV_BED_SPLICE_JUNCTIONS = bool(config["chimera"]["splice_junctions"]["outputs"]["write_igv_bed"])
 CHIMERA_SPLICE_JUNCTIONS_QC = config["chimera"]["splice_junctions"]["qc"]
 
 
@@ -62,6 +64,11 @@ def all_chimera_splice_junctions_outputs():
         files += [
             "results/chimera/splice_junctions/counts_matrix.tsv.gz",
             "results/chimera/splice_junctions/cpm_matrix.tsv.gz",
+        ]
+    if WRITE_IGV_BED_SPLICE_JUNCTIONS:
+        files += [
+            f"results/chimera/splice_junctions/igv/{s}_junctions.bed"
+            for s in SAMPLES
         ]
     return files
 
@@ -277,3 +284,28 @@ if WRITE_SPLICE_JUNCTIONS_COUNTS:
             "Rscript {input.script} "
             "--plots splice_junctions {input.transformed} {params.samples} {params.min_events} "
             "{wildcards.transform} {output.pca} {output.heatmap} > {log} 2>&1"
+
+
+if WRITE_IGV_BED_SPLICE_JUNCTIONS:
+
+    rule chimera_splice_junctions_igv_bed:
+        # Optional IGV track per sample (one BED6-style row per gene-TE
+        # junction), mirroring chimera_chimeric_reads_igv_bed exactly so the
+        # two screens' tracks load side by side. Gated by
+        # config["chimera"]["splice_junctions"]["outputs"]["write_igv_bed"].
+        input:
+            "results/chimera/splice_junctions/per_sample/{sample}_junctions.tsv.gz",
+        output:
+            "results/chimera/splice_junctions/igv/{sample}_junctions.bed",
+        params:
+            sample=lambda wc: wc.sample,
+        threads: get_resources("chimera_splice_junctions_igv_bed")["threads"]
+        resources:
+            mem_mb=get_resources("chimera_splice_junctions_igv_bed")["mem_mb"],
+            runtime=get_resources("chimera_splice_junctions_igv_bed")["runtime"],
+        benchmark:
+            "results/pipeline_info/benchmarks/chimera_splice_junctions_igv_bed/{sample}.txt",
+        log:
+            "results/pipeline_info/logs/chimera_splice_junctions/igv/{sample}.log",
+        script:
+            "../scripts/chimera_splice_junctions_to_igv_bed.py"

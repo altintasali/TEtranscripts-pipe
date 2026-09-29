@@ -107,6 +107,7 @@ LABELS = {
     "chimera_splice_junctions_summary_mqc": ("SJ-junction screen notes + TE-type composition", "Chimera screen"),
     "chimera_splice_junctions_qc_transform": ("SJ-junction sample-QC transform", "Chimera screen"),
     "chimera_splice_junctions_qc": ("SJ-junction sample-QC plots", "Chimera screen"),
+    "chimera_splice_junctions_igv_bed": ("SJ-junction IGV BED track", "Chimera screen"),
     "software_versions": ("software versions", "Quantification + QC"),
     "config_used": ("config used", "Quantification + QC"),
     "evidence_overview": ("evidence overview ('start here')", "Quantification + QC"),

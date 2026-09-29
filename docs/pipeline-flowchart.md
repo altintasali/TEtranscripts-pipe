@@ -84,6 +84,7 @@ flowchart LR
         chimera_splice_junctions_summary_mqc["SJ-junction screen notes + TE-type composition"]
         chimera_splice_junctions_qc_transform["SJ-junction sample-QC transform"]
         chimera_splice_junctions_qc["SJ-junction sample-QC plots"]
+        chimera_splice_junctions_igv_bed["SJ-junction IGV BED track"]
     end
     subgraph other["Other"]
         tecount_qc_counts["tecount_qc_counts"]
@@ -122,6 +123,7 @@ flowchart LR
     chimera_evidence --> chimera_candidates_table
     chimera_evidence --> chimera_evidence_guide
     chimera_splice_junctions_classify --> chimera_splice_junctions_counts
+    chimera_splice_junctions_classify --> chimera_splice_junctions_igv_bed
     chimera_splice_junctions_classify --> chimera_splice_junctions_summary_mqc
     chimera_splice_junctions_counts --> chimera_evidence
     chimera_splice_junctions_counts --> chimera_splice_junctions_qc_transform

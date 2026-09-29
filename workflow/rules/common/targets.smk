@@ -236,6 +236,10 @@ def all_benchmark_files():
         )
         for s in SAMPLES:
             files.append(f"{B}/chimera_splice_junctions_classify/{s}.txt")
+            if config["chimera"]["splice_junctions"]["outputs"]["write_igv_bed"]:
+                files.append(
+                    f"results/pipeline_info/benchmarks/chimera_splice_junctions_igv_bed/{s}.txt"
+                )
         if (config["chimera"]["splice_junctions"]["outputs"]["write_counts_matrix"]
                 and config["chimera"]["splice_junctions"]["qc"].get("enabled", False)):
             transform = config["chimera"]["splice_junctions"]["qc"]["pca_transform"]
