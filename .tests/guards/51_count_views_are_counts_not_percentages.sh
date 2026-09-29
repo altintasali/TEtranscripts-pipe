@@ -15,13 +15,16 @@ guard_init
 # "241%" and "1,898%".
 #
 # The 6000% axis was that same suffix bug -- stacked COUNTS wearing a "%"
-# sign -- not the stacking, so the canonical plot stays stacked on purpose
-# (its counts view stacks to the sample's total canonical junctions).
-# chimera_assembly_strand_rate_plot is the one that must NOT stack: it draws
-# one bar per class, each a rate over its own denominator.
+# sign -- not the stacking itself. BUG FIXED 2026: a second, separate bug
+# survived that fix -- chimera_canonical_rate_plot stayed stacked, and
+# summing nine independent per-class rates produces a stack height that
+# means nothing (each is canonical/total within its OWN class). Both plots
+# here draw one rate per class, each over its own denominator, so BOTH must
+# use grouped bars, never stacked -- percentages of different denominators
+# must never share a stack.
 #
-# This pins the suffix on every dataset of both plots, plus each plot's
-# deliberate stacking choice, so neither is silently flipped again.
+# This pins the suffix on every dataset of both plots, plus their shared
+# grouped-not-stacked choice, so neither regresses again.
 mkdir -p "$T/p"
 
 # Junction metric tables -- totals large, canonical a modest fraction, so a
@@ -79,12 +82,9 @@ for pid in ("chimera_canonical_rate_plot", "chimera_assembly_strand_rate_plot"):
         continue
     o = plots[pid]
     barmode = (o.get("layout") or {}).get("barmode")
-    if pid == "chimera_assembly_strand_rate_plot" and barmode != "group":
+    if barmode != "group":
         bad.append(f"{pid}: barmode is {barmode!r}, not 'group' -- one bar per "
                    "class, each a rate over its own denominator, must not stack")
-    if pid == "chimera_canonical_rate_plot" and barmode == "group":
-        bad.append(f"{pid}: barmode is 'group'; this plot is stacked on "
-                   "purpose (the 6000% axis was the suffix bug, not stacking)")
     for ds in o.get("datasets", []):
         label = ds.get("label", "")
         lay = ds.get("layout") or {}
@@ -100,8 +100,8 @@ for pid in ("chimera_canonical_rate_plot", "chimera_assembly_strand_rate_plot"):
 if bad:
     print("ERROR: " + "\nERROR: ".join(bad))
     sys.exit(1)
-print("count/rate views carry the right suffix; canonical stacks, "
-      "assembly strand-rate does not")
+print("count/rate views carry the right suffix; both plots group, "
+      "neither stacks")
 PY
   [ $? -eq 0 ] || FAIL=1
 fi

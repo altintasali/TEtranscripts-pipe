@@ -388,15 +388,24 @@ def main():
                 # class, not a share of the sample's total, so MultiQC's own
                 # percentage would be a different (and wrong) number.
                 "cpswitch": False,
-                # Stacked (MultiQC's "relative" default), deliberately. The
-                # axis that once ran past 6000% was the SUFFIX bug above --
-                # stacked counts wearing a "%" sign -- not the stacking. With
-                # the suffix fixed the counts view stacks to a real quantity:
-                # the sample's total canonical junctions. The rate view's
-                # stack total is not meaningful (each class is a rate over its
-                # own denominator), which is why the description tells the
-                # reader to compare segments within a donor group rather than
-                # read the totals.
+                # BUG FIXED 2026: this plot used to stack (MultiQC's
+                # "relative" default). The 6000% axis that motivated the
+                # ysuffix fix above was one real bug (stacked counts wearing
+                # a "%" sign); a second, separate one survived that fix: a
+                # STACKED bar still implies a meaningful total, and summing
+                # nine independent rates -- each canonical/total within its
+                # OWN class, not a share of the sample's total -- produces a
+                # number (the stack height) that means nothing, which read as
+                # broken even with the "compare within a donor group" caveat
+                # in the description. chimera_assembly_strand_rate_plot hit
+                # the identical shape (a rate per class) and was already
+                # fixed the same way -- percentages of different
+                # denominators must never share a stack, so every class gets
+                # its own bar. The counts view groups the same way for
+                # consistency between the two tabs, at the cost of no longer
+                # reading the sample's total canonical count off the bar
+                # directly (still in the per-sample TSV).
+                "stacking": "group",
                 "data_labels": [
                     {"name": "Canonical junctions",
                      "ylab": "canonical junctions",
