@@ -19,7 +19,7 @@ before (n_screen_evidence, n_corroboration); they are gone from this view
 because the flags behind them are now their own columns (CR/SJ motif,
 Assembly strand, Replicated, TElocal reads) -- summarising them a second
 time as a silent tie-break was exactly the redundancy this rewrite removes.
-Which column deserves weight is what the guide section above explains; the
+Which column deserves weight is what the guide section below explains; the
 reader applies it by clicking a header.
 
 Columns are grouped by screen and coloured accordingly (CR = blue, SJ =
@@ -86,7 +86,7 @@ COLUMNS = [
      "column-block headers below match these same three tokens.", "str"),
     ("cr_canonical", "CR motif",
      "A recognised splice motif on at least one chimeric-junction read "
-     "(STAR, chimeric-reads screen). The guide above calls this the best "
+     "(STAR, chimeric-reads screen). The guide below calls this the best "
      "artifact discriminator available.", "yesno"),
     ("cr_max_samples", "CR samples",
      "Most samples any one chimeric junction for this pair was seen in "
@@ -361,7 +361,9 @@ def main():
             tie_note = ""
 
     # Kept deliberately short: the full argument lives in "How to weigh this
-    # evidence" one section up, and repeating it here buried the table. What
+    # evidence" one section down (see report_section_order in
+    # multiqc_config.yaml: Candidates renders first), and repeating it here
+    # buried the table. What
     # must survive any trim is the disclosure that the default order is an
     # unweighted count rather than a ranking -- guard 50 pins the phrases
     # "not a score", "sort" and "validate candidates manually".
@@ -372,7 +374,7 @@ def main():
         "{tie_note}"
         "<strong>Click any column header to sort</strong> -- every column "
         "is an individual, unweighted signal, <strong>not a score</strong>; "
-        "see <strong>How to weigh this evidence</strong> above, and "
+        "see <strong>How to weigh this evidence</strong> below, and "
         "validate candidates manually. For all <strong>{n_total:,}</strong> "
         "pairs, filterable, no MultiQC needed: <code>{explorer}</code>.</p>"
     ).format(n_shown=len(top), n_total=len(rows), src=args.source_path,

@@ -113,6 +113,14 @@ check("not a score" in desc, "the section must say the order is not a score")
 check("sort" in desc.lower(), "the section must tell the reader they can re-sort")
 check("validate candidates manually" in desc,
       "the section must say validation is the reader's job")
+# Candidates renders FIRST in the chimera group (report_section_order), so the
+# guide it points at is below it. "... evidence above" sent readers the wrong
+# way on a real report.
+check("weigh this evidence</strong> below" in desc,
+      "Candidates must point DOWN to 'How to weigh this evidence' -- it renders first")
+check(all("guide above" not in h.get("description", "")
+          for h in d.get("headers", {}).values()),
+      "no column tooltip may say 'the guide above' -- the guide is below the table")
 for banned in ("ranked by", "confidence tier", "highest confidence"):
     check(banned not in desc.lower(),
           f"section must not present itself as a ranking ({banned!r})")
