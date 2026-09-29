@@ -254,6 +254,16 @@ def main():
                 # reasoning as chimera_assembly_summary_mqc.py's classes_doc.
                 "cpswitch": False,
                 "use_legend": True,
+                # BUG FIXED 2026: without this, every bar showed "1.00" /
+                # "0.00" instead of "1" / "0". MultiQC computes this plot's
+                # hoverformat from whether the category values are int or
+                # float (bargraph.py); the JSON round-trip through custom
+                # content silently promotes plain ints to floats, so the
+                # auto-detect always picked ",.2f" here. chimera_chimeric_
+                # reads_te_type_mqc.py's per-sample plot already sets this
+                # for the same reason -- these are whole junction counts,
+                # never fractional.
+                "tt_decimals": 0,
             },
             "data": {TE_TYPE_LABEL[c]: {"count": n}
                      for c, n in te_type_counts.items()},

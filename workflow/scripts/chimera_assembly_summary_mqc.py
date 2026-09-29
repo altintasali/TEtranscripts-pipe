@@ -143,6 +143,16 @@ def main():
                 "cpswitch_counts_label": "Candidate counts",
                 "cpswitch_percent_label": "% of the class",
                 "use_legend": True,
+                # BUG FIXED 2026: without this, every bar showed "1.00" /
+                # "0.00" instead of "1" / "0" -- MultiQC picks this plot's
+                # hoverformat from whether category values are int or float
+                # (bargraph.py), and the JSON round-trip through custom
+                # content silently promotes plain ints to floats, so the
+                # auto-detect always picked ",.2f" here. chimera_chimeric_
+                # reads_te_type_mqc.py's sibling plot already sets this for
+                # the same reason -- these are whole candidate counts, never
+                # fractional.
+                "tt_decimals": 0,
             },
             "data": {CLASS_LABEL.get(c, c): v for c, v in counts.items()},
         })
