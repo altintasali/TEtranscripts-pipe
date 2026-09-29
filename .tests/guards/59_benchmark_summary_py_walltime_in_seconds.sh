@@ -1,10 +1,20 @@
 #!/usr/bin/env bash
-# Guard 59: benchmark_summary.py reports ONE adaptive wall-time column
-# (not six fixed h/min/s mean/max columns), and the "Resource Usage"
-# section always renders (no config gate -- reverted after 2026 feedback
-# that it should just be there, not opt-in).
+# Guard 59: benchmark_summary.py reports wall time as plain seconds
+# (mean/max, two numeric columns), and the "Resource Usage" section
+# always renders (no config gate -- reverted after 2026 feedback that it
+# should just be there, not opt-in).
 #
-# Run on its own:   .tests/guards/59_benchmark_summary_py_adaptive_walltime_column.sh
+# BUG FIXED 2026, TWICE: this column was first six fixed h/min/s mean/max
+# columns, replaced with one adaptive string column ("45.2s (max
+# 3.20min)", unit picked per value) because a fixed hour column rounded a
+# fast rule to "0.000". That fix introduced a second bug: a STRING column
+# sorts lexicographically, not by duration, so clicking the header to find
+# the slowest rule silently did the wrong thing, and comparing two rules
+# meant reading past mismatched units by eye -- exactly what a user
+# reported. Plain seconds (not the old six h/min/s columns) fixes both:
+# one column pair, always comparable, never rounds a fast rule away.
+#
+# Run on its own:   .tests/guards/59_benchmark_summary_py_walltime_in_seconds.sh
 # Run all guards:   .tests/guards/run.sh
 set -uo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -12,8 +22,8 @@ guard_init
 
 # --- part 1: script-level output shape --------------------------------
 mkdir -p "$T/bm/star_index/star_index"
-# Fast rule (sub-second) and a slow one (multi-minute), so the adaptive
-# formatter must pick a DIFFERENT unit for each, in the same table.
+# Fast rule (sub-second) and a slow one (multi-minute) -- both must render
+# in the SAME unit (seconds), not rounded away or unit-switched.
 printf "s\th:m:s\tmax_rss\tmax_vms\tmax_uss\tmax_pss\tio_in\tio_out\tmean_load\tcpu_time\n" > "$T/bm/star_index/star_index.txt"
 printf "0.8\t0:00:00\t120\t150\t100\t110\t0\t0\t95.0\t0.76\n" >> "$T/bm/star_index/star_index.txt"
 mkdir -p "$T/bm/star_align"
@@ -35,23 +45,36 @@ runpy.run_path("workflow/scripts/benchmark_summary.py", run_name="__main__")
 doc = json.load(open(out))
 ok = True
 headers = doc["headers"]
-old_cols = ["walltime_mean_h", "walltime_max_h", "walltime_mean_min",
-            "walltime_max_min", "walltime_mean_s", "walltime_max_s"]
-leaked = [c for c in old_cols if c in headers]
+# ANTI-REGRESSION: neither the old six-fixed-column shape nor the
+# intermediate one-adaptive-string-column shape may come back.
+old_six = ["walltime_mean_h", "walltime_max_h", "walltime_mean_min",
+           "walltime_max_min"]
+leaked = [c for c in old_six if c in headers]
 if leaked:
-    print(f"ERROR: old fixed-unit walltime columns still present: {leaked}"); ok = False
-if "walltime" not in headers:
-    print("ERROR: single adaptive 'walltime' column missing from headers"); ok = False
-fast = doc["data"].get("star_index", {}).get("walltime", "")
-slow = doc["data"].get("star_align", {}).get("walltime", "")
-if "0.8s" not in fast:
-    print(f"ERROR: sub-second rule should render in seconds, got {fast!r}"); ok = False
-if "min" not in slow:
-    print(f"ERROR: multi-minute rule should render in minutes, got {slow!r}"); ok = False
+    print(f"ERROR: old fixed-unit (min/h) walltime columns present: {leaked}"); ok = False
+if "walltime" in headers:
+    print("ERROR: old single adaptive-string 'walltime' column still present"); ok = False
+for want in ("walltime_mean_s", "walltime_max_s"):
+    if want not in headers:
+        print(f"ERROR: {want!r} column missing from headers"); ok = False
+
+fast = doc["data"].get("star_index", {})
+slow = doc["data"].get("star_align", {})
+# both plain numbers, in SECONDS, not strings and not unit-switched
+if fast.get("walltime_mean_s") != 0.8 or fast.get("walltime_max_s") != 0.8:
+    print(f"ERROR: fast rule's walltime wrong: {fast}"); ok = False
+if slow.get("walltime_mean_s") != 245.0 or slow.get("walltime_max_s") != 245.0:
+    print(f"ERROR: slow rule's walltime wrong (must stay in seconds, not minutes): {slow}"); ok = False
+for row in (fast, slow):
+    for key in ("walltime_mean_s", "walltime_max_s"):
+        if isinstance(row.get(key), str):
+            print(f"ERROR: {key} is a string ({row[key]!r}), not numeric -- "
+                  "a string column sorts lexicographically, not by duration")
+            ok = False
 sys.exit(0 if ok else 1)
 PY
 if [ "${FAIL:-0}" != "0" ]; then
-  echo "ERROR: benchmark_summary.py adaptive-walltime check failed"
+  echo "ERROR: benchmark_summary.py walltime-in-seconds check failed"
 fi
 
 # --- part 2: Resource Usage always renders, no config key needed ------

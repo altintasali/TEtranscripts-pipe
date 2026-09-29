@@ -31,20 +31,6 @@ except NameError:  # pragma: no cover
     snakemake = None
 
 
-def _fmt_duration(seconds):
-    """Human-scale duration string, unit chosen per value: seconds under a
-    minute, minutes under an hour, hours above. BUG FIXED 2026: this used to
-    be six fixed columns (mean/max x h/min/s, three of them hidden by
-    default) because no single fixed unit reads well across a workflow whose
-    rules range from sub-second to multi-hour -- hours rounds a fast rule to
-    "0.000". One adaptive column reads right at every scale instead."""
-    if seconds < 60:
-        return f"{seconds:.1f}s"
-    if seconds < 3600:
-        return f"{seconds / 60.0:.2f}min"
-    return f"{seconds / 3600.0:.3f}h"
-
-
 def _as_float(val, default=0.0):
     """Coerce a benchmark cell to float; benchmark files can hold 'NA' for
     memory/CPU when a job was too fast to sample, and missing columns return
@@ -112,8 +98,17 @@ def main():
         max_s = max(walltimes)
         row = {
             "n": len(rows),
-            # One adaptive column, not six -- see _fmt_duration()'s docstring.
-            "walltime": f"{_fmt_duration(mean_s)} (max {_fmt_duration(max_s)})",
+            # BUG FIXED 2026: this used to be one adaptive string column
+            # ("45.2s (max 3.20min)", unit picked per value) because a fixed
+            # unit rounded a fast rule to "0.000" hours -- but a string
+            # column sorts lexicographically, not by duration, so it could
+            # never answer "which rule is slowest" by clicking the header,
+            # and comparing two rules meant reading past mismatched units by
+            # eye. Plain seconds fixes both: always comparable, and never
+            # rounds away a fast rule (a multi-hour rule just prints a
+            # bigger number, which is still exact).
+            "walltime_mean_s": round(mean_s, 1),
+            "walltime_max_s": round(max_s, 1),
             "cpu_alloc_cores": cpu_alloc_cores,
             "cpu_used_mean_cores": round(statistics.mean(loads), 3),
             "cpu_used_max_cores": round(max(loads), 3),
@@ -136,10 +131,9 @@ def main():
             "over-provisioned for that rule."
         ),
         "helptext": (
-            "Wall time shows mean and slowest-job time together, e.g. "
-            "\"45.2s (max 3.20min)\" -- unit picked per value (s / min / h) "
-            "so both a fast and a slow rule stay readable in the same "
-            "column. For CPU and RAM: the allocated amount is from "
+            "Wall time is always in seconds, so every rule sorts and "
+            "compares on one column regardless of how fast or slow it ran. "
+            "For CPU and RAM: the allocated amount is from "
             "resources.yaml, the used amount is the mean/max actually "
             "measured (Snakemake benchmark files in "
             "results/pipeline_info/benchmarks/), and efficiency is mean "
@@ -160,10 +154,17 @@ def main():
                 "format": "{:,d}",
                 "min": 0,
             },
-            "walltime": {
-                "title": "Wall time (mean, max)",
-                "description": "Mean and slowest-job wall-clock time, unit "
-                "chosen per value (s / min / h)",
+            "walltime_mean_s": {
+                "title": "Wall time mean (s)",
+                "description": "Mean wall-clock time per job, in seconds",
+                "format": "{:,.1f}",
+                "min": 0,
+            },
+            "walltime_max_s": {
+                "title": "Wall time max (s)",
+                "description": "Slowest job's wall-clock time, in seconds",
+                "format": "{:,.1f}",
+                "min": 0,
             },
             "cpu_alloc_cores": {
                 "title": "CPU allocated (cores)",
