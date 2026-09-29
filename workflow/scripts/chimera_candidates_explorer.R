@@ -1,8 +1,8 @@
 #!/usr/bin/env Rscript
 # Standalone, self-contained interactive HTML explorer over the FULL gene-TE
 # chimera candidate catalogue (results/chimera/candidates.tsv.gz). MultiQC's
-# own "Candidates" table (chimera_candidates_table_mqc.py) caps at top_n rows
-# because embedding the full catalogue there runs multiqc_report.html from a
+# own "Candidates" table (chimera_candidates_table_mqc.py) caps at
+# --max-rows because embedding the full catalogue there runs multiqc_report.html from a
 # few MB to tens of MB and slows MultiQC's own build by an order of
 # magnitude (measured directly: 2.3 MB -> 83 MB, 1.4s -> 15s build, at
 # real-cohort scale of ~31k rows; a real 84-sample cohort produced 454,593
@@ -23,10 +23,12 @@
 # Same non-ranking stance as the MultiQC table (chimera_candidates_table_mqc.py,
 # guards 36/50): every evidence column is shown exactly as chimera_evidence.py
 # wrote it, and NO combined/weighted "confidence" column is computed here --
-# ever. The table opens sorted by Screens, Screen evidence count and
-# Corroboration count only because DT needs some initial order to open
-# with; each is a COUNT of flags, not a score, and any
-# column header re-sorts on click.
+# ever. The table opens sorted by Screens desc, then Gene asc, then TE
+# insertion asc -- the same tie-break the MultiQC table's own defaultsort
+# uses, and (unlike the Screen evidence count / Corroboration count columns
+# it used to open sorted on) all three are visible by default, so what the
+# table opens sorted by matches what a reader can actually see. Screens is
+# a COUNT, not a score, and any column header re-sorts on click.
 #
 # Two columns are new here and don't exist in candidates.tsv.gz: "Gene locus"
 # and "TE locus", a ready-to-paste IGV coordinate ("chr:start-end") for every
@@ -41,8 +43,8 @@
 # extra config toggle.
 #
 # Two more columns join in a real cohort-total read count, when the
-# corresponding screen ran: "TElocal reads" and "Assembly reads (cohort
-# total)", from pre-summed lookup tables built by
+# corresponding screen ran: "TElocal reads" and "Assembly reads", from
+# pre-summed lookup tables built by
 # chimera_candidates_matrix_totals.py (see that script and the rule in
 # chimera_chimeric_reads.smk for why results/telocal/counts_matrix.tsv.gz and
 # results/chimera/assembly/counts_matrix.tsv.gz are never loaded directly
@@ -200,7 +202,7 @@ df <- data.frame(
     "SJ TE type" = candidates$sj_chimera_types,
     "Assembly strand" = factor(candidates$assembly_strand_match),
     "Assembly transcripts" = int_or_na(candidates$assembly_transcripts),
-    "Assembly reads (cohort total)" = assembly_cohort_total,
+    "Assembly reads" = assembly_cohort_total,
     "Assembly TE type" = candidates$assembly_chimera_types,
     "Assembly transcript IDs" = candidates$assembly_transcript_ids,
     "Replicated" = replicated,
@@ -291,7 +293,8 @@ descriptions <- c(
     "The assembled transcript's strand agrees with the gene's (StringTie, assembly screen).",
     "Number of StringTie-assembled transcripts classified as this gene-TE chimera (StringTie, assembly screen).",
     paste("Sum of this pair's assembled transcript(s) estimated read count",
-          "across every sample",
+          "across every sample -- a real cohort total, same caveat as CR",
+          "reads / SJ reads above",
           "(results/chimera/assembly/counts_matrix.tsv.gz; StringTie)."),
     paste("TE-chimera class(es) seen across this pair's assembled",
           "transcripts (StringTie, assembly screen): te_initiated,",
@@ -312,8 +315,8 @@ descriptions <- c(
 stopifnot(length(descriptions) == ncol(df))
 
 screens_col <- which(colnames(df) == "Screens") - 1L
-screen_evidence_col <- which(colnames(df) == "Screen evidence count") - 1L
-corroboration_col <- which(colnames(df) == "Corroboration count") - 1L
+gene_col <- which(colnames(df) == "Gene") - 1L
+te_col <- which(colnames(df) == "TE insertion") - 1L
 # Hidden by default (still present, searchable, exportable) -- reduces
 # initial layout/render cost at high row/column counts without dropping any
 # data. Computed from column NAME, not a hardcoded position, so this can't
@@ -367,8 +370,8 @@ widget <- DT::datatable(
         pageLength = 25,
         lengthMenu = list(c(25, 50, 100, 500, -1), c("25", "50", "100", "500", "All")),
         scrollX = TRUE,
-        order = list(list(screens_col, "desc"), list(screen_evidence_col, "desc"),
-                     list(corroboration_col, "desc")),
+        order = list(list(screens_col, "desc"), list(gene_col, "asc"),
+                     list(te_col, "asc")),
         # Large-table performance: deferRender skips per-row work until a
         # row is actually displayed; autoWidth off skips DataTables'
         # automatic column-width measurement pass across every row/column.

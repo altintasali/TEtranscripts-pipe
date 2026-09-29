@@ -51,7 +51,7 @@ check("does not rank" not in b,
 check("Candidates" in b, "guide must point at the table it explains")
 # every measured finding that justifies the stance must still be present
 for probe in ("chance rate", "6.7% vs 10.2%", "19,503",
-              "Splice motif", "Read depth", "TE locus expressed"):
+              "CR motif", "Read depth", "TElocal expressed"):
     check(probe in b, f"guide must render {probe!r}")
 # and every signal must name the tool it came from
 for probe in ("STAR (chimeric junctions)", "StringTie (assembly)",
@@ -73,7 +73,7 @@ check(c.get("parent_id") == "chimera",
 check(c["pconfig"].get("stacking") == "group",
       "composition must not stack: the counts overlap, they are not a partition")
 counts = {k: v["Gene-TE pairs"] for k, v in c["data"].items()}
-check(counts.get("Splice motif") == 2, f"splice-motif count wrong: {counts}")
+check(counts.get("CR motif") == 2, f"CR-motif count wrong: {counts}")
 # "Called by both screens" is gone: it duplicated found_by/n_screens and was
 # double-counted into the combined evidence count that has itself since
 # been split into screen_evidence/corroboration (see chimera_evidence.py's

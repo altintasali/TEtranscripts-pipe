@@ -198,11 +198,16 @@ CHIMERA_SPLICE_JUNCTIONS_ENABLED = bool(
 # different cut-offs. Split them if that stops being true.
 CHIMERA_CHIMERIC_READS_QC = config["chimera"]["chimeric_reads"]["qc"]
 
-# How many candidate rows the report's table renders. MultiQC embeds table
-# data in the HTML and a real cohort produces tens of thousands of gene-TE
-# pairs, so the section shows a head and points at candidates.tsv.gz for the
-# rest. Not a config key: a rendering limit, not an analysis choice.
-CHIMERA_TABLE_TOP_N = 50
+# Hard safety cap on how many candidate rows the report's table can ever
+# render. MultiQC embeds table data in the HTML and a real cohort produces
+# tens of thousands of gene-TE pairs, so this exists purely so the report
+# can't blow up -- it is NOT the normal row count. The script itself shows
+# every pair tied at the top Screens value (a real run had 66 of them
+# against the old fixed cap of 50, silently dropping 16 alphabetically),
+# filling down to a sensible minimum when that group is small; this cap
+# only bites when a single Screens tier alone is bigger than it. Not a
+# config key: a rendering limit, not an analysis choice.
+CHIMERA_TABLE_TOP_N = 500
 
 # TEcounts sample-QC (PCA + sample clustering, rules/tecount_qc.smk), built
 # from the per-sample TEcount tables. Defaults come from the built-in

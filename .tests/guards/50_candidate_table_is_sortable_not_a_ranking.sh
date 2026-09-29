@@ -7,14 +7,13 @@ set -uo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 guard_init
 
-fixture_evidence
-
 # --- The report needs an entry point users can act on, and this pipeline has
 # twice had a RANKING removed for having no validated weighting. Both have to
 # stay true at once, which is what this pins: the table exists and is usable,
 # its columns are grouped by screen (CR / SJ / Assembly / Support) instead of
 # interleaved, and its order is a single COUNT the reader can re-sort rather
 # than a score the pipeline asserts.
+fixture_evidence
 mkdir -p "$T/tbl/qc"
 gzip -dc "$T/ev/out.tsv.gz" | gzip -c > "$T/tbl/evidence.tsv.gz"
 { printf 'gene_id\tgene_name\n'; printf 'Gapdh\tGAPDH\n'; } | gzip -c > "$T/tbl/sym.tsv.gz"
@@ -70,9 +69,9 @@ check(headers.get("TE insertion", {}).get("hidden") is True,
 check(d["pconfig"].get("defaultsort") == [{"column": "Screens", "direction": "desc"}],
       f"defaultsort must be Screens desc only; got {d['pconfig'].get('defaultsort')}")
 
-# rows are sorted by (n_screens desc, gene label asc, te_id asc) -- a sort
-# that asserts nothing beyond screen count, unlike candidates.tsv.gz's own
-# finer (n_screens, n_screen_evidence, n_corroboration) order.
+# This fixture's 5 pairs are far below MIN_ROWS, so every one of them is
+# shown regardless of which Screens tier they're in -- fill-down exhausts
+# the whole file. Order: (n_screens desc, gene asc, TE asc).
 rows = list(d["data"])
 # " | ", never " / ": MultiQC cleans table row names like filenames and splits
 # on "/", so a "GENE / te_id" key rendered as just the TE id and the gene
@@ -81,9 +80,6 @@ check(all("/" not in r for r in rows),
       f"row keys must not contain '/' -- MultiQC strips everything before it; got {rows[:2]}")
 check(rows[0].startswith("GAPDH |"),
       f"gene symbols must be resolved and the only 2-screen pair first; got {rows[0]!r}")
-# fixture_evidence: Gapdh(2 screens) first, then the four 1-screen pairs
-# alphabetically (Actb, Myc, Sox2, Tp53 -- none has a gene_name, so gene_id
-# is the label) -- this is the alphabetical tie-break the rewrite added.
 expected_order = ["GAPDH | L1PA2_dup1", "Actb | AluY_dup9", "Myc | L1MdA_dup4",
                    "Sox2 | SVA_dup3", "Tp53 | MIR_dup2"]
 check(rows == expected_order,
@@ -120,6 +116,10 @@ check("validate candidates manually" in desc,
 for banned in ("ranked by", "confidence tier", "highest confidence"):
     check(banned not in desc.lower(),
           f"section must not present itself as a ranking ({banned!r})")
+# nothing here is truncated (5 pairs, nowhere near either threshold), so the
+# alphabetical-accident wording must not appear.
+check("alphabetically first" not in desc,
+      f"no truncation happened here -- 'alphabetically first' must not appear: {desc!r}")
 sys.exit(0 if ok else 1)
 PY
 fi
@@ -158,48 +158,122 @@ then
   echo "ERROR: gene names did not survive MultiQC rendering"; FAIL=1
 fi
 
-# --- Top-N tie disclosure: when more pairs share the single highest Screens
-# value than fit in top_n, the description must say so, since which of the
-# tied pairs get shown is then an alphabetical accident.
-mkdir -p "$T/tie/qc"
+# --- Row selection: a real 4-sample run had 66 pairs tied at Screens = 3
+# against the OLD fixed cap of 50 -- the report silently dropped 16 of them
+# purely alphabetically (genes P-Z). The new rule: show every pair tied at
+# the top Screens value; if that's smaller than a useful table, fill down
+# whole next-Screens-value tiers; a hard --max-rows cap only ever bites
+# when the top group ALONE is bigger than it -- the one case where which
+# rows are shown is an alphabetical accident, and the only case where the
+# section may say "alphabetically first".
+mkdir -p "$T/sel"
 cols="gene_id\tte_id\tte_subfamily\tte_family\tte_class\tfound_by\tn_screens\tscreen_evidence\tn_screen_evidence\tcorroboration\tn_corroboration\tcr_events\tcr_reads\tcr_max_samples\tcr_canonical\tcr_chimera_types\ttelocal_active\ttelocal_count\ttelocal_locus\tassembly_transcripts\tassembly_chimera_types\tassembly_strand_match\tassembly_transcript_ids\tsj_events\tsj_reads\tsj_max_samples\tsj_canonical\tsj_chimera_types"
-{
-  printf "%b\n" "$cols"
-  # four pairs tied at n_screens=3 (the top value), one at n_screens=1 --
-  # with --top-n 2, only Aaa and Bbb (alphabetically first of the four
-  # tied) are shown, and Ccc/Ddd/Zzz are not.
-  printf 'Aaa\tT1\tsf\tfam\tLINE\tcr+assembly+sj\t3\t.\t0\t.\t0\t1\t10\t1\tno\t.\t.\t0\t.\t1\tte_terminated\t.\tMSTRG.a\t1\t10\t1\tno\t.\n'
-  printf 'Bbb\tT2\tsf\tfam\tLINE\tcr+assembly+sj\t3\t.\t0\t.\t0\t1\t10\t1\tno\t.\t.\t0\t.\t1\tte_terminated\t.\tMSTRG.b\t1\t10\t1\tno\t.\n'
-  printf 'Ccc\tT3\tsf\tfam\tLINE\tcr+assembly+sj\t3\t.\t0\t.\t0\t1\t10\t1\tno\t.\t.\t0\t.\t1\tte_terminated\t.\tMSTRG.c\t1\t10\t1\tno\t.\n'
-  printf 'Ddd\tT4\tsf\tfam\tLINE\tcr+assembly+sj\t3\t.\t0\t.\t0\t1\t10\t1\tno\t.\t.\t0\t.\t1\tte_terminated\t.\tMSTRG.d\t1\t10\t1\tno\t.\n'
-  printf 'Zzz\tT5\tsf\tfam\tLINE\tcr\t1\t.\t0\t.\t0\t1\t10\t1\tno\t.\t.\t0\t.\t0\t.\t.\t.\t0\t0\t0\tno\t.\n'
-} | gzip -c > "$T/tie/candidates.tsv.gz"
+
+python3 - "$T/sel" <<'PY' || FAIL=1
+import gzip, sys
+T = sys.argv[1]
+cols = ["gene_id","te_id","te_subfamily","te_family","te_class","found_by","n_screens",
+        "screen_evidence","n_screen_evidence","corroboration","n_corroboration",
+        "cr_events","cr_reads","cr_max_samples","cr_canonical","cr_chimera_types",
+        "telocal_active","telocal_count","telocal_locus","assembly_transcripts",
+        "assembly_chimera_types","assembly_strand_match","assembly_transcript_ids",
+        "sj_events","sj_reads","sj_max_samples","sj_canonical","sj_chimera_types"]
+
+def row(gid, tid, screens):
+    d = dict.fromkeys(cols, ".")
+    d["gene_id"] = gid; d["te_id"] = tid; d["n_screens"] = str(screens)
+    d["found_by"] = "cr"; d["cr_events"] = "1"; d["cr_reads"] = "1"
+    d["cr_max_samples"] = "1"; d["cr_canonical"] = "no"
+    return "\t".join(d[c] for c in cols)
+
+def write(path, rows):
+    with gzip.open(path, "wt") as fh:
+        fh.write("\t".join(cols) + "\n")
+        for r in rows:
+            fh.write(r + "\n")
+
+# Scenario A: top group (60, screens=3) is bigger than the OLD 50-row cap
+# but under --max-rows -- all 60 must be shown, nothing truncated.
+write(f"{T}/A.tsv.gz",
+      [row(f"G{i:03d}", "T1", 3) for i in range(60)] +
+      [row(f"H{i:03d}", "T1", 1) for i in range(5)])
+
+# Scenario B: top group (3, screens=3) is smaller than MIN_ROWS -- must
+# fill down with the WHOLE next tier (60 pairs at screens=1).
+write(f"{T}/B.tsv.gz",
+      [row(f"G{i:03d}", "T1", 3) for i in range(3)] +
+      [row(f"H{i:03d}", "T1", 1) for i in range(60)])
+
+# Scenario C: top group (15, screens=3) alone exceeds a small --max-rows
+# (10) -- only that case may cut alphabetically into the top group.
+write(f"{T}/C.tsv.gz", [row(f"G{i:03d}", "T1", 3) for i in range(15)])
+PY
 
 if ! python3 workflow/scripts/chimera_candidates_table_mqc.py \
-      --evidence "$T/tie/candidates.tsv.gz" --top-n 2 \
-      --out "$T/tie/qc/chimera_candidates_table_mqc.json" \
-      > "$T/tie/log" 2>&1; then
-  echo "ERROR: chimera_candidates_table_mqc.py failed on the tie fixture"
-  cat "$T/tie/log"; FAIL=1
-else
-  python3 - "$T/tie/qc/chimera_candidates_table_mqc.json" <<'PY3' || FAIL=1
+      --evidence "$T/sel/A.tsv.gz" --max-rows 500 \
+      --out "$T/sel/A.json" > "$T/sel/A.log" 2>&1; then
+  echo "ERROR: scenario A failed"; cat "$T/sel/A.log"; FAIL=1
+fi
+if ! python3 workflow/scripts/chimera_candidates_table_mqc.py \
+      --evidence "$T/sel/B.tsv.gz" --max-rows 500 \
+      --out "$T/sel/B.json" > "$T/sel/B.log" 2>&1; then
+  echo "ERROR: scenario B failed"; cat "$T/sel/B.log"; FAIL=1
+fi
+if ! python3 workflow/scripts/chimera_candidates_table_mqc.py \
+      --evidence "$T/sel/C.tsv.gz" --max-rows 10 \
+      --out "$T/sel/C.json" > "$T/sel/C.log" 2>&1; then
+  echo "ERROR: scenario C failed"; cat "$T/sel/C.log"; FAIL=1
+fi
+
+python3 - "$T/sel" <<'PY' || FAIL=1
 import json, sys
-d = json.load(open(sys.argv[1]))
+T = sys.argv[1]
 ok = True
 def check(c, m):
     global ok
     if not c:
         print("ERROR:", m); ok = False
-rows = list(d["data"])
-check(rows == ["Aaa | T1", "Bbb | T2"],
-      f"expected the alphabetically first 2 of the 4 tied pairs; got {rows}")
-desc = d.get("description", "")
-check("4 pairs share the top Screens value (3)" in desc,
-      f"description must disclose the tie count; got {desc!r}")
-check("only the alphabetically first 2" in desc,
-      f"description must say how many of the tied pairs are actually shown; got {desc!r}")
+
+# --- Scenario A: all 60 of the top group shown, nothing truncated -------
+a = json.load(open(f"{T}/A.json"))
+check(len(a["data"]) == 60, f"scenario A: expected 60 rows shown, got {len(a['data'])}")
+desc_a = a.get("description", "")
+check("All <strong>60</strong>" in desc_a or "All 60" in desc_a,
+      f"scenario A: description must plainly say all 60 pairs are shown: {desc_a!r}")
+check("alphabetically first" not in desc_a,
+      f"scenario A: nothing truncated, must not say 'alphabetically first': {desc_a!r}")
+
+# --- Scenario B: top group (3) fills down with the whole next tier (60) -
+b = json.load(open(f"{T}/B.json"))
+check(len(b["data"]) == 63,
+      f"scenario B: expected 3 + 60 = 63 rows shown (fill-down), got {len(b['data'])}")
+desc_b = b.get("description", "")
+check(("All <strong>3</strong>" in desc_b or "All 3" in desc_b)
+      and ("60" in desc_b),
+      f"scenario B: description must disclose the 3-pair top group and the "
+      f"60-pair fill-down with numbers: {desc_b!r}")
+check("alphabetically first" not in desc_b,
+      f"scenario B: fill-down adds a WHOLE tier, not a partial one -- must "
+      f"not say 'alphabetically first': {desc_b!r}")
+
+# --- Scenario C: top group (15) truncated to --max-rows (10) ------------
+c = json.load(open(f"{T}/C.json"))
+check(len(c["data"]) == 10,
+      f"scenario C: expected exactly 10 rows (the --max-rows cap), got {len(c['data'])}")
+desc_c = c.get("description", "")
+check("15 pairs share the top Screens value (3)" in desc_c,
+      f"scenario C: description must name the true top-group size (15) and "
+      f"its Screens value (3): {desc_c!r}")
+check("alphabetically first 10" in desc_c,
+      f"scenario C: description must disclose the cap (10) as the alphabetical "
+      f"cutoff: {desc_c!r}")
+# the 10 shown must be the alphabetically-first 10 of the 15 (G000..G009)
+expected_c = sorted(f"G{i:03d} | T1" for i in range(15))[:10]
+check(list(c["data"]) == expected_c,
+      f"scenario C: shown rows must be the alphabetically first 10; got "
+      f"{list(c['data'])}, want {expected_c}")
+
 sys.exit(0 if ok else 1)
-PY3
-fi
+PY
 
 exit $FAIL

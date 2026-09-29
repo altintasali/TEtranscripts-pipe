@@ -14,7 +14,7 @@ heatmaps (chimera_evidence_heatmap.py, removed 2026) were dropped in turn --
 they characterised the method on a biased subset of pairs (only ones the
 chimeric-reads screen found), not the cohort as a whole, so they were not
 per-run QC. The measured findings they surfaced are restated below, in the
-Screens and TE locus expressed rows, as dated statements tied to the cohort
+Screens and TElocal expressed rows, as dated statements tied to the cohort
 they came from rather than a live plot.
 
 Ranking on an unvalidated weighting is worse than not ranking, because a
@@ -49,11 +49,11 @@ PARENT_NAME = "Chimera"
 # builds them. Presentational only -- the whole point of this section is that
 # no order among these is established.
 FLAGS = [
-    ("cr_canonical", "Splice motif"),
-    ("multi_sample", "Replicate support"),
+    ("cr_canonical", "CR motif"),
+    ("multi_sample", "Replicated"),
     ("sj_canonical", "SJ motif"),
-    ("assembly_strand_match", "Assembly strand match"),
-    ("telocal_expressed", "TE locus expressed"),
+    ("assembly_strand_match", "Assembly strand"),
+    ("telocal_expressed", "TElocal expressed"),
 ]
 
 # (label, source tool, what the signal is, what THIS pipeline has measured
@@ -65,7 +65,7 @@ FLAGS = [
 # measurements or two views of the same tool's output.
 SIGNALS = [
     (
-        "Splice motif",
+        "CR motif",
         "STAR (chimeric junctions)",
         "A recognised splice motif on at least one chimeric-junction read "
         "(<code>cr_canonical</code>).",
@@ -76,7 +76,7 @@ SIGNALS = [
         "strong",
     ),
     (
-        "Replicate support",
+        "Replicated",
         "STAR (chimeric junctions or SJ.out.tab)",
         "Counted as corroboration, not screen evidence -- can fire from a "
         "single screen alone, no second screen required. Seen in more than "
@@ -109,9 +109,9 @@ SIGNALS = [
         "STAR + StringTie + STAR (SJ.out.tab)",
         "How many of the 3 independent detection screens found this pair "
         "(<code>n_screens</code>, 1-3) &mdash; informational, not itself an "
-        "evidence flag. Splice motif, SJ motif and Assembly strand match "
+        "evidence flag. CR motif, SJ motif and Assembly strand "
         "above can each only be set by their own screen, so together they "
-        "can never total more than this; Replicate support and TE locus "
+        "can never total more than this; Replicated and TElocal "
         "expressed are corroboration, deliberately NOT bounded by it.",
         "n_screens &gt;= 2 should be the strongest signal here &mdash; the "
         "chimeric-reads and assembly screens have opposite blind spots. "
@@ -130,7 +130,7 @@ SIGNALS = [
         "unresolved",
     ),
     (
-        "Assembly strand match",
+        "Assembly strand",
         "StringTie (assembly)",
         "The assembled transcript's strand agrees with the gene's "
         "(<code>assembly_strand_match</code>).",
@@ -150,7 +150,7 @@ SIGNALS = [
         "not-evidence",
     ),
     (
-        "TE locus expressed",
+        "TElocal expressed",
         "TElocal",
         "Counted as corroboration, not screen evidence -- TElocal is a "
         "fourth data source, not one of the three detection screens. "
@@ -351,10 +351,10 @@ def main():
             "counts, not slices of a whole."
         ),
         "helptext": (
-            "Sources: splice motif and replicate support from STAR "
-            "chimeric junctions, assembly strand match from StringTie, "
+            "Sources: CR motif and Replicated from STAR "
+            "chimeric junctions, Assembly strand from StringTie, "
             "SJ motif from STAR's SJ.out.tab (when "
-            "chimera.splice_junctions is enabled), TE locus expressed from "
+            "chimera.splice_junctions is enabled), TElocal expressed from "
             "TElocal. How many screens agreed on a pair is shown separately "
             "(the Screens column in the Candidates table above), not as a "
             "bar here -- it is derived from found_by, not an independent "

@@ -172,7 +172,7 @@ else
            "CR motif" "CR samples" "CR reads" "CR events" "CR TE type" \
            "SJ motif" "SJ samples" "SJ reads" "SJ events" "SJ TE type" \
            "Assembly strand" "Assembly transcripts" \
-           "Assembly reads (cohort total)" "Assembly TE type" \
+           "Assembly reads" "Assembly TE type" \
            "Assembly transcript IDs" "Replicated" "TElocal active" \
            "TElocal reads"; do
     if ! grep -qF "\"$h\"" "$T/exp/out.html"; then
@@ -184,11 +184,47 @@ else
               "Junction reads (cohort total)" "TE type (reads)" \
               "Splice motif (SJ)" "SJ reads (cohort total)" "TE type (SJ)" \
               "Assembly transcript count" "TE type (assembly)" \
-              "\"Strand match\"" "TElocal reads (cohort total)"; do
+              "\"Strand match\"" "TElocal reads (cohort total)" \
+              "Assembly reads (cohort total)"; do
     if grep -qF "$gone" "$T/exp/out.html"; then
       echo "ERROR: old column name leaked back into the explorer: $gone"; FAIL=1
     fi
   done
+  # The table used to open sorted on Screens, then two columns hidden by
+  # default (Screen evidence count / Corroboration count) -- an invisible
+  # tie-break the reader could never see or act on. It must now open sorted
+  # on Screens plus two VISIBLE columns (Gene, TE insertion) only -- checked
+  # generically (by cross-referencing DT's own "order"/hidden-columnDefs
+  # JSON) so this survives a future column reorder rather than hardcoding
+  # indices.
+  if ! python3 - "$T/exp/out.html" <<'PY3'
+import re, sys
+h = open(sys.argv[1]).read()
+m_order = re.search(r'"order":(\[\[.*?\]\])', h)
+m_hidden = re.search(r'"columnDefs":\[\{"visible":false,"targets":(\[[0-9,]*\])', h)
+ok = True
+def check(c, msg):
+    global ok
+    if not c:
+        print("ERROR:", msg); ok = False
+if not m_order:
+    print("ERROR: could not find DT's initial 'order' config"); sys.exit(1)
+if not m_hidden:
+    print("ERROR: could not find DT's hidden-columns columnDefs"); sys.exit(1)
+import json
+order_cols = [pair[0] for pair in json.loads(m_order.group(1))]
+hidden_cols = set(json.loads(m_hidden.group(1)))
+leaked = [c for c in order_cols if c in hidden_cols]
+check(not leaked,
+      f"explorer opens sorted on a HIDDEN column index {leaked} -- "
+      f"order={order_cols}, hidden={sorted(hidden_cols)}")
+check(len(order_cols) == 3,
+      f"expected exactly 3 sort keys (Screens, Gene, TE insertion); got {order_cols}")
+sys.exit(0 if ok else 1)
+PY3
+  then
+    FAIL=1
+  fi
   # Replicated must agree with the multi_sample flag in Corroboration flags
   # for every row: row 1's corroboration is "multi_sample,telocal_expressed"
   # (Replicated=yes), row 2's is "." (Replicated=no). DT's htmlwidgets

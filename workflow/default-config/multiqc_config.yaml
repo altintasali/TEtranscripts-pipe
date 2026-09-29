@@ -118,7 +118,7 @@ module_order:
 #                        correlation/leaders heatmaps were removed (they
 #                        characterised the method on a biased subset of
 #                        pairs, not the cohort -- see chimera_evidence_guide_mqc's
-#                        "Screens" and "TE locus expressed" rows for the
+#                        "Screens" and "TElocal expressed" rows for the
 #                        measured findings that came out of them). MultiQC
 #                        has only two heading levels, so the remaining
 #                        Chimeric reads / Assembly / Splice junctions grouping

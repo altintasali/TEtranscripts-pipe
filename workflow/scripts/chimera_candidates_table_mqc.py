@@ -28,9 +28,12 @@ glance; Gene and TE insertion are still their own columns (so the reader can
 sort/filter on either alone) but hidden by default since both already
 appear in the row key.
 
-Row cap: a real cohort produces tens of thousands of pairs and MultiQC embeds
-table data in the HTML, so only the top --top-n are rendered. The full
-catalogue is candidates.tsv.gz, and the section says so.
+Row selection: a real cohort produces tens of thousands of pairs and MultiQC
+embeds table data in the HTML, so this shows every pair tied at the top
+Screens value (filling down to MIN_ROWS from the next Screens value when
+that group is small), capped at --max-rows as a hard safety ceiling -- see
+_select_rows()'s docstring. The full catalogue is candidates.tsv.gz, and the
+section says so.
 """
 import argparse
 import json
@@ -132,8 +135,8 @@ COLUMNS = [
      "TElocal read count for the TE copy itself, summed across every sample "
      "(chimera_telocal_index.py builds one shared, all-samples index up "
      "front, so this is already a cohort total, not a single sample's "
-     "count -- candidates_explorer.html's own \"TElocal reads (cohort "
-     "total)\" column reaches the same number by joining "
+     "count -- candidates_explorer.html's own \"TElocal reads\" column "
+     "reaches the same number by joining "
      "counts_matrix.tsv.gz directly). Counted as corroboration when "
      "nonzero. One small run had it anti-correlated with the splice motif "
      "(6.7% vs 10.2% canonical), which is not enough to demote it -- see "
@@ -158,6 +161,12 @@ SCALE_BY_HEADER = {
     "Assembly transcripts": "Oranges",
     "TElocal reads": "Purples",
 }
+
+# Below this many shown rows, fill down into the next Screens tier(s) so a
+# run whose top Screens value only has a handful of pairs still gets a
+# useful table -- see _select_rows(). Not a config key, same reasoning as
+# --max-rows.
+MIN_ROWS = 50
 
 
 def load(path):
@@ -189,6 +198,55 @@ def load_symbols(path):
     return symbols
 
 
+def _select_rows(rows, min_rows, max_rows):
+    """Choose which pairs the report renders.
+
+    rows must already be sorted by (-n_screens, gene label, te_id) -- every
+    pair sharing a Screens value is therefore a contiguous run. The rule:
+    show every pair tied at the top Screens value; if that group alone is
+    smaller than min_rows, fill down with whole next-Screens-value tiers
+    (never a partial tier) until at least min_rows are shown or the rows
+    run out; max_rows is a hard cap that can only ever cut INTO the top
+    group itself (a lower tier is only ever added whole or not at all, so
+    it never needs a disclosure -- see truncated_top below).
+
+    Returns (selected, top_screens, n_top_group, truncated_top):
+      top_screens    the highest n_screens value in the WHOLE file
+      n_top_group    how many pairs share top_screens in the WHOLE file,
+                     regardless of how many are actually shown
+      truncated_top  True only when max_rows had to cut into the top group
+                     itself -- the one case where which rows are shown is
+                     an alphabetical accident rather than a complete tier,
+                     and the section must say so.
+    """
+    if not rows:
+        return [], 0, 0, False
+
+    top_screens = _int(rows[0].get("n_screens"))
+    n_top_group = 0
+    for r in rows:
+        if _int(r.get("n_screens")) != top_screens:
+            break
+        n_top_group += 1
+
+    if n_top_group > max_rows:
+        return rows[:max_rows], top_screens, n_top_group, True
+
+    selected = rows[:n_top_group]
+    i = n_top_group
+    while len(selected) < min_rows and i < len(rows):
+        tier_screens = _int(rows[i].get("n_screens"))
+        j = i
+        while j < len(rows) and _int(rows[j].get("n_screens")) == tier_screens:
+            j += 1
+        remaining_capacity = max_rows - len(selected)
+        if remaining_capacity <= 0:
+            break
+        selected += rows[i:j][:remaining_capacity]
+        i = j
+    return selected, top_screens, n_top_group, False
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--evidence", required=True,
@@ -196,7 +254,9 @@ def main():
     ap.add_argument("--gene-names", default=None,
                     help="gene_id_to_name.tsv.gz, to label rows by symbol")
     ap.add_argument("--out", required=True)
-    ap.add_argument("--top-n", type=int, default=50)
+    ap.add_argument("--max-rows", type=int, default=500,
+                    help="Hard safety cap on rendered rows -- not the "
+                    "normal row count, see _select_rows()'s docstring.")
     ap.add_argument("--source-path", default="results/chimera/candidates.tsv.gz")
     ap.add_argument("--explorer-path",
                     default="results/chimera/candidates_explorer.html",
@@ -223,15 +283,8 @@ def main():
         -_int(r.get("n_screens")), r["_gene_label"], r.get("te_id", "."),
     ))
 
-    top = rows[: args.top_n]
-
-    # How many pairs tie for the single highest Screens value in the WHOLE
-    # file -- disclosed below whenever that is more than top_n, since which
-    # of those tied pairs get shown is then an alphabetical accident, not a
-    # further ranking, and the reader should know more exist.
-    top_screens = _int(rows[0].get("n_screens")) if rows else 0
-    n_at_top_screens = sum(
-        1 for r in rows if _int(r.get("n_screens")) == top_screens
+    top, top_screens, n_top_group, truncated_top = _select_rows(
+        rows, MIN_ROWS, args.max_rows
     )
 
     data = {}
@@ -281,14 +334,33 @@ def main():
             h["scale"] = SCALE_BY_HEADER[header]
         headers[header] = h
 
-    tie_note = ""
-    if n_at_top_screens > args.top_n:
+    # Only the top-group-truncation case involves any alphabetical choice
+    # (see _select_rows()'s docstring) -- every other case shows either the
+    # whole top group, or the whole top group plus whole lower tiers, so it
+    # is described plainly instead.
+    if truncated_top:
         tie_note = (
-            f"{n_at_top_screens:,} pairs share the top Screens value "
+            f"{n_top_group:,} pairs share the top Screens value "
             f"({top_screens}) -- only the alphabetically first "
-            f"{args.top_n:,} of those are shown here; the rest are in "
+            f"{args.max_rows:,} of those are shown here; the rest are in "
             "the explorer. "
         )
+    else:
+        extra = len(top) - n_top_group
+        if extra > 0:
+            tie_note = (
+                f"All <strong>{n_top_group:,}</strong> pairs found by the "
+                f"most screens (Screens = {top_screens}) are shown, plus "
+                f"the next <strong>{extra:,}</strong> pairs by Screens "
+                "value, so the table stays a useful size. "
+            )
+        elif rows:
+            tie_note = (
+                f"All <strong>{n_top_group:,}</strong> pairs found by the "
+                f"most screens (Screens = {top_screens}) are shown. "
+            )
+        else:
+            tie_note = ""
 
     # Kept deliberately short: the full argument lives in "How to weigh this
     # evidence" one section up, and repeating it here buried the table. What
@@ -315,6 +387,13 @@ def main():
         "Replicated, TElocal reads) is its own column instead of being "
         "folded into a second count, so nothing beyond screen agreement "
         "decides which rows are shown first.</p>"
+        "<p>Which rows: every pair tied at the top Screens value is shown, "
+        "in full. If that group is smaller than a useful table, whole next-"
+        "Screens-value tiers are added until it is. A hard cap "
+        "(--max-rows) only ever bites when the top group itself is bigger "
+        "than the cap -- the one case where which rows are shown is an "
+        "alphabetical accident, and the section says so explicitly when it "
+        "happens.</p>"
     )
 
     if top:

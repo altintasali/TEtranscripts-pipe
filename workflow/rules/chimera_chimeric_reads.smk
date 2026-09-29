@@ -414,7 +414,7 @@ rule chimera_candidates_table:
     output:
         "results/chimera/qc/chimera_candidates_table_mqc.json",
     params:
-        top_n=CHIMERA_TABLE_TOP_N,
+        max_rows=CHIMERA_TABLE_TOP_N,
         source_path="results/chimera/candidates.tsv.gz",
         explorer_path="results/chimera/candidates_explorer.html",
     threads: get_resources("chimera_candidates_table")["threads"]
@@ -428,7 +428,7 @@ rule chimera_candidates_table:
     shell:
         "python3 {input.script} "
         "--evidence {input.evidence} --gene-names {input.gene_names} "
-        "--top-n {params.top_n} --source-path {params.source_path} "
+        "--max-rows {params.max_rows} --source-path {params.source_path} "
         "--explorer-path {params.explorer_path} "
         "--out {output} > {log} 2>&1"
 
@@ -500,7 +500,7 @@ def _candidates_explorer_shell():
 
 rule chimera_candidates_explorer:
     # Standalone, self-contained interactive HTML over the FULL candidates
-    # catalogue -- the top_n cap on chimera_candidates_table above exists
+    # catalogue -- the row cap on chimera_candidates_table above exists
     # because MultiQC embeds table data into one already-large report; this
     # is the "all rows, sortable/searchable/filterable, no MultiQC, no
     # server" companion (chimera_candidates_explorer.R, DT + htmlwidgets).
