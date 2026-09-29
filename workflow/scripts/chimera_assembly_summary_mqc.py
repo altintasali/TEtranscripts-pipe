@@ -11,10 +11,11 @@
 
 This section used to also rank and render this run's top candidates, keyed
 (junction-confirmed, strand-matched, highest TPM).  It was one of three
-rankings shipping in the same report, and it led on the one signal a
-dimension-by-dimension comparison of the evidence columns measured at
-roughly its chance rate (see chimera_evidence_guide_mqc.py's "Screens"
-row).  All three are gone -- the pipeline no longer ranks candidates at all;
+rankings shipping in the same report, and it led on cross-screen agreement,
+whose weight has not been established (see chimera_evidence_guide_mqc.py's
+"Screens / Found by" row; project measurements so far are in
+docs/chimera-evidence.md).  All three are gone -- the pipeline no longer
+ranks candidates at all;
 dropping the table here also dropped this script's only use of
 tpm_matrix.tsv.gz, so it is no longer an input.
 
@@ -281,11 +282,12 @@ def main():
     # --- screen notes: blind spot + qualifying counts --------------------
     # This section used to render its own ranked top-N, keyed
     # (junction-confirmed, strand-matched, TPM). That was one of three
-    # rankings shipping in the same report, and it led on the very signal
-    # a dimension-by-dimension comparison of the evidence columns measured
-    # at roughly its chance rate (see chimera_evidence_guide_mqc.py's
-    # "Screens" row). The pipeline no longer ranks candidates anywhere;
-    # what stays here is what only this screen can say about itself.
+    # rankings shipping in the same report, and it led on cross-screen
+    # agreement, whose weight has not been established (see
+    # chimera_evidence_guide_mqc.py's "Screens / Found by" row; project
+    # measurements so far are in docs/chimera-evidence.md). The pipeline
+    # no longer ranks candidates anywhere; what stays here is what only
+    # this screen can say about itself.
     n_total = len(rows)
     n_confirmed = (
         sum(1 for r in rows if r.get("confirmed_by_junction_screen") == "yes")
@@ -299,10 +301,10 @@ def main():
     confirmed_line = (
         f"<li><strong>{n_confirmed} of {n_total}</strong> candidates are also "
         "found by the read-evidence screen. The two methods have opposite "
-        "blind spots, so agreement should be meaningful &mdash; but on a "
-        "4-sample mouse run it came out near its <strong>chance rate</strong> "
-        "(see <strong>How to weigh this evidence</strong>'s Screens row). "
-        "It carries no more weight than any other flag here.</li>"
+        "blind spots, so agreement should in principle be meaningful "
+        "&mdash; how much it actually adds has not been established (see "
+        "<strong>How to weigh this evidence</strong>'s Screens / Found by "
+        "row). It carries no more weight than any other flag here.</li>"
         if has_cross_evidence else
         "<li>chimera.chimeric_reads is currently disabled, so no cross-confirmation "
         "is available &mdash; enabling it adds an independent evidence source "

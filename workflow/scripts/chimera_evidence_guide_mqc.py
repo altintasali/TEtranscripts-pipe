@@ -2,32 +2,23 @@
 """The report's guide to reading the gene-TE chimera evidence -- and nothing
 more than a guide.
 
-This pipeline does not rank chimera candidates.  It used to: a four-tier
-confidence ladder, rendered here as the report's first chimera section.  The
-ladder was removed because no experiment in this project established the
-relative weight of its rungs, and the pipeline's own cohort analysis
-contradicted the top one -- a dimension-by-dimension comparison of the
-evidence columns measured cross-screen agreement sitting near its chance
-rate, the same class of result that had already removed TElocal expression
-from the ladder (0d04e43). That comparison's own correlation/leaders
-heatmaps (chimera_evidence_heatmap.py, removed 2026) were dropped in turn --
-they characterised the method on a biased subset of pairs (only ones the
-chimeric-reads screen found), not the cohort as a whole, so they were not
-per-run QC. The measured findings they surfaced are restated below, in the
-Screens and TElocal expressed rows, as dated statements tied to the cohort
-they came from rather than a live plot.
+This pipeline does not rank chimera candidates. It used to: a four-tier
+confidence ladder, then three competing per-screen top-N tables, both
+removed for having no validated weighting (commits d927c8f, 0d04e43). The
+Candidates table above (chimera_candidates_table_mqc.py) is the sortable,
+unranked replacement -- every pair, every evidence column, ordered by
+Screens only, re-orderable by clicking any header. This section explains
+what each of that table's columns is worth and how to read it; it never
+lists a candidate pair itself, so it cannot become a second, differently
+ordered ranking.
 
-Ranking on an unvalidated weighting is worse than not ranking, because a
-tier column in a report is read as a verdict.  So the report now states what
-is known about each line of evidence and stops.  Deciding which candidates
-are real is a manual call made against the full catalogue,
-results/chimera/candidates.tsv.gz.
-
-Deliberately absent from this section: any candidate table.  Rendering even
-an unranked top-N re-creates the thing that was removed, because whatever
-order it happens to be in reads as importance.  Every pair is in the TSV,
-with every evidence column; the reader sorts it for the question they have.
-Guard 37 asserts no chimera section renders a table.
+Project measurements that used to be hard-coded here -- numbers from one
+specific run, printed into every OTHER run's report regardless of species
+or cohort, some of them already stale by the time a reader saw them -- now
+live in docs/chimera-evidence.md instead, with the cohort, the restriction
+each measurement was made under, and what it does and doesn't show. This
+guide states only what is true for any run: how each signal is defined and
+what its known failure modes are.
 
 Emits two MultiQC custom-content documents:
 
@@ -45,138 +36,148 @@ from gz_io import open_read, open_write
 PARENT_ID = "chimera"
 PARENT_NAME = "Chimera"
 
-# Flags emitted by chimera_evidence.py, in the order chimera_evidence.py
-# builds them. Presentational only -- the whole point of this section is that
-# no order among these is established.
+# Order mirrors the Candidates table's own column order (CR motif, SJ
+# motif, Assembly strand, Replicated, TElocal reads) -- keep this in sync
+# with chimera_candidates_table_mqc.py's COLUMNS if that table's columns
+# ever change. Drives the composition bar's category order (sort_samples:
+# False below, since MultiQC otherwise alphabetises bar categories) and
+# this file's own signal-table row order (see signals()).
 FLAGS = [
     ("cr_canonical", "CR motif"),
-    ("multi_sample", "Replicated"),
     ("sj_canonical", "SJ motif"),
     ("assembly_strand_match", "Assembly strand"),
+    ("multi_sample", "Replicated"),
     ("telocal_expressed", "TElocal expressed"),
-]
-
-# (label, source tool, what the signal is, what THIS pipeline has measured
-#  about it, standing)
-#
-# The source column exists because the labels alone are ambiguous: "splice
-# motif" and "strand match" could plausibly come from either screen, and a
-# reader weighing two signals needs to know whether they are independent
-# measurements or two views of the same tool's output.
-SIGNALS = [
-    (
-        "CR motif",
-        "STAR (chimeric junctions)",
-        "A recognised splice motif on at least one chimeric-junction read "
-        "(<code>cr_canonical</code>).",
-        "The best artifact discriminator available here. Real introns are "
-        "~100% canonical, while template-switching, ligation and PCR chimeras "
-        "carry no motif at all. A low overall rate is normal &mdash; what "
-        "matters is enrichment within a donor group, not the absolute number.",
-        "strong",
-    ),
-    (
-        "Replicated",
-        "STAR (chimeric junctions or SJ.out.tab)",
-        "Counted as corroboration, not screen evidence -- can fire from a "
-        "single screen alone, no second screen required. Seen in more than "
-        "one sample (<code>multi_sample</code>).",
-        "Weaker than it looks. A sequence-driven template switch recurs across "
-        "libraries too, so recurrence does not separate a real chimera from a "
-        "reproducible artifact.",
-        "mixed",
-    ),
-    (
-        "SJ motif",
-        "STAR (SJ.out.tab)",
-        "A recognised splice motif on at least one normal splice junction "
-        "from the splice_junctions screen (<code>sj_canonical</code>) "
-        "&mdash; kept separate from the reads-screen's own "
-        "<code>cr_canonical</code> flag above since the two are structurally "
-        "independent measurements (chimeric-junction typing vs. SJ.out.tab "
-        "motif).",
-        "This screen (chimera.splice_junctions) is brand new and has not been "
-        "run on real project data yet, so nothing here is measured -- "
-        "requiring canonical for admission by default (require_canonical: "
-        "true) means most rows already carry this flag, so on its own it "
-        "discriminates little within this screen's own output; its value "
-        "is mainly in cross-checking against the other two screens (see "
-        "Screens below).",
-        "unresolved",
-    ),
-    (
-        "Screens",
-        "STAR + StringTie + STAR (SJ.out.tab)",
-        "How many of the 3 independent detection screens found this pair "
-        "(<code>n_screens</code>, 1-3) &mdash; informational, not itself an "
-        "evidence flag. CR motif, SJ motif and Assembly strand "
-        "above can each only be set by their own screen, so together they "
-        "can never total more than this; Replicated and TElocal "
-        "expressed are corroboration, deliberately NOT bounded by it.",
-        "n_screens &gt;= 2 should be the strongest signal here &mdash; the "
-        "chimeric-reads and assembly screens have opposite blind spots. "
-        "It was not: <strong>measured on a 4-sample mouse run</strong>, "
-        "restricted to pairs the chimeric-reads screen found (a "
-        "<em>biased</em> subset -- assembly-only and splice_junctions-only "
-        "pairs were not part of this measurement), cr+assembly agreement "
-        "came out near its <strong>chance rate</strong>. chimera.splice_junctions "
-        "is new, off by default, and has not been run on real project data, "
-        "so n_screens == 3 is unmeasured too -- its own third-screen "
-        "agreement is a stronger signal in principle, but the two-screen "
-        "case's measured near-chance rate is reason enough not to assume it "
-        "without checking it yourself first, e.g. by cross-tabulating "
-        "found_by against the screen-bound flags in your own "
-        "candidates.tsv.gz.",
-        "unresolved",
-    ),
-    (
-        "Assembly strand",
-        "StringTie (assembly)",
-        "The assembled transcript's strand agrees with the gene's "
-        "(<code>assembly_strand_match</code>).",
-        "A consistency check on the assembly call rather than independent "
-        "support. For <code>te_initiated</code> calls a mismatch usually means "
-        "the gene hit is a spurious overlap, not real transcript connectivity.",
-        "mixed",
-    ),
-    (
-        "Read depth",
-        "STAR (chimeric junctions)",
-        "<strong>Not an evidence flag.</strong> Reported as "
-        "<code>cr_reads</code> / <code>cr_events</code>.",
-        "The metric most inflated by artifacts &mdash; a hot PCR chimera is "
-        "often the deepest event in a run. Depth never promotes a pair here, "
-        "and a high-depth row with no flags means exactly that.",
-        "not-evidence",
-    ),
-    (
-        "TElocal expressed",
-        "TElocal",
-        "Counted as corroboration, not screen evidence -- TElocal is a "
-        "fourth data source, not one of the three detection screens. "
-        "Reported as <code>telocal_count</code> when TElocal ran.",
-        "<strong>Measured on a 4-sample mouse run</strong>, restricted to "
-        "pairs the chimeric-reads screen found (the same "
-        "<em>biased</em> subset as the Screens row above -- assembly-only "
-        "and splice_junctions-only pairs were excluded from this "
-        "measurement): 91% of those pairs had an expressed locus, and the "
-        "canonical rate was <em>lower</em> where it was (6.7% vs 10.2%, "
-        "n&nbsp;=&nbsp;19,503). Too early to conclude anything from a "
-        "single run, on a subset at that &mdash; the correlation between "
-        "junction-side pairs and TE locus expression needs testing "
-        "properly, ideally without the found_by restriction. It stays a "
-        "flag until that test exists &mdash; one small, biased experiment "
-        "is not enough to demote a signal.",
-        "unresolved",
-    ),
 ]
 
 WEIGHT_STYLE = {
     "strong": ("#1a7f5a", "Best discriminator"),
     "mixed": ("#8a6d15", "Read with care"),
-    "unresolved": ("#8a3a54", "Unresolved"),
+    "not_validated": ("#8a3a54", "Not validated"),
     "not-evidence": ("#777", "Not evidence"),
 }
+
+
+def _sj_motif_row(sj_require_canonical):
+    """The SJ motif signal row. Its "how to read it" text depends on this
+    run's chimera.splice_junctions.require_canonical: when true, the flag
+    is nearly guaranteed by construction and says little on its own; when
+    false, it is a genuine per-junction measurement. Rendered conditionally
+    so the guide states the correct case for THIS run rather than hedging
+    both at once."""
+    if sj_require_canonical:
+        how = (
+            "chimera.splice_junctions.require_canonical is true in this "
+            "run, so nearly every SJ-screen pair already carries this "
+            "flag by construction &mdash; it discriminates little within "
+            "this screen's own output, and is mainly useful for "
+            "cross-checking against the other two screens (see "
+            "Screens / Found by above)."
+        )
+    else:
+        how = (
+            "chimera.splice_junctions.require_canonical is false in this "
+            "run, so this flag is not guaranteed by construction and "
+            "should discriminate normally within this screen's own "
+            "output -- check its distribution in your own "
+            "candidates.tsv.gz."
+        )
+    return (
+        "SJ motif",
+        "STAR (SJ.out.tab)",
+        "A recognised splice motif on at least one normal splice junction "
+        "from the splice_junctions screen (<code>sj_canonical</code>) "
+        "&mdash; kept separate from CR motif above: a structurally "
+        "independent measurement (chimeric-junction typing vs. SJ.out.tab "
+        "motif).",
+        how,
+        "mixed",
+    )
+
+
+def signals(sj_require_canonical):
+    """(label, source tool, what the signal is, how to read it, standing)
+    for the guide table, in the SAME order as FLAGS / the Candidates
+    table's own columns -- one deliberate exception: Read depth spans
+    both the CR and SJ blocks and is not evidence at all, so it goes last
+    rather than being split into two rows."""
+    return [
+        (
+            "Screens / Found by",
+            "STAR + StringTie + STAR (SJ.out.tab)",
+            "How many of the 3 independent detection screens found this "
+            "pair (<code>n_screens</code> / Screens, 1-3), and which "
+            "ones (<code>found_by</code> / Found by).",
+            "The three screens have different blind spots, so agreement "
+            "between them should in principle be strong support. How "
+            "much it actually adds has not been established. When the "
+            "SJ screen requires canonical junctions "
+            "(<code>chimera.splice_junctions.require_canonical</code>), "
+            "agreement with it partly selects for the motif by "
+            "construction rather than confirming it independently.",
+            "not_validated",
+        ),
+        (
+            "CR motif",
+            "STAR (chimeric junctions)",
+            "A recognised splice motif on at least one chimeric-junction "
+            "read (<code>cr_canonical</code>).",
+            "Real splice junctions are almost always canonical; "
+            "template-switching, ligation and PCR chimeras usually carry "
+            "no motif at all. Compare rates between groups of pairs, not "
+            "against an absolute number -- a low overall rate on its own "
+            "is normal.",
+            "strong",
+        ),
+        _sj_motif_row(sj_require_canonical),
+        (
+            "Assembly strand",
+            "StringTie (assembly)",
+            "The assembled transcript's strand agrees with the gene's "
+            "(<code>assembly_strand_match</code>).",
+            "A consistency check on the assembly call rather than "
+            "independent support. For <code>te_initiated</code> calls a "
+            "mismatch usually means a spurious gene overlap, not real "
+            "transcript connectivity.",
+            "mixed",
+        ),
+        (
+            "Replicated",
+            "STAR (chimeric junctions or SJ.out.tab)",
+            "Seen in more than one sample, from the greater of the "
+            "CR samples / SJ samples columns (<code>multi_sample</code>) "
+            "&mdash; corroboration, not screen-bound evidence, so it can "
+            "fire from a single screen alone.",
+            "A sequence-driven template switch or ligation artifact "
+            "recurs across libraries too, so recurrence alone does not "
+            "separate a real chimera from a reproducible one.",
+            "mixed",
+        ),
+        (
+            "TElocal reads",
+            "TElocal",
+            "TElocal's read count for the TE copy itself, and whether it "
+            "is called expressed in at least one sample "
+            "(<code>telocal_expressed</code>) &mdash; TElocal is a "
+            "fourth data source, not one of the three detection screens.",
+            "An expressed TE copy makes a chimera possible but does not "
+            "show one; highly expressed copies also generate more "
+            "chimeric-looking artifacts simply by generating more reads.",
+            "not_validated",
+        ),
+        (
+            "Read depth (CR reads, SJ reads)",
+            "STAR",
+            "<strong>Not an evidence flag.</strong> Reported as "
+            "<code>cr_reads</code> / CR reads and <code>sj_reads</code> "
+            "/ SJ reads.",
+            "The metric most inflated by artifacts &mdash; a hot PCR "
+            "chimera is often the deepest event in a run. Depth never "
+            "promotes a pair on its own; a high-depth row with no other "
+            "flags means exactly that.",
+            "not-evidence",
+        ),
+    ]
 
 
 def load(path):
@@ -189,9 +190,9 @@ def load(path):
             yield dict(zip(header, line.rstrip("\n").split("\t")))
 
 
-def guide_html(n_pairs, composition, n_no_flags):
+def guide_html(sj_require_canonical):
     rows = []
-    for label, source, what, measured, weight in SIGNALS:
+    for label, source, what, how, weight in signals(sj_require_canonical):
         colour, badge = WEIGHT_STYLE[weight]
         rows.append(
             "<tr>"
@@ -199,34 +200,28 @@ def guide_html(n_pairs, composition, n_no_flags):
             f'<td style="white-space:nowrap;color:#555;">{source}</td>'
             f'<td style="white-space:nowrap;color:{colour};">{badge}</td>'
             f"<td>{what}</td>"
-            f"<td>{measured}</td>"
+            f"<td>{how}</td>"
             "</tr>"
         )
 
-    counted = ", ".join(
-        f"<code>{flag}</code> {composition.get(flag, 0):,}" for flag, _ in FLAGS
-    )
     return f"""
 <p>What each column of the <strong>Candidates</strong> table above is worth,
-and what this project has actually measured about it. Sort that table on the
-signal your question needs &mdash; this is the reference for choosing which
-one, and for knowing how far to trust it.</p>
+and how to read it &mdash; this is the reference for choosing which signal
+your question needs, and how far to trust it.</p>
 
 <table class="table" style="width:100%; font-size: 90%;">
 <thead><tr>
 <th>Signal</th><th>Source</th><th>Standing</th><th>What it is</th>
-<th>What has been measured about it</th>
+<th>How to read it</th>
 </tr></thead>
 <tbody>{"".join(rows)}</tbody>
 </table>
 
-<p style="margin-top:1em;">This run produced <strong>{n_pairs:,}</strong>
-gene-TE pairs: {counted}. <strong>{n_no_flags:,}</strong> carry no evidence
-flag at all.</p>
-
-<p style="font-size: 85%; color: #888;">Full catalogue, one row per pair with
-every evidence column:
-<code>results/chimera/candidates.tsv.gz</code>.</p>
+<p style="font-size: 85%; color: #888;">Full catalogue, one row per pair
+with every evidence column: <code>results/chimera/candidates.tsv.gz</code>.
+Project measurements so far are recorded in
+<code>docs/chimera-evidence.md</code>, and none of them has established a
+weighting.</p>
 """
 
 
@@ -234,9 +229,14 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--evidence", required=True,
                     help="chimera candidates.tsv.gz (chimera_evidence.py)")
+    ap.add_argument("--sj-require-canonical", required=True,
+                    choices=["true", "false"],
+                    help="config chimera.splice_junctions.require_canonical "
+                    "-- picks the SJ motif row's conditional wording")
     ap.add_argument("--out-guide", required=True)
     ap.add_argument("--out-composition", required=True)
     args = ap.parse_args()
+    sj_require_canonical = args.sj_require_canonical == "true"
 
     rows = list(load(args.evidence))
     n_pairs = len(rows)
@@ -273,17 +273,17 @@ def main():
         "parent_name": PARENT_NAME,
         "section_name": "How to weigh this evidence",
         "description": (
-            "What each line of chimera evidence is worth, and what this "
-            "pipeline has actually measured about it -- click Help for the "
-            "full signal-by-signal table. No ranking is produced."
+            "What each line of chimera evidence is worth, and how to "
+            "read it -- click Help for the full signal-by-signal table. "
+            "No ranking is produced."
         ),
-        "helptext": guide_html(n_pairs, composition, n_no_flags),
+        "helptext": guide_html(sj_require_canonical),
         "plot_type": "html",
         "data": (
             "<p>Sort the <strong>Candidates</strong> table above on the "
             "signal your question needs; click <strong>Help</strong> "
-            "(top right of this section) for what each column is worth and "
-            "what this project has measured about it.</p>"
+            "(top right of this section) for what each column is worth "
+            "and how to read it.</p>"
         ),
     }
 
@@ -320,6 +320,10 @@ def main():
                 # whole pairs: no decimals. tt_decimals is the key MultiQC
                 # honours here; "format" is silently dropped.
                 "tt_decimals": 0,
+                # MultiQC alphabetises bar categories by default
+                # (bargraph.py's sort_samples: True), which would scramble
+                # FLAGS' own order above. Measured.
+                "sort_samples": False,
             },
             "categories": ["Gene-TE pairs"],
             "data": {
@@ -351,14 +355,15 @@ def main():
             "counts, not slices of a whole."
         ),
         "helptext": (
-            "Sources: CR motif and Replicated from STAR "
-            "chimeric junctions, Assembly strand from StringTie, "
-            "SJ motif from STAR's SJ.out.tab (when "
-            "chimera.splice_junctions is enabled), TElocal expressed from "
-            "TElocal. How many screens agreed on a pair is shown separately "
-            "(the Screens column in the Candidates table above), not as a "
-            "bar here -- it is derived from found_by, not an independent "
-            "evidence flag."
+            "Sources, in the same order as the bars: CR motif from STAR "
+            "chimeric junctions, SJ motif from STAR's SJ.out.tab (when "
+            "chimera.splice_junctions is enabled), Assembly strand from "
+            "StringTie, Replicated from STAR chimeric junctions or "
+            "SJ.out.tab, TElocal expressed from TElocal. How many "
+            "screens agreed on a pair is shown separately (the Screens "
+            "column in the Candidates table above), not as a bar here "
+            "-- it is derived from found_by, not an independent evidence "
+            "flag."
         ),
         **composition_body,
     }

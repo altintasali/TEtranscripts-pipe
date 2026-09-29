@@ -562,8 +562,8 @@ rule chimera_candidates_explorer:
 
 rule chimera_evidence_guide:
     # The report's guide to reading the chimera evidence -- what each signal
-    # is worth and what has been measured about it -- plus the cohort's
-    # evidence composition (chimera_evidence_guide_mqc.py).
+    # is worth and how to read it -- plus the cohort's evidence composition
+    # (chimera_evidence_guide_mqc.py).
     #
     # Deliberately renders NO candidate table. This section replaced a
     # four-tier confidence ladder that was removed for lacking any validated
@@ -582,6 +582,14 @@ rule chimera_evidence_guide:
     output:
         guide="results/chimera/qc/chimera_evidence_guide_mqc.json",
         composition="results/chimera/qc/chimera_evidence_composition_mqc.json",
+    params:
+        # Picks the SJ motif row's conditional wording -- that flag is
+        # nearly guaranteed by construction when this is true, and a
+        # genuine per-junction measurement when it's false.
+        sj_require_canonical=(
+            "true" if config["chimera"]["splice_junctions"]["require_canonical"]
+            else "false"
+        ),
     threads: get_resources("chimera_evidence_guide")["threads"]
     resources:
         mem_mb=get_scaled_mem_mb("chimera_evidence_guide"),
@@ -593,6 +601,7 @@ rule chimera_evidence_guide:
     shell:
         "python3 {input.script} "
         "--evidence {input.evidence} "
+        "--sj-require-canonical {params.sj_require_canonical} "
         "--out-guide {output.guide} "
         "--out-composition {output.composition} > {log} 2>&1"
 

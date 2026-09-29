@@ -20,10 +20,10 @@ This table reports evidence.  It does NOT score or rank candidates, and it
 does not decide which are real -- that is a manual call, made against these
 columns.  An earlier version carried a four-tier confidence ladder; it was
 removed because no experiment here established the relative weight of its
-rungs, and the pipeline's own measurements contradicted its top rung (see
-chimera_evidence_guide_mqc.py's "Screens" row: cross-screen agreement sits
-near its chance rate, measured on a 4-sample run restricted to pairs the
-chimeric-reads screen found).
+rungs, and an early project measurement contradicted its top rung (see
+chimera_evidence_guide_mqc.py's "Screens / Found by" row, and
+docs/chimera-evidence.md for the measurement itself, its cohort and its
+restrictions).
 
 Six columns summarise what was observed, all deliberately unweighted, in
 three pairs -- which screens found it / how many, what SCREEN-BOUND quality
@@ -107,14 +107,12 @@ most inflated by artifacts -- a hot PCR chimera is often the deepest event
 in a run. It is still reported as a column.
 
 TElocal expression of the TE locus (telocal_expressed) IS counted, but its
-standing is unresolved, not confirmed. Measured on a real 4-sample mouse
-run it looked like the opposite of support: 91% of junction-side pairs had
-an expressed locus, so it discriminated nothing, and the canonical rate was
-LOWER where the TE was expressed (6.7% at telocal_count > 10 vs 10.2% at
-<= 10, n = 19,503 events) -- mechanistically unsurprising (a highly
-expressed locus yields more reads and so more chances for template
-switching), but not evidence of a real chimera either. One small run isn't
-enough to demote a signal on, so it stays a flag until that correlation is
+standing is not validated, not confirmed. An early project measurement
+(see docs/chimera-evidence.md) looked like the opposite of support rather
+than for it -- mechanistically unsurprising either way (a highly expressed
+locus yields more reads and so more chances for template switching, but
+also more chances to actually observe a real chimera), and not enough on
+its own to demote a signal, so it stays a flag until that correlation is
 tested properly across more data; see chimera_evidence_guide_mqc.py for the
 report-facing version of this caveat. telocal_count/telocal_active are
 always reported regardless of the flag.

@@ -25,8 +25,9 @@
 # EXPERIMENTAL: all three stages are newer additions to the pipeline -- their
 # classification and QC-view behavior may still change between releases. Use
 # for exploration, and validate the output before relying on it for published
-# results. chimera.splice_junctions in particular is brand new and unvalidated on
-# real data -- hence off by default, unlike the other two.
+# results. chimera.splice_junctions in particular is newer than the other two
+# screens, and its agreement with them has not yet been measured (see
+# docs/chimera-evidence.md) -- hence off by default.
 # =============================================================================
 chimera:
   chimeric_reads:

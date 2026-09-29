@@ -4,8 +4,9 @@
 # alongside chimera_chimeric_reads.smk (STAR chimeric-junction reads) and
 # chimera_assembly.smk (StringTie assembly structure).
 #
-# OFF BY DEFAULT: brand new, unvalidated on real data. STAR only writes a
-# chimeric-junction record when a read can't be explained by one linear
+# OFF BY DEFAULT: newer than the other two screens, and its agreement with
+# them has not yet been measured (see docs/chimera-evidence.md). STAR only
+# writes a chimeric-junction record when a read can't be explained by one linear
 # (possibly spliced) alignment -- a TE that splices into a gene via an
 # ordinary, canonical, nearby intron aligns as a completely normal spliced
 # read and never reaches chimera_chimeric_reads at all. chimera_assembly.smk exists

@@ -419,8 +419,9 @@ properties:
           TE splicing into a gene through an ordinary, canonical intron
           never reaches the reads screen) but at the individual
           read-junction level, needing no StringTie assembly and no extra
-          STAR pass. OFF by default -- brand new and unvalidated on real
-          data, unlike the other two screens.
+          STAR pass. OFF by default -- newer than the other two screens,
+          and its agreement with them has not yet been measured (see
+          docs/chimera-evidence.md).
         properties:
           enabled:
             type: boolean

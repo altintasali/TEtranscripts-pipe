@@ -62,7 +62,9 @@ Up to three **independent** screens look for gene-TE chimeric transcripts:
   STAR's own splice junctions (SJ.out.tab, already produced by the main
   alignment) at the individual read-junction level — no assembly, no extra
   STAR pass. Set `chimera.splice_junctions.enabled: true` to turn it on. **Off by
-  default** — brand new and unvalidated on real data.
+  default** — newer than the other two screens, and its agreement with them
+  has not yet been measured (see
+  [`docs/chimera-evidence.md`](docs/chimera-evidence.md)).
 
 **When to use the assembly screen.** It pays off most on genomes with
 well-annotated TEs (human, mouse), where it recovers chimeras spliced through
@@ -81,13 +83,15 @@ as a sortable table, followed by a guide to what each signal is worth, then
 each screen's own evidence.
 
 **The pipeline does not rank or score chimera candidates.** No experiment here
-has established what each signal is worth, and the pipeline's own measurements
-contradict the obvious guesses — cross-screen agreement comes out near its
-chance rate, and TE-locus expression is anti-correlated with the splice motif.
-The table's default order is a *count* of how many evidence types a pair
-carries; sort it on whichever column your question needs, and expect to
-validate calls manually. Set `chimera.chimeric_reads.enabled: false` to skip chimera
-detection entirely.
+has established what each signal is worth, and early project measurements
+have already contradicted an obvious guess or two — see
+[`docs/chimera-evidence.md`](docs/chimera-evidence.md) for what has (and
+hasn't) been measured so far, on what cohort, and under what restrictions.
+The table's default order is the number of independent screens that found a
+pair, most first, ties broken alphabetically by gene then TE; sort it on
+whichever column your question needs, and expect to validate calls manually.
+Set `chimera.chimeric_reads.enabled: false` to skip chimera detection
+entirely.
 
 A single MultiQC report pulls together FastQC, TrimGalore!, STAR, RSeQC, the
 TEcounts, TElocal and chimera sections, tool versions, and a per-rule
@@ -103,7 +107,7 @@ screens) actually works — lives in the
 
 - **Configuration & running**: [Configuration Reference](https://github.com/altintasali/TEtranscripts-pipe/wiki/Configuration-Reference) · [Command-Line Interface](https://github.com/altintasali/TEtranscripts-pipe/wiki/Command-Line-Interface) · [Running the Pipeline](https://github.com/altintasali/TEtranscripts-pipe/wiki/Running-the-Pipeline) · [HPC and SLURM](https://github.com/altintasali/TEtranscripts-pipe/wiki/HPC-and-SLURM) · [Resource Usage and Reports](https://github.com/altintasali/TEtranscripts-pipe/wiki/Resource-Usage-and-Reports) · [Tool Versions](https://github.com/altintasali/TEtranscripts-pipe/wiki/Tool-Versions)
 - **How each stage works**: [Strandedness and STAR 2-pass](https://github.com/altintasali/TEtranscripts-pipe/wiki/Strandedness-and-STAR-2-pass) · [TEcounts Sample-QC](https://github.com/altintasali/TEtranscripts-pipe/wiki/TEcounts-Sample-QC) · [TElocal](https://github.com/altintasali/TEtranscripts-pipe/wiki/TElocal) · [Chimera Detection](https://github.com/altintasali/TEtranscripts-pipe/wiki/Chimera-Detection)
-- **Reference**: [Output Layout](https://github.com/altintasali/TEtranscripts-pipe/wiki/Output-Layout)
+- **Reference**: [Output Layout](https://github.com/altintasali/TEtranscripts-pipe/wiki/Output-Layout) · [Chimera Evidence Measurements](docs/chimera-evidence.md) — what has actually been measured about each evidence signal, on what cohort, and what hasn't been tested yet
 
 ## Quick start
 
