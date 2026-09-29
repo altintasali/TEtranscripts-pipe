@@ -388,24 +388,23 @@ def main():
                 # class, not a share of the sample's total, so MultiQC's own
                 # percentage would be a different (and wrong) number.
                 "cpswitch": False,
-                # BUG FIXED 2026: this plot used to stack (MultiQC's
-                # "relative" default). The 6000% axis that motivated the
-                # ysuffix fix above was one real bug (stacked counts wearing
-                # a "%" sign); a second, separate one survived that fix: a
-                # STACKED bar still implies a meaningful total, and summing
-                # nine independent rates -- each canonical/total within its
-                # OWN class, not a share of the sample's total -- produces a
-                # number (the stack height) that means nothing, which read as
-                # broken even with the "compare within a donor group" caveat
-                # in the description. chimera_assembly_strand_rate_plot hit
-                # the identical shape (a rate per class) and was already
-                # fixed the same way -- percentages of different
-                # denominators must never share a stack, so every class gets
-                # its own bar. The counts view groups the same way for
-                # consistency between the two tabs, at the cost of no longer
-                # reading the sample's total canonical count off the bar
-                # directly (still in the per-sample TSV).
-                "stacking": "group",
+                # Stacked (MultiQC's "relative" default), deliberately --
+                # REVERTED 2026 after user feedback preferred the stacked
+                # read over the grouped one tried in between. The 6000% axis
+                # that originally motivated the ysuffix fix above was a real
+                # bug (stacked COUNTS wearing a "%" sign) -- fixed by the
+                # explicit per-dataset ysuffix/tt_decimals below, which is
+                # independent of stacking mode and stays fixed either way.
+                # What stacking mode does NOT fix, and never did: the RATE
+                # view's stack total is not itself a meaningful number (each
+                # class is canonical/total within its own denominator, not a
+                # share of the sample's total) -- that is why the
+                # description tells the reader to compare segments within a
+                # donor group rather than read the totals, not a reason to
+                # change the chart type. chimera_assembly_strand_rate_plot
+                # hit the same shape and stays grouped -- that plot has no
+                # equivalent "read the totals" caveat text, and no matching
+                # user preference for stacked, so it is not reverted here.
                 "data_labels": [
                     {"name": "Canonical junctions",
                      "ylab": "canonical junctions",
