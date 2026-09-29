@@ -46,7 +46,9 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from gz_io import open_read, open_write
 
-CLASSES = ["te_initiated", "te_exonized", "te_terminated"]
+# antisense_to_gene: a gene<->TE event on the strand opposite its gene
+# (stranded libraries only) -- see chimera_exon_context.ANTISENSE_TO_GENE.
+CLASSES = ["te_initiated", "te_exonized", "te_terminated", "antisense_to_gene"]
 
 CROSS_SCREEN_NOTE = (
     "<br><br><strong>The assembly screen uses these same words for a "

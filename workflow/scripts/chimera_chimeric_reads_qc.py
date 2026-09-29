@@ -65,7 +65,8 @@ def main():
     # Deliberately NOT "direction_ambiguous": every direction_* row above is
     # a direction *category*, so that name would read as a ninth class.
     lines.append(("ambiguous_direction", str(ambiguous.get("yes", 0))))
-    for key in ("te_initiated", "te_terminated", "te_exonized", "trans", "."):
+    for key in ("te_initiated", "te_terminated", "te_exonized",
+                "antisense_to_gene", "trans", "."):
         lines.append((f"chimera_type_{key}", str(chimera_type.get(key, 0))))
     lines.append(("canonical_yes", str(canonical.get("yes", 0))))
     lines.append(("canonical_no", str(canonical.get("no", 0))))

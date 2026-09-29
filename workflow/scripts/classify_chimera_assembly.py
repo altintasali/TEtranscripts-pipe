@@ -90,6 +90,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from gz_io import open_write
+from chimera_exon_context import ANTISENSE_TO_GENE
 
 ATTR_RE = re.compile(r'(\w+) "([^"]*)"')
 
@@ -179,18 +180,35 @@ def orientation_match(transcript_strand, te_strand):
     return "yes" if transcript_strand == te_strand else "no"
 
 
-def find_gene_match(exons, exclude_rank, exons_track, chrom, tol):
-    """First exon (transcription-order rank, skipping exclude_rank) that
-    overlaps an annotated gene exon. Returns (gene_id, gene_strand,
-    all_hit_ids) or (".", ".", [])."""
+def find_gene_match(exons, exclude_rank, exons_track, chrom, tol,
+                    transcript_strand="."):
+    """The annotated gene this transcript's exons (transcription order,
+    skipping exclude_rank) land on. Returns (gene_id, gene_strand,
+    all_hit_ids) or (".", ".", []).
+
+    A gene on the transcript's own strand wins: the first exon hitting a
+    same-strand gene decides. Only when no exon hits a same-strand gene does
+    the first exon with ANY gene hit decide (old behaviour), and the caller
+    then types the call antisense_to_gene. Previously the first hit of any
+    strand won, so a transcript through two overlapping genes on opposite
+    strands could be matched to the wrong one."""
+    first_any = None
     for rank, (s, e) in enumerate(exons, start=1):
         if rank == exclude_rank:
             continue
         hits = overlapping(exons_track, chrom, s - tol, e + tol)
-        if hits:
-            all_ids = sorted({h[2][0] for h in hits})
-            return hits[0][2][0], hits[0][2][2], all_ids
-    return ".", ".", []
+        if not hits:
+            continue
+        all_ids = sorted({h[2][0] for h in hits})
+        if transcript_strand in ("+", "-"):
+            same = [h for h in hits if h[2][2] == transcript_strand]
+            if same:
+                return same[0][2][0], same[0][2][2], all_ids
+        if first_any is None:
+            first_any = (hits[0][2][0], hits[0][2][2], all_ids)
+            if transcript_strand not in ("+", "-"):
+                return first_any
+    return first_any if first_any is not None else (".", ".", [])
 
 
 def main():
@@ -282,7 +300,7 @@ def main():
             te_rank = 1
             te_exon_s, te_exon_e = first_s, first_e
             matched_gene_id, matched_gene_strand, gene_hits_all = find_gene_match(
-                ex, te_rank, exons_track, chrom, tol
+                ex, te_rank, exons_track, chrom, tol, strand
             )
             first_exon_hits = overlapping(
                 first_exons_track, chrom, first_s - tol, first_e + tol
@@ -300,7 +318,7 @@ def main():
             te_rank = n_exons
             te_exon_s, te_exon_e = last_s, last_e
             matched_gene_id, matched_gene_strand, gene_hits_all = find_gene_match(
-                ex, te_rank, exons_track, chrom, tol
+                ex, te_rank, exons_track, chrom, tol, strand
             )
             if matched_gene_id != ".":
                 chimera_type = "te_terminated"
@@ -318,7 +336,7 @@ def main():
                     break
             if chimera_type == "te_exonized":
                 matched_gene_id, matched_gene_strand, gene_hits_all = find_gene_match(
-                    ex, te_rank, exons_track, chrom, tol
+                    ex, te_rank, exons_track, chrom, tol, strand
                 )
 
         if chimera_type is None:
@@ -327,6 +345,17 @@ def main():
         strand_match = "NA"
         if matched_gene_strand not in (".", None):
             strand_match = "yes" if strand == matched_gene_strand else "no"
+
+        # Strand rule: an assembled transcript on the strand opposite its
+        # matched gene is antisense transcription through that gene's exon,
+        # not a TE-initiated/terminated/exonized version of the gene (nor
+        # the gene's own promoter). On a real 4-sample run these were the
+        # te_initiated calls with the TE downstream of the whole gene and
+        # the te_terminated calls with it upstream.
+        if strand_match == "no" and chimera_type in (
+                "te_initiated", "te_terminated", "te_exonized",
+                "annotated_promoter_embedded_te"):
+            chimera_type = ANTISENSE_TO_GENE
 
         rows.append([
             tid, t["gene_id"], chrom, strand, n_exons,

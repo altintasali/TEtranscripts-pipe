@@ -286,6 +286,9 @@ rule chimera_assembly_classify:
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/classify_chimera_assembly.py",
+        # shared typing helpers (strand rule, exon context) -- editing
+        # them must re-run this rule too
+        helper=f"{SCRIPTS_DIR}/chimera_exon_context.py",
         gtf="results/chimera/assembly/stringtie_merge.gtf",
         genes="results/reference/genes.bed",
         exons="results/reference/exons.bed",

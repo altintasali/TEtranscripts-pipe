@@ -26,6 +26,7 @@ CLASS_COLOR = {
     "annotated_promoter_embedded_te": "148,103,189",
     "te_exonized": "255,127,14",
     "te_terminated": "44,160,44",
+    "antisense_to_gene": "214,39,40",
     "unspliced_te_only": "150,150,150",
 }
 

@@ -42,3 +42,36 @@ def exon_downstream_of(gene_exon_positions, gene_id, pos, gene_strand):
         elif s > pos:
             return True
     return False
+
+
+# chimera_type for a gene<->TE call whose transcript runs on the strand
+# OPPOSITE the assigned gene. Such a call is antisense transcription through
+# the gene's exon, not initiation/termination/exonization of that gene, so
+# it gets its own label instead of te_initiated/te_terminated/te_exonized
+# (which describe the GENE's transcript). Shared by all three classifiers.
+#
+# Not to be confused with the older antisense_flag column: that one says
+# ANOTHER annotated gene overlaps the TE on the opposite strand, and says
+# nothing about which strand the transcript itself was on.
+ANTISENSE_TO_GENE = "antisense_to_gene"
+
+
+def prefer_gene_on_strand(gene_ids, transcript_strand, strand_of):
+    """Pick the gene for a breakpoint that overlaps exons of several genes.
+
+    gene_ids is the sorted candidate list the classifiers already build;
+    strand_of(gene_id) returns that gene's strand. When the transcript's
+    strand is known ("+"/"-"), the first gene ON that strand wins -- a
+    breakpoint inside two overlapping genes on opposite strands used to go
+    to whichever sorted first, which could turn an ordinary sense splice
+    into an apparent antisense one. With no same-strand candidate (or an
+    unknown transcript strand) the old first-sorted choice is kept, and the
+    caller decides whether the result is antisense_to_gene.
+    """
+    if not gene_ids:
+        return None
+    if transcript_strand in ("+", "-"):
+        for gid in gene_ids:
+            if strand_of(gid) == transcript_strand:
+                return gid
+    return gene_ids[0]

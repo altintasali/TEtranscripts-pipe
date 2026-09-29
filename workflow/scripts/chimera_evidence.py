@@ -106,6 +106,18 @@ flag in either count, because it looks like support and is not: the metric
 most inflated by artifacts -- a hot PCR chimera is often the deepest event
 in a run. It is still reported as a column.
 
+cr_gene_te_distance is reported, never counted: the genomic gap between
+the gene and the TE for pairs the chimeric-reads screen found -- "trans"
+(different chromosomes), 0 (the TE overlaps the gene's span) or bp; "." for
+pairs that screen did not find. On a real run most chimeric-read gene<->TE
+pairs were trans or >200 kb apart, the random-partner pattern of template
+switching / chimeric ligation rather than a TE driving that gene; this
+column lets them be told apart from local events.
+
+The three *_chimera_types columns can include antisense_to_gene: a call
+whose transcript runs on the strand opposite its gene (see
+chimera_exon_context.ANTISENSE_TO_GENE).
+
 TElocal expression of the TE locus (telocal_expressed) IS counted, but its
 standing is not validated, not confirmed. An early project measurement
 (see docs/chimera-evidence.md) looked like the opposite of support rather
@@ -152,7 +164,7 @@ OUT_COLUMNS = [
     "screen_evidence", "n_screen_evidence",
     "corroboration", "n_corroboration",
     "cr_events", "cr_reads", "cr_max_samples",
-    "cr_canonical", "cr_chimera_types",
+    "cr_canonical", "cr_chimera_types", "cr_gene_te_distance",
     "telocal_active", "telocal_count", "telocal_locus",
     "assembly_transcripts", "assembly_chimera_types",
     "assembly_strand_match", "assembly_transcript_ids",
@@ -166,6 +178,7 @@ def _blank():
         "te_subfamily": ".", "te_family": ".", "te_class": ".",
         "cr_events": 0, "cr_reads": 0, "cr_max_samples": 0,
         "cr_canonical": "no", "junction_types": set(),
+        "cr_gene_te_distance": ".",
         "telocal_active": ".", "telocal_count": 0, "telocal_locus": ".",
         "assembly_transcripts": 0, "assembly_types": set(),
         "assembly_strand_match": ".", "assembly_tids": [],
@@ -208,6 +221,11 @@ def main():
             p["cr_canonical"] = "yes"
         if r.get("chimera_type", ".") != ".":
             p["junction_types"].add(r["chimera_type"])
+        # gene<->TE distance is a property of the pair (same gene, same TE
+        # insertion), so every event agrees; "." for tables written before
+        # the column existed.
+        if p["cr_gene_te_distance"] == ".":
+            p["cr_gene_te_distance"] = r.get("gene_te_distance", ".") or "."
         # "yes" for the pair if ANY event's TE locus is called expressed;
         # stays "." (not "no") when telocal never ran, so an absent check is
         # distinguishable from a negative one.
@@ -353,6 +371,7 @@ def main():
             "cr_max_samples": p["cr_max_samples"],
             "cr_canonical": p["cr_canonical"],
             "cr_chimera_types": ",".join(sorted(p["junction_types"])) or ".",
+            "cr_gene_te_distance": p["cr_gene_te_distance"],
             "telocal_active": p["telocal_active"],
             # "." rather than 0 when TElocal never ran, so "not measured" stays
             # distinguishable from "measured, no reads" -- the same distinction

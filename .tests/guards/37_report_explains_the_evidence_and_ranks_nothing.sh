@@ -116,7 +116,11 @@ check(counts.get("CR motif") == 2, f"CR-motif count wrong: {counts}")
 check("Called by both screens" not in counts,
       f"removed bar leaked back into composition: {counts}")
 check(counts.get("No evidence flag") == 1, f"no-flag count wrong: {counts}")
-check("do not sum" in b or "overlap" in b,
+# the COMPOSITION section's own text -- this used to search the guide's
+# text (b), and only passed because an unrelated guide sentence happened to
+# contain the word "overlap"
+comp_text = c.get("description", "") + c.get("helptext", "")
+check("do not sum" in comp_text or "overlap" in comp_text,
       "the section must say the bars overlap rather than partition the cohort")
 # Bar category order (the JSON dict's own insertion order) must match the
 # Candidates table's column order: CR motif, SJ motif, Assembly strand,

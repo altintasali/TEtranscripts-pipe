@@ -33,7 +33,7 @@ from gz_io import open_read, open_write
 
 CLASS_ORDER = [
     "te_initiated", "te_initiated_intergenic", "annotated_promoter_embedded_te",
-    "te_exonized", "te_terminated", "unspliced_te_only",
+    "te_exonized", "te_terminated", "antisense_to_gene", "unspliced_te_only",
 ]
 
 CLASS_LABEL = {
@@ -42,6 +42,7 @@ CLASS_LABEL = {
     "annotated_promoter_embedded_te": "Annotated promoter (TE embedded)",
     "te_exonized": "TE-exonized",
     "te_terminated": "TE-terminated",
+    "antisense_to_gene": "Antisense to the matched gene",
     "unspliced_te_only": "Unspliced (low confidence)",
 }
 

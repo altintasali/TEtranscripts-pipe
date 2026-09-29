@@ -115,6 +115,20 @@ structural difference in what evidence each screen has access to, not a
 bug in either; see the report's evidence guide for how much weight
 cross-screen (dis)agreement should carry.
 
+Strand rule: STAR's SJ.out.tab strand (column 4) comes from the intron
+motif, so it is the TRANSCRIPT's strand for any library type (undefined only
+for non-canonical junctions). It is used three ways:
+  - transcript_strand / gene_strand_match report it against the assigned
+    gene (independent of --library-strandedness, which is kept only as
+    the library_strand column);
+  - when a breakpoint overlaps exons of several genes, a gene on the
+    junction's own strand is preferred (prefer_gene_on_strand);
+  - a gene<->TE junction still on the strand OPPOSITE its gene is typed
+    antisense_to_gene, not te_initiated/te_terminated/te_exonized: it is
+    antisense transcription through the gene's exon. On a real 4-sample
+    run these were the calls that put "initiating" TEs downstream of the
+    whole gene.
+
 Output columns (results/chimera/splice_junctions/per_sample/{sample}_te_gene_junctions.tsv):
     event_id, sample, chrom, intron_start, intron_end, strand, motif,
     canonical, annotated, unique_reads, multi_reads, overhang,
@@ -139,9 +153,11 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from gz_io import open_write
 from chimera_exon_context import (
+    ANTISENSE_TO_GENE,
     build_gene_exon_positions,
     exon_downstream_of,
     exon_upstream_of,
+    prefer_gene_on_strand,
 )
 
 
@@ -258,6 +274,9 @@ def main():
         """Half-open 0-based interval covering the 1-based `base`, +/- tol."""
         return (base - 1 - tol, base + tol)
 
+    def _gene_strand(gene_id):
+        return gene_meta.get(gene_id, (None, None, None, "."))[3]
+
     rows = []
     n_seen = n_kept = 0
 
@@ -317,24 +336,31 @@ def main():
             acceptor_gene_hit = bool(acceptor_genes)
             acceptor_te_hit = bool(acceptor_te_ids)
 
+            # The gene each side resolves to: one on the junction's own
+            # strand wins over an overlapping opposite-strand gene (see
+            # prefer_gene_on_strand). donor_genes/acceptor_genes stay the
+            # full sorted sets for the *_hits columns.
+            donor_gene = prefer_gene_on_strand(donor_genes, strand, _gene_strand)
+            acceptor_gene = prefer_gene_on_strand(acceptor_genes, strand, _gene_strand)
+
             if donor_gene_hit and acceptor_te_hit:
                 direction = "gene_to_te"
-                gene_id, te_id, gene_side_strand = donor_genes[0], acceptor_te_ids[0], strand
+                gene_id, te_id, gene_side_strand = donor_gene, acceptor_te_ids[0], strand
             elif donor_te_hit and acceptor_gene_hit:
                 direction = "te_to_gene"
-                gene_id, te_id, gene_side_strand = acceptor_genes[0], donor_te_ids[0], strand
+                gene_id, te_id, gene_side_strand = acceptor_gene, donor_te_ids[0], strand
             elif donor_gene_hit and acceptor_gene_hit:
                 direction = "gene_to_gene"
-                gene_id, te_id, gene_side_strand = donor_genes[0], None, strand
+                gene_id, te_id, gene_side_strand = donor_gene, None, strand
             elif donor_te_hit and acceptor_te_hit:
                 direction = "te_to_te"
                 gene_id, te_id, gene_side_strand = None, donor_te_ids[0], strand
             elif donor_gene_hit:
                 direction = "gene_to_other"
-                gene_id, te_id, gene_side_strand = donor_genes[0], None, strand
+                gene_id, te_id, gene_side_strand = donor_gene, None, strand
             elif acceptor_gene_hit:
                 direction = "other_to_gene"
-                gene_id, te_id, gene_side_strand = acceptor_genes[0], None, strand
+                gene_id, te_id, gene_side_strand = acceptor_gene, None, strand
             elif donor_te_hit:
                 direction = "te_to_other"
                 gene_id, te_id, gene_side_strand = None, donor_te_ids[0], strand
@@ -398,14 +424,23 @@ def main():
                         antisense = "yes"
                         break
 
-            transcript_strand = "NA"
+            # SJ.out.tab column 4 is STAR's strand FROM THE INTRON MOTIF --
+            # already the transcript's strand, for any library type. It was
+            # previously treated like a read strand and flipped for reverse
+            # (dUTP) libraries, which inverted gene_strand_match there and
+            # left it NA for unstranded libraries where it is in fact known.
+            transcript_strand = strand if strand in ("+", "-") else "NA"
             match = "NA"
-            if lib == "forward":
-                transcript_strand = gene_side_strand
-            elif lib == "reverse":
-                transcript_strand = opp(gene_side_strand)
-            if transcript_strand not in ("NA", ".") and gene_strand != ".":
+            if transcript_strand != "NA" and gene_strand in ("+", "-"):
                 match = "yes" if transcript_strand == gene_strand else "no"
+
+            # Strand rule: a junction running on the strand opposite the
+            # assigned gene is antisense transcription through that gene's
+            # exon, not initiation/termination/exonization of the gene.
+            if match == "no" and chimera_type in (
+                    "te_initiated", "te_terminated", "te_exonized"):
+                chimera_type = ANTISENSE_TO_GENE
+                te_initiated_detail = "."
 
             canonical = "yes" if motif in CANONICAL_MOTIFS else "no"
             event_id = f"{chrom}:{intron_start}:{intron_end}:{strand}"

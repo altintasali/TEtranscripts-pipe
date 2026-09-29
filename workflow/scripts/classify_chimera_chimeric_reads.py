@@ -26,7 +26,7 @@ Output columns (results/chimera/chimeric_reads/per_sample/{sample}_junctions.tsv
     canonical, repeat_flag, reads, donor_hits, acceptor_hits, direction,
     direction_ambiguous, gene_id, gene_strand, te_id, te_subfamily,
     te_family, te_class, chimera_type, te_initiated_detail, antisense_flag,
-    library_strand, transcript_strand, gene_strand_match
+    library_strand, transcript_strand, gene_strand_match, gene_te_distance
 
 When --te-out is given, the gene<->TE events (direction gene_to_te /
 te_to_gene) are additionally written to that path with the same columns,
@@ -113,6 +113,17 @@ for stranded libraries the read's aligned strand plus the library type
 (forward = read same strand as transcript; reverse = read opposite strand)
 gives the transcription strand, which is compared to the annotated gene
 strand. For unstranded libraries these columns are NA.
+
+Strand rule (stranded libraries): when a breakpoint overlaps exons of
+several genes, a gene on the transcript's own strand is preferred
+(prefer_gene_on_strand); a gene<->TE event still on the strand OPPOSITE its
+gene is typed antisense_to_gene instead of te_initiated/te_terminated/
+te_exonized -- it is antisense transcription through the gene's exon. With
+an unstranded library the strand is unknown here (STAR's chimeric strands
+are read strands), so no event is re-typed.
+
+gene_te_distance: "trans" (different chromosomes), 0 (TE overlaps the
+gene's span) or the gap in bp; "." for events without both a gene and a TE.
 """
 import argparse
 import bisect
@@ -122,9 +133,11 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from gz_io import open_write
 from chimera_exon_context import (
+    ANTISENSE_TO_GENE,
     build_gene_exon_positions,
     exon_downstream_of,
     exon_upstream_of,
+    prefer_gene_on_strand,
 )
 
 
@@ -268,6 +281,19 @@ def main():
         """
         return _window(bp - 1 if strand == "-" else bp + 1)
 
+    def read_to_transcript(read_strand):
+        """Transcript strand implied by a segment's aligned strand, or "NA"
+        when the library is unstranded (STAR's chimeric strands are READ
+        strands, unlike SJ.out.tab's motif-derived one)."""
+        if lib == "forward":
+            return read_strand if read_strand in ("+", "-") else "NA"
+        if lib == "reverse":
+            return opp(read_strand) if read_strand in ("+", "-") else "NA"
+        return "NA"
+
+    def _gene_strand(gene_id):
+        return gene_meta.get(gene_id, (None, None, None, "."))[3]
+
     events = {}
 
     with open(args.junctions) as fh:
@@ -305,19 +331,27 @@ def main():
             acceptor_gene_hit = bool(acceptor_genes)
             acceptor_te_hit = bool(acceptor_te_ids)
 
+            # With a stranded library, a gene on the transcript's own strand
+            # wins over an overlapping opposite-strand gene (see
+            # prefer_gene_on_strand); unstranded keeps the first-sorted gene.
+            donor_gene = prefer_gene_on_strand(
+                donor_genes, read_to_transcript(donor_strand), _gene_strand)
+            acceptor_gene = prefer_gene_on_strand(
+                acceptor_genes, read_to_transcript(acceptor_strand), _gene_strand)
+
             if donor_gene_hit and acceptor_te_hit:
                 direction = "gene_to_te"
-                gene_id = donor_genes[0]
+                gene_id = donor_gene
                 te_id = acceptor_te_ids[0]
                 gene_side_strand = donor_strand
             elif donor_te_hit and acceptor_gene_hit:
                 direction = "te_to_gene"
-                gene_id = acceptor_genes[0]
+                gene_id = acceptor_gene
                 te_id = donor_te_ids[0]
                 gene_side_strand = acceptor_strand
             elif donor_gene_hit and acceptor_gene_hit:
                 direction = "gene_to_gene"
-                gene_id = donor_genes[0]
+                gene_id = donor_gene
                 te_id = None
                 gene_side_strand = donor_strand
             elif donor_te_hit and acceptor_te_hit:
@@ -327,12 +361,12 @@ def main():
                 gene_side_strand = donor_strand
             elif donor_gene_hit:
                 direction = "gene_to_other"
-                gene_id = donor_genes[0]
+                gene_id = donor_gene
                 te_id = None
                 gene_side_strand = donor_strand
             elif acceptor_gene_hit:
                 direction = "other_to_gene"
-                gene_id = acceptor_genes[0]
+                gene_id = acceptor_gene
                 te_id = None
                 gene_side_strand = acceptor_strand
             elif donor_te_hit:
@@ -464,14 +498,35 @@ def main():
                     break
 
         # strand evidence
-        transcript_strand = "NA"
+        transcript_strand = read_to_transcript(ev["gene_side_strand"])
         match = "NA"
-        if lib == "forward":
-            transcript_strand = ev["gene_side_strand"]
-        elif lib == "reverse":
-            transcript_strand = opp(ev["gene_side_strand"])
-        if transcript_strand != "NA" and gene_strand != ".":
+        if transcript_strand != "NA" and gene_strand in ("+", "-"):
             match = "yes" if transcript_strand == gene_strand else "no"
+
+        # Strand rule (stranded libraries only -- unstranded leaves match
+        # NA and the type unchanged): a transcript on the strand opposite
+        # the assigned gene is antisense transcription through that gene's
+        # exon, not initiation/termination/exonization of the gene.
+        if match == "no" and chimera_type in (
+                "te_initiated", "te_terminated", "te_exonized"):
+            chimera_type = ANTISENSE_TO_GENE
+            te_initiated_detail = "."
+
+        # Genomic distance between the gene and the TE: "trans" on
+        # different chromosomes, 0 when the TE overlaps the gene's span,
+        # otherwise the gap in bp. Most chimeric-read gene<->TE events on a
+        # real run joined a gene to a TE on another chromosome or >200 kb
+        # away -- the partner pattern of template switching / chimeric
+        # ligation -- so this lets them be separated from local events.
+        gene_te_distance = "."
+        if gene_span and te_span:
+            gene_chrom = gene_meta[gene_id][0]
+            te_chrom_ = te_meta[te_id][0]
+            if gene_chrom != te_chrom_:
+                gene_te_distance = "trans"
+            else:
+                gene_te_distance = max(0, te_span[0] - gene_span[1],
+                                       gene_span[0] - te_span[1])
 
         try:
             canonical = "yes" if int(ev["junction_type"]) in CANONICAL_TYPES else "no"
@@ -494,7 +549,7 @@ def main():
                 te_id if te_id is not None else ".",
                 te_subfamily, te_family, te_class, chimera_type,
                 te_initiated_detail, antisense,
-                lib, transcript_strand, match,
+                lib, transcript_strand, match, gene_te_distance,
             ]
         )
 
@@ -508,7 +563,7 @@ def main():
         "te_class",
         "chimera_type", "te_initiated_detail", "antisense_flag",
         "library_strand", "transcript_strand",
-        "gene_strand_match",
+        "gene_strand_match", "gene_te_distance",
     ]
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
     with open_write(args.out) as fh:

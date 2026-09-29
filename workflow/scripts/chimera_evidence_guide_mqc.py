@@ -136,9 +136,13 @@ def signals(sj_require_canonical):
             "The assembled transcript's strand agrees with the gene's "
             "(<code>assembly_strand_match</code>).",
             "A consistency check on the assembly call rather than "
-            "independent support. For <code>te_initiated</code> calls a "
-            "mismatch usually means a spurious gene overlap, not real "
-            "transcript connectivity.",
+            "independent support. A transcript on the gene's opposite "
+            "strand is antisense transcription through that gene, not a "
+            "chimera of it: all three screens now type such calls "
+            "<code>antisense_to_gene</code> (the chimeric-reads screen "
+            "only with a stranded library) instead of "
+            "<code>te_initiated</code>/<code>te_terminated</code>/"
+            "<code>te_exonized</code>.",
             "mixed",
         ),
         (

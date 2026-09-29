@@ -42,6 +42,7 @@ ANNOTATION_COLUMNS = [
     "te_family", "te_class", "chimera_type", "te_initiated_detail",
     "antisense_flag",
     "library_strand", "transcript_strand", "gene_strand_match",
+    "gene_te_distance",
     "telocal_count", "telocal_locus", "telocal_active",
     "te_refined_by_telocal",
 ]
