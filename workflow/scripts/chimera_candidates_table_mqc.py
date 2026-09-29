@@ -81,9 +81,9 @@ COLUMNS = [
     ("found_by", "Found by",
      "Which screens called it, \"+\"-joined: cr (chimeric-reads screen, "
      "STAR), assembly (StringTie), sj (SJ.out.tab screen, STAR) -- e.g. "
-     "\"cr+sj\". Agreement measured near its chance rate -- see the guide. "
-     "The CR / SJ / Assembly column-block headers below match these same "
-     "three tokens.", "str"),
+     "\"cr+sj\". How much weight agreement between screens deserves has "
+     "not been established -- see the guide. The CR / SJ / Assembly "
+     "column-block headers below match these same three tokens.", "str"),
     ("cr_canonical", "CR motif",
      "A recognised splice motif on at least one chimeric-junction read "
      "(STAR, chimeric-reads screen). The guide above calls this the best "
@@ -138,10 +138,8 @@ COLUMNS = [
      "count -- candidates_explorer.html's own \"TElocal reads\" column "
      "reaches the same number by joining "
      "counts_matrix.tsv.gz directly). Counted as corroboration when "
-     "nonzero. One small run had it anti-correlated with the splice motif "
-     "(6.7% vs 10.2% canonical), which is not enough to demote it -- see "
-     "the guide. Blank means TElocal did not run; 0 means it ran and "
-     "found nothing.", "intna"),
+     "nonzero -- standing is not validated, see the guide. Blank means "
+     "TElocal did not run; 0 means it ran and found nothing.", "intna"),
 ]
 
 # Columns present so the reader can sort/filter on gene or TE alone, but
