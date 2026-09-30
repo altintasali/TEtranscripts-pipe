@@ -293,6 +293,9 @@ rule chimera_assembly_classify:
         genes="results/reference/genes.bed",
         exons="results/reference/exons.bed",
         first_exons="results/reference/first_exons.bed",
+        # annotated last exons: a TE in one is an ordinary 3' UTR TE, typed
+        # annotated_terminal_exon_embedded_te instead of te_terminated
+        last_exons="results/reference/last_exons.bed",
         te="results/reference/te.bed",
     output:
         candidates="results/chimera/assembly/transcripts.tsv.gz",
@@ -313,7 +316,8 @@ rule chimera_assembly_classify:
     shell:
         "python3 {input.script} "
         "--gtf {input.gtf} --genes {input.genes} --exons {input.exons} "
-        "--first-exons {input.first_exons} --te {input.te} "
+        "--first-exons {input.first_exons} --last-exons {input.last_exons} "
+        "--te {input.te} "
         "{params.require_tss_flag} "
         "--breakpoint-tolerance {params.tolerance} "
         "--out {output.candidates} > {log} 2>&1"

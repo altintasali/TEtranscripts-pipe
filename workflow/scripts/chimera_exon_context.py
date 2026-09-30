@@ -75,3 +75,18 @@ def prefer_gene_on_strand(gene_ids, transcript_strand, strand_of):
             if strand_of(gid) == transcript_strand:
                 return gid
     return gene_ids[0]
+
+
+# Known gene structure that merely touches a TE -- kept as its own class so
+# it stays visible, but not a gene-TE chimera call:
+#   annotated_splice                      an SJ junction that is an annotated
+#                                         intron of the reference GTF
+#                                         (classify_chimera_splice_junctions.py)
+#   annotated_terminal_exon_embedded_te   an assembled transcript whose
+#                                         TE-overlapping last exon is an
+#                                         annotated last exon, i.e. a TE in an
+#                                         ordinary 3' UTR -- the 3' counterpart
+#                                         of annotated_promoter_embedded_te
+#                                         (classify_chimera_assembly.py)
+ANNOTATED_SPLICE = "annotated_splice"
+ANNOTATED_TERMINAL_EXON = "annotated_terminal_exon_embedded_te"

@@ -226,3 +226,32 @@ if CHIMERA_CHIMERIC_READS_ENABLED or CHIMERA_ASSEMBLY_ENABLED or CHIMERA_SPLICE_
             "python3 {input.script} "
             "--gtf {input.gtf} --te-gtf {input.te_gtf} "
             "--outdir {params.outdir} > {log} 2>&1"
+
+    rule annotation_splice_features:
+        # Annotated introns + per-transcript last exons of the gene GTF, so
+        # the classifiers can tell KNOWN gene structure from new gene-TE
+        # chimeras: SJ junctions that are annotated introns become
+        # annotated_splice, assembly last exons that are annotated last
+        # exons become annotated_terminal_exon_embedded_te. A separate rule
+        # from annotation_to_bed on purpose -- changing that one would
+        # rewrite genes.bed/exons.bed/te.bed and re-run everything on them.
+        input:
+            script=f"{SCRIPTS_DIR}/annotation_splice_features.py",
+            # imports parse_attrs from it
+            helper=f"{SCRIPTS_DIR}/annotation_to_bed.py",
+            gtf=GTF,
+        output:
+            introns="results/reference/annotated_introns.tsv.gz",
+            last_exons="results/reference/last_exons.bed",
+        threads: get_resources("annotation_splice_features")["threads"]
+        resources:
+            mem_mb=get_resources("annotation_splice_features")["mem_mb"],
+            runtime=get_resources("annotation_splice_features")["runtime"],
+        benchmark:
+            "results/pipeline_info/benchmarks/annotation_splice_features/annotation_splice_features.txt",
+        log:
+            "results/pipeline_info/logs/reference/annotation_splice_features.log",
+        shell:
+            "python3 {input.script} --gtf {input.gtf} "
+            "--out-introns {output.introns} --out-last-exons {output.last_exons} "
+            "> {log} 2>&1"

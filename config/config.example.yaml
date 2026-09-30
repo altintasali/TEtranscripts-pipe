@@ -219,6 +219,11 @@ chimera:
     # classified as gene-TE. TE-involved splicing is often non-canonical, so
     # the default (false) keeps everything and records the type.
     require_canonical: false
+    # Chimeric-read events count toward the gene-TE candidates only when the
+    # TE is on the same chromosome and within this many bp of the gene
+    # (trans never counts). Far/trans events stay in this screen's own
+    # tables. Default 200000.
+    max_gene_te_distance: 200000
     qc:
       # Whether to render the PCA + sample-distance-heatmap sample-QC view
       # in multiqc_report.html. Default false -- turning this on does not

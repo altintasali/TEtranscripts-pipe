@@ -22,7 +22,11 @@ are ordered 5'->3' by the transcript's own strand, then, in priority order:
      te_initiated_intergenic (a fully novel, TE-driven transcript)
   4. (else) last exon overlaps a TE, an earlier exon matches an annotated
      gene -> te_terminated (TE-overlapping last exon with no matching gene
-     is not a real chimera -- nothing to terminate -- and is skipped)
+     is not a real chimera -- nothing to terminate -- and is skipped);
+     but if that last exon also overlaps an ANNOTATED transcript's last
+     exon on the same strand (--last-exons) -> the gene's ordinary 3' end
+     with a TE in its UTR -> annotated_terminal_exon_embedded_te (the 3'
+     counterpart of 1.; 43% of te_terminated calls on a real run)
   5. (else) an internal exon (not first, not last) overlaps a TE, and some
      other exon matches an annotated gene -> te_exonized
 A transcript whose first exon overlaps a TE (and clears the TSS-in-TE gate)
@@ -90,7 +94,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from gz_io import open_write
-from chimera_exon_context import ANTISENSE_TO_GENE
+from chimera_exon_context import ANNOTATED_TERMINAL_EXON, ANTISENSE_TO_GENE
 
 ATTR_RE = re.compile(r'(\w+) "([^"]*)"')
 
@@ -218,6 +222,12 @@ def main():
     ap.add_argument("--exons", required=True, help="results/reference/exons.bed")
     ap.add_argument("--first-exons", required=True,
                      help="results/reference/first_exons.bed")
+    ap.add_argument("--last-exons", default=None,
+                     help="results/reference/last_exons.bed "
+                     "(annotation_splice_features.py). A TE-overlapping last "
+                     "exon that overlaps an annotated last exon on the same "
+                     "strand is typed annotated_terminal_exon_embedded_te "
+                     "instead of te_terminated. Omitted -> not checked.")
     ap.add_argument("--te", required=True, help="results/reference/te.bed")
     ap.add_argument("--breakpoint-tolerance", type=int, default=0)
     ap.add_argument("--min-exons-for-splice-call", type=int, default=2)
@@ -230,6 +240,7 @@ def main():
 
     exons_track = load_bed(args.exons)
     first_exons_track = load_bed(args.first_exons)
+    last_exons_track = load_bed(args.last_exons) if args.last_exons else None
     te = load_bed(args.te, n_extra=3)
     tol = max(args.breakpoint_tolerance, 0)
 
@@ -321,7 +332,16 @@ def main():
                 ex, te_rank, exons_track, chrom, tol, strand
             )
             if matched_gene_id != ".":
-                chimera_type = "te_terminated"
+                # The 3' counterpart of annotated_promoter_embedded_te: a
+                # last exon that lines up with a KNOWN transcript's own last
+                # exon (same strand) is the gene's ordinary 3' end with a TE
+                # in its UTR, not a new TE-terminated transcript.
+                annotated_last = last_exons_track is not None and any(
+                    h[2][2] == strand for h in overlapping(
+                        last_exons_track, chrom, last_s - tol, last_e + tol)
+                )
+                chimera_type = (ANNOTATED_TERMINAL_EXON if annotated_last
+                                else "te_terminated")
             # else: TE-overlapping last exon but no earlier exon matches a
             # known gene -- nothing to terminate, not a real chimera; skip.
         else:
@@ -354,7 +374,7 @@ def main():
         # the te_terminated calls with it upstream.
         if strand_match == "no" and chimera_type in (
                 "te_initiated", "te_terminated", "te_exonized",
-                "annotated_promoter_embedded_te"):
+                "annotated_promoter_embedded_te", ANNOTATED_TERMINAL_EXON):
             chimera_type = ANTISENSE_TO_GENE
 
         rows.append([

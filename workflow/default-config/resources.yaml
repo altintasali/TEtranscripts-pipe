@@ -366,6 +366,14 @@ resources:
     mem_mb: 6000
     runtime: 30
 
+  annotation_splice_features:
+    # Gene GTF only (no TE GTF): per-transcript exon lists -> annotated
+    # introns + last exons. A GENCODE mouse GTF is ~150k transcripts, far
+    # lighter than annotation_to_bed's per-TE-insertion parse.
+    threads: 1
+    mem_mb: 4000
+    runtime: 30
+
   chimera_chimeric_reads_classify:
     # Annotating a junction file against the gene/TE tracks; single-threaded
     # python.

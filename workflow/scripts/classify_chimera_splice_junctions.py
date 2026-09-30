@@ -135,7 +135,17 @@ Output columns (results/chimera/splice_junctions/per_sample/{sample}_te_gene_jun
     donor_hits, acceptor_hits, direction, direction_ambiguous,
     gene_id, gene_strand, te_id, te_subfamily, te_family, te_class,
     chimera_type, te_initiated_detail, antisense_flag, library_strand,
-    transcript_strand, gene_strand_match
+    transcript_strand, gene_strand_match, gtf_annotated_intron
+
+annotated_splice (--annotated-introns): a gene<->TE junction that is an
+annotated intron of the reference GTF is known splicing whose splice site
+happens to fall inside a TE, not a new gene-TE chimera, so it is typed
+annotated_splice instead of te_initiated/te_terminated/te_exonized (it
+takes precedence over the strand rule). gtf_annotated_intron records the
+check for every junction: yes / no / NA (no intron file given). STAR's own
+`annotated` column is kept but not used for this -- under
+star.two_pass: cohort it also marks every junction inserted from the pooled
+first pass (on a real run 51% of chimera junctions vs 25% against the GTF).
 
 This step is ANNOTATE-ONLY like its two siblings: --min-unique-reads and
 --require-canonical are STAR-native quality gates, not expression/evidence
@@ -151,8 +161,9 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from gz_io import open_write
+from gz_io import open_read, open_write
 from chimera_exon_context import (
+    ANNOTATED_SPLICE,
     ANTISENSE_TO_GENE,
     build_gene_exon_positions,
     exon_downstream_of,
@@ -230,6 +241,13 @@ def main():
         choices=["no", "forward", "reverse", "auto"],
         default="no",
     )
+    ap.add_argument(
+        "--annotated-introns", default=None,
+        help="results/reference/annotated_introns.tsv.gz "
+        "(annotation_splice_features.py): junctions that are annotated GTF "
+        "introns are typed annotated_splice. Omitted -> no junction is "
+        "checked and gtf_annotated_intron is NA.",
+    )
     ap.add_argument("--out", required=True)
     ap.add_argument(
         "--te-out", required=False,
@@ -276,6 +294,20 @@ def main():
 
     def _gene_strand(gene_id):
         return gene_meta.get(gene_id, (None, None, None, "."))[3]
+
+    # (chrom, intron_start, intron_end) of every annotated GTF intron, in
+    # SJ.out.tab's own 1-based inclusive coordinates. Strand is not part of
+    # the key: an annotated intron is known splicing whichever transcript
+    # it belongs to.
+    annotated_introns = None
+    if args.annotated_introns:
+        annotated_introns = set()
+        with open_read(args.annotated_introns) as fh:
+            fh.readline()
+            for line in fh:
+                f = line.rstrip("\n").split("\t")
+                if len(f) >= 3:
+                    annotated_introns.add((f[0], int(f[1]), int(f[2])))
 
     rows = []
     n_seen = n_kept = 0
@@ -434,6 +466,19 @@ def main():
             if transcript_strand != "NA" and gene_strand in ("+", "-"):
                 match = "yes" if transcript_strand == gene_strand else "no"
 
+            # Known splicing first: a junction that is an annotated GTF
+            # intron is the gene's own (or a neighbour's) annotated splice
+            # that happens to have a splice site inside a TE -- not a new
+            # gene-TE chimera. Kept as a row, typed annotated_splice.
+            gtf_annotated = "NA"
+            if annotated_introns is not None:
+                gtf_annotated = ("yes" if (chrom, intron_start, intron_end)
+                                 in annotated_introns else "no")
+            if gtf_annotated == "yes" and chimera_type in (
+                    "te_initiated", "te_terminated", "te_exonized"):
+                chimera_type = ANNOTATED_SPLICE
+                te_initiated_detail = "."
+
             # Strand rule: a junction running on the strand opposite the
             # assigned gene is antisense transcription through that gene's
             # exon, not initiation/termination/exonization of the gene.
@@ -458,7 +503,7 @@ def main():
                 te_id if te_id is not None else ".",
                 te_subfamily, te_family, te_class, chimera_type,
                 te_initiated_detail, antisense,
-                lib, transcript_strand, match,
+                lib, transcript_strand, match, gtf_annotated,
             ])
 
     header = [
@@ -469,6 +514,7 @@ def main():
         "gene_id", "gene_strand", "te_id", "te_subfamily", "te_family",
         "te_class", "chimera_type", "te_initiated_detail", "antisense_flag",
         "library_strand", "transcript_strand", "gene_strand_match",
+        "gtf_annotated_intron",
     ]
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
     with open_write(args.out) as fh:

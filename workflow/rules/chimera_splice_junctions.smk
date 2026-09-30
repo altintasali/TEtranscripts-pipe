@@ -113,6 +113,9 @@ rule chimera_splice_junctions_classify:
         genes="results/reference/genes.bed",
         exons="results/reference/exons.bed",
         te="results/reference/te.bed",
+        # GTF introns: junctions that are annotated introns are typed
+        # annotated_splice, not a gene-TE chimera (see the script)
+        introns="results/reference/annotated_introns.tsv.gz",
         strandedness=strandedness_input,
     output:
         junctions="results/chimera/splice_junctions/per_sample/{sample}_junctions.tsv.gz",
@@ -137,6 +140,7 @@ rule chimera_splice_junctions_classify:
         "python3 {input.script} "
         "--sj {input.sj} "
         "--genes {input.genes} --exons {input.exons} --te {input.te} "
+        "--annotated-introns {input.introns} "
         "--sample {wildcards.sample} "
         "--breakpoint-tolerance {params.tolerance} "
         "--min-unique-reads {params.min_unique_reads} "

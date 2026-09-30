@@ -106,17 +106,21 @@ flag in either count, because it looks like support and is not: the metric
 most inflated by artifacts -- a hot PCR chimera is often the deepest event
 in a run. It is still reported as a column.
 
-cr_gene_te_distance is reported, never counted: the genomic gap between
-the gene and the TE for pairs the chimeric-reads screen found -- "trans"
-(different chromosomes), 0 (the TE overlaps the gene's span) or bp; "." for
-pairs that screen did not find. On a real run most chimeric-read gene<->TE
-pairs were trans or >200 kb apart, the random-partner pattern of template
-switching / chimeric ligation rather than a TE driving that gene; this
-column lets them be told apart from local events.
+Chimeric-read events count toward a pair only when LOCAL: same
+chromosome and gene_te_distance <= --cr-max-distance (config
+chimera.chimeric_reads.max_gene_te_distance, default 200 kb). On a real run
+97.5% of chimeric-read gene<->TE events were trans or farther -- the
+random-partner pattern of template switching / chimeric ligation, not a TE
+driving that gene -- and they turned tens of thousands of such pairs into
+"candidates". They are skipped here and stay in the chimeric-reads screen's
+own event tables. cr_gene_te_distance reports the distance for the pairs
+that remain ("." for pairs that screen did not find).
 
-The three *_chimera_types columns can include antisense_to_gene: a call
-whose transcript runs on the strand opposite its gene (see
-chimera_exon_context.ANTISENSE_TO_GENE).
+The three *_chimera_types columns can include antisense_to_gene (a call
+whose transcript runs on the strand opposite its gene), and
+sj_chimera_types / assembly_chimera_types the known-structure classes
+annotated_splice / annotated_terminal_exon_embedded_te -- see
+chimera_exon_context.py for all three.
 
 TElocal expression of the TE locus (telocal_expressed) IS counted, but its
 standing is not validated, not confirmed. An early project measurement
@@ -197,14 +201,31 @@ def main():
     ap.add_argument("--sj", default=None,
                     help="results/chimera/splice_junctions/te-gene-junctions.tsv.gz "
                          "(omit when the SJ.out.tab screen is disabled)")
+    ap.add_argument(
+        "--cr-max-distance", type=int, default=200_000,
+        help="config chimera.chimeric_reads.max_gene_te_distance: a "
+        "chimeric-read event counts toward a pair only when its "
+        "gene_te_distance is <= this (bp); 'trans' never counts. Rows "
+        "without the column (older tables) are kept.",
+    )
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
     pairs = {}
 
+    n_cr_far = 0
     for r in load(args.junction):
         gene, te = r.get("gene_id", "."), r.get("te_id", ".")
         if gene in (".", "") or te in (".", ""):
+            continue
+        # Local events only: a gene joined to a TE on another chromosome or
+        # far away is the random-partner pattern of template switching /
+        # chimeric ligation, not a TE driving that gene (97.5% of events on
+        # a real run). They stay in the chimeric-reads screen's own tables.
+        dist = r.get("gene_te_distance", ".")
+        if dist == "trans" or (dist not in (".", "")
+                               and _int(dist) > args.cr_max_distance):
+            n_cr_far += 1
             continue
         p = pairs.setdefault((gene, te), _blank())
         # Annotation is per-insertion, so every row for a pair agrees; take
@@ -416,6 +437,9 @@ def main():
     )
     print(f"chimera evidence: {len(rows)} gene-TE pairs ({summary or 'no evidence flags'}) "
           f"-> {args.out}")
+    print(f"chimera evidence: {n_cr_far} chimeric-read event(s) skipped as "
+          f"trans or > {args.cr_max_distance:,} bp from their gene "
+          f"(chimera.chimeric_reads.max_gene_te_distance)")
 
 
 if __name__ == "__main__":

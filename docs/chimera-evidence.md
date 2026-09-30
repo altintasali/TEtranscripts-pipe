@@ -74,11 +74,55 @@ Assembly strand, Replicated, TElocal reads, Read depth.
   different splits of the same underlying data and have not been
   reconciled into one number.
 
+### TE orientation -- LTR-initiated calls are strongly sense-biased
+
+- **What was measured:** the TE's strand relative to its gene (sense /
+  antisense), per screen x chimera type x TE class, against a background
+  of TE copies of the same class at the same position relative to the
+  same genes (upstream / downstream in distance rings, intronic, exonic),
+  combined across positions with a Mantel-Haenszel odds ratio.
+- **Cohort:** a 4-sample mouse oocyte/embryo run (unstranded, single-end).
+- **Finding:** LTR `te_initiated` was strongly sense-biased -- SJ 69.9% vs
+  43.7% expected (OR 3.0), assembly 66.8% vs 43.0% (OR 2.6) -- and the
+  bias rose with screen agreement (SJ 61% -> 80%, assembly 52% -> 79% for
+  1 vs >=2 screens) and with replication. SJ `te_exonized` SINE was
+  antisense-biased (28% vs 46% expected, OR 0.44), the mouse counterpart of
+  antisense Alu exonization. An apparent L1 antisense lean in
+  `te_initiated` was mostly a position effect (intronic L1s are antisense-
+  depleted genome-wide).
+- **What it shows:** on this run, orientation separates real LTR-driven
+  initiation from background, and screen agreement / replication pick out
+  more of it -- the first measurement here where cross-screen agreement
+  looked like real support.
+- **What it doesn't show:** a validated weighting, or anything for the
+  chimeric-reads screen (too few local pairs to test; see below). One
+  cohort, pairs not independent -- p-values are descriptive.
+
+### Classification problems found on the same run (fixed)
+
+Measured with a one-off check of every call's geometry and annotation:
+- ~500 SJ and ~400 assembly `te_initiated` calls had their TE downstream of
+  the whole gene (and ~400 assembly `te_terminated` calls had it upstream):
+  antisense transcription through the gene's exon. Now typed
+  `antisense_to_gene`; after the fix no wrong-side calls remained.
+- 25.1% of SJ gene-TE junctions were annotated GTF introns (STAR's own
+  `annotated` flag said 51.1% -- unreliable under `star.two_pass: cohort`).
+  Now typed `annotated_splice`.
+- 42.8% of assembly `te_terminated` calls had their TE in the gene's
+  annotated last exon (an ordinary 3' UTR TE). Now typed
+  `annotated_terminal_exon_embedded_te`.
+- 97.5% of chimeric-read gene-TE events were trans or >200 kb from the
+  gene. They no longer count toward candidates
+  (`chimera.chimeric_reads.max_gene_te_distance`).
+
 ## Not yet measured
 
-- **SJ-screen agreement** with either of the other two screens (CR motif's
-  chance-rate comparison above predates the SJ screen running on real data).
+- **SJ-screen agreement** as such (the orientation result above shows
+  agreement tracking real signal, but agreement was not measured against
+  a chance rate the way the CR+assembly comparison was).
 - **Three-screen agreement** (`n_screens == 3`).
+- **Any of the above on a second cohort**, or with the classification fixes
+  in place.
 - **Condition-aware replication** -- whether `Replicated` (seen in more than
   one sample) means something different when the samples span different
   experimental conditions vs. technical replicates of the same one.

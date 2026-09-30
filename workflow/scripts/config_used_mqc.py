@@ -113,6 +113,7 @@ def main(smk):
         "chimera.chimeric_reads.enabled": str(chimera_enabled),
         "chimera.chimeric_reads.breakpoint_tolerance": str(config.get("chimera", {}).get("chimeric_reads", {}).get("breakpoint_tolerance", 0)),
         "chimera.chimeric_reads.require_canonical": str(config.get("chimera", {}).get("chimeric_reads", {}).get("require_canonical", False)),
+        "chimera.chimeric_reads.max_gene_te_distance": str(config.get("chimera", {}).get("chimeric_reads", {}).get("max_gene_te_distance", 200000)),
         "chimera.chimeric_reads.qc.enabled": str(config.get("chimera", {}).get("chimeric_reads", {}).get("qc", {}).get("enabled", False)),
         "chimera.chimeric_reads.qc.pca_transform": config.get("chimera", {}).get("chimeric_reads", {}).get("qc", {}).get("pca_transform", "vst"),
         "chimera.assembly.enabled": str(config.get("chimera", {}).get("assembly", {}).get("enabled", False)),

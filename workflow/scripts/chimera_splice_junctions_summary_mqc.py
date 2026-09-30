@@ -60,7 +60,7 @@ DIRECTIONS = ["gene_to_te", "te_to_gene"]
 # for gene_to_te events).
 TE_TYPE_CATEGORIES = [
     "te_initiated_upstream", "te_initiated_internal",
-    "te_exonized", "te_terminated", "antisense_to_gene",
+    "te_exonized", "te_terminated", "antisense_to_gene", "annotated_splice",
 ]
 TE_TYPE_LABEL = {
     "te_initiated_upstream": "TE-initiated (upstream)",
@@ -68,6 +68,7 @@ TE_TYPE_LABEL = {
     "te_exonized": "TE-exonized",
     "te_terminated": "TE-terminated",
     "antisense_to_gene": "Antisense to the gene (opposite strand)",
+    "annotated_splice": "Annotated GTF intron (known splicing)",
 }
 
 
@@ -88,7 +89,8 @@ def te_type_key(row):
             return f"te_initiated_{detail}"
         return None  # defensive: classify_chimera_splice_junctions.py
         # always sets one of the two for a real te_initiated row.
-    if c in ("te_exonized", "te_terminated", "antisense_to_gene"):
+    if c in ("te_exonized", "te_terminated", "antisense_to_gene",
+             "annotated_splice"):
         return c
     return None
 

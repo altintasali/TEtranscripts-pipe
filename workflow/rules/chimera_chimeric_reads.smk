@@ -346,6 +346,7 @@ rule chimera_evidence:
     output:
         "results/chimera/candidates.tsv.gz",
     params:
+        cr_max_distance=config["chimera"]["chimeric_reads"]["max_gene_te_distance"],
         assembly=(
             "--assembly results/chimera/assembly/transcripts.tsv.gz"
             if CHIMERA_ASSEMBLY_ENABLED else ""
@@ -365,6 +366,7 @@ rule chimera_evidence:
     shell:
         "python3 {input.script} "
         "--junction {input.junction} {params.assembly} {params.sj} "
+        "--cr-max-distance {params.cr_max_distance} "
         "--out {output} > {log} 2>&1"
 
 

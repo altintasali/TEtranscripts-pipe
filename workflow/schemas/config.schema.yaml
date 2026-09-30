@@ -277,6 +277,15 @@ properties:
               Whether to require STAR junction type 1 (GT/AG) for a junction to be
               classified as gene-TE. TE-involved splicing is often non-canonical,
               so the default (false) keeps everything and records the type.
+          max_gene_te_distance:
+            type: integer
+            minimum: 0
+            description: >-
+              Maximum genomic distance (bp) between gene and TE for a
+              chimeric-read event to count toward the gene-TE candidate
+              catalogue (candidates.tsv.gz); trans (different-chromosome)
+              events never count. Events beyond it stay in the screen's own
+              tables. Default 200000.
           qc:
             type: object
             additionalProperties: false
@@ -331,7 +340,7 @@ properties:
                   Default true.
             required: [write_igv_bed, write_counts_matrix, write_candidates_explorer]
         required: [enabled, star, breakpoint_tolerance, require_canonical,
-                   qc, outputs]
+                   max_gene_te_distance, qc, outputs]
       assembly:
         type: object
         additionalProperties: false

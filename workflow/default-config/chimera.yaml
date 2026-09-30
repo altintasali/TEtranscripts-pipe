@@ -39,6 +39,14 @@ chimera:
       extra: ""
     breakpoint_tolerance: 0
     require_canonical: false
+    # Chimeric-read gene-TE events count toward the candidate catalogue
+    # (candidates.tsv.gz, the report's Candidates table) only when the TE is
+    # on the same chromosome and at most this many bp from the gene; trans
+    # events never count. On a real run 97.5% of these events were trans or
+    # >200 kb apart -- the random-partner pattern of template switching /
+    # chimeric ligation, not a TE driving that gene. They stay in this
+    # screen's own event tables, with their distance in gene_te_distance.
+    max_gene_te_distance: 200000
     qc:
       # Sample-QC (PCA + sample-distance heatmap) OFF by default -- these
       # were the most report-bloating sections and most useful once a run
