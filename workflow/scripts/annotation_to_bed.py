@@ -36,6 +36,9 @@ import argparse
 import os
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from gz_io import open_read
+
 
 def parse_attrs(attr_text):
     """GTF attribute field -> {key: value} (values unquoted)."""
@@ -78,7 +81,7 @@ def main():
     # for first_exons.bed; a real gene GTF has far fewer transcripts than a
     # TE GTF has insertions, so this is a small structure by comparison.
     transcripts = {}
-    with open(args.gtf) as fh:
+    with open_read(args.gtf) as fh:  # .gz or plain
         for line in fh:
             if line.startswith("#") or not line.strip():
                 continue
@@ -127,7 +130,7 @@ def main():
     # rows sharing one transcript_id are still merged -- that is a
     # fragmented single insertion, where min/max IS correct.
     te_loci = {}
-    with open(args.te_gtf) as fh:
+    with open_read(args.te_gtf) as fh:  # .gz or plain
         for line in fh:
             if line.startswith("#") or not line.strip():
                 continue

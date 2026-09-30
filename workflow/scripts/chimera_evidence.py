@@ -116,11 +116,17 @@ driving that gene -- and they turned tens of thousands of such pairs into
 own event tables. cr_gene_te_distance reports the distance for the pairs
 that remain ("." for pairs that screen did not find).
 
-The three *_chimera_types columns can include antisense_to_gene (a call
-whose transcript runs on the strand opposite its gene), and
-sj_chimera_types / assembly_chimera_types the known-structure classes
-annotated_splice / annotated_terminal_exon_embedded_te -- see
-chimera_exon_context.py for all three.
+Only chimera CALLS count: a screen counts toward found_by / n_screens only
+if it called the pair te_initiated, te_terminated or te_exonized
+(CHIMERA_CALL_TYPES in chimera_exon_context.py), and its per-screen columns
+(events/transcripts, reads, max samples, canonical, strand match) are
+computed from those calls alone. Its other types -- antisense_to_gene and
+the known-structure classes annotated_splice /
+annotated_promoter_embedded_te / annotated_terminal_exon_embedded_te -- are
+still listed in the *_chimera_types columns. A pair no screen calls a
+chimera is left out of this file (logged), like far chimeric-read pairs:
+on a real run 35 of the 67 pairs at Screens = 3 owed at least one of their
+screens to such a non-call.
 
 TElocal expression of the TE locus (telocal_expressed) IS counted, but its
 standing is not validated, not confirmed. An early project measurement
@@ -143,6 +149,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from gz_io import open_read, open_write
+from chimera_exon_context import CHIMERA_CALL_TYPES
 
 
 def load(path):
@@ -233,6 +240,14 @@ def main():
         for col in ("te_subfamily", "te_family", "te_class"):
             if p[col] == "." and r.get(col, ".") != ".":
                 p[col] = r[col]
+        ctype = r.get("chimera_type", ".")
+        if ctype != ".":
+            p["junction_types"].add(ctype)
+        # Only chimera calls count as this screen's evidence for the pair;
+        # other types (antisense_to_gene, untyped) are listed in
+        # cr_chimera_types but add nothing to the counts below.
+        if ctype not in CHIMERA_CALL_TYPES:
+            continue
         p["cr_events"] += 1
         p["cr_reads"] += _int(r.get("total_reads"))
         p["cr_max_samples"] = max(
@@ -240,8 +255,6 @@ def main():
         )
         if r.get("canonical") == "yes":
             p["cr_canonical"] = "yes"
-        if r.get("chimera_type", ".") != ".":
-            p["junction_types"].add(r["chimera_type"])
         # gene<->TE distance is a property of the pair (same gene, same TE
         # insertion), so every event agrees; "." for tables written before
         # the column existed.
@@ -286,9 +299,13 @@ def main():
             for col in ("te_subfamily", "te_family", "te_class"):
                 if p[col] == "." and r.get(col, ".") != ".":
                     p[col] = r[col]
+            ctype = r.get("chimera_type", ".")
+            if ctype != ".":
+                p["assembly_types"].add(ctype)
+            # known structure / antisense: listed, not counted (see CR above)
+            if ctype not in CHIMERA_CALL_TYPES:
+                continue
             p["assembly_transcripts"] += 1
-            if r.get("chimera_type", ".") != ".":
-                p["assembly_types"].add(r["chimera_type"])
             if r.get("strand_match") == "yes":
                 p["assembly_strand_match"] = "yes"
             elif p["assembly_strand_match"] == ".":
@@ -304,6 +321,14 @@ def main():
             for col in ("te_subfamily", "te_family", "te_class"):
                 if p[col] == "." and r.get(col, ".") != ".":
                     p[col] = r[col]
+            ctype = r.get("chimera_type", ".")
+            if ctype != ".":
+                p["sj_types"].add(ctype)
+            # known structure / antisense: listed, not counted (see CR
+            # above) -- an annotated splice of the gene can carry thousands of
+            # reads that are not evidence for a chimera
+            if ctype not in CHIMERA_CALL_TYPES:
+                continue
             p["sj_events"] += 1
             p["sj_reads"] += _int(r.get("total_reads"))
             p["sj_max_samples"] = max(
@@ -311,11 +336,17 @@ def main():
             )
             if r.get("canonical") == "yes":
                 p["sj_canonical"] = "yes"
-            if r.get("chimera_type", ".") != ".":
-                p["sj_types"].add(r["chimera_type"])
 
     rows = []
+    n_no_call = 0
     for (gene, te), p in pairs.items():
+        # cr_events / assembly_transcripts / sj_events count chimera CALLS
+        # only (see above), so a screen whose only calls for this pair are
+        # known structure or antisense does not count as having found it --
+        # and a pair no screen calls a chimera is not a candidate at all.
+        if not (p["cr_events"] or p["assembly_transcripts"] or p["sj_events"]):
+            n_no_call += 1
+            continue
         in_junction = p["cr_events"] > 0
         in_assembly = p["assembly_transcripts"] > 0
         in_sj = p["sj_events"] > 0
@@ -440,6 +471,9 @@ def main():
     print(f"chimera evidence: {n_cr_far} chimeric-read event(s) skipped as "
           f"trans or > {args.cr_max_distance:,} bp from their gene "
           f"(chimera.chimeric_reads.max_gene_te_distance)")
+    print(f"chimera evidence: {n_no_call} gene-TE pair(s) left out -- no "
+          f"screen made a chimera call for them (only known structure / "
+          f"antisense_to_gene)")
 
 
 if __name__ == "__main__":

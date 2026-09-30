@@ -90,3 +90,15 @@ def prefer_gene_on_strand(gene_ids, transcript_strand, strand_of):
 #                                         (classify_chimera_assembly.py)
 ANNOTATED_SPLICE = "annotated_splice"
 ANNOTATED_TERMINAL_EXON = "annotated_terminal_exon_embedded_te"
+
+
+# The chimera calls that make a screen count as having FOUND a gene-TE pair
+# (found_by / n_screens in candidates.tsv.gz): a new TE-initiated,
+# TE-terminated or TE-exonized transcript of the gene. Everything else a
+# screen can report for a pair -- antisense_to_gene and the three known-
+# structure classes (annotated_splice, annotated_promoter_embedded_te,
+# annotated_terminal_exon_embedded_te) -- stays visible in the
+# *_chimera_types columns but is not a chimera call. On a real run 35 of the
+# 67 pairs at Screens = 3 had at least one screen whose only call was one of
+# those.
+CHIMERA_CALL_TYPES = frozenset({"te_initiated", "te_terminated", "te_exonized"})

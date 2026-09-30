@@ -58,7 +58,7 @@ def test_no_scoring_column_exists(tmp_path):
 
 def test_read_depth_earns_no_flag(tmp_path):
     """999 reads on a single sample with no motif is exactly the artifact shape."""
-    _, rows = run_evidence(tmp_path, "j1\tG\tT\tsf\tfam\tLINE\tno\ttrans\tno\t1\t999\n")
+    _, rows = run_evidence(tmp_path, "j1\tG\tT\tsf\tfam\tLINE\tno\tte_initiated\tno\t1\t999\n")
     assert rows[0]["screen_evidence"] == "."
     assert rows[0]["n_screen_evidence"] == "0"
     assert rows[0]["corroboration"] == "."

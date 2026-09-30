@@ -102,6 +102,17 @@ else:
 GTF = _resolve_ref_path("gtf")
 TE_GTF = _resolve_ref_path("te_gtf")
 
+# The GTFs exactly as configured (possibly .gz), for the python-only chimera
+# reference rules (annotation_to_bed, annotation_splice_features), which read
+# .gz directly via gz_io. They must NOT depend on the temp()-wrapped
+# decompressed copies above: when such a rule has to run after gunzip_
+# reference's output was cleaned up, Snakemake re-creates the decompressed
+# file, and its fresh mtime then makes EVERY other consumer of it (STAR
+# index, TEcount, TElocal, ...) look outdated -- one new chimera rule
+# re-ran 94 jobs on a real run that way.
+GTF_SOURCE = config["ref"]["gtf"]
+TE_GTF_SOURCE = config["ref"]["te_gtf"]
+
 # References are required for everything downstream (index, gene model,
 # TEcount), so fail fast at parse time on a missing/typo'd path instead of
 # letting the first rule that touches it die hours into a queue. For .gz refs

@@ -27,6 +27,8 @@ guard_init
   printf 'chr1\tx\texon\t1001\t1200\t.\t+\t.\tgene_id "GENE1"; transcript_id "TX1";\n'
   printf 'chr1\tx\texon\t2001\t2200\t.\t+\t.\tgene_id "GENE1"; transcript_id "TX1";\n'
   printf 'chr1\tx\texon\t3001\t3500\t.\t+\t.\tgene_id "GENE1"; transcript_id "TX1";\n'
+  printf 'chr1\tx\texon\t5001\t5200\t.\t+\t.\tgene_id "GENE2"; transcript_id "TX2";\n'
+  printf 'chr1\tx\texon\t6001\t6500\t.\t+\t.\tgene_id "GENE2"; transcript_id "TX2";\n'
 } > "$T/genes.gtf"
 if ! python3 workflow/scripts/annotation_splice_features.py --gtf "$T/genes.gtf" \
       --out-introns "$T/introns.tsv.gz" --out-last-exons "$T/last_exons.bed" \
@@ -34,11 +36,11 @@ if ! python3 workflow/scripts/annotation_splice_features.py --gtf "$T/genes.gtf"
   echo "ERROR: annotation_splice_features.py failed"; cat "$T/feat.log"; exit 1
 fi
 
-printf 'chr1\t1000\t3500\tGENE1\t.\t+\n' > "$T/genes.bed"
-printf 'chr1\t1000\t1200\tGENE1\t.\t+\nchr1\t2000\t2200\tGENE1\t.\t+\nchr1\t3000\t3500\tGENE1\t.\t+\n' > "$T/exons.bed"
+printf 'chr1\t1000\t3500\tGENE1\t.\t+\nchr1\t5000\t6500\tGENE2\t.\t+\n' > "$T/genes.bed"
+printf 'chr1\t1000\t1200\tGENE1\t.\t+\nchr1\t2000\t2200\tGENE1\t.\t+\nchr1\t3000\t3500\tGENE1\t.\t+\nchr1\t5000\t5200\tGENE2\t.\t+\nchr1\t6000\t6500\tGENE2\t.\t+\n' > "$T/exons.bed"
 # TE_IN1 straddles exon1's 3' end (so annotated intron 1201-2000 has its
 # donor inside a TE); TE_INTRON sits in intron 2; TE_UTR in the last exon.
-printf 'chr1\t1150\t1250\tTE_IN1\t.\t+\tERVL\tLTR\tMT2A\nchr1\t2500\t2700\tTE_INTRON\t.\t+\tERVL-MaLR\tLTR\tMTA\nchr1\t3200\t3400\tTE_UTR\t.\t+\tAlu\tSINE\tB1\n' > "$T/te.bed"
+printf 'chr1\t1150\t1250\tTE_IN1\t.\t+\tERVL\tLTR\tMT2A\nchr1\t2500\t2700\tTE_INTRON\t.\t+\tERVL-MaLR\tLTR\tMTA\nchr1\t3200\t3400\tTE_UTR\t.\t+\tAlu\tSINE\tB1\nchr1\t6700\t6900\tTE_DOWN\t.\t+\tERVK\tLTR\tRLTR10\n' > "$T/te.bed"
 : > "$T/first_exons.bed"
 
 # ------------------------------------------------ SJ
@@ -64,6 +66,11 @@ fi
   printf 'chr1\tS\ttranscript\t2001\t2700\t.\t+\t.\ttranscript_id "A_novel"; gene_id "M.2";\n'
   printf 'chr1\tS\texon\t2001\t2200\t.\t+\t.\ttranscript_id "A_novel"; gene_id "M.2";\n'
   printf 'chr1\tS\texon\t2501\t2700\t.\t+\t.\ttranscript_id "A_novel"; gene_id "M.2";\n'
+  # A_ext: GENE2's last exon extended PAST its annotated end (6500) into
+  # TE_DOWN, which supplies the new 3' end -> a real TE-terminated event
+  printf 'chr1\tS\ttranscript\t5001\t6900\t.\t+\t.\ttranscript_id "A_ext"; gene_id "M.3";\n'
+  printf 'chr1\tS\texon\t5001\t5200\t.\t+\t.\ttranscript_id "A_ext"; gene_id "M.3";\n'
+  printf 'chr1\tS\texon\t6001\t6900\t.\t+\t.\ttranscript_id "A_ext"; gene_id "M.3";\n'
 } > "$T/stringtie.gtf"
 if ! python3 workflow/scripts/classify_chimera_assembly.py \
       --gtf "$T/stringtie.gtf" --genes "$T/genes.bed" --exons "$T/exons.bed" \
@@ -89,7 +96,26 @@ with gzip.open(sys.argv[1], "wt") as fh:
     for r in rows:
         fh.write("\t".join(r) + "\n")
 PY
+# merged SJ table: GENE1/TE_IN1 has ONLY an annotated splice (no call) ->
+# must not become a candidate; GENE1/TE_INTRON has a real te_initiated call
+# plus an annotated splice with 5000 reads -> sj counts, with the CALL's
+# reads only
+python3 - "$T/sj_merged.tsv.gz" <<'PY'
+import gzip, sys
+cols = ["event_id", "gene_id", "te_id", "te_subfamily", "te_family", "te_class",
+        "canonical", "chimera_type", "n_samples", "total_reads"]
+rows = [
+    ["s_annot_only", "GENE1", "TE_IN1", "MT2A", "ERVL", "LTR", "yes", "annotated_splice", "4", "5000"],
+    ["s_call", "GENE1", "TE_INTRON", "MTA", "ERVL-MaLR", "LTR", "yes", "te_initiated", "2", "7"],
+    ["s_annot", "GENE1", "TE_INTRON", "MTA", "ERVL-MaLR", "LTR", "yes", "annotated_splice", "4", "5000"],
+]
+with gzip.open(sys.argv[1], "wt") as fh:
+    fh.write("\t".join(cols) + "\n")
+    for r in rows:
+        fh.write("\t".join(r) + "\n")
+PY
 if ! python3 workflow/scripts/chimera_evidence.py --junction "$T/cr.tsv.gz" \
+      --sj "$T/sj_merged.tsv.gz" \
       --cr-max-distance 200000 --out "$T/cand.tsv.gz" > "$T/ev.log" 2>&1; then
   echo "ERROR: chimera_evidence.py failed"; cat "$T/ev.log"; FAIL=1
 fi
@@ -110,7 +136,7 @@ def rows(path):
         return list(csv.DictReader(fh, delimiter="\t"))
 
 intr = {(r["chrom"], r["intron_start"], r["intron_end"]) for r in rows(f"{T}/introns.tsv.gz")}
-check(intr == {("chr1", "1201", "2000"), ("chr1", "2201", "3000")},
+check(intr == {("chr1", "1201", "2000"), ("chr1", "2201", "3000"), ("chr1", "5201", "6000")},
       f"annotated introns must be 1-based inclusive like SJ.out.tab; got {sorted(intr)}")
 last = open(f"{T}/last_exons.bed").read().split()
 check(last[:3] == ["chr1", "3000", "3500"],
@@ -132,6 +158,10 @@ check(asm.get("A_utr") == "annotated_terminal_exon_embedded_te",
       f"got {asm.get('A_utr')!r}")
 check(asm.get("A_novel") == "te_terminated",
       f"novel TE last exon must stay te_terminated, got {asm.get('A_novel')!r}")
+check(asm.get("A_ext") == "te_terminated",
+      f"last exon extended past the annotated end into a downstream TE is a real "
+      f"TE-terminated event (the TE is not inside the annotated last exon), got "
+      f"{asm.get('A_ext')!r}")
 
 cand = {(r["gene_id"], r["te_id"]): r for r in rows(f"{T}/cand.tsv.gz")}
 check(("GENE1", "TE_INTRON") in cand, "local chimeric-read event must make a candidate")
@@ -142,7 +172,21 @@ check(("GENE1", "TE_OLD") in cand,
       "event without a distance (older table) must be kept, not silently dropped")
 check(cand.get(("GENE1", "TE_INTRON"), {}).get("cr_gene_te_distance") == "0",
       "cr_gene_te_distance must be carried for kept pairs")
+check(("GENE1", "TE_IN1") not in cand,
+      "a pair whose only call is annotated_splice must NOT be a candidate")
+ti = cand.get(("GENE1", "TE_INTRON"), {})
+check(ti.get("found_by") == "cr+sj" and ti.get("sj_reads") == "7"
+      and ti.get("sj_max_samples") == "2",
+      f"SJ counts for a pair with a real call, and its columns use the CALL "
+      f"only (not the 5000-read annotated splice); got found_by="
+      f"{ti.get('found_by')!r}, sj_reads={ti.get('sj_reads')!r}, "
+      f"sj_max_samples={ti.get('sj_max_samples')!r}")
+check("annotated_splice" in ti.get("sj_chimera_types", "")
+      and "te_initiated" in ti.get("sj_chimera_types", ""),
+      f"non-call types stay listed in sj_chimera_types; got {ti.get('sj_chimera_types')!r}")
 log = open(f"{T}/ev.log").read()
+check("1 gene-TE pair(s) left out" in log,
+      f"chimera_evidence.py must log pairs left out for having no chimera call; log: {log!r}")
 check("2 chimeric-read event(s) skipped" in log,
       f"chimera_evidence.py must log how many far/trans events it skipped; log: {log!r}")
 sys.exit(0 if ok else 1)

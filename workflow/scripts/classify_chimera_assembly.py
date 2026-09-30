@@ -23,10 +23,12 @@ are ordered 5'->3' by the transcript's own strand, then, in priority order:
   4. (else) last exon overlaps a TE, an earlier exon matches an annotated
      gene -> te_terminated (TE-overlapping last exon with no matching gene
      is not a real chimera -- nothing to terminate -- and is skipped);
-     but if that last exon also overlaps an ANNOTATED transcript's last
-     exon on the same strand (--last-exons) -> the gene's ordinary 3' end
-     with a TE in its UTR -> annotated_terminal_exon_embedded_te (the 3'
-     counterpart of 1.; 43% of te_terminated calls on a real run)
+     but if the TE (its part inside that last exon) lies inside an
+     ANNOTATED transcript's last exon on the same strand (--last-exons) ->
+     the gene's ordinary 3' end with a TE in its UTR ->
+     annotated_terminal_exon_embedded_te (the 3' counterpart of 1.). A
+     transcript extending past the annotated end into a downstream TE stays
+     te_terminated.
   5. (else) an internal exon (not first, not last) overlaps a TE, and some
      other exon matches an annotated gene -> te_exonized
 A transcript whose first exon overlaps a TE (and clears the TSS-in-TE gate)
@@ -336,10 +338,27 @@ def main():
                 # last exon that lines up with a KNOWN transcript's own last
                 # exon (same strand) is the gene's ordinary 3' end with a TE
                 # in its UTR, not a new TE-terminated transcript.
-                annotated_last = last_exons_track is not None and any(
-                    h[2][2] == strand for h in overlapping(
-                        last_exons_track, chrom, last_s - tol, last_e + tol)
-                )
+                #
+                # The TE itself must sit INSIDE a same-strand annotated last
+                # exon (the TE portion within this transcript's last exon
+                # overlaps it) -- not merely the transcript's last exon
+                # overlapping one. A transcript that runs PAST the gene's
+                # annotated 3' end into a downstream TE, which then supplies
+                # the new end, is a real TE-terminated event and stays
+                # te_terminated. (Testing exon overlap alone swept 82% of
+                # te_terminated calls into this class on a real run, vs 43%
+                # with the TE in an ordinary UTR.)
+                annotated_last = False
+                if last_exons_track is not None:
+                    for ts_, te_, _ex in te_last_hits:
+                        seg_s = max(ts_, last_s - tol)
+                        seg_e = min(te_, last_e + tol)
+                        if seg_e <= seg_s:
+                            continue
+                        if any(h[2][2] == strand for h in overlapping(
+                                last_exons_track, chrom, seg_s, seg_e)):
+                            annotated_last = True
+                            break
                 chimera_type = (ANNOTATED_TERMINAL_EXON if annotated_last
                                 else "te_terminated")
             # else: TE-overlapping last exon but no earlier exon matches a

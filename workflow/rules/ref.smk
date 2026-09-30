@@ -205,8 +205,10 @@ if CHIMERA_CHIMERIC_READS_ENABLED or CHIMERA_ASSEMBLY_ENABLED or CHIMERA_SPLICE_
             # not the file it names, so without this an edit to the
             # script leaves stale outputs in place silently.
             script=f"{SCRIPTS_DIR}/annotation_to_bed.py",
-            gtf=GTF,
-            te_gtf=TE_GTF,
+            # the configured files (.gz or not), never the temp()-wrapped
+            # decompressed copies -- see GTF_SOURCE in common/refs.smk
+            gtf=GTF_SOURCE,
+            te_gtf=TE_GTF_SOURCE,
         output:
             genes="results/reference/genes.bed",
             exons="results/reference/exons.bed",
@@ -239,7 +241,7 @@ if CHIMERA_CHIMERIC_READS_ENABLED or CHIMERA_ASSEMBLY_ENABLED or CHIMERA_SPLICE_
             script=f"{SCRIPTS_DIR}/annotation_splice_features.py",
             # imports parse_attrs from it
             helper=f"{SCRIPTS_DIR}/annotation_to_bed.py",
-            gtf=GTF,
+            gtf=GTF_SOURCE,  # see GTF_SOURCE in common/refs.smk
         output:
             introns="results/reference/annotated_introns.tsv.gz",
             last_exons="results/reference/last_exons.bed",
