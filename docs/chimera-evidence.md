@@ -88,8 +88,9 @@ Assembly strand, Replicated, TElocal reads, Read depth.
   1 vs >=2 screens) and with replication. SJ `te_exonized` SINE was
   antisense-biased (28% vs 46% expected, OR 0.44), the mouse counterpart of
   antisense Alu exonization. An apparent L1 antisense lean in
-  `te_initiated` was mostly a position effect (intronic L1s are antisense-
-  depleted genome-wide).
+  `te_initiated` was mostly a position effect (intronic L1s are sense-
+  depleted genome-wide: only ~36% of intronic L1 copies are sense to their
+  host gene).
 - **What it shows:** on this run, orientation separates real LTR-driven
   initiation from background, and screen agreement / replication pick out
   more of it -- the first measurement here where cross-screen agreement
@@ -146,6 +147,34 @@ Measured with a one-off check of every call's geometry and annotation:
 - **Why this matters here:** Replicated and SJ samples are read as
   recurrence across independent libraries; under `star.two_pass: cohort`
   they are not fully independent.
+
+### "Other" TE classes -- mostly zinc-finger coding repeats, sense by construction
+
+- **What was measured:** the candidates whose TE is not LTR / LINE / SINE /
+  DNA (RepeatMasker classes Unknown, Satellite, Other, RNA, RC and the
+  "?" classes), by family, gene, gene biotype, TE position and orientation,
+  and whether the TE overlaps the gene's own CDS (reference GTF).
+- **Cohort:** the same 4-sample mouse oocyte run, at the pipeline commit
+  that keeps only chimera calls (359 such pairs; ~1,260 before the
+  classification fixes above).
+- **Restriction:** one cohort; one annotation (GENCODE vM23, the
+  TEtranscripts GRCm38 rmsk GTF).
+- **Finding:** one family dominates: MurSatRep1 (class Unknown), 183 of the
+  359 pairs, 98% sense. 162 of those 183 genes are zinc-finger genes
+  (Zfp*, Zscan*, Gm* in KZFP clusters), and in 95 pairs the "TE" overlaps
+  the gene's own CDS -- all 95 sense. The rest of the class is small:
+  Satellite 73 pairs (74% sense), Other / RMER1 66 (45-62% sense), RNA 7.
+- **What it shows:** the near-100% sense rows are RepeatMasker annotating
+  the zinc-finger coding repeats themselves as a repeat family, so the TE
+  lies on the gene's strand by construction. They are gene structure, not
+  a TE driving the gene.
+- **What it doesn't show:** whether any of these pairs is a real chimera;
+  a call on such a pair is not excluded, only uninformative for
+  orientation.
+- **Why this matters here:** read TE orientation for the Unknown /
+  MurSatRep1 rows (and any TE overlapping the gene's CDS) as annotation,
+  not evidence; keep these classes out of orientation summaries, as the
+  orientation measurement above did.
 
 ## Not yet measured
 
