@@ -181,6 +181,11 @@ else
       echo "ERROR: expected column header missing: $h"; FAIL=1
     fi
   done
+  # Run-specific findings stay in docs/chimera-evidence.md, not in tooltips
+  # (guard 37 checks the same for the guide and the Candidates table).
+  if grep -qi "chance rate" "$T/exp/out.html"; then
+    echo "ERROR: explorer tooltips must not carry the run-specific 'chance rate' finding"; FAIL=1
+  fi
   # ANTI-REGRESSION: the old interleaved/duplicated names must not leak back.
   for gone in "Splice motif\"" "Chimeric junction samples" "Junction events" \
               "Junction reads (cohort total)" "TE type (reads)" \

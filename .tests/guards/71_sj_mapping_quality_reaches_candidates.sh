@@ -18,9 +18,9 @@ set -uo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 guard_init
 
-hdr="event_id\tsample\tchrom\tintron_start\tintron_end\tstrand\tmotif\tcanonical\tannotated\tunique_reads\tmulti_reads\toverhang\tdonor_hits\tacceptor_hits\tdirection\tdirection_ambiguous\tgene_id\tgene_strand\tte_id\tte_subfamily\tte_family\tte_class\tchimera_type\tte_initiated_detail\tantisense_flag\tlibrary_strand\ttranscript_strand\tgene_strand_match"
+hdr="event_id\tsample\tchrom\tintron_start\tintron_end\tstrand\tmotif\tcanonical\tannotated\tunique_reads\tmulti_reads\toverhang\tdonor_hits\tacceptor_hits\tdirection\tdirection_ambiguous\tgene_id\tgene_strand\tte_id\tte_subfamily\tte_family\tte_class\tchimera_type\tte_initiated_detail\tantisense_flag\tlibrary_strand\ttranscript_strand\tgene_strand_match\tgtf_annotated_intron"
 row() {  # sample unique multi overhang
-  printf "chr1:701:1000:+\t%s\tchr1\t701\t1000\t+\t1\tyes\t0\t%s\t%s\t%s\t.\t.\tte_to_gene\tno\tG1\t+\tTE1\tsf\tfam\tLTR\tte_initiated\tupstream\t.\tno\t+\tyes\n" "$1" "$2" "$3" "$4"
+  printf "chr1:701:1000:+\t%s\tchr1\t701\t1000\t+\t1\tyes\t0\t%s\t%s\t%s\t.\t.\tte_to_gene\tno\tG1\t+\tTE1\tsf\tfam\tLTR\tte_initiated\tupstream\t.\tno\t+\tyes\tno\n" "$1" "$2" "$3" "$4"
 }
 { printf "%b\n" "$hdr"; row S1 3 1 20; } | gzip -c > "$T/S1.tsv.gz"
 { printf "%b\n" "$hdr"; row S2 5 3 35; } | gzip -c > "$T/S2.tsv.gz"
@@ -77,6 +77,9 @@ ev = rows(f"{T}/te.tsv.gz")[0]
 check((ev["total_reads"], ev["multi_reads"], ev["overhang"]) == ("8", "4", "35"),
       f"cohort SJ event must sum unique/multi reads and take the max overhang "
       f"across samples (want 8/4/35); got {ev['total_reads']}/{ev['multi_reads']}/{ev['overhang']}")
+check(ev.get("gtf_annotated_intron") == "no",
+      f"cohort SJ table must carry gtf_annotated_intron from the per-sample "
+      f"tables; got {ev.get('gtf_annotated_intron')!r}")
 
 cand = {(r["gene_id"], r["te_id"]): r for r in rows(f"{T}/cand.tsv.gz")}
 g1 = cand.get(("G1", "TE1"), {})

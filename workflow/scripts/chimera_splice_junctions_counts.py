@@ -82,6 +82,7 @@ ANNOTATION_COLUMNS = [
     "gene_id", "gene_strand", "te_id", "te_subfamily", "te_family",
     "te_class", "chimera_type", "te_initiated_detail", "antisense_flag",
     "library_strand", "transcript_strand", "gene_strand_match",
+    "gtf_annotated_intron",
 ]
 
 
