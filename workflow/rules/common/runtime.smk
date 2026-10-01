@@ -181,11 +181,12 @@ CHIMERA_ASSEMBLY_ENABLED = bool(
 # CHIMERA_CHIMERIC_READS_ENABLED and CHIMERA_ASSEMBLY_ENABLED above -- same blind spot
 # as the assembly screen (a TE splicing into a gene through an ordinary,
 # canonical intron never reaches the reads screen) but at the read-junction
-# level, needing no StringTie assembly. Off by default -- newer than the
-# other two screens, and its agreement with them has not yet been measured
-# (see docs/chimera-evidence.md).
+# level, needing no StringTie assembly. On by default since 0.15.0 (it reads
+# the SJ.out.tab files the main alignment already writes); its agreement with
+# the other screens has not been measured against a chance rate (see
+# docs/chimera-evidence.md).
 CHIMERA_SPLICE_JUNCTIONS_ENABLED = bool(
-    config.get("chimera", {}).get("splice_junctions", {}).get("enabled", False)
+    config.get("chimera", {}).get("splice_junctions", {}).get("enabled", True)
 )
 
 # Sample-QC thresholds for the chimera views (PCA / sample clustering). Lives

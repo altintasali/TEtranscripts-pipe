@@ -102,8 +102,8 @@ chimera:
       write_igv_bed: true
       write_gene_te_chimera_counts: true
   splice_junctions:
-    # enabled: true (unlike the shipped default of false) so CI exercises
-    # this new screen too.
+    # enabled: true, the shipped default -- explicit here so CI keeps
+    # exercising this screen even if the default ever changes.
     enabled: true
     breakpoint_tolerance: 0
     min_unique_reads: 1

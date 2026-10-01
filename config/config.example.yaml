@@ -324,9 +324,9 @@ chimera:
     # extra STAR pass). Catches the same blind spot as chimera.assembly (a
     # TE splicing into a gene through an ordinary, canonical intron never
     # reaches chimera.chimeric_reads) at the read-junction level, without needing
-    # StringTie to successfully assemble anything. OFF by default -- brand
-    # new and unvalidated on real data, unlike the other two screens.
-    enabled: false
+    # StringTie to successfully assemble anything. ON by default -- it only
+    # reads the SJ.out.tab files the main alignment already writes.
+    enabled: true
     breakpoint_tolerance: 0
     # STAR's own per-junction quality signal; 1 = no filtering.
     min_unique_reads: 1

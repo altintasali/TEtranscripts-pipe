@@ -428,13 +428,14 @@ properties:
           TE splicing into a gene through an ordinary, canonical intron
           never reaches the reads screen) but at the individual
           read-junction level, needing no StringTie assembly and no extra
-          STAR pass. OFF by default -- newer than the other two screens,
-          and its agreement with them has not yet been measured (see
+          STAR pass. ON by default -- it only reads the SJ.out.tab files
+          the main alignment already writes; its agreement with the other
+          screens has not been measured against a chance rate (see
           docs/chimera-evidence.md).
         properties:
           enabled:
             type: boolean
-            description: Default false.
+            description: Default true.
           breakpoint_tolerance:
             type: integer
             minimum: 0

@@ -119,7 +119,7 @@ def main(smk):
         "chimera.assembly.enabled": str(config.get("chimera", {}).get("assembly", {}).get("enabled", False)),
         "chimera.assembly.breakpoint_tolerance": str(config.get("chimera", {}).get("assembly", {}).get("breakpoint_tolerance", 0)),
         "chimera.assembly.require_tss_in_te": str(config.get("chimera", {}).get("assembly", {}).get("require_tss_in_te", True)),
-        "chimera.splice_junctions.enabled": str(config.get("chimera", {}).get("splice_junctions", {}).get("enabled", False)),
+        "chimera.splice_junctions.enabled": str(config.get("chimera", {}).get("splice_junctions", {}).get("enabled", True)),
         "chimera.splice_junctions.breakpoint_tolerance": str(config.get("chimera", {}).get("splice_junctions", {}).get("breakpoint_tolerance", 0)),
         "chimera.splice_junctions.min_unique_reads": str(config.get("chimera", {}).get("splice_junctions", {}).get("min_unique_reads", 1)),
         "chimera.splice_junctions.require_canonical": str(config.get("chimera", {}).get("splice_junctions", {}).get("require_canonical", True)),

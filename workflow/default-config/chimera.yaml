@@ -81,7 +81,9 @@ chimera:
       write_igv_bed: true
       write_gene_te_chimera_counts: true
   splice_junctions:
-    enabled: false
+    # On by default since 0.15.0: it only reads the SJ.out.tab files the main
+    # alignment already writes, so it adds no STAR pass.
+    enabled: true
     breakpoint_tolerance: 0
     # STAR's own per-junction quality signal (SJ.out.tab column 7); a floor
     # against single-read noise. 1 = no filtering (annotate-first, same

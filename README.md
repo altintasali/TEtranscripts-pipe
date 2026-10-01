@@ -16,7 +16,7 @@ flowchart LR
     align --> quant["Gene + TE quantification<br/>(TEcount / TElocal)"]
     align --> rdev["Chimeras: read evidence"]
     align --> asm["Chimeras: transcript evidence<br/>(2nd STAR pass)"]
-    align --> sjdev["Chimeras: SJ evidence<br/>(off by default)"]
+    align --> sjdev["Chimeras: SJ evidence"]
     rdev --> cand["Gene-TE candidates<br/>(evidence, not a score)"]
     asm --> cand
     sjdev --> cand
@@ -61,9 +61,9 @@ Up to three **independent** screens look for gene-TE chimeric transcripts:
   ordinary-canonical-intron blind spot as the assembly screen, but from
   STAR's own splice junctions (SJ.out.tab, already produced by the main
   alignment) at the individual read-junction level — no assembly, no extra
-  STAR pass. Set `chimera.splice_junctions.enabled: true` to turn it on. **Off by
-  default** — newer than the other two screens, and its agreement with them
-  has not been measured against a chance rate (see
+  STAR pass. **On by default**; set `chimera.splice_junctions.enabled: false`
+  to skip it. Its agreement with the other two screens has not been measured
+  against a chance rate (see
   [`docs/chimera-evidence.md`](docs/chimera-evidence.md)).
 
 **When to use the assembly screen.** It pays off most on genomes with
