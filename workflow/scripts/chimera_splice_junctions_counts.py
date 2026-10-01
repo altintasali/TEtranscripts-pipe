@@ -10,6 +10,11 @@ Outputs:
                    annotation columns taken from the first sample that saw it
                    (event_id is breakpoint-deterministic, so annotations
                    agree across samples) plus n_samples / total_reads.
+                   STAR's per-sample read evidence is aggregated, not taken
+                   from one sample: total_reads sums unique_reads,
+                   multi_reads sums multi_reads, and overhang is the
+                   maximum across samples -- the mapping-quality inputs for
+                   candidates.tsv.gz's sj_unique_fraction / sj_max_overhang.
   counts_matrix.tsv  event_id x sample matrix of STAR's own unique_reads
                    count for that junction (0 where a sample never had this
                    junction). Written when --out-counts is given. Rows are
@@ -80,6 +85,13 @@ ANNOTATION_COLUMNS = [
 ]
 
 
+def _int(value):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
+
+
 def load(path):
     rows = []
     with open_read(path) as fh:
@@ -112,11 +124,17 @@ def main():
     for path, sample in zip(args.tables, args.sample_names):
         for row in load(path):
             eid = row["event_id"]
-            ev = events.setdefault(eid, {"sample": sample, "counts": {}})
+            ev = events.setdefault(eid, {"sample": sample, "counts": {},
+                                         "multi": 0, "max_overhang": 0})
             ev["counts"][sample] = int(row["unique_reads"])
+            ev["multi"] += _int(row.get("multi_reads"))
+            ev["max_overhang"] = max(ev["max_overhang"], _int(row.get("overhang")))
             if ev["sample"] == sample:
                 for col in ANNOTATION_COLUMNS:
                     ev[col] = row.get(col, ".")
+    for ev in events.values():
+        ev["multi_reads"] = ev["multi"]
+        ev["overhang"] = ev["max_overhang"]
     order = sorted(events, key=lambda e: (events[e]["sample"], e))
     te_order = [
         eid for eid in order

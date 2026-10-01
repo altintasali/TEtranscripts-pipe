@@ -134,6 +134,15 @@ counted:
                        readable together with te_position -- each position
                        has its own background orientation mix.
 
+SJ mapping quality, from the pair's SJ chimera calls only ("." when the SJ
+screen did not call it). Reads from young TE families map to many copies, and
+spurious junctions arise there. Signals, never filters or scores:
+
+  sj_unique_fraction   STAR's unique reads / (unique + multi-mapping reads)
+                       across the calls' junctions and samples
+  sj_max_overhang      the longest anchor (bp) on either side of any of the
+                       calls' junctions, in any sample
+
 Only chimera CALLS count: a screen counts toward found_by / n_screens only
 if it called the pair te_initiated, te_terminated or te_exonized
 (CHIMERA_CALL_TYPES in chimera_exon_context.py), and its per-screen columns
@@ -246,6 +255,7 @@ OUT_COLUMNS = [
     "assembly_strand_match", "assembly_transcript_ids",
     "sj_events", "sj_reads", "sj_max_samples",
     "sj_canonical", "sj_chimera_types",
+    "sj_unique_fraction", "sj_max_overhang",
 ]
 
 
@@ -259,6 +269,7 @@ def _blank():
         "assembly_strand_match": ".", "assembly_tids": [],
         "sj_events": 0, "sj_reads": 0, "sj_max_samples": 0,
         "sj_canonical": "no", "sj_types": set(),
+        "sj_multi_reads": 0, "sj_max_overhang": 0,
     }
 
 
@@ -395,6 +406,12 @@ def main():
                 continue
             p["sj_events"] += 1
             p["sj_reads"] += _int(r.get("total_reads"))
+            # mapping quality, from the calls only: multi-mapping reads
+            # (summed across samples by chimera_splice_junctions_counts.py)
+            # and the longest anchor any sample saw
+            p["sj_multi_reads"] += _int(r.get("multi_reads"))
+            p["sj_max_overhang"] = max(p["sj_max_overhang"],
+                                       _int(r.get("overhang")))
             p["sj_max_samples"] = max(
                 p["sj_max_samples"], _int(r.get("n_samples"))
             )
@@ -518,6 +535,10 @@ def main():
             "sj_max_samples": p["sj_max_samples"],
             "sj_canonical": p["sj_canonical"],
             "sj_chimera_types": ",".join(sorted(p["sj_types"])) or ".",
+            "sj_unique_fraction": (
+                f"{p['sj_reads'] / (p['sj_reads'] + p['sj_multi_reads']):.3f}"
+                if p["sj_reads"] + p["sj_multi_reads"] > 0 else "."),
+            "sj_max_overhang": p["sj_max_overhang"] if in_sj else ".",
         })
 
     # Deterministic order: most screens first, then densest screen-bound

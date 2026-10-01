@@ -49,8 +49,9 @@ PARENT_NAME = "Chimera"
 
 # (column in candidates.tsv.gz, header, description, kind)
 # kind: "int" -> numeric, right-aligned; "yesno" -> rendered as a yes/no
-# string; "replicated" is the one synthetic column -- not a candidates.tsv.gz
-# field, derived in the loop below from the corroboration column instead.
+# string; "intna" / "fracna" -> integer / 0-1 fraction, left blank when the
+# value is "." (not measured). "replicated" and "types" are synthetic --
+# not candidates.tsv.gz fields, derived in the loop below.
 #
 # Grouped by block, and within a block always motif -> samples -> reads, so
 # the three screens read the same way left to right: Pair, TE vs gene,
@@ -123,6 +124,17 @@ COLUMNS = [
      "above: a structurally independent measurement (STAR's normal-splice "
      "motif call, not the chimeric-junction one). \".\" when that screen "
      "is disabled.", "yesno"),
+    ("sj_unique_fraction", "SJ unique fraction",
+     "Uniquely mapping reads / all reads (unique + multi-mapping) across "
+     "this pair's SJ.out.tab junction calls, from STAR. Low values mean the "
+     "junction may come from mis-mapping among TE copies -- a signal, not a "
+     "filter; see the guide. Blank when the SJ screen did not call the "
+     "pair.", "fracna"),
+    ("sj_max_overhang", "SJ max overhang",
+     "Longest anchor (bp) on either side of any of this pair's SJ.out.tab "
+     "junction calls, in any sample, from STAR. A short maximum means no "
+     "read anchored confidently -- a signal, not a filter. Blank when the "
+     "SJ screen did not call the pair.", "intna"),
     ("sj_max_samples", "SJ samples",
      "Most samples any one SJ.out.tab junction for this pair was seen in "
      "(chimera.splice_junctions screen).", "int"),
@@ -334,13 +346,14 @@ def main():
                 value = ",".join(sorted(calls)) or "."
             else:
                 value = r.get(col, ".")
-            if kind == "intna":
+            if kind in ("intna", "fracna"):
                 # Leave the cell UNSET when the measurement was not taken.
                 # _int(".") is 0, which would read as "TElocal ran and found
                 # no reads" -- a different statement from "TElocal did not
                 # run". MultiQC renders a missing key as an empty cell.
                 if str(value) not in (".", ""):
-                    entry[header] = _int(value)
+                    entry[header] = (float(value) if kind == "fracna"
+                                     else _int(value))
             else:
                 entry[header] = _int(value) if kind == "int" else str(value)
         data[key] = entry
@@ -353,6 +366,10 @@ def main():
         if kind in ("int", "intna"):
             h["format"] = "{:,.0f}"
             h["min"] = 0
+        elif kind == "fracna":
+            h["format"] = "{:,.2f}"
+            h["min"] = 0
+            h["max"] = 1
         if header in HIDDEN_HEADERS:
             h["hidden"] = True
         if header in SCALE_BY_HEADER:

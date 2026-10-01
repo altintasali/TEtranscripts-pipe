@@ -70,6 +70,7 @@ for gone in ("chance rate", "6.7%", "10.2%", "19,503", "mouse run",
 # motif, SJ motif, Assembly strand, Replicated, TElocal reads; Read depth last since
 # it spans both CR/SJ and is not evidence at all).
 order_labels = ["TE orientation", "Screens / Found by", "CR motif", "SJ motif",
+                "SJ unique fraction / overhang",
                 "Assembly strand", "Replicated", "TElocal reads",
                 "Read depth"]
 positions = []

@@ -152,6 +152,20 @@ def signals(sj_require_canonical):
         ),
         _sj_motif_row(sj_require_canonical),
         (
+            "SJ unique fraction / overhang",
+            "STAR (SJ.out.tab)",
+            "How much of a pair's SJ-screen support maps uniquely "
+            "(<code>sj_unique_fraction</code>: unique reads / all reads) and "
+            "the longest anchor any read had across the junction "
+            "(<code>sj_max_overhang</code>), from the SJ chimera calls only.",
+            "Reads from young TE families map equally well to many copies, "
+            "and junctions can arise from that mis-mapping rather than real "
+            "splicing. A low unique fraction or a short maximum overhang "
+            "means that is possible for this pair. Both are signals to read "
+            "alongside the others, never a filter or a score.",
+            "mixed",
+        ),
+        (
             "Assembly strand",
             "StringTie (assembly)",
             "The assembled transcript's strand agrees with the gene's "

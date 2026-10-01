@@ -171,7 +171,8 @@ else
            "Screens" "Found by" "Types" "Screen evidence flags" \
            "Screen evidence count" "Corroboration flags" "Corroboration count" \
            "CR motif" "CR samples" "CR reads" "CR events" "CR TE type" \
-           "SJ motif" "SJ samples" "SJ reads" "SJ events" "SJ TE type" \
+           "SJ motif" "SJ unique fraction" "SJ max overhang" \
+           "SJ samples" "SJ reads" "SJ events" "SJ TE type" \
            "Assembly strand" "Assembly transcripts" \
            "Assembly reads" "Assembly TE type" \
            "Assembly transcript IDs" "Replicated" "TElocal active" \
