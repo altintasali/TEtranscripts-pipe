@@ -286,6 +286,8 @@ rule chimera_assembly_classify:
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/classify_chimera_assembly.py",
+        # local modules the script imports -- editing them must re-run this
+        gz_io=f"{SCRIPTS_DIR}/gz_io.py",
         # shared typing helpers (strand rule, exon context) -- editing
         # them must re-run this rule too
         helper=f"{SCRIPTS_DIR}/chimera_exon_context.py",
@@ -338,6 +340,8 @@ rule chimera_assembly_quantify:
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/quantify_chimera_assembly.py",
+        # local modules the script imports -- editing them must re-run this
+        gz_io=f"{SCRIPTS_DIR}/gz_io.py",
         candidates="results/chimera/assembly/transcripts.tsv.gz",
         merged="results/chimera/assembly/stringtie_merge.gtf",
         quant=expand("results/chimera/assembly/per_sample/quant/{sample}.transcripts.gtf", sample=SAMPLES),
@@ -386,6 +390,8 @@ if WRITE_GENE_TE_CHIMERA_COUNTS:
             # not the file it names, so without this an edit to the
             # script leaves stale outputs in place silently.
             script=f"{SCRIPTS_DIR}/aggregate_chimera_assembly_counts.py",
+            # local modules the script imports -- editing them must re-run this
+            gz_io=f"{SCRIPTS_DIR}/gz_io.py",
             candidates="results/chimera/assembly/transcripts.tsv.gz",
             counts="results/chimera/assembly/counts_matrix.tsv.gz",
             gene_names="results/reference/gene_id_to_name.tsv.gz",
@@ -460,6 +466,8 @@ rule chimera_assembly_summary_mqc:
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/chimera_assembly_summary_mqc.py",
+        # local modules the script imports -- editing them must re-run this
+        gz_io=f"{SCRIPTS_DIR}/gz_io.py",
         candidates=_chimera_assembly_summary_input(),
     output:
         classes="results/chimera/qc/chimera_assembly_classes_mqc.json",
@@ -495,6 +503,8 @@ if WRITE_IGV_BED_ASSEMBLY:
             # not the file it names, so without this an edit to the
             # script leaves stale outputs in place silently.
             script=f"{SCRIPTS_DIR}/chimera_assembly_to_igv_bed.py",
+            # local modules the script imports -- editing them must re-run this
+            gz_io=f"{SCRIPTS_DIR}/gz_io.py",
             candidates=_chimera_assembly_summary_input(),
         output:
             "results/chimera/assembly/igv/transcripts.bed",

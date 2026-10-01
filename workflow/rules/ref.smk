@@ -205,6 +205,8 @@ if CHIMERA_CHIMERIC_READS_ENABLED or CHIMERA_ASSEMBLY_ENABLED or CHIMERA_SPLICE_
             # not the file it names, so without this an edit to the
             # script leaves stale outputs in place silently.
             script=f"{SCRIPTS_DIR}/annotation_to_bed.py",
+            # local modules the script imports -- editing them must re-run this
+            gz_io=f"{SCRIPTS_DIR}/gz_io.py",
             # the configured files (.gz or not), never the temp()-wrapped
             # decompressed copies -- see GTF_SOURCE in common/refs.smk
             gtf=GTF_SOURCE,
@@ -239,6 +241,8 @@ if CHIMERA_CHIMERIC_READS_ENABLED or CHIMERA_ASSEMBLY_ENABLED or CHIMERA_SPLICE_
         # rewrite genes.bed/exons.bed/te.bed and re-run everything on them.
         input:
             script=f"{SCRIPTS_DIR}/annotation_splice_features.py",
+            # local modules the script imports -- editing them must re-run this
+            gz_io=f"{SCRIPTS_DIR}/gz_io.py",
             # imports parse_attrs from it
             helper=f"{SCRIPTS_DIR}/annotation_to_bed.py",
             gtf=GTF_SOURCE,  # see GTF_SOURCE in common/refs.smk

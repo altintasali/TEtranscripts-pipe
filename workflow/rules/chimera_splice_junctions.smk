@@ -106,6 +106,8 @@ rule chimera_splice_junctions_classify:
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/classify_chimera_splice_junctions.py",
+        # local modules the script imports -- editing them must re-run this
+        gz_io=f"{SCRIPTS_DIR}/gz_io.py",
         # shared typing helpers (strand rule, exon context) -- editing
         # them must re-run this rule too
         helper=f"{SCRIPTS_DIR}/chimera_exon_context.py",
@@ -163,6 +165,8 @@ rule chimera_splice_junctions_summary_mqc:
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/chimera_splice_junctions_summary_mqc.py",
+        # local modules the script imports -- editing them must re-run this
+        gz_io=f"{SCRIPTS_DIR}/gz_io.py",
         te_events="results/chimera/splice_junctions/te-gene-junctions.tsv.gz",
         per_sample=[
             f"results/chimera/splice_junctions/per_sample/{s}_junctions_te-gene-junctions.tsv.gz"
@@ -200,6 +204,8 @@ rule chimera_splice_junctions_counts:
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/chimera_splice_junctions_counts.py",
+        # local modules the script imports -- editing them must re-run this
+        gz_io=f"{SCRIPTS_DIR}/gz_io.py",
         tables=chimera_splice_junctions_counts_input(),
     output:
         events="results/chimera/splice_junctions/all_events.tsv.gz",
@@ -306,6 +312,8 @@ if WRITE_IGV_BED_SPLICE_JUNCTIONS:
             # Declared so that EDITING the script re-runs the rule (guard 65):
             # Snakemake does not reliably treat a script's content as rule code.
             script=f"{SCRIPTS_DIR}/chimera_splice_junctions_to_igv_bed.py",
+            # local modules the script imports -- editing them must re-run this
+            gz_io=f"{SCRIPTS_DIR}/gz_io.py",
         output:
             "results/chimera/splice_junctions/igv/{sample}_junctions.bed",
         params:

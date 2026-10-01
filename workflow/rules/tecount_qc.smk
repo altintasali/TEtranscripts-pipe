@@ -71,6 +71,8 @@ rule tecount_counts:
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/tecount_counts.py",
+        # local modules the script imports -- editing them must re-run this
+        gz_io=f"{SCRIPTS_DIR}/gz_io.py",
         tables=tecount_counts_input(),
     output:
         counts="results/tecount/counts_matrix.tsv.gz",
@@ -104,6 +106,8 @@ rule tecount_qc_counts:
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/tecount_counts.py",
+        # local modules the script imports -- editing them must re-run this
+        gz_io=f"{SCRIPTS_DIR}/gz_io.py",
         matrix="results/tecount/counts_matrix.tsv.gz",
         gtf=GTF,
         te_gtf=TE_GTF,
@@ -211,6 +215,9 @@ rule tecount_summary:
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/tecount_summary_mqc.py",
+        # local modules the script imports -- editing them must re-run this
+        gz_io=f"{SCRIPTS_DIR}/gz_io.py",
+        te_summary_common=f"{SCRIPTS_DIR}/te_summary_common.py",
         tables=tecount_counts_input(),
     output:
         assignment="results/tecount/qc/tecount_assignment_mqc.json",

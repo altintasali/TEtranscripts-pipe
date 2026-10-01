@@ -130,6 +130,8 @@ rule chimera_chimeric_reads_classify:
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/classify_chimera_chimeric_reads.py",
+        # local modules the script imports -- editing them must re-run this
+        gz_io=f"{SCRIPTS_DIR}/gz_io.py",
         # shared typing helpers (strand rule, exon context) -- editing
         # them must re-run this rule too
         helper=f"{SCRIPTS_DIR}/chimera_exon_context.py",
@@ -188,6 +190,9 @@ rule chimera_telocal_index:
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/build_chimera_telocal_index.py",
+        # local modules the script imports -- editing them must re-run this
+        chimera_telocal_index=f"{SCRIPTS_DIR}/chimera_telocal_index.py",
+        gz_io=f"{SCRIPTS_DIR}/gz_io.py",
         telocal_tables=_telocal_counts_for_chimera,
         # The coordinate source. A TElocal cntTable key carries coordinates
         # only when the TE GTF's transcript_id happens to be a coordinate
@@ -224,6 +229,9 @@ rule chimera_telocal_annotate:
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/chimera_telocal_annotate.py",
+        # local modules the script imports -- editing them must re-run this
+        chimera_telocal_index=f"{SCRIPTS_DIR}/chimera_telocal_index.py",
+        gz_io=f"{SCRIPTS_DIR}/gz_io.py",
         junctions="results/chimera/chimeric_reads/per_sample/{sample}_junctions.tsv.gz",
         telocal_index="results/chimera/chimeric_reads/telocal_index.pkl.gz",
     output:
@@ -265,6 +273,8 @@ rule chimera_chimeric_reads_counts:
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/chimera_chimeric_reads_counts.py",
+        # local modules the script imports -- editing them must re-run this
+        gz_io=f"{SCRIPTS_DIR}/gz_io.py",
         tables=chimera_chimeric_reads_counts_input(),
     output:
         events="results/chimera/chimeric_reads/all_events.tsv.gz",
@@ -300,6 +310,8 @@ rule chimera_chimeric_reads_qc:
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/chimera_chimeric_reads_qc.py",
+        # local modules the script imports -- editing them must re-run this
+        gz_io=f"{SCRIPTS_DIR}/gz_io.py",
         table="results/chimera/chimeric_reads/per_sample/{sample}_junctions.tsv.gz",
     output:
         "results/chimera/chimeric_reads/per_sample/{sample}_chimera_chimeric_reads_qc.tsv.gz",
@@ -338,6 +350,8 @@ rule chimera_evidence:
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/chimera_evidence.py",
+        # local modules the script imports -- editing them must re-run this
+        gz_io=f"{SCRIPTS_DIR}/gz_io.py",
         # imports CHIMERA_CALL_TYPES from it -- editing it must re-run this
         helper=f"{SCRIPTS_DIR}/chimera_exon_context.py",
         junction="results/chimera/chimeric_reads/te-gene-chimeras.tsv.gz",
@@ -390,6 +404,8 @@ rule chimera_chimeric_reads_te_type:
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/chimera_chimeric_reads_te_type_mqc.py",
+        # local modules the script imports -- editing them must re-run this
+        gz_io=f"{SCRIPTS_DIR}/gz_io.py",
         qc_tables=expand("results/chimera/chimeric_reads/per_sample/"
                          "{sample}_chimera_chimeric_reads_qc.tsv.gz", sample=SAMPLES),
     output:
@@ -421,6 +437,8 @@ rule chimera_candidates_table:
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/chimera_candidates_table_mqc.py",
+        # local modules the script imports -- editing them must re-run this
+        gz_io=f"{SCRIPTS_DIR}/gz_io.py",
         # imports CHIMERA_CALL_TYPES from it -- editing it must re-run this
         helper=f"{SCRIPTS_DIR}/chimera_exon_context.py",
         evidence="results/chimera/candidates.tsv.gz",
@@ -558,6 +576,8 @@ rule chimera_candidates_explorer:
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/chimera_candidates_explorer.R",
+        # local modules the script imports -- editing them must re-run this
+        gz_io=f"{SCRIPTS_DIR}/gz_io.py",
         totals_script=f"{SCRIPTS_DIR}/chimera_candidates_matrix_totals.py",
         evidence="results/chimera/candidates.tsv.gz",
         gene_names="results/reference/gene_id_to_name.tsv.gz",
@@ -601,6 +621,8 @@ rule chimera_evidence_guide:
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/chimera_evidence_guide_mqc.py",
+        # local modules the script imports -- editing them must re-run this
+        gz_io=f"{SCRIPTS_DIR}/gz_io.py",
         evidence="results/chimera/candidates.tsv.gz",
     output:
         guide="results/chimera/qc/chimera_evidence_guide_mqc.json",
@@ -646,6 +668,8 @@ rule chimera_chimeric_reads_highlights:
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/chimera_chimeric_reads_highlights_mqc.py",
+        # local modules the script imports -- editing them must re-run this
+        gz_io=f"{SCRIPTS_DIR}/gz_io.py",
         te_events="results/chimera/chimeric_reads/te-gene-chimeras.tsv.gz",
     output:
         "results/chimera/qc/chimera_chimeric_reads_highlights_mqc.json",
@@ -680,6 +704,8 @@ rule chimera_chimeric_reads_qc_barplot:
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/chimera_chimeric_reads_qc_mqc.py",
+        # local modules the script imports -- editing them must re-run this
+        gz_io=f"{SCRIPTS_DIR}/gz_io.py",
         tables=lambda wc: [
             f"results/chimera/chimeric_reads/per_sample/{s}_chimera_chimeric_reads_qc.tsv.gz" for s in SAMPLES
         ],
@@ -717,6 +743,8 @@ rule chimera_chimeric_reads_igv_bed:
         # Declared so that EDITING the script re-runs the rule (guard 65):
         # Snakemake does not reliably treat a script's content as rule code.
         script=f"{SCRIPTS_DIR}/chimera_chimeric_reads_to_igv_bed.py",
+        # local modules the script imports -- editing them must re-run this
+        gz_io=f"{SCRIPTS_DIR}/gz_io.py",
     output:
         "results/chimera/chimeric_reads/igv/{sample}_junctions.bed",
     params:

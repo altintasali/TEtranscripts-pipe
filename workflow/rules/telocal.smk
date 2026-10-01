@@ -11,6 +11,8 @@ rule telocal_locind:
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/build_telocal_index.py",
+        # local modules the script imports -- editing them must re-run this
+        gz_io=f"{SCRIPTS_DIR}/gz_io.py",
         te_gtf=TE_GTF,
     output:
         # Must end in .locInd -- TElocal rejects any --TE file whose path
@@ -90,6 +92,9 @@ rule telocal_locations:
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/telocal_locations.py",
+        # local modules the script imports -- editing them must re-run this
+        build_telocal_index=f"{SCRIPTS_DIR}/build_telocal_index.py",
+        gz_io=f"{SCRIPTS_DIR}/gz_io.py",
         te_gtf=TE_GTF,
     output:
         "results/telocal/telocal_locations.bed",
@@ -124,6 +129,9 @@ rule telocal_summary:
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/telocal_summary_mqc.py",
+        # local modules the script imports -- editing them must re-run this
+        gz_io=f"{SCRIPTS_DIR}/gz_io.py",
+        te_summary_common=f"{SCRIPTS_DIR}/te_summary_common.py",
         tables=telocal_counts_input(),
     output:
         assignment="results/telocal/qc/telocal_assignment_mqc.json",
@@ -182,6 +190,8 @@ rule telocal_counts:
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/tecount_counts.py",
+        # local modules the script imports -- editing them must re-run this
+        gz_io=f"{SCRIPTS_DIR}/gz_io.py",
         tables=telocal_counts_input(),
     output:
         counts="results/telocal/counts_matrix.tsv.gz",
@@ -216,6 +226,8 @@ rule telocal_qc_counts:
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/tecount_counts.py",
+        # local modules the script imports -- editing them must re-run this
+        gz_io=f"{SCRIPTS_DIR}/gz_io.py",
         matrix="results/telocal/counts_matrix.tsv.gz",
     output:
         "results/telocal/qc/counts_matrix.tsv.gz",
