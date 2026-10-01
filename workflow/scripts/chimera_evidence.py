@@ -143,6 +143,12 @@ spurious junctions arise there. Signals, never filters or scores:
   sj_max_overhang      the longest anchor (bp) on either side of any of the
                        calls' junctions, in any sample
 
+The chimeric-reads counterpart, from the pair's CR chimera calls only:
+
+  cr_max_anchor        the best read's shorter segment (aligned bp), across
+                       the calls' events and samples (max_anchor in
+                       classify_chimera_chimeric_reads.py)
+
 Only chimera CALLS count: a screen counts toward found_by / n_screens only
 if it called the pair te_initiated, te_terminated or te_exonized
 (CHIMERA_CALL_TYPES in chimera_exon_context.py), and its per-screen columns
@@ -249,7 +255,7 @@ OUT_COLUMNS = [
     "screen_evidence", "n_screen_evidence",
     "corroboration", "n_corroboration",
     "cr_events", "cr_reads", "cr_max_samples",
-    "cr_canonical", "cr_chimera_types",
+    "cr_canonical", "cr_chimera_types", "cr_max_anchor",
     "telocal_active", "telocal_count", "telocal_locus",
     "assembly_transcripts", "assembly_chimera_types",
     "assembly_strand_match", "assembly_transcript_ids",
@@ -263,7 +269,7 @@ def _blank():
     return {
         "te_subfamily": ".", "te_family": ".", "te_class": ".",
         "cr_events": 0, "cr_reads": 0, "cr_max_samples": 0,
-        "cr_canonical": "no", "junction_types": set(),
+        "cr_canonical": "no", "junction_types": set(), "cr_max_anchor": None,
         "telocal_active": ".", "telocal_count": 0, "telocal_locus": ".",
         "assembly_transcripts": 0, "assembly_types": set(),
         "assembly_strand_match": ".", "assembly_tids": [],
@@ -335,6 +341,10 @@ def main():
         )
         if r.get("canonical") == "yes":
             p["cr_canonical"] = "yes"
+        # best read anchor of any call event ("." for older tables)
+        if r.get("max_anchor", ".") not in (".", ""):
+            p["cr_max_anchor"] = max(p["cr_max_anchor"] or 0,
+                                     _int(r["max_anchor"]))
         # "yes" for the pair if ANY event's TE locus is called expressed;
         # stays "." (not "no") when telocal never ran, so an absent check is
         # distinguishable from a negative one.
@@ -519,6 +529,8 @@ def main():
             "cr_max_samples": p["cr_max_samples"],
             "cr_canonical": p["cr_canonical"],
             "cr_chimera_types": ",".join(sorted(p["junction_types"])) or ".",
+            "cr_max_anchor": (p["cr_max_anchor"]
+                              if p["cr_max_anchor"] is not None else "."),
             "telocal_active": p["telocal_active"],
             # "." rather than 0 when TElocal never ran, so "not measured" stays
             # distinguishable from "measured, no reads" -- the same distinction

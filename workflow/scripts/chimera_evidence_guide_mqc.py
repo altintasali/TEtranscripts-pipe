@@ -150,6 +150,19 @@ def signals(sj_require_canonical):
             "is normal.",
             "strong",
         ),
+        (
+            "CR max anchor",
+            "STAR (chimeric junctions)",
+            "The best chimeric read's shorter segment, in aligned bases "
+            "(<code>cr_max_anchor</code>), from the chimeric-reads calls "
+            "only.",
+            "A breakpoint that no read anchors well on both sides is easy "
+            "to produce by mis-mapping or a chance alignment of a short "
+            "fragment. A short maximum anchor makes that possible for this "
+            "pair. A signal to read alongside the others, never a filter "
+            "or a score.",
+            "mixed",
+        ),
         _sj_motif_row(sj_require_canonical),
         (
             "SJ unique fraction / overhang",

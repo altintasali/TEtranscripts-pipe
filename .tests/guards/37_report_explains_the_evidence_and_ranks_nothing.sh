@@ -69,7 +69,8 @@ for gone in ("chance rate", "6.7%", "10.2%", "19,503", "mouse run",
 # Candidates table's own column order (TE orientation, Screens/Found by, CR
 # motif, SJ motif, Assembly strand, Replicated, TElocal reads; Read depth last since
 # it spans both CR/SJ and is not evidence at all).
-order_labels = ["TE orientation", "Screens / Found by", "CR motif", "SJ motif",
+order_labels = ["TE orientation", "Screens / Found by", "CR motif",
+                "CR max anchor", "SJ motif",
                 "SJ unique fraction / overhang",
                 "Assembly strand", "Replicated", "TElocal reads",
                 "Read depth"]

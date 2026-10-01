@@ -42,7 +42,7 @@ ANNOTATION_COLUMNS = [
     "te_family", "te_class", "chimera_type", "te_initiated_detail",
     "antisense_flag",
     "library_strand", "transcript_strand", "gene_strand_match",
-    "gene_te_distance",
+    "gene_te_distance", "max_anchor",
     "telocal_count", "telocal_locus", "telocal_active",
     "te_refined_by_telocal",
 ]
@@ -80,8 +80,16 @@ def main():
     for path, sample in zip(args.tables, args.sample_names):
         for row in load(path):
             eid = row["event_id"]
-            ev = events.setdefault(eid, {"sample": sample, "counts": {}})
+            ev = events.setdefault(eid, {"sample": sample, "counts": {},
+                                         "best_anchor": None})
             ev["counts"][sample] = int(row["reads"])
+            # best read anchor across samples, not the first sample's;
+            # stays "." for tables written before the column existed
+            try:
+                a = int(row["max_anchor"])
+                ev["best_anchor"] = a if ev["best_anchor"] is None else max(ev["best_anchor"], a)
+            except (KeyError, ValueError):
+                pass
             if ev["sample"] == sample:
                 # first-seen annotations (event_id is breakpoint-deterministic).
                 # .get(): the telocal_* columns only exist when telocal is
@@ -91,6 +99,8 @@ def main():
                 # crashed the whole merge.
                 for col in ANNOTATION_COLUMNS:
                     ev[col] = row.get(col, ".")
+    for ev in events.values():
+        ev["max_anchor"] = "." if ev["best_anchor"] is None else ev["best_anchor"]
     # keep the first sample that saw each event (stable order)
     order = sorted(events, key=lambda e: (events[e]["sample"], e))
 

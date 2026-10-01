@@ -110,6 +110,12 @@ COLUMNS = [
      "A recognised splice motif on at least one chimeric-junction read "
      "(STAR, chimeric-reads screen). The guide below calls this the best "
      "artifact discriminator available.", "yesno"),
+    ("cr_max_anchor", "CR max anchor",
+     "The best chimeric read's shorter segment, in aligned bp (STAR, "
+     "chimeric-reads screen), across this pair's calls and samples. A "
+     "short anchor on every read means the breakpoint is easy to produce "
+     "by mis-mapping -- a signal, not a filter; see the guide. Blank when "
+     "the screen did not call the pair.", "intna"),
     ("cr_max_samples", "CR samples",
      "Most samples any one chimeric junction for this pair was seen in "
      "(STAR, chimeric-reads screen).", "int"),

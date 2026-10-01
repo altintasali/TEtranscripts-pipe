@@ -26,7 +26,8 @@ Output columns (results/chimera/chimeric_reads/per_sample/{sample}_junctions.tsv
     canonical, repeat_flag, reads, donor_hits, acceptor_hits, direction,
     direction_ambiguous, gene_id, gene_strand, te_id, te_subfamily,
     te_family, te_class, chimera_type, te_initiated_detail, antisense_flag,
-    library_strand, transcript_strand, gene_strand_match, gene_te_distance
+    library_strand, transcript_strand, gene_strand_match, gene_te_distance,
+    max_anchor
 
 When --te-out is given, the gene<->TE events (direction gene_to_te /
 te_to_gene) are additionally written to that path with the same columns,
@@ -124,10 +125,20 @@ are read strands), so no event is re-typed.
 
 gene_te_distance: "trans" (different chromosomes), 0 (TE overlaps the
 gene's span) or the gap in bp; "." for events without both a gene and a TE.
+
+max_anchor: for each read, the aligned length of its SHORTER segment (M
+bases in the CIGARs, columns 12 and 14); the event reports the best read.
+The chimeric-read counterpart of SJ.out.tab's overhang: a breakpoint no read
+anchors well on both sides is easier to produce by mis-mapping. On a real
+run, local gene-TE events had a median of ~26 bp vs ~18 bp for trans / far
+ones. STAR's repeat-length columns (8-9) were checked and are not used: they
+measure how far the breakpoint can slide, which tracks the splice motif
+rather than artifacts.
 """
 import argparse
 import bisect
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -196,6 +207,14 @@ def overlapping(track, chrom, start0, end0):
 
 
 CANONICAL_TYPES = {1, 2, 3, 4, 5, 6}  # anything but 0 (non-canonical)
+
+_CIGAR_M = re.compile(r"(\d+)M")
+
+
+def _matched_bases(cigar):
+    """Aligned (M) bases in one chimeric segment's CIGAR. STAR writes "-1"
+    for an unmapped mate segment, which counts as 0."""
+    return sum(int(n) for n in _CIGAR_M.findall(cigar))
 
 
 def opp(strand):
@@ -399,8 +418,14 @@ def main():
             key = (donor_chrom, donor_bp, donor_strand, acceptor_chrom,
                    acceptor_bp, acceptor_strand, direction)
             ev = events.setdefault(key, {"reads": 0, "gene_id": gene_id,
-                                          "te_id": te_id})
+                                          "te_id": te_id, "max_anchor": 0})
             ev["reads"] += 1
+            # the read's shorter segment, in aligned bases (CIGAR columns
+            # 12 / 14); max over the event's reads -- see max_anchor in the
+            # module docstring
+            if len(cols) >= 14:
+                ev["max_anchor"] = max(ev["max_anchor"], min(
+                    _matched_bases(cols[11]), _matched_bases(cols[13])))
             if ev["reads"] == 1:
                 ev.update(
                     {
@@ -550,6 +575,7 @@ def main():
                 te_subfamily, te_family, te_class, chimera_type,
                 te_initiated_detail, antisense,
                 lib, transcript_strand, match, gene_te_distance,
+                ev["max_anchor"],
             ]
         )
 
@@ -563,7 +589,7 @@ def main():
         "te_class",
         "chimera_type", "te_initiated_detail", "antisense_flag",
         "library_strand", "transcript_strand",
-        "gene_strand_match", "gene_te_distance",
+        "gene_strand_match", "gene_te_distance", "max_anchor",
     ]
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
     with open_write(args.out) as fh:

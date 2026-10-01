@@ -170,7 +170,7 @@ else
            "TE family" "TE class" "TE position" "TE orientation" "Distance" \
            "Screens" "Found by" "Types" "Screen evidence flags" \
            "Screen evidence count" "Corroboration flags" "Corroboration count" \
-           "CR motif" "CR samples" "CR reads" "CR events" "CR TE type" \
+           "CR motif" "CR max anchor" "CR samples" "CR reads" "CR events" "CR TE type" \
            "SJ motif" "SJ unique fraction" "SJ max overhang" \
            "SJ samples" "SJ reads" "SJ events" "SJ TE type" \
            "Assembly strand" "Assembly transcripts" \
