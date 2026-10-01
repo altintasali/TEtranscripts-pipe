@@ -113,8 +113,26 @@ chimera.chimeric_reads.max_gene_te_distance, default 200 kb). On a real run
 random-partner pattern of template switching / chimeric ligation, not a TE
 driving that gene -- and they turned tens of thousands of such pairs into
 "candidates". They are skipped here and stay in the chimeric-reads screen's
-own event tables. cr_gene_te_distance reports the distance for the pairs
-that remain ("." for pairs that screen did not find).
+own event tables.
+
+Where the TE sits relative to its gene, from the annotation alone (--genes /
+--exons / --te; all three columns are "." when those are not given or a
+pair's gene/TE is missing from them). Reported for every pair, never
+counted:
+
+  te_position          upstream / downstream (strand-aware: 5' / 3' of the
+                       gene span), intronic (inside the span, no exon of
+                       that gene overlapped) or exonic; "trans" only for a
+                       TE on another chromosome, which the chimeric-read
+                       distance filter above already keeps out.
+  te_gene_distance_bp  gap between the TE and the gene span, 0 when the TE
+                       overlaps it. Replaces the older cr_gene_te_distance,
+                       which was the same number set only for pairs the
+                       chimeric-reads screen found.
+  te_orientation       sense / antisense: the TE's annotated strand vs the
+                       gene's, so it needs no stranded library. Only
+                       readable together with te_position -- each position
+                       has its own background orientation mix.
 
 Only chimera CALLS count: a screen counts toward found_by / n_screens only
 if it called the pair te_initiated, te_terminated or te_exonized
@@ -169,13 +187,60 @@ def _int(value):
         return 0
 
 
+def load_bed_loci(path, ids):
+    """{name: (chrom, start, end, strand)} for the BED rows whose name
+    (column 4) is in ids -- streams the file, so a 3.7M-row te.bed costs
+    only the pairs' own rows in memory."""
+    loci = {}
+    with open_read(path) as fh:
+        for line in fh:
+            f = line.rstrip("\n").split("\t")
+            if len(f) >= 6 and f[3] in ids:
+                loci[f[3]] = (f[0], int(f[1]), int(f[2]), f[5])
+    return loci
+
+
+def load_gene_exons(path, gene_ids):
+    """{gene_id: [(start, end), ...]} from exons.bed, for gene_ids only."""
+    exons = {}
+    with open_read(path) as fh:
+        for line in fh:
+            f = line.rstrip("\n").split("\t")
+            if len(f) >= 4 and f[3] in gene_ids:
+                exons.setdefault(f[3], []).append((int(f[1]), int(f[2])))
+    return exons
+
+
+def te_vs_gene(gene, te, gene_exons):
+    """(te_position, te_gene_distance_bp, te_orientation) of a TE locus
+    relative to a gene locus, both (chrom, start, end, strand) with BED
+    half-open coordinates. See the module docstring."""
+    gchrom, gs, ge, gstrand = gene
+    tchrom, ts, te_end, tstrand = te
+    if gchrom != tchrom:
+        return "trans", ".", "."
+    orientation = "."
+    if gstrand in ("+", "-") and tstrand in ("+", "-"):
+        orientation = "sense" if gstrand == tstrand else "antisense"
+    if te_end <= gs or ts >= ge:
+        left = te_end <= gs
+        dist = gs - te_end if left else ts - ge
+        if gstrand not in ("+", "-"):
+            return ".", dist, orientation
+        upstream = left if gstrand == "+" else not left
+        return ("upstream" if upstream else "downstream"), dist, orientation
+    exonic = any(ts < e and te_end > s for s, e in gene_exons)
+    return ("exonic" if exonic else "intronic"), 0, orientation
+
+
 OUT_COLUMNS = [
     "gene_id", "te_id", "te_subfamily", "te_family", "te_class",
+    "te_position", "te_gene_distance_bp", "te_orientation",
     "found_by", "n_screens",
     "screen_evidence", "n_screen_evidence",
     "corroboration", "n_corroboration",
     "cr_events", "cr_reads", "cr_max_samples",
-    "cr_canonical", "cr_chimera_types", "cr_gene_te_distance",
+    "cr_canonical", "cr_chimera_types",
     "telocal_active", "telocal_count", "telocal_locus",
     "assembly_transcripts", "assembly_chimera_types",
     "assembly_strand_match", "assembly_transcript_ids",
@@ -189,7 +254,6 @@ def _blank():
         "te_subfamily": ".", "te_family": ".", "te_class": ".",
         "cr_events": 0, "cr_reads": 0, "cr_max_samples": 0,
         "cr_canonical": "no", "junction_types": set(),
-        "cr_gene_te_distance": ".",
         "telocal_active": ".", "telocal_count": 0, "telocal_locus": ".",
         "assembly_transcripts": 0, "assembly_types": set(),
         "assembly_strand_match": ".", "assembly_tids": [],
@@ -215,6 +279,11 @@ def main():
         "gene_te_distance is <= this (bp); 'trans' never counts. Rows "
         "without the column (older tables) are kept.",
     )
+    ap.add_argument("--genes", default=None,
+                    help="results/reference/genes.bed (with --exons and --te: "
+                         "te_position / te_gene_distance_bp / te_orientation)")
+    ap.add_argument("--exons", default=None, help="results/reference/exons.bed")
+    ap.add_argument("--te", default=None, help="results/reference/te.bed")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
@@ -255,11 +324,6 @@ def main():
         )
         if r.get("canonical") == "yes":
             p["cr_canonical"] = "yes"
-        # gene<->TE distance is a property of the pair (same gene, same TE
-        # insertion), so every event agrees; "." for tables written before
-        # the column existed.
-        if p["cr_gene_te_distance"] == ".":
-            p["cr_gene_te_distance"] = r.get("gene_te_distance", ".") or "."
         # "yes" for the pair if ANY event's TE locus is called expressed;
         # stays "." (not "no") when telocal never ran, so an absent check is
         # distinguishable from a negative one.
@@ -337,16 +401,28 @@ def main():
             if r.get("canonical") == "yes":
                 p["sj_canonical"] = "yes"
 
+    # cr_events / assembly_transcripts / sj_events count chimera CALLS only
+    # (see above), so a screen whose only calls for a pair are known
+    # structure or antisense does not count as having found it -- and a pair
+    # no screen calls a chimera is not a candidate at all.
+    kept = {k: p for k, p in pairs.items()
+            if p["cr_events"] or p["assembly_transcripts"] or p["sj_events"]}
+    n_no_call = len(pairs) - len(kept)
+
+    gene_loci, te_loci, gene_exons = {}, {}, {}
+    if args.genes and args.exons and args.te:
+        gene_ids = {g for g, _ in kept}
+        gene_loci = load_bed_loci(args.genes, gene_ids)
+        gene_exons = load_gene_exons(args.exons, gene_ids)
+        te_loci = load_bed_loci(args.te, {t for _, t in kept})
+
     rows = []
-    n_no_call = 0
-    for (gene, te), p in pairs.items():
-        # cr_events / assembly_transcripts / sj_events count chimera CALLS
-        # only (see above), so a screen whose only calls for this pair are
-        # known structure or antisense does not count as having found it --
-        # and a pair no screen calls a chimera is not a candidate at all.
-        if not (p["cr_events"] or p["assembly_transcripts"] or p["sj_events"]):
-            n_no_call += 1
-            continue
+    for (gene, te), p in kept.items():
+        if gene in gene_loci and te in te_loci:
+            te_position, te_dist, te_orientation = te_vs_gene(
+                gene_loci[gene], te_loci[te], gene_exons.get(gene, ()))
+        else:
+            te_position, te_dist, te_orientation = ".", ".", "."
         in_junction = p["cr_events"] > 0
         in_assembly = p["assembly_transcripts"] > 0
         in_sj = p["sj_events"] > 0
@@ -412,6 +488,9 @@ def main():
             "gene_id": gene, "te_id": te,
             "te_subfamily": p["te_subfamily"], "te_family": p["te_family"],
             "te_class": p["te_class"],
+            "te_position": te_position,
+            "te_gene_distance_bp": te_dist,
+            "te_orientation": te_orientation,
             "found_by": found_by,
             "n_screens": n_screens,
             "screen_evidence": ",".join(screen_evidence) or ".",
@@ -423,7 +502,6 @@ def main():
             "cr_max_samples": p["cr_max_samples"],
             "cr_canonical": p["cr_canonical"],
             "cr_chimera_types": ",".join(sorted(p["junction_types"])) or ".",
-            "cr_gene_te_distance": p["cr_gene_te_distance"],
             "telocal_active": p["telocal_active"],
             # "." rather than 0 when TElocal never ran, so "not measured" stays
             # distinguishable from "measured, no reads" -- the same distinction

@@ -98,10 +98,31 @@ def _sj_motif_row(sj_require_canonical):
 def signals(sj_require_canonical):
     """(label, source tool, what the signal is, how to read it, standing)
     for the guide table, in the SAME order as FLAGS / the Candidates
-    table's own columns -- one deliberate exception: Read depth spans
+    table's own columns (TE orientation first: its TE-vs-gene block sits
+    before Screens there) -- one deliberate exception: Read depth spans
     both the CR and SJ blocks and is not evidence at all, so it goes last
     rather than being split into two rows."""
     return [
+        (
+            "TE orientation",
+            "Annotation (genes.bed, te.bed)",
+            "Whether the TE copy lies on the same strand as the gene "
+            "(<code>te_orientation</code>: sense / antisense), shown with "
+            "where it sits relative to the gene (<code>te_position</code>: "
+            "upstream, intronic, exonic, downstream) and how far away "
+            "(<code>te_gene_distance_bp</code>). From the annotation, so it "
+            "needs no stranded library.",
+            "Read it only together with TE position: each position has its "
+            "own background mix of orientations, so a sense or antisense "
+            "TE means little without knowing where it sits. An LTR "
+            "promoter driving a gene should be sense to it. Intronic TEs "
+            "have their own baseline &mdash; sense-oriented L1s, for "
+            "example, are depleted from introns genome-wide &mdash; and "
+            "exonized SINEs are often antisense. Compare groups of pairs "
+            "against that background; a single pair's orientation proves "
+            "nothing.",
+            "mixed",
+        ),
         (
             "Screens / Found by",
             "STAR + StringTie + STAR (SJ.out.tab)",

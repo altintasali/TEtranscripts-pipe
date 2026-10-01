@@ -116,6 +116,7 @@ with gzip.open(sys.argv[1], "wt") as fh:
 PY
 if ! python3 workflow/scripts/chimera_evidence.py --junction "$T/cr.tsv.gz" \
       --sj "$T/sj_merged.tsv.gz" \
+      --genes "$T/genes.bed" --exons "$T/exons.bed" --te "$T/te.bed" \
       --cr-max-distance 200000 --out "$T/cand.tsv.gz" > "$T/ev.log" 2>&1; then
   echo "ERROR: chimera_evidence.py failed"; cat "$T/ev.log"; FAIL=1
 fi
@@ -170,8 +171,9 @@ check(("GENE1", "TE_FAR") not in cand,
 check(("GENE1", "TE_TRANS") not in cand, "trans event must NOT make a candidate")
 check(("GENE1", "TE_OLD") in cand,
       "event without a distance (older table) must be kept, not silently dropped")
-check(cand.get(("GENE1", "TE_INTRON"), {}).get("cr_gene_te_distance") == "0",
-      "cr_gene_te_distance must be carried for kept pairs")
+check(cand.get(("GENE1", "TE_INTRON"), {}).get("te_gene_distance_bp") == "0",
+      "te_gene_distance_bp must be 0 for a TE inside the gene (it replaces "
+      "cr_gene_te_distance)")
 check(("GENE1", "TE_IN1") not in cand,
       "a pair whose only call is annotated_splice must NOT be a candidate")
 ti = cand.get(("GENE1", "TE_INTRON"), {})

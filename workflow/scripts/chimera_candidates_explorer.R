@@ -170,6 +170,25 @@ replicated <- factor(ifelse(
     grepl("(^|,)multi_sample(,|$)", candidates$corroboration), "yes", "no"
 ))
 
+# "." for a column an older candidates.tsv.gz does not carry yet.
+col_or_dot <- function(name) {
+    if (name %in% names(candidates)) candidates[[name]]
+    else rep(".", nrow(candidates))
+}
+
+# Types: the union of the chimera CALLS any screen made for the pair --
+# same derivation as chimera_candidates_table_mqc.py's own Types column
+# (CHIMERA_CALL_TYPES in chimera_exon_context.py).
+chimera_calls <- c("te_initiated", "te_terminated", "te_exonized")
+types <- vapply(seq_len(nrow(candidates)), function(i) {
+    all_types <- unlist(strsplit(c(candidates$cr_chimera_types[i],
+                                   candidates$sj_chimera_types[i],
+                                   candidates$assembly_chimera_types[i]),
+                                 ",", fixed = TRUE))
+    calls <- sort(unique(all_types[all_types %in% chimera_calls]))
+    if (length(calls)) paste(calls, collapse = ",") else "."
+}, character(1))
+
 # Columns are grouped by block, in the same order and vocabulary as
 # chimera_candidates_table_mqc.py: Pair, Overview, CR, SJ, Assembly,
 # Support -- with this table's own explorer-only extras (loci, event
@@ -184,8 +203,12 @@ df <- data.frame(
     "TE subfamily" = candidates$te_subfamily,
     "TE family" = candidates$te_family,
     "TE class" = factor(candidates$te_class),
+    "TE position" = factor(col_or_dot("te_position")),
+    "TE orientation" = factor(col_or_dot("te_orientation")),
+    "Distance" = int_or_na(col_or_dot("te_gene_distance_bp")),
     "Screens" = int_or_na(candidates$n_screens),
     "Found by" = factor(candidates$found_by),
+    "Types" = factor(types),
     "Screen evidence flags" = candidates$screen_evidence,
     "Screen evidence count" = int_or_na(candidates$n_screen_evidence),
     "Corroboration flags" = candidates$corroboration,
@@ -234,6 +257,15 @@ descriptions <- c(
     "TE annotation field from the curated TE GTF.",
     "TE annotation field from the curated TE GTF.",
     "TE annotation field from the curated TE GTF.",
+    paste("Where the TE sits relative to the gene, strand-aware: upstream",
+          "(5' of the gene), intronic, exonic or downstream (3'). From the",
+          "annotation, not from the reads."),
+    paste("sense / antisense: the TE's annotated strand vs the gene's.",
+          "Needs no stranded library. Read it only together with TE",
+          "position -- each position has its own background mix; see the",
+          "report's guide."),
+    paste("Gap in bp between the TE and the gene's annotated span; 0 when",
+          "the TE overlaps the gene (intronic / exonic)."),
     paste("How many of the 3 independent detection screens found this pair",
           "(1-3). Informational, derived from Found by."),
     paste("Which screens called it, \"+\"-joined: cr (chimeric-reads",
@@ -241,6 +273,10 @@ descriptions <- c(
           "STAR) -- e.g. \"cr+sj\". Agreement measured near its chance",
           "rate. The CR / SJ / Assembly column-block headers below match",
           "these same three tokens."),
+    paste("Chimera calls made for this pair by any screen, comma-joined:",
+          "te_initiated, te_terminated, te_exonized. Other types a screen",
+          "reported (antisense_to_gene, known gene structure) are not calls",
+          "and are listed per screen in the TE type columns."),
     paste("Screen-bound quality signals this pair carries -- see Screen",
           "evidence count. Each one can only be set if its own screen",
           "found the pair. Hidden by default: every flag here is now its",

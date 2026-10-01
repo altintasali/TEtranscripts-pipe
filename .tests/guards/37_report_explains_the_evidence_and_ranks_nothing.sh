@@ -66,10 +66,10 @@ for gone in ("chance rate", "6.7%", "10.2%", "19,503", "mouse run",
     check(gone not in b, f"guide must NOT contain the run-specific finding {gone!r} -- see docs/chimera-evidence.md")
 
 # every signal label from the Candidates table must be named, in the
-# Candidates table's own column order (Screens/Found by, CR motif, SJ
-# motif, Assembly strand, Replicated, TElocal reads; Read depth last since
+# Candidates table's own column order (TE orientation, Screens/Found by, CR
+# motif, SJ motif, Assembly strand, Replicated, TElocal reads; Read depth last since
 # it spans both CR/SJ and is not evidence at all).
-order_labels = ["Screens / Found by", "CR motif", "SJ motif",
+order_labels = ["TE orientation", "Screens / Found by", "CR motif", "SJ motif",
                 "Assembly strand", "Replicated", "TElocal reads",
                 "Read depth"]
 positions = []

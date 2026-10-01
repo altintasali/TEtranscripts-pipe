@@ -45,8 +45,9 @@ check(d.get("plot_type") == "table",
 # insertion included (hidden, but present), so a reader can find a
 # specific gene.
 headers = d.get("headers", {})
-for col in ("Gene", "TE insertion", "TE subfamily", "TE class", "Screens",
-            "Found by", "CR motif", "CR samples", "CR reads", "SJ motif",
+for col in ("Gene", "TE insertion", "TE subfamily", "TE class",
+            "TE position", "TE orientation", "Distance", "Screens",
+            "Found by", "Types", "CR motif", "CR samples", "CR reads", "SJ motif",
             "SJ samples", "SJ reads", "Assembly strand",
             "Assembly transcripts", "Replicated", "TElocal reads"):
     check(col in headers, f"column {col!r} missing -- the reader cannot sort on it")

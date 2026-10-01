@@ -42,6 +42,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from gz_io import open_read, open_write
+from chimera_exon_context import CHIMERA_CALL_TYPES
 
 PARENT_ID = "chimera"
 PARENT_NAME = "Chimera"
@@ -52,8 +53,8 @@ PARENT_NAME = "Chimera"
 # field, derived in the loop below from the corroboration column instead.
 #
 # Grouped by block, and within a block always motif -> samples -> reads, so
-# the three screens read the same way left to right: Pair, Overview
-# (cross-screen), then one block per screen (CR / SJ / Assembly), then
+# the three screens read the same way left to right: Pair, TE vs gene,
+# Overview (cross-screen), then one block per screen (CR / SJ / Assembly), then
 # Support (cross-cutting corroboration). The CR / SJ / Assembly header
 # prefixes deliberately match found_by's own tokens (cr / sj / assembly) --
 # see that column's description.
@@ -75,6 +76,19 @@ COLUMNS = [
      "TE annotation field from the curated TE GTF.", "str"),
     ("te_class", "TE class",
      "TE annotation field from the curated TE GTF.", "str"),
+    # TE vs gene: where the TE sits relative to its gene and on which
+    # strand, from the annotation alone (chimera_evidence.py).
+    ("te_position", "TE position",
+     "Where the TE sits relative to the gene, strand-aware: upstream (5' "
+     "of the gene), intronic, exonic or downstream (3'). From the "
+     "annotation, not from the reads.", "str"),
+    ("te_orientation", "TE orientation",
+     "sense / antisense: the TE's annotated strand vs the gene's. Needs no "
+     "stranded library. Read it only together with TE position -- each "
+     "position has its own background mix; see the guide.", "str"),
+    ("te_gene_distance_bp", "Distance",
+     "Gap in bp between the TE and the gene's annotated span; 0 when the "
+     "TE overlaps the gene (intronic / exonic).", "intna"),
     ("n_screens", "Screens",
      "How many of the 3 independent detection screens (cr, assembly, sj) "
      "found this pair (1-3). Informational, derived from Found by.", "int"),
@@ -84,6 +98,13 @@ COLUMNS = [
      "\"cr+sj\". How much weight agreement between screens deserves has "
      "not been established -- see the guide. The CR / SJ / Assembly "
      "column-block headers below match these same three tokens.", "str"),
+    # Synthetic, like replicated below: the union of the chimera calls any
+    # screen made for the pair, from the three *_chimera_types columns.
+    ("types", "Types",
+     "Chimera calls made for this pair by any screen, comma-joined: "
+     "te_initiated, te_terminated, te_exonized. Other types a screen "
+     "reported (antisense_to_gene, known gene structure) are not calls and "
+     "are listed per screen in candidates.tsv.gz.", "str"),
     ("cr_canonical", "CR motif",
      "A recognised splice motif on at least one chimeric-junction read "
      "(STAR, chimeric-reads screen). The guide below calls this the best "
@@ -305,6 +326,12 @@ def main():
                 # than recomputing it from the raw sample counts here.
                 value = ("yes" if "multi_sample"
                          in r.get("corroboration", ".").split(",") else "no")
+            elif col == "types":
+                calls = {t for c in ("cr_chimera_types", "sj_chimera_types",
+                                     "assembly_chimera_types")
+                         for t in r.get(c, ".").split(",")
+                         if t in CHIMERA_CALL_TYPES}
+                value = ",".join(sorted(calls)) or "."
             else:
                 value = r.get(col, ".")
             if kind == "intna":

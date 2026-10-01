@@ -100,7 +100,9 @@ fi
 if ! python3 workflow/scripts/chimera_evidence.py --junction "$T/ev/j.tsv.gz" \
       --out "$T/ev/j_only.tsv.gz" > "$T/ev/log2" 2>&1; then
   echo "ERROR: chimera_evidence.py failed without --assembly"; cat "$T/ev/log2"; FAIL=1
-elif gzip -dc "$T/ev/j_only.tsv.gz" | tail -n +2 | cut -f6 | grep -qv '^cr$'; then
+elif gzip -dc "$T/ev/j_only.tsv.gz" \
+     | awk -F'\t' 'NR==1{for(i=1;i<=NF;i++) if($i=="found_by") c=i; next} {print $c}' \
+     | grep -qv '^cr$'; then
   echo "ERROR: without --assembly every pair must be found_by cr"; FAIL=1
 fi
 

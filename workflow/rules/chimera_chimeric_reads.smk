@@ -338,7 +338,13 @@ rule chimera_evidence:
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/chimera_evidence.py",
+        # imports CHIMERA_CALL_TYPES from it -- editing it must re-run this
+        helper=f"{SCRIPTS_DIR}/chimera_exon_context.py",
         junction="results/chimera/chimeric_reads/te-gene-chimeras.tsv.gz",
+        # TE position / distance / orientation relative to the gene
+        genes="results/reference/genes.bed",
+        exons="results/reference/exons.bed",
+        te="results/reference/te.bed",
         **({"assembly": "results/chimera/assembly/transcripts.tsv.gz"}
            if CHIMERA_ASSEMBLY_ENABLED else {}),
         **({"sj": "results/chimera/splice_junctions/te-gene-junctions.tsv.gz"}
@@ -367,6 +373,7 @@ rule chimera_evidence:
         "python3 {input.script} "
         "--junction {input.junction} {params.assembly} {params.sj} "
         "--cr-max-distance {params.cr_max_distance} "
+        "--genes {input.genes} --exons {input.exons} --te {input.te} "
         "--out {output} > {log} 2>&1"
 
 
@@ -414,6 +421,8 @@ rule chimera_candidates_table:
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/chimera_candidates_table_mqc.py",
+        # imports CHIMERA_CALL_TYPES from it -- editing it must re-run this
+        helper=f"{SCRIPTS_DIR}/chimera_exon_context.py",
         evidence="results/chimera/candidates.tsv.gz",
         gene_names="results/reference/gene_id_to_name.tsv.gz",
     output:
@@ -438,6 +447,21 @@ rule chimera_candidates_table:
         "--out {output} > {log} 2>&1"
 
 
+def _evidence_column(name):
+    # One candidates.tsv.gz column's values (no header), found by NAME.
+    # Fixed `cut -fN` positions went stale silently every time
+    # chimera_evidence.py's OUT_COLUMNS grew: the TElocal and assembly keys
+    # ended up reading cr_chimera_types / telocal_locus instead, and the
+    # explorer's TElocal reads / Assembly reads came out blank. A missing
+    # column now fails the rule instead.
+    return (
+        "gzip -dc {input.evidence} | awk -F'\\t' -v col=" + name + " "
+        "'NR==1{{for(i=1;i<=NF;i++) if($i==col) c=i; "
+        "if(!c){{print \"candidates.tsv.gz has no column \" col > \"/dev/stderr\"; exit 1}} next}} "
+        "{{print $c}}'"
+    )
+
+
 def _candidates_explorer_shell():
     # Assembled once at parse time (TELOCAL_ENABLED/CHIMERA_ASSEMBLY_ENABLED
     # are already known config-derived constants) since the two extra joins
@@ -452,8 +476,8 @@ def _candidates_explorer_shell():
         "te_filtered={resources.tmpdir}/candidates_te.bed",
         "telocal_totals={resources.tmpdir}/candidates_telocal_totals.tsv",
         "assembly_totals={resources.tmpdir}/candidates_assembly_totals.tsv",
-        "gzip -dc {input.evidence} | tail -n +2 | cut -f1 | sort -u > \"$genes_ids\"",
-        "gzip -dc {input.evidence} | tail -n +2 | cut -f2 | sort -u > \"$te_ids\"",
+        _evidence_column("gene_id") + " | sort -u > \"$genes_ids\"",
+        _evidence_column("te_id") + " | sort -u > \"$te_ids\"",
         "awk -F'\\t' 'NR==FNR{{ids[$1]=1; next}} ($4 in ids)' "
         "\"$genes_ids\" {input.genes_bed} > \"$genes_filtered\"",
         "awk -F'\\t' 'NR==FNR{{ids[$1]=1; next}} ($4 in ids)' "
@@ -462,17 +486,14 @@ def _candidates_explorer_shell():
     if TELOCAL_ENABLED:
         lines += [
             "telocal_keys={resources.tmpdir}/candidates_telocal_keys.txt",
-            # telocal_locus is chimera_evidence.py's OUT_COLUMNS[15]
-            # (1-based column 16) -- kept in sync by eye, same caveat as the
-            # gene_id/te_id cut -f1/-f2 above.
-            # `|| true`: grep -v exits 1 when EVERY row is "." (no
-            # telocal_locus at all in this cohort) -- under this rule's
-            # `set -euo pipefail` that would otherwise abort the whole
-            # chain even though an empty keys file is a legitimate,
-            # meaningful result (chimera_candidates_matrix_totals.py
-            # handles zero requested keys fine).
-            "gzip -dc {input.evidence} | tail -n +2 | cut -f16 | "
-            "grep -v '^\\.$' | sort -u > \"$telocal_keys\" || true",
+            # `|| true` on the grep only: grep -v exits 1 when EVERY row is
+            # "." (no telocal_locus at all in this cohort) -- under this
+            # rule's `set -euo pipefail` that would otherwise abort the
+            # chain even though an empty keys file is a legitimate result
+            # (chimera_candidates_matrix_totals.py handles zero keys fine).
+            # A missing column still fails, via _evidence_column.
+            _evidence_column("telocal_locus") + " > \"$telocal_keys.all\"",
+            "{{ grep -v '^\\.$' \"$telocal_keys.all\" || true; }} | sort -u > \"$telocal_keys\"",
             "python3 {input.totals_script} --matrix {input.telocal_matrix} "
             "--keys \"$telocal_keys\" --out \"$telocal_totals\"",
         ]
@@ -481,14 +502,11 @@ def _candidates_explorer_shell():
     if CHIMERA_ASSEMBLY_ENABLED:
         lines += [
             "assembly_keys={resources.tmpdir}/candidates_assembly_keys.txt",
-            # assembly_transcript_ids is OUT_COLUMNS[19] (1-based column
-            # 20) -- comma-joined, split into individual transcript_ids
-            # before summing (a candidate can be backed by several).
-            # `|| true`: same empty-match/pipefail caveat as telocal_keys
-            # above -- a candidates.tsv.gz with no assembly-backed rows at
-            # all (every assembly_transcript_ids == ".") is legitimate.
-            "gzip -dc {input.evidence} | tail -n +2 | cut -f20 | "
-            "grep -v '^\\.$' | tr ',' '\\n' | sort -u > \"$assembly_keys\" || true",
+            # assembly_transcript_ids is comma-joined, split into individual
+            # transcript_ids before summing (a candidate can be backed by
+            # several). Same empty-match caveat as telocal_keys above.
+            _evidence_column("assembly_transcript_ids") + " > \"$assembly_keys.all\"",
+            "{{ grep -v '^\\.$' \"$assembly_keys.all\" || true; }} | tr ',' '\\n' | sort -u > \"$assembly_keys\"",
             "python3 {input.totals_script} --matrix {input.assembly_matrix} "
             "--keys \"$assembly_keys\" --out \"$assembly_totals\"",
         ]
