@@ -63,7 +63,7 @@ Up to three **independent** screens look for gene-TE chimeric transcripts:
   alignment) at the individual read-junction level — no assembly, no extra
   STAR pass. Set `chimera.splice_junctions.enabled: true` to turn it on. **Off by
   default** — newer than the other two screens, and its agreement with them
-  has not yet been measured (see
+  has not been measured against a chance rate (see
   [`docs/chimera-evidence.md`](docs/chimera-evidence.md)).
 
 **When to use the assembly screen.** It pays off most on genomes with
@@ -81,6 +81,19 @@ carrying every line of evidence any screen produced. The report's **Chimera**
 section opens with that list
 as a sortable table, followed by a guide to what each signal is worth, then
 each screen's own evidence.
+
+Only chimera **calls** make a screen count toward a pair: `te_initiated`,
+`te_terminated` and `te_exonized`, typed from the junction's direction and the
+gene's own exon structure. A screen also reports what is not a call, and that
+stays listed in the per-screen type columns without counting:
+`antisense_to_gene` (transcript on the gene's opposite strand) and known gene
+structure (`annotated_splice`, `annotated_promoter_embedded_te`,
+`annotated_terminal_exon_embedded_te`). Chimeric-read events on another
+chromosome or farther than `chimera.chimeric_reads.max_gene_te_distance`
+(default 200 kb) from the gene stay in that screen's own tables but do not
+make candidates. Each pair also carries where the TE sits relative to the
+gene (position, distance, sense/antisense orientation) and mapping-quality
+signals (SJ unique-read fraction and overhang, chimeric-read anchor length).
 
 **The pipeline does not rank or score chimera candidates.** No experiment here
 has established what each signal is worth, and early project measurements
