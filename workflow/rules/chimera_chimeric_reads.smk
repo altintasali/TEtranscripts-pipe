@@ -613,6 +613,9 @@ rule chimera_evidence_guide:
             "true" if config["chimera"]["splice_junctions"]["require_canonical"]
             else "false"
         ),
+        # Picks the Replicated row's conditional wording: cohort 2-pass
+        # shares junctions across samples' indexes.
+        star_two_pass=STAR_TWO_PASS,
     threads: get_resources("chimera_evidence_guide")["threads"]
     resources:
         mem_mb=get_scaled_mem_mb("chimera_evidence_guide"),
@@ -625,6 +628,7 @@ rule chimera_evidence_guide:
         "python3 {input.script} "
         "--evidence {input.evidence} "
         "--sj-require-canonical {params.sj_require_canonical} "
+        "--star-two-pass {params.star_two_pass} "
         "--out-guide {output.guide} "
         "--out-composition {output.composition} > {log} 2>&1"
 

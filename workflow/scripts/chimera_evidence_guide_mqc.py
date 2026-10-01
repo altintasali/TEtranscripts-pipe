@@ -95,7 +95,53 @@ def _sj_motif_row(sj_require_canonical):
     )
 
 
-def signals(sj_require_canonical):
+def _replicated_row(star_two_pass):
+    """The Replicated signal row. Under star.two_pass: cohort, junctions
+    from every sample's first pass are inserted into every sample's index,
+    so a junction is easier to find again in the other samples: SJ samples
+    and Replicated are then not fully independent detections. Rendered for
+    THIS run's setting, like the SJ motif row; a generic caveat when the
+    setting is not passed."""
+    how = (
+        "A sequence-driven template switch or ligation artifact recurs "
+        "across libraries too, so recurrence alone does not separate a "
+        "real chimera from a reproducible one."
+    )
+    if star_two_pass == "cohort":
+        how += (
+            " This run used <code>star.two_pass: cohort</code>: junctions "
+            "found in any sample's first pass are added to every sample's "
+            "index, which makes a junction easier to detect again in the "
+            "other samples. SJ samples and Replicated are therefore not "
+            "fully independent detections here &mdash; the effect is small "
+            "but only ever upward."
+        )
+    elif star_two_pass in ("per_sample", "none"):
+        how += (
+            f" This run used <code>star.two_pass: {star_two_pass}</code>, "
+            "so each sample's junctions were detected independently of the "
+            "other samples."
+        )
+    else:
+        how += (
+            " With <code>star.two_pass: cohort</code>, junctions pooled "
+            "from every sample's first pass are added to every sample's "
+            "index, so SJ samples and Replicated are not fully independent "
+            "detections."
+        )
+    return (
+        "Replicated",
+        "STAR (chimeric junctions or SJ.out.tab)",
+        "Seen in more than one sample, from the greater of the "
+        "CR samples / SJ samples columns (<code>multi_sample</code>) "
+        "&mdash; corroboration, not screen-bound evidence, so it can "
+        "fire from a single screen alone.",
+        how,
+        "mixed",
+    )
+
+
+def signals(sj_require_canonical, star_two_pass=None):
     """(label, source tool, what the signal is, how to read it, standing)
     for the guide table, in the SAME order as FLAGS / the Candidates
     table's own columns (TE orientation first: its TE-vs-gene block sits
@@ -193,18 +239,7 @@ def signals(sj_require_canonical):
             "<code>te_exonized</code>.",
             "mixed",
         ),
-        (
-            "Replicated",
-            "STAR (chimeric junctions or SJ.out.tab)",
-            "Seen in more than one sample, from the greater of the "
-            "CR samples / SJ samples columns (<code>multi_sample</code>) "
-            "&mdash; corroboration, not screen-bound evidence, so it can "
-            "fire from a single screen alone.",
-            "A sequence-driven template switch or ligation artifact "
-            "recurs across libraries too, so recurrence alone does not "
-            "separate a real chimera from a reproducible one.",
-            "mixed",
-        ),
+        _replicated_row(star_two_pass),
         (
             "TElocal reads",
             "TElocal",
@@ -242,9 +277,10 @@ def load(path):
             yield dict(zip(header, line.rstrip("\n").split("\t")))
 
 
-def guide_html(sj_require_canonical):
+def guide_html(sj_require_canonical, star_two_pass=None):
     rows = []
-    for label, source, what, how, weight in signals(sj_require_canonical):
+    for label, source, what, how, weight in signals(sj_require_canonical,
+                                                    star_two_pass):
         colour, badge = WEIGHT_STYLE[weight]
         rows.append(
             "<tr>"
@@ -285,6 +321,10 @@ def main():
                     choices=["true", "false"],
                     help="config chimera.splice_junctions.require_canonical "
                     "-- picks the SJ motif row's conditional wording")
+    ap.add_argument("--star-two-pass", default=None,
+                    choices=["cohort", "per_sample", "none"],
+                    help="config star.two_pass -- picks the Replicated row's "
+                    "conditional wording (generic caveat when omitted)")
     ap.add_argument("--out-guide", required=True)
     ap.add_argument("--out-composition", required=True)
     args = ap.parse_args()
@@ -329,7 +369,7 @@ def main():
             "read it -- click Help for the full signal-by-signal table. "
             "No ranking is produced."
         ),
-        "helptext": guide_html(sj_require_canonical),
+        "helptext": guide_html(sj_require_canonical, args.star_two_pass),
         "plot_type": "html",
         "data": (
             "<p>Sort the <strong>Candidates</strong> table above on the "
