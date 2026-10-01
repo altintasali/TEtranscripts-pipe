@@ -115,6 +115,38 @@ Measured with a one-off check of every call's geometry and annotation:
   gene. They no longer count toward candidates
   (`chimera.chimeric_reads.max_gene_te_distance`).
 
+### Replicated / SJ samples -- cohort 2-pass inflates them slightly
+
+- **What was measured:** the same 4 samples run twice at one pipeline
+  commit, differing only in `star.two_pass` (`cohort`: junctions pooled from
+  every sample's first pass are inserted into one index; `per_sample`: each
+  sample's own). Compared: `sj_max_samples` for SJ chimera calls, the
+  `multi_sample` (Replicated) rate, candidate overlap and the Screens = 3 set.
+- **Cohort:** the same 4-sample mouse oocyte run (unstranded, single-end).
+- **Restriction:** one cohort of 4 samples, all one stage; with more samples
+  the pooled index holds more junctions, so the effect may grow.
+- **Finding:** of 11,664 pairs both runs called by SJ, 864 had a higher
+  `sj_max_samples` under cohort mode and 22 a lower one; the share seen in
+  all 4 samples was 2,246 vs 1,814 pairs. Replicated: 43.3% vs 42.2% of
+  SJ-found pairs (32.9% vs 31.8% overall); 121 shared pairs were replicated
+  only under cohort mode, 18 only under per-sample. Candidates otherwise
+  agreed closely: 15,318 shared, 146 cohort-only, 329 per-sample-only
+  (Jaccard 0.97); Screens = 3 was 21 vs 22 pairs, all 21 shared. STAR's own
+  `annotated` flag marked 79-82% of SJ.out.tab junctions under cohort mode
+  and 99.7-99.8% under per-sample mode, so it is unusable as "annotated in
+  the GTF" in either mode.
+- **What it shows:** cohort 2-pass lets a junction seen in one sample's first
+  pass be detected in others on the second pass, which lifts sample counts:
+  a pair's `sj_max_samples` and Replicated can partly reflect the pooled
+  index rather than independent detection. The size here is small (about
+  one percentage point of Replicated) but one-directional.
+- **What it doesn't show:** whether the extra detections are real junctions
+  that per-sample mode misses or index-induced artifacts, or how the effect
+  scales with cohort size.
+- **Why this matters here:** Replicated and SJ samples are read as
+  recurrence across independent libraries; under `star.two_pass: cohort`
+  they are not fully independent.
+
 ## Not yet measured
 
 - **SJ-screen agreement** as such (the orientation result above shows
