@@ -179,7 +179,10 @@ col_or_dot <- function(name) {
 # Types: the union of the chimera CALLS any screen made for the pair --
 # same derivation as chimera_candidates_table_mqc.py's own Types column
 # (CHIMERA_CALL_TYPES in chimera_exon_context.py).
-chimera_calls <- c("te_initiated", "te_terminated", "te_exonized")
+chimera_calls <- c("te_initiated", "te_terminated", "te_exonized",
+                   "annotated_promoter_embedded_te",
+                   "annotated_terminal_exon_embedded_te", "annotated_splice",
+                   "antisense_to_gene")
 types <- vapply(seq_len(nrow(candidates)), function(i) {
     all_types <- unlist(strsplit(c(candidates$cr_chimera_types[i],
                                    candidates$sj_chimera_types[i],
@@ -209,6 +212,7 @@ df <- data.frame(
     "Screens" = int_or_na(candidates$n_screens),
     "Found by" = factor(candidates$found_by),
     "Types" = factor(types),
+    "Status" = factor(col_or_dot("chimera_status")),
     "Screen evidence flags" = candidates$screen_evidence,
     "Screen evidence count" = int_or_na(candidates$n_screen_evidence),
     "Corroboration flags" = candidates$corroboration,
@@ -279,10 +283,13 @@ descriptions <- c(
           "screens deserves has not been established -- see the report's",
           "guide. The CR / SJ / Assembly column-block headers below match",
           "these same three tokens."),
-    paste("Chimera calls made for this pair by any screen, comma-joined:",
-          "te_initiated, te_terminated, te_exonized. Other types a screen",
-          "reported (antisense_to_gene, known gene structure) are not calls",
-          "and are listed per screen in the TE type columns."),
+    paste("Chimera types any screen called for this pair, comma-joined.",
+          "The per-screen types are in the TE type columns."),
+    paste("Which kinds of chimera support this pair, \"+\"-joined: novel",
+          "(a new TE-initiated / terminated / exonized transcript),",
+          "annotated (a TE-driven transcript the reference annotation",
+          "already has) and antisense (the TE joined to the gene's exon on",
+          "the opposite strand). See the report's guide."),
     paste("Screen-bound quality signals this pair carries -- see Screen",
           "evidence count. Each one can only be set if its own screen",
           "found the pair. Hidden by default: every flag here is now its",

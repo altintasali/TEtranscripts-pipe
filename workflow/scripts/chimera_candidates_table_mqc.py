@@ -102,10 +102,14 @@ COLUMNS = [
     # Synthetic, like replicated below: the union of the chimera calls any
     # screen made for the pair, from the three *_chimera_types columns.
     ("types", "Types",
-     "Chimera calls made for this pair by any screen, comma-joined: "
-     "te_initiated, te_terminated, te_exonized. Other types a screen "
-     "reported (antisense_to_gene, known gene structure) are not calls and "
-     "are listed per screen in candidates.tsv.gz.", "str"),
+     "Chimera types any screen called for this pair, comma-joined. The "
+     "per-screen lists are in candidates.tsv.gz.", "str"),
+    ("chimera_status", "Status",
+     "Which kinds of chimera support this pair, \"+\"-joined: novel (a new "
+     "TE-initiated / terminated / exonized transcript), annotated (a "
+     "TE-driven transcript the reference annotation already has) and "
+     "antisense (the TE joined to the gene's exon on the opposite strand). "
+     "See the guide.", "str"),
     ("cr_canonical", "CR motif",
      "A recognised splice motif on at least one chimeric-junction read "
      "(STAR, chimeric-reads screen). The guide below calls this the best "

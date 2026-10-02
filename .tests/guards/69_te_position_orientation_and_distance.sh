@@ -45,7 +45,7 @@ printf 'chr1\t10000\t20000\tGENE_P\t.\t+\nchr1\t50000\t60000\tGENE_M\t.\t-\n' > 
 } > "$T/te.bed"
 
 # Merged SJ table: one te_initiated call per pair; GENE_P/TE_PU also has an
-# annotated splice, which Types must leave out (not a chimera call).
+# annotated splice, which Types lists too (an annotated chimera call).
 python3 - "$T" <<'PY'
 import gzip, sys
 T = sys.argv[1]
@@ -128,8 +128,8 @@ e = d["data"].get("GENE_P | TE_PU", {})
 check(e.get("TE position") == "upstream" and e.get("TE orientation") == "sense"
       and e.get("Distance") == 1000,
       f"table must carry the pair's position/orientation/distance; got {e}")
-check(e.get("Types") == "te_initiated",
-      f"Types is the union of chimera CALLS only (annotated_splice left out); "
+check(e.get("Types") == "annotated_splice,te_initiated",
+      f"Types is the union of every chimera call across screens; "
       f"got {e.get('Types')!r}")
 sys.exit(0 if ok else 1)
 PY

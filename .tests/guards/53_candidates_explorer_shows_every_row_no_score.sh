@@ -168,7 +168,7 @@ else
   fi
   for h in "Gene" "TE insertion" "Gene locus" "TE locus" "TE subfamily" \
            "TE family" "TE class" "TE position" "TE orientation" "Distance" \
-           "Screens" "Found by" "Types" "Screen evidence flags" \
+           "Screens" "Found by" "Types" "Status" "Screen evidence flags" \
            "Screen evidence count" "Corroboration flags" "Corroboration count" \
            "CR motif" "CR max anchor" "CR samples" "CR reads" "CR events" "CR TE type" \
            "SJ motif" "SJ unique fraction" "SJ max overhang" \

@@ -77,28 +77,52 @@ def prefer_gene_on_strand(gene_ids, transcript_strand, strand_of):
     return gene_ids[0]
 
 
-# Known gene structure that merely touches a TE -- kept as its own class so
-# it stays visible, but not a gene-TE chimera call:
+# Gene-TE chimeras the reference annotation already contains -- a TE-driven
+# gene transcript that is known, not new:
+#   annotated_promoter_embedded_te        an assembled transcript whose
+#                                         TE-overlapping first exon is an
+#                                         annotated first exon (a TE promoter
+#                                         the GTF already has)
+#   annotated_terminal_exon_embedded_te   the same at the 3' end: the TE lies
+#                                         inside an annotated last exon (a TE
+#                                         in an ordinary 3' UTR)
+#                                         (both classify_chimera_assembly.py)
 #   annotated_splice                      an SJ junction that is an annotated
-#                                         intron of the reference GTF
-#                                         (classify_chimera_splice_junctions.py)
-#   annotated_terminal_exon_embedded_te   an assembled transcript whose
-#                                         TE-overlapping last exon is an
-#                                         annotated last exon, i.e. a TE in an
-#                                         ordinary 3' UTR -- the 3' counterpart
-#                                         of annotated_promoter_embedded_te
-#                                         (classify_chimera_assembly.py)
+#                                         GTF intron with a splice site inside
+#                                         a TE -- on a real run the TE made up
+#                                         a median 91 bp of the exon at that
+#                                         site, i.e. an annotated TE-derived
+#                                         exon (classify_chimera_splice_
+#                                         junctions.py)
+ANNOTATED_PROMOTER = "annotated_promoter_embedded_te"
 ANNOTATED_SPLICE = "annotated_splice"
 ANNOTATED_TERMINAL_EXON = "annotated_terminal_exon_embedded_te"
 
 
-# The chimera calls that make a screen count as having FOUND a gene-TE pair
-# (found_by / n_screens in candidates.tsv.gz): a new TE-initiated,
-# TE-terminated or TE-exonized transcript of the gene. Everything else a
-# screen can report for a pair -- antisense_to_gene and the three known-
-# structure classes (annotated_splice, annotated_promoter_embedded_te,
-# annotated_terminal_exon_embedded_te) -- stays visible in the
-# *_chimera_types columns but is not a chimera call. On a real run 35 of the
-# 67 pairs at Screens = 3 had at least one screen whose only call was one of
-# those.
-CHIMERA_CALL_TYPES = frozenset({"te_initiated", "te_terminated", "te_exonized"})
+# Every typed gene-TE chimera counts as a screen having FOUND the pair
+# (found_by / n_screens in candidates.tsv.gz), in three kinds:
+#   novel      a new TE-initiated, TE-terminated or TE-exonized transcript
+#   annotated  a TE-driven transcript the annotation already has (above)
+#   antisense  a transcript joining the TE to the gene's exon on the
+#              opposite strand (ANTISENSE_TO_GENE): a chimera, but it cannot
+#              make the gene's mRNA
+# candidates.tsv.gz's chimera_status column records which kinds support a
+# pair, so known and antisense chimeras stay findable without being mistaken
+# for new ones.
+NOVEL_CALL_TYPES = frozenset({"te_initiated", "te_terminated", "te_exonized"})
+ANNOTATED_CALL_TYPES = frozenset({ANNOTATED_PROMOTER, ANNOTATED_TERMINAL_EXON,
+                                  ANNOTATED_SPLICE})
+ANTISENSE_CALL_TYPES = frozenset({ANTISENSE_TO_GENE})
+CHIMERA_CALL_TYPES = NOVEL_CALL_TYPES | ANNOTATED_CALL_TYPES | ANTISENSE_CALL_TYPES
+CALL_KINDS = ("novel", "annotated", "antisense")
+
+
+def call_kind(chimera_type):
+    """"novel" / "annotated" / "antisense" for a chimera call, else None."""
+    if chimera_type in NOVEL_CALL_TYPES:
+        return "novel"
+    if chimera_type in ANNOTATED_CALL_TYPES:
+        return "annotated"
+    if chimera_type in ANTISENSE_CALL_TYPES:
+        return "antisense"
+    return None

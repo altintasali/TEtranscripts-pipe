@@ -9,7 +9,7 @@
 #     the max overhang across samples (unique reads were already summed, as
 #     total_reads);
 #   - chimera_evidence.py adds sj_unique_fraction = unique / (unique + multi)
-#     and sj_max_overhang, from the pair's SJ chimera CALLS only;
+#     and sj_max_overhang, from the pair's typed SJ chimera calls only;
 #   - the Candidates table shows both in its SJ block.
 #
 # Run on its own:   .tests/guards/71_sj_mapping_quality_reaches_candidates.sh
@@ -33,15 +33,15 @@ fi
 
 # merged SJ table for chimera_evidence: G1/TE1 has the real call (8 unique,
 # 4 multi, overhang 35 -- the counts step's own output, appended below) plus
-# a non-call annotated splice with heavy multi-mapping that must NOT enter
-# the fraction; G2/TE2 has no SJ call at all.
+# an untyped event with heavy multi-mapping that must NOT enter the
+# fraction; G2/TE2 has no SJ call at all.
 python3 - "$T" <<'PY'
 import csv, gzip, sys
 T = sys.argv[1]
 with gzip.open(f"{T}/te.tsv.gz", "rt") as fh:
     rows = list(csv.DictReader(fh, delimiter="\t"))
 cols = list(rows[0].keys())
-extra = dict(rows[0], event_id="annot", chimera_type="annotated_splice",
+extra = dict(rows[0], event_id="untyped", chimera_type=".",
              total_reads="100", multi_reads="900", overhang="99")
 with gzip.open(f"{T}/sj_merged.tsv.gz", "wt") as fh:
     fh.write("\t".join(cols) + "\n")
@@ -85,7 +85,7 @@ cand = {(r["gene_id"], r["te_id"]): r for r in rows(f"{T}/cand.tsv.gz")}
 g1 = cand.get(("G1", "TE1"), {})
 check(g1.get("sj_unique_fraction") == "0.667" and g1.get("sj_max_overhang") == "35",
       f"sj_unique_fraction = 8/(8+4) and sj_max_overhang = 35 from the CALL only "
-      f"(the annotated splice's 900 multi reads / overhang 99 must be ignored); got "
+      f"(the untyped event's 900 multi reads / overhang 99 must be ignored); got "
       f"{g1.get('sj_unique_fraction')!r}/{g1.get('sj_max_overhang')!r}")
 g2 = cand.get(("G2", "TE2"), {})
 check(g2.get("sj_unique_fraction") == "." and g2.get("sj_max_overhang") == ".",

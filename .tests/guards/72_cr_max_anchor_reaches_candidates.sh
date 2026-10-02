@@ -8,7 +8,7 @@
 #   - classify_chimera_chimeric_reads.py: max_anchor = best read per event;
 #   - chimera_chimeric_reads_counts.py: max across samples ("." when no
 #     table carries the column);
-#   - chimera_evidence.py: cr_max_anchor from the pair's CR CALLS only;
+#   - chimera_evidence.py: cr_max_anchor from the pair's typed CR calls only;
 #   - the Candidates table: "CR max anchor" in the CR block.
 #
 # Run on its own:   .tests/guards/72_cr_max_anchor_reaches_candidates.sh
@@ -81,16 +81,16 @@ o = counts([f"{T}/S3.tsv.gz"], ["S3"], "o")
 check(o[0].get("max_anchor") == ".",
       f"counts: a table without the column gives '.', not 0; got {o[0].get('max_anchor')!r}")
 
-# evidence: the call (anchor 50) plus a non-call event of the same pair with
+# evidence: the call (anchor 50) plus an untyped event of the same pair with
 # a bigger anchor, which must not count
-merged = m + [dict(m[0], event_id="x", chimera_type="antisense_to_gene", max_anchor="99")]
+merged = m + [dict(m[0], event_id="x", chimera_type=".", max_anchor="99")]
 write(f"{T}/cr.tsv.gz", merged, list(m[0].keys()))
 subprocess.run([sys.executable, "workflow/scripts/chimera_evidence.py",
                 "--junction", f"{T}/cr.tsv.gz", "--out", f"{T}/cand.tsv.gz"],
                check=True, capture_output=True)
 cand = read(f"{T}/cand.tsv.gz")
 check(len(cand) == 1 and cand[0].get("cr_max_anchor") == "50",
-      f"evidence: cr_max_anchor from the CALL only (50, not the non-call's 99); "
+      f"evidence: cr_max_anchor from the CALL only (50, not the untyped event's 99); "
       f"got {[r.get('cr_max_anchor') for r in cand]}")
 
 subprocess.run([sys.executable, "workflow/scripts/chimera_candidates_table_mqc.py",

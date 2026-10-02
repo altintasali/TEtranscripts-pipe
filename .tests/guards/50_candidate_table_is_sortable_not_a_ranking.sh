@@ -47,7 +47,7 @@ check(d.get("plot_type") == "table",
 headers = d.get("headers", {})
 for col in ("Gene", "TE insertion", "TE subfamily", "TE class",
             "TE position", "TE orientation", "Distance", "Screens",
-            "Found by", "Types", "CR motif", "CR max anchor", "CR samples", "CR reads", "SJ motif",
+            "Found by", "Types", "Status", "CR motif", "CR max anchor", "CR samples", "CR reads", "SJ motif",
             "SJ unique fraction", "SJ max overhang",
             "SJ samples", "SJ reads", "Assembly strand",
             "Assembly transcripts", "Replicated", "TElocal reads"):

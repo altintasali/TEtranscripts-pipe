@@ -185,6 +185,28 @@ def signals(sj_require_canonical, star_two_pass=None):
             "not_validated",
         ),
         (
+            "Status (novel / annotated / antisense)",
+            "All three screens",
+            "Which kinds of chimera support the pair "
+            "(<code>chimera_status</code> / Status), \"+\"-joined: "
+            "<b>novel</b> (a new TE-initiated, TE-terminated or TE-exonized "
+            "transcript), <b>annotated</b> (a TE-driven transcript the "
+            "reference annotation already has: a TE promoter, a TE in a "
+            "terminal exon, or an annotated splice into a TE-derived exon) "
+            "and <b>antisense</b> (a transcript joining the TE to the "
+            "gene's exon on the opposite strand).",
+            "Annotated chimeras are real but known, so they are not new "
+            "findings. Antisense chimeras cannot make the gene's mRNA but "
+            "may regulate the gene. The SJ and assembly screens take the "
+            "strand from the splice motif, so they call antisense on any "
+            "library; the chimeric-reads screen uses the read strand and "
+            "can only call antisense with a stranded library, so on "
+            "unstranded data some of its novel calls may be antisense. A "
+            "pair with several kinds sums their reads in its per-screen "
+            "columns.",
+            "mixed",
+        ),
+        (
             "CR motif",
             "STAR (chimeric junctions)",
             "A recognised splice motif on at least one chimeric-junction "

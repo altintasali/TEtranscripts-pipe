@@ -82,13 +82,15 @@ section opens with that list
 as a sortable table, followed by a guide to what each signal is worth, then
 each screen's own evidence.
 
-Only chimera **calls** make a screen count toward a pair: `te_initiated`,
-`te_terminated` and `te_exonized`, typed from the junction's direction and the
-gene's own exon structure. A screen also reports what is not a call, and that
-stays listed in the per-screen type columns without counting:
-`antisense_to_gene` (transcript on the gene's opposite strand) and known gene
-structure (`annotated_splice`, `annotated_promoter_embedded_te`,
-`annotated_terminal_exon_embedded_te`). Chimeric-read events on another
+Every typed gene-TE chimera makes a screen count toward a pair, and the
+`chimera_status` column (Status) says which kinds support it, "+"-joined:
+**novel** (`te_initiated`, `te_terminated`, `te_exonized`, typed from the
+junction's direction and the gene's own exon structure), **annotated** (a
+TE-driven transcript the annotation already has: `annotated_promoter_embedded_te`,
+`annotated_terminal_exon_embedded_te`, `annotated_splice`) and **antisense**
+(`antisense_to_gene`: the TE joined to the gene's exon on the opposite strand).
+The chimeric-reads screen can only call antisense with a stranded library.
+Chimeric-read events on another
 chromosome or farther than `chimera.chimeric_reads.max_gene_te_distance`
 (default 200 kb) from the gene stay in that screen's own tables but do not
 make candidates. Each pair also carries where the TE sits relative to the

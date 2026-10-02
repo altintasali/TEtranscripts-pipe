@@ -149,17 +149,24 @@ The chimeric-reads counterpart, from the pair's CR chimera calls only:
                        the calls' events and samples (max_anchor in
                        classify_chimera_chimeric_reads.py)
 
-Only chimera CALLS count: a screen counts toward found_by / n_screens only
-if it called the pair te_initiated, te_terminated or te_exonized
-(CHIMERA_CALL_TYPES in chimera_exon_context.py), and its per-screen columns
-(events/transcripts, reads, max samples, canonical, strand match) are
-computed from those calls alone. Its other types -- antisense_to_gene and
-the known-structure classes annotated_splice /
-annotated_promoter_embedded_te / annotated_terminal_exon_embedded_te -- are
-still listed in the *_chimera_types columns. A pair no screen calls a
-chimera is left out of this file (logged), like far chimeric-read pairs:
-on a real run 35 of the 67 pairs at Screens = 3 owed at least one of their
-screens to such a non-call.
+Every typed gene-TE chimera counts: a screen counts toward found_by /
+n_screens when it called the pair any type in CHIMERA_CALL_TYPES
+(chimera_exon_context.py), in three kinds -- novel (te_initiated /
+te_terminated / te_exonized), annotated (a TE-driven transcript the
+reference annotation already has: annotated_promoter_embedded_te /
+annotated_terminal_exon_embedded_te / annotated_splice) and antisense
+(antisense_to_gene: the TE joined to the gene's exon on the opposite
+strand). A pair with no typed call at all (untyped chimeric-read events) is
+left out of this file (logged), like far chimeric-read pairs.
+
+  chimera_status   which kinds support the pair, "+"-joined in the fixed
+                   order novel, annotated, antisense (e.g. "novel",
+                   "annotated", "novel+annotated"). Known and antisense
+                   chimeras stay findable without being mistaken for new
+                   ones. The per-screen columns sum every kind, so for a
+                   mixed pair this says which kinds the reads came from.
+                   The chimeric-reads screen can only call antisense with a
+                   stranded library.
 
 TElocal expression of the TE locus (telocal_expressed) IS counted, but its
 standing is not validated, not confirmed. An early project measurement
@@ -182,7 +189,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from gz_io import open_read, open_write
-from chimera_exon_context import CHIMERA_CALL_TYPES
+from chimera_exon_context import CALL_KINDS, CHIMERA_CALL_TYPES, call_kind
 
 
 def load(path):
@@ -251,7 +258,7 @@ def te_vs_gene(gene, te, gene_exons):
 OUT_COLUMNS = [
     "gene_id", "te_id", "te_subfamily", "te_family", "te_class",
     "te_position", "te_gene_distance_bp", "te_orientation",
-    "found_by", "n_screens",
+    "found_by", "n_screens", "chimera_status",
     "screen_evidence", "n_screen_evidence",
     "corroboration", "n_corroboration",
     "cr_events", "cr_reads", "cr_max_samples",
@@ -275,6 +282,7 @@ def _blank():
         "assembly_strand_match": ".", "assembly_tids": [],
         "sj_events": 0, "sj_reads": 0, "sj_max_samples": 0,
         "sj_canonical": "no", "sj_types": set(),
+        "kinds": set(),
         "sj_multi_reads": 0, "sj_max_overhang": 0,
     }
 
@@ -329,11 +337,11 @@ def main():
         ctype = r.get("chimera_type", ".")
         if ctype != ".":
             p["junction_types"].add(ctype)
-        # Only chimera calls count as this screen's evidence for the pair;
-        # other types (antisense_to_gene, untyped) are listed in
-        # cr_chimera_types but add nothing to the counts below.
+        # Every typed chimera (novel, annotated, antisense) counts as this
+        # screen's evidence for the pair; an untyped event adds nothing.
         if ctype not in CHIMERA_CALL_TYPES:
             continue
+        p["kinds"].add(call_kind(ctype))
         p["cr_events"] += 1
         p["cr_reads"] += _int(r.get("total_reads"))
         p["cr_max_samples"] = max(
@@ -387,9 +395,10 @@ def main():
             ctype = r.get("chimera_type", ".")
             if ctype != ".":
                 p["assembly_types"].add(ctype)
-            # known structure / antisense: listed, not counted (see CR above)
+            # untyped: listed, not counted (see CR above)
             if ctype not in CHIMERA_CALL_TYPES:
                 continue
+            p["kinds"].add(call_kind(ctype))
             p["assembly_transcripts"] += 1
             if r.get("strand_match") == "yes":
                 p["assembly_strand_match"] = "yes"
@@ -409,11 +418,11 @@ def main():
             ctype = r.get("chimera_type", ".")
             if ctype != ".":
                 p["sj_types"].add(ctype)
-            # known structure / antisense: listed, not counted (see CR
-            # above) -- an annotated splice of the gene can carry thousands of
-            # reads that are not evidence for a chimera
+            # untyped: listed, not counted (see CR above). An annotated
+            # splice into a TE-derived exon counts, as kind "annotated"
             if ctype not in CHIMERA_CALL_TYPES:
                 continue
+            p["kinds"].add(call_kind(ctype))
             p["sj_events"] += 1
             p["sj_reads"] += _int(r.get("total_reads"))
             # mapping quality, from the calls only: multi-mapping reads
@@ -520,6 +529,7 @@ def main():
             "te_orientation": te_orientation,
             "found_by": found_by,
             "n_screens": n_screens,
+            "chimera_status": "+".join(k for k in CALL_KINDS if k in p["kinds"]),
             "screen_evidence": ",".join(screen_evidence) or ".",
             "n_screen_evidence": len(screen_evidence),
             "corroboration": ",".join(corroboration) or ".",
@@ -583,8 +593,7 @@ def main():
           f"trans or > {args.cr_max_distance:,} bp from their gene "
           f"(chimera.chimeric_reads.max_gene_te_distance)")
     print(f"chimera evidence: {n_no_call} gene-TE pair(s) left out -- no "
-          f"screen made a chimera call for them (only known structure / "
-          f"antisense_to_gene)")
+          f"screen made a typed chimera call for them")
 
 
 if __name__ == "__main__":

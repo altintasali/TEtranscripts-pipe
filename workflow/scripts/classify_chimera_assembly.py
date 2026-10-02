@@ -13,8 +13,8 @@ Method: for every multi-exon transcript in the merged StringTie GTF, exons
 are ordered 5'->3' by the transcript's own strand, then, in priority order:
   1. the transcript's TSS falls inside a TE overlapping the first exon (see
      --require-tss-in-te below), and the first exon also overlaps an
-     ANNOTATED transcript's first exon (--first-exons) -> not a chimera --
-     this is a known promoter with a TE embedded in/near it, not a novel
+     ANNOTATED transcript's first exon (--first-exons) -> a TE promoter the
+     annotation already has: a chimera, but a known one, not a new
      TE-driven transcript -> annotated_promoter_embedded_te
   2. TSS-in-TE as above, a downstream exon overlaps an annotated gene exon,
      no annotated-first-exon match -> te_initiated
@@ -96,7 +96,11 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from gz_io import open_write
-from chimera_exon_context import ANNOTATED_TERMINAL_EXON, ANTISENSE_TO_GENE
+from chimera_exon_context import (
+    ANNOTATED_PROMOTER,
+    ANNOTATED_TERMINAL_EXON,
+    ANTISENSE_TO_GENE,
+)
 
 ATTR_RE = re.compile(r'(\w+) "([^"]*)"')
 
@@ -322,7 +326,7 @@ def main():
                 # First exon lines up with a KNOWN transcript's own first
                 # exon -- an annotated promoter with an embedded TE, not a
                 # novel TE-driven transcript.
-                chimera_type = "annotated_promoter_embedded_te"
+                chimera_type = ANNOTATED_PROMOTER
             else:
                 chimera_type = "te_initiated" if matched_gene_id != "." else "te_initiated_intergenic"
         elif te_last_hits:
@@ -393,7 +397,7 @@ def main():
         # the te_terminated calls with it upstream.
         if strand_match == "no" and chimera_type in (
                 "te_initiated", "te_terminated", "te_exonized",
-                "annotated_promoter_embedded_te", ANNOTATED_TERMINAL_EXON):
+                ANNOTATED_PROMOTER, ANNOTATED_TERMINAL_EXON):
             chimera_type = ANTISENSE_TO_GENE
 
         rows.append([

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Guard 68: known gene structure is its own class, and far/trans
-# chimeric-read events do not make candidates
+# Guard 68: known gene structure is its own class (it counts, as status
+# "annotated"), and far/trans chimeric-read events do not make candidates
 #
 # Measured on a real 4-sample run after the strand rule:
 #   - 25% of SJ gene-TE junctions were annotated GTF introns -- ordinary
@@ -12,8 +12,10 @@
 #     ligation.
 # The first two are now typed annotated_splice /
 # annotated_terminal_exon_embedded_te (rows kept, but no longer
-# te_initiated/te_terminated/te_exonized); the third no longer counts toward
-# candidates.tsv.gz (chimera.chimeric_reads.max_gene_te_distance).
+# te_initiated/te_terminated/te_exonized): they still count, as chimera_status
+# "annotated" (a known TE-driven transcript, not a new one); the third no
+# longer counts toward candidates.tsv.gz
+# (chimera.chimeric_reads.max_gene_te_distance).
 #
 # Run on its own:   .tests/guards/68_known_structure_and_far_chimeric_reads_are_not_candidates.sh
 # Run all guards:   .tests/guards/run.sh
@@ -96,10 +98,9 @@ with gzip.open(sys.argv[1], "wt") as fh:
     for r in rows:
         fh.write("\t".join(r) + "\n")
 PY
-# merged SJ table: GENE1/TE_IN1 has ONLY an annotated splice (no call) ->
-# must not become a candidate; GENE1/TE_INTRON has a real te_initiated call
-# plus an annotated splice with 5000 reads -> sj counts, with the CALL's
-# reads only
+# merged SJ table: GENE1/TE_IN1 has ONLY an annotated splice -> a candidate
+# with status "annotated"; GENE1/TE_INTRON has a te_initiated call plus an
+# annotated splice with 5000 reads -> "novel+annotated", reads summed
 python3 - "$T/sj_merged.tsv.gz" <<'PY'
 import gzip, sys
 cols = ["event_id", "gene_id", "te_id", "te_subfamily", "te_family", "te_class",
@@ -174,21 +175,25 @@ check(("GENE1", "TE_OLD") in cand,
 check(cand.get(("GENE1", "TE_INTRON"), {}).get("te_gene_distance_bp") == "0",
       "te_gene_distance_bp must be 0 for a TE inside the gene (it replaces "
       "cr_gene_te_distance)")
-check(("GENE1", "TE_IN1") not in cand,
-      "a pair whose only call is annotated_splice must NOT be a candidate")
+ia = cand.get(("GENE1", "TE_IN1"), {})
+check(ia.get("found_by") == "sj" and ia.get("chimera_status") == "annotated",
+      f"a pair whose only call is annotated_splice is a known chimera: a "
+      f"candidate with status 'annotated'; got found_by={ia.get('found_by')!r}, "
+      f"chimera_status={ia.get('chimera_status')!r}")
 ti = cand.get(("GENE1", "TE_INTRON"), {})
-check(ti.get("found_by") == "cr+sj" and ti.get("sj_reads") == "7"
-      and ti.get("sj_max_samples") == "2",
-      f"SJ counts for a pair with a real call, and its columns use the CALL "
-      f"only (not the 5000-read annotated splice); got found_by="
-      f"{ti.get('found_by')!r}, sj_reads={ti.get('sj_reads')!r}, "
-      f"sj_max_samples={ti.get('sj_max_samples')!r}")
+check(ti.get("found_by") == "cr+sj" and ti.get("sj_reads") == "5007"
+      and ti.get("sj_max_samples") == "4"
+      and ti.get("chimera_status") == "novel+annotated",
+      f"a pair with a novel and an annotated call sums both in its SJ columns "
+      f"and says so in chimera_status; got found_by={ti.get('found_by')!r}, "
+      f"sj_reads={ti.get('sj_reads')!r}, sj_max_samples="
+      f"{ti.get('sj_max_samples')!r}, chimera_status={ti.get('chimera_status')!r}")
 check("annotated_splice" in ti.get("sj_chimera_types", "")
       and "te_initiated" in ti.get("sj_chimera_types", ""),
-      f"non-call types stay listed in sj_chimera_types; got {ti.get('sj_chimera_types')!r}")
+      f"every type stays listed in sj_chimera_types; got {ti.get('sj_chimera_types')!r}")
 log = open(f"{T}/ev.log").read()
-check("1 gene-TE pair(s) left out" in log,
-      f"chimera_evidence.py must log pairs left out for having no chimera call; log: {log!r}")
+check("0 gene-TE pair(s) left out" in log,
+      f"chimera_evidence.py must log pairs left out for having no typed call; log: {log!r}")
 check("2 chimeric-read event(s) skipped" in log,
       f"chimera_evidence.py must log how many far/trans events it skipped; log: {log!r}")
 sys.exit(0 if ok else 1)
