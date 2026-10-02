@@ -148,6 +148,39 @@ Measured with a one-off check of every call's geometry and annotation:
   recurrence across independent libraries; under `star.two_pass: cohort`
   they are not fully independent.
 
+### Full cohort -- what the classification fixes changed (v0.14.0 vs v0.15.0)
+
+- **What was measured:** the same 84 samples run end to end with v0.14.0
+  (before direction-based typing, the strand rule, the known-structure
+  classes, the far/trans chimeric-read filter and the SJ screen) and with
+  v0.15.0 (SJ screen on, cohort 2-pass). Compared: candidate pairs, where
+  the old pairs went, the top-Screens set, chimera types per screen, and
+  the TEcount / TElocal count matrices.
+- **Cohort:** a mouse oocyte/embryo knockout series, 84 samples (WT
+  and mKO at GV, zygote, 2-cell, 8-cell, blastocyst), unstranded single-end.
+- **Restriction:** one cohort; no per-sample 2-pass run, so cohort 2-pass
+  effects on Replicated cannot be separated from cohort size here.
+- **Finding:** candidates fell from 454,592 to 79,915 pairs. Of the 423,943
+  old pairs no longer present, 405,990 (96%) were chimeric-read pairs on
+  another chromosome or >200 kb from the gene, 11,817 (almost all
+  assembly-only) are now typed only as antisense or known gene structure,
+  and 6,136 are no longer seen. The SJ screen supplies most new candidates
+  (62% are SJ-only); the chimeric-reads screen contributes to 4,620 pairs.
+  310 pairs are found by all three screens; 1,310 of the 1,312 pairs v0.14.0
+  found with both of its screens are still candidates. Quantification barely
+  moved: per-sample Spearman old vs new >= 0.994 (TEcount) and >= 0.954
+  (TElocal), totals within 0.03%, TE counts ~0.9% lower (chimeric
+  supplementary records are no longer counted twice). Replicated was 52.9%
+  of SJ-found pairs. STAR's own `annotated` flag marked 46.1% of typed SJ
+  junctions, none of which is a GTF intron.
+- **What it shows:** on a full cohort, most of the old candidate catalogue
+  was random-partner chimeric-read noise and known gene structure; the
+  remaining candidates rest mostly on the SJ and assembly screens.
+- **What it doesn't show:** which of the remaining candidates are real, or
+  how the numbers would change with per-sample 2-pass or on another cohort.
+- **Why this matters here:** results from v0.14.0 or earlier are not
+  comparable pair-for-pair with v0.15.0; rerun before comparing candidates.
+
 ### "Other" TE classes -- mostly zinc-finger coding repeats, sense by construction
 
 - **What was measured:** the candidates whose TE is not LTR / LINE / SINE /
