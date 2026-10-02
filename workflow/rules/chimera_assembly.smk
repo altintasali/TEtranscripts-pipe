@@ -1,12 +1,12 @@
 # -----------------------------------------------------------------------------
 # Chimera-assembly screen: gene-TE chimera detection from StringTie assembly
-# structure, complementing chimera_reads.smk's read-level screen.
+# structure, complementing chimera_chimeric_reads.smk's read-level screen.
 #
 # EXPERIMENTAL and OFF BY DEFAULT: newer and less validated than
-# chimera_reads. STAR only flags a junction as "chimeric" when a read
+# chimera_chimeric_reads. STAR only flags a junction as "chimeric" when a read
 # can't be explained by one linear (possibly spliced) alignment -- a TE that
 # splices into a gene via an ordinary, canonical, nearby intron aligns as a
-# completely normal spliced read and never reaches chimera_reads at all.
+# completely normal spliced read and never reaches chimera_chimeric_reads at all.
 # This screen catches that case instead, from StringTie's assembled
 # transcript structure.
 #
@@ -15,16 +15,17 @@
 #                             intronMotif, for StringTie's unstranded-data
 #                             strand inference) -- feeds ONLY this screen; the
 #                             main alignment everything else uses is untouched.
+#   chimera_assembly_bam_index  index that private BAM (outputs.keep_assembly_bam)
 #   stringtie_assemble        per-sample de novo assembly
 #   stringtie_merge           cross-sample structural union
 #   stringtie_requantify       per-sample re-quantification (-e -B) for TPM
 #   chimera_assembly_classify  structural classification (te_initiated/
 #                               te_exonized/te_terminated/unspliced_te_only)
 #   chimera_assembly_quantify  candidate x sample TPM matrix
-#   chimera_assembly_cross_evidence  cross-check against chimera_reads's calls
+#   chimera_assembly_cross_evidence  cross-check against chimera_chimeric_reads's calls
 #
 # genes.bed/exons.bed/te.bed are built by ref.smk's annotation_to_bed rule
-# (shared with chimera_reads.smk).
+# (shared with chimera_chimeric_reads.smk).
 # -----------------------------------------------------------------------------
 import os
 
@@ -44,17 +45,29 @@ def all_chimera_assembly_outputs():
         "results/chimera/qc/chimera_assembly_classes_mqc.json",
         "results/chimera/qc/chimera_assembly_highlights_mqc.json",
         "results/chimera/qc/chimera_assembly_strand_rate_mqc.json",
-        # the PCA/Clusters view, matching the read screen's
-        "results/chimera/qc/assembly_pca_log2_mqc.json",
-        "results/chimera/qc/assembly_heatmap_log2_mqc.json",
     ]
-    if CHIMERA_READS_ENABLED:
+    # PCA/Clusters view, matching the read screen's shape -- this screen has
+    # no qc block of its own, so it borrows chimera.chimeric_reads.qc.enabled
+    # (default false as of 2026; see that key's schema description).
+    if CHIMERA_CHIMERIC_READS_QC.get("enabled", False):
+        files += [
+            "results/chimera/qc/assembly_pca_log2_mqc.json",
+            "results/chimera/qc/assembly_heatmap_log2_mqc.json",
+        ]
+    if CHIMERA_CHIMERIC_READS_ENABLED:
         files.append("results/chimera/assembly/transcripts_with_read_support.tsv.gz")
     if WRITE_GENE_TE_CHIMERA_COUNTS:
         files.append("results/chimera/assembly/gene_te_chimera_counts_matrix.tsv.gz")
         files.append("results/chimera/assembly/gene_te_chimera_counts_annotation.tsv.gz")
     if WRITE_IGV_BED_ASSEMBLY:
         files.append("results/chimera/assembly/igv/transcripts.bed")
+    # Indexing a BAM that's about to be temp()-deleted is pointless -- only
+    # requested when the BAM itself is kept (outputs.keep_assembly_bam).
+    if KEEP_ASSEMBLY_BAM:
+        files += [
+            f"results/chimera/assembly/per_sample/star/{s}_Aligned.sortedByCoord.out.bam.bai"
+            for s in SAMPLES
+        ]
     return files
 
 
@@ -62,7 +75,7 @@ def _chimera_assembly_summary_input():
     """Prefer the cross-referenced candidates table (adds
     confirmed_by_junction_screen) when the junction screen also ran; fall
     back to the plain candidates table otherwise."""
-    if CHIMERA_READS_ENABLED:
+    if CHIMERA_CHIMERIC_READS_ENABLED:
         return "results/chimera/assembly/transcripts_with_read_support.tsv.gz"
     return "results/chimera/assembly/transcripts.tsv.gz"
 
@@ -80,7 +93,7 @@ def _assembly_two_pass_args(wildcards, input):
 
 def stringtie_strand_flag(wildcards, input):
     """--fr / --rf / nothing, from the same per-sample strandedness
-    resolution chimera_reads.smk/tetranscripts.smk already use.
+    resolution chimera_chimeric_reads.smk/tetranscripts.smk already use.
     StringTie infers per-transcript strand for spliced reads from the XS
     tag (see star_align_for_assembly's --outSAMstrandField intronMotif)
     even on unstranded libraries -- so "no" still yields usable multi-exon
@@ -107,7 +120,10 @@ rule star_align_for_assembly:
         **({"merged_sj": "results/star_pass1/merged_SJ.out.tab"}
            if STAR_TWO_PASS == "cohort" else {}),
     output:
-        aln="results/chimera/assembly/per_sample/star/{sample}_Aligned.sortedByCoord.out.bam",
+        aln=_maybe_temp(
+            "results/chimera/assembly/per_sample/star/{sample}_Aligned.sortedByCoord.out.bam",
+            KEEP_ASSEMBLY_BAM,
+        ),
         log_final="results/chimera/assembly/per_sample/star/{sample}_Log.final.out",
     params:
         reads=star_reads_param,
@@ -149,6 +165,36 @@ rule star_align_for_assembly:
         "grep -q 'ALL DONE!' {output.log_final}; then :; else "
         "echo '-- STAR failed for real; log tail --' >&2; "
         "tail -n 60 {log} >&2; exit 1; fi))"
+
+
+rule chimera_assembly_bam_index:
+    # Same shape as align.smk's samtools_index, for this screen's own
+    # private BAM -- lets it be browsed in IGV alongside the candidate
+    # tracks (chimera_assembly_igv_bed / chimera_chimeric_reads_igv_bed).
+    # Only requested when the BAM itself is kept (outputs.keep_assembly_bam);
+    # indexing a BAM about to be temp()-deleted would just leave an orphaned
+    # .bai behind.
+    input:
+        "results/chimera/assembly/per_sample/star/{sample}_Aligned.sortedByCoord.out.bam",
+    output:
+        _maybe_temp(
+            "results/chimera/assembly/per_sample/star/{sample}_Aligned.sortedByCoord.out.bam.bai",
+            KEEP_ASSEMBLY_BAM,
+        ),
+    params:
+        extra="",
+    threads: get_resources("chimera_assembly_bam_index")["threads"]
+    resources:
+        mem_mb=get_resources("chimera_assembly_bam_index")["mem_mb"],
+        runtime=get_resources("chimera_assembly_bam_index")["runtime"],
+    benchmark:
+        "results/pipeline_info/benchmarks/chimera_assembly_bam_index/{sample}.txt",
+    log:
+        "results/pipeline_info/logs/chimera_assembly/bam_index/{sample}.log",
+    conda:
+        SAMTOOLS_ENV
+    shell:
+        "samtools index {params.extra} -@ {threads} {input} {output} > {log} 2>&1"
 
 
 rule stringtie_assemble:
@@ -231,23 +277,36 @@ rule stringtie_requantify:
 
 
 rule chimera_assembly_classify:
-    # Structural classification against the SAME genes.bed/exons.bed/te.bed
-    # the junction screen uses (ref.smk's annotation_to_bed) -- no separate
-    # reference-track build needed.
+    # Structural classification against the SAME genes.bed/exons.bed/
+    # first_exons.bed/te.bed the junction screen (partially) uses (ref.smk's
+    # annotation_to_bed) -- no separate reference-track build needed.
     input:
         # Declared so that EDITING the script re-runs the rule.
         # Snakemake's code trigger hashes the shell command STRING,
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/classify_chimera_assembly.py",
+        # local modules the script imports -- editing them must re-run this
+        gz_io=f"{SCRIPTS_DIR}/gz_io.py",
+        # shared typing helpers (strand rule, exon context) -- editing
+        # them must re-run this rule too
+        helper=f"{SCRIPTS_DIR}/chimera_exon_context.py",
         gtf="results/chimera/assembly/stringtie_merge.gtf",
         genes="results/reference/genes.bed",
         exons="results/reference/exons.bed",
+        first_exons="results/reference/first_exons.bed",
+        # annotated last exons: a TE in one is an ordinary 3' UTR TE, typed
+        # annotated_terminal_exon_embedded_te instead of te_terminated
+        last_exons="results/reference/last_exons.bed",
         te="results/reference/te.bed",
     output:
         candidates="results/chimera/assembly/transcripts.tsv.gz",
     params:
         tolerance=config["chimera"]["assembly"]["breakpoint_tolerance"],
+        require_tss_flag=(
+            "--require-tss-in-te"
+            if config["chimera"]["assembly"]["require_tss_in_te"] else ""
+        ),
     threads: get_resources("chimera_assembly_classify")["threads"]
     resources:
         mem_mb=get_resources("chimera_assembly_classify")["mem_mb"],
@@ -258,7 +317,10 @@ rule chimera_assembly_classify:
         "results/pipeline_info/logs/chimera_assembly/classify.log",
     shell:
         "python3 {input.script} "
-        "--gtf {input.gtf} --genes {input.genes} --exons {input.exons} --te {input.te} "
+        "--gtf {input.gtf} --genes {input.genes} --exons {input.exons} "
+        "--first-exons {input.first_exons} --last-exons {input.last_exons} "
+        "--te {input.te} "
+        "{params.require_tss_flag} "
         "--breakpoint-tolerance {params.tolerance} "
         "--out {output.candidates} > {log} 2>&1"
 
@@ -278,6 +340,8 @@ rule chimera_assembly_quantify:
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/quantify_chimera_assembly.py",
+        # local modules the script imports -- editing them must re-run this
+        gz_io=f"{SCRIPTS_DIR}/gz_io.py",
         candidates="results/chimera/assembly/transcripts.tsv.gz",
         merged="results/chimera/assembly/stringtie_merge.gtf",
         quant=expand("results/chimera/assembly/per_sample/quant/{sample}.transcripts.gtf", sample=SAMPLES),
@@ -326,6 +390,8 @@ if WRITE_GENE_TE_CHIMERA_COUNTS:
             # not the file it names, so without this an edit to the
             # script leaves stale outputs in place silently.
             script=f"{SCRIPTS_DIR}/aggregate_chimera_assembly_counts.py",
+            # local modules the script imports -- editing them must re-run this
+            gz_io=f"{SCRIPTS_DIR}/gz_io.py",
             candidates="results/chimera/assembly/transcripts.tsv.gz",
             counts="results/chimera/assembly/counts_matrix.tsv.gz",
             gene_names="results/reference/gene_id_to_name.tsv.gz",
@@ -352,7 +418,7 @@ if WRITE_GENE_TE_CHIMERA_COUNTS:
             "> {log} 2>&1"
 
 
-if CHIMERA_READS_ENABLED:
+if CHIMERA_CHIMERIC_READS_ENABLED:
 
     rule chimera_assembly_cross_evidence:
         # Cross-checks this screen's calls against the junction screen's
@@ -367,7 +433,7 @@ if CHIMERA_READS_ENABLED:
             # script leaves stale outputs in place silently.
             script=f"{SCRIPTS_DIR}/cross_evidence_chimera_assembly.py",
             candidates="results/chimera/assembly/transcripts.tsv.gz",
-            te_gene_chimeras="results/chimera/reads/te-gene-chimeras.tsv.gz",
+            te_gene_chimeras="results/chimera/chimeric_reads/te-gene-chimeras.tsv.gz",
         output:
             "results/chimera/assembly/transcripts_with_read_support.tsv.gz",
         threads: get_resources("chimera_assembly_cross_evidence")["threads"]
@@ -400,6 +466,8 @@ rule chimera_assembly_summary_mqc:
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/chimera_assembly_summary_mqc.py",
+        # local modules the script imports -- editing them must re-run this
+        gz_io=f"{SCRIPTS_DIR}/gz_io.py",
         candidates=_chimera_assembly_summary_input(),
     output:
         classes="results/chimera/qc/chimera_assembly_classes_mqc.json",
@@ -435,6 +503,8 @@ if WRITE_IGV_BED_ASSEMBLY:
             # not the file it names, so without this an edit to the
             # script leaves stale outputs in place silently.
             script=f"{SCRIPTS_DIR}/chimera_assembly_to_igv_bed.py",
+            # local modules the script imports -- editing them must re-run this
+            gz_io=f"{SCRIPTS_DIR}/gz_io.py",
             candidates=_chimera_assembly_summary_input(),
         output:
             "results/chimera/assembly/igv/transcripts.bed",
@@ -455,14 +525,14 @@ if WRITE_IGV_BED_ASSEMBLY:
 # Assembly sample-QC: the PCA / sample-distance view the read screen already
 # has, over this screen's own per-sample data (tpm_matrix.tsv.gz).
 #
-# These live HERE rather than in chimera_reads_qc.smk on purpose: that file is
+# These live HERE rather than in chimera_chimeric_reads_qc.smk on purpose: that file is
 # included only when the JUNCTION screen is on (Snakefile), and guard 27 pins
 # that the assembly screen runs independently of it. Putting them there would
 # silently drop this view whenever assembly runs alone.
 #
 # transform is log2, not vst/rlog: the matrix is already TPM, so DESeq2's
 # count-based normalization does not apply. Thresholds are borrowed from
-# chimera.reads.qc rather than adding a parallel config block -- the two
+# chimera.chimeric_reads.qc rather than adding a parallel config block -- the two
 # views answer the same question and there is no evidence they want different
 # cut-offs. Split them if that ever stops being true.
 # -----------------------------------------------------------------------------
@@ -478,8 +548,8 @@ rule chimera_assembly_qc_transform:
         "results/chimera/qc/assembly_log2_counts.tsv.gz",
     params:
         samples=config["samples"],
-        min_samples_present=CHIMERA_QC["min_samples_present"],
-        min_total_counts=CHIMERA_QC["min_total_counts"],
+        min_samples_present=CHIMERA_CHIMERIC_READS_QC["min_samples_present"],
+        min_total_counts=CHIMERA_CHIMERIC_READS_QC["min_total_counts"],
     threads: get_resources("chimera_assembly_qc_transform")["threads"]
     resources:
         mem_mb=get_scaled_mem_mb("chimera_assembly_qc_transform"),
@@ -510,7 +580,7 @@ rule chimera_assembly_qc:
         heatmap="results/chimera/qc/assembly_heatmap_log2_mqc.json",
     params:
         samples=config["samples"],
-        min_events=CHIMERA_QC["min_events"],
+        min_events=CHIMERA_CHIMERIC_READS_QC["min_events"],
     threads: get_resources("chimera_assembly_qc")["threads"]
     resources:
         mem_mb=get_scaled_mem_mb("chimera_assembly_qc"),

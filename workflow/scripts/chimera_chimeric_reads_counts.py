@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Merge the per-sample junction tables (classify_chimera_reads.py) into the
+"""Merge the per-sample junction tables (classify_chimera_chimeric_reads.py) into the
 chimera all-events catalog and the event x sample counts matrix.
 
 Outputs:
@@ -24,7 +24,7 @@ Outputs:
 
 Nothing is filtered from the main outputs: the full union of annotated events
 is shipped (the QC filters in the chimera.qc config section apply only to the
-PCA/clustering view in chimera_reads_qc.smk).
+PCA/clustering view in chimera_chimeric_reads_qc.smk).
 """
 import argparse
 import os
@@ -39,8 +39,10 @@ ANNOTATION_COLUMNS = [
     "junction_type", "canonical",
     "repeat_flag", "direction", "direction_ambiguous",
     "gene_id", "gene_strand", "te_id", "te_subfamily",
-    "te_family", "te_class", "chimera_type", "antisense_flag",
+    "te_family", "te_class", "chimera_type", "te_initiated_detail",
+    "antisense_flag",
     "library_strand", "transcript_strand", "gene_strand_match",
+    "gene_te_distance", "max_anchor",
     "telocal_count", "telocal_locus", "telocal_active",
     "te_refined_by_telocal",
 ]
@@ -78,17 +80,27 @@ def main():
     for path, sample in zip(args.tables, args.sample_names):
         for row in load(path):
             eid = row["event_id"]
-            ev = events.setdefault(eid, {"sample": sample, "counts": {}})
+            ev = events.setdefault(eid, {"sample": sample, "counts": {},
+                                         "best_anchor": None})
             ev["counts"][sample] = int(row["reads"])
+            # best read anchor across samples, not the first sample's;
+            # stays "." for tables written before the column existed
+            try:
+                a = int(row["max_anchor"])
+                ev["best_anchor"] = a if ev["best_anchor"] is None else max(ev["best_anchor"], a)
+            except (KeyError, ValueError):
+                pass
             if ev["sample"] == sample:
                 # first-seen annotations (event_id is breakpoint-deterministic).
                 # .get(): the telocal_* columns only exist when telocal is
-                # enabled (chimera_reads_counts_input() then feeds the
+                # enabled (chimera_chimeric_reads_counts_input() then feeds the
                 # _with-telocal tables); with telocal off the plain junction
                 # tables legitimately lack them, and strict indexing here
                 # crashed the whole merge.
                 for col in ANNOTATION_COLUMNS:
                     ev[col] = row.get(col, ".")
+    for ev in events.values():
+        ev["max_anchor"] = "." if ev["best_anchor"] is None else ev["best_anchor"]
     # keep the first sample that saw each event (stable order)
     order = sorted(events, key=lambda e: (events[e]["sample"], e))
 

@@ -11,11 +11,13 @@
 
 This section used to also rank and render this run's top candidates, keyed
 (junction-confirmed, strand-matched, highest TPM).  It was one of three
-rankings shipping in the same report, and it led on the one signal
-chimera_evidence_heatmap.py measured at roughly its chance rate.  All three
-are gone -- the pipeline no longer ranks candidates at all (see
-chimera_evidence_guide_mqc.py); dropping the table here also dropped this
-script's only use of tpm_matrix.tsv.gz, so it is no longer an input.
+rankings shipping in the same report, and it led on cross-screen agreement,
+whose weight has not been established (see chimera_evidence_guide_mqc.py's
+"Screens / Found by" row; project measurements so far are in
+docs/chimera-evidence.md).  All three are gone -- the pipeline no longer
+ranks candidates at all;
+dropping the table here also dropped this script's only use of
+tpm_matrix.tsv.gz, so it is no longer an input.
 
 Reads the candidates table (or, when present, the cross-referenced
 transcripts_with_read_support.tsv.gz -- pass whichever is available as
@@ -30,15 +32,19 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from gz_io import open_read, open_write
 
 CLASS_ORDER = [
-    "te_initiated", "te_initiated_intergenic", "te_exonized",
-    "te_terminated", "unspliced_te_only",
+    "te_initiated", "te_initiated_intergenic", "annotated_promoter_embedded_te",
+    "te_exonized", "te_terminated", "annotated_terminal_exon_embedded_te",
+    "antisense_to_gene", "unspliced_te_only",
 ]
 
 CLASS_LABEL = {
     "te_initiated": "TE-initiated",
     "te_initiated_intergenic": "TE-initiated (no gene match)",
+    "annotated_promoter_embedded_te": "Annotated promoter (TE embedded)",
     "te_exonized": "TE-exonized",
     "te_terminated": "TE-terminated",
+    "annotated_terminal_exon_embedded_te": "Annotated last exon (TE embedded)",
+    "antisense_to_gene": "Antisense to the matched gene",
     "unspliced_te_only": "Unspliced (low confidence)",
 }
 
@@ -88,7 +94,7 @@ def main():
             if c in counts:
                 counts[c]["count"] += 1
         data_labels_note = (
-            "chimera.reads is disabled, so these counts have no independent "
+            "chimera.chimeric_reads is disabled, so these counts have no independent "
             "cross-confirmation -- enable it too for higher-confidence calls."
         )
         # One category per bar here, so a percentage view would read 100% for
@@ -107,22 +113,27 @@ def main():
     if any(sum(v.values()) for v in counts.values()):
         classes_doc.update({
             "description": (
-                "<strong>The read screen uses these same words for a "
-                "different measurement.</strong> Here a class is decided by "
-                "<em>transcript structure</em> &mdash; whether the TE hits "
-                "the first, last or an internal exon of the assembled "
-                "transcript. In <strong>Reads - TE type</strong> it is "
-                "decided by <em>genomic position</em>, where the TE sits "
-                "relative to the gene body. A TE in a gene\'s intron that "
+                "StringTie-assembly chimera candidates by chimera_type. "
+                "The read screen uses these <strong>same words for a "
+                "different measurement</strong> -- decided by junction "
+                "direction there, not transcript structure; neither is "
+                "wrong, but do not read agreement as corroboration (see "
+                "Help). " + data_labels_note
+            ),
+            "helptext": (
+                "Here a class is decided by <em>transcript structure</em> "
+                "&mdash; whether the TE hits the first, last or an "
+                "internal exon of the assembled transcript. In "
+                "<strong>Chimeric reads - TE type</strong> it is decided by "
+                "the junction's <em>direction</em> plus the gene's own "
+                "annotated exon structure. A TE in a gene\'s intron that "
                 "becomes the transcript\'s first exon is "
-                "<code>te_initiated</code> here and <code>te_exonized</code> "
-                "there, and neither is wrong. Do not read agreement between "
-                "the two as corroboration. "
+                "<code>te_initiated</code> here, and <code>te_initiated</code> "
+                "there only if a chimeric read was actually observed "
+                "splicing into it -- otherwise <code>te_exonized</code>. "
                 "<code>te_initiated_intergenic</code> and "
                 "<code>unspliced_te_only</code> have no read-screen "
-                "equivalent at all.<br><br>"
-                "StringTie-assembly chimera candidates by chimera_type. "
-                + data_labels_note
+                "equivalent at all."
             ),
             "plot_type": "bar",
             "pconfig": {
@@ -138,6 +149,16 @@ def main():
                 "cpswitch_counts_label": "Candidate counts",
                 "cpswitch_percent_label": "% of the class",
                 "use_legend": True,
+                # BUG FIXED 2026: without this, every bar showed "1.00" /
+                # "0.00" instead of "1" / "0" -- MultiQC picks this plot's
+                # hoverformat from whether category values are int or float
+                # (bargraph.py), and the JSON round-trip through custom
+                # content silently promotes plain ints to floats, so the
+                # auto-detect always picked ",.2f" here. chimera_chimeric_
+                # reads_te_type_mqc.py's sibling plot already sets this for
+                # the same reason -- these are whole candidate counts, never
+                # fractional.
+                "tt_decimals": 0,
             },
             "data": {CLASS_LABEL.get(c, c): v for c, v in counts.items()},
         })
@@ -237,6 +258,11 @@ def main():
         "parent_name": "Chimera",
         "section_name": "Assembly - strand-match rate by class",
         "description": (
+            "Share of each class's candidates where the assembled "
+            "transcript's strand matches the gene's -- a mismatch usually "
+            "means the gene hit is a spurious overlap, not a real fusion."
+        ),
+        "helptext": (
             "<em>What \"strand match\" means:</em> StringTie assembles each "
             "transcript on a strand, and the gene it overlaps is annotated on "
             "a strand. <strong>Strand match = those two agree.</strong> They "
@@ -246,13 +272,10 @@ def main():
             "the overlap is coincidental &mdash; the two features merely sit "
             "in the same place in the genome. "
             "<br><br><em>How to read it:</em> each bar is one chimera class, "
-            "scored independently, so the bars do not sum to anything. A "
-            "class with a low rate is one to distrust: for "
-            "<code>te_initiated</code> especially, a mismatch usually means "
-            "the gene hit is a spurious overlap rather than real transcript "
-            "connectivity. This is a consistency check on the assembly, not "
-            "independent support &mdash; the read screen\'s splice-motif "
-            "rate is the closer thing to evidence."
+            "scored independently, so the bars do not sum to anything. This "
+            "is a consistency check on the assembly, not independent "
+            "support &mdash; the read screen\'s splice-motif rate is the "
+            "closer thing to evidence."
         ),
         **strand_body,
     }
@@ -264,10 +287,12 @@ def main():
     # --- screen notes: blind spot + qualifying counts --------------------
     # This section used to render its own ranked top-N, keyed
     # (junction-confirmed, strand-matched, TPM). That was one of three
-    # rankings shipping in the same report, and it led on the very signal
-    # chimera_evidence_heatmap.py measured at roughly its chance rate. The
-    # pipeline no longer ranks candidates anywhere; what stays here is what
-    # only this screen can say about itself.
+    # rankings shipping in the same report, and it led on cross-screen
+    # agreement, whose weight has not been established (see
+    # chimera_evidence_guide_mqc.py's "Screens / Found by" row; project
+    # measurements so far are in docs/chimera-evidence.md). The pipeline
+    # no longer ranks candidates anywhere; what stays here is what only
+    # this screen can say about itself.
     n_total = len(rows)
     n_confirmed = (
         sum(1 for r in rows if r.get("confirmed_by_junction_screen") == "yes")
@@ -281,28 +306,28 @@ def main():
     confirmed_line = (
         f"<li><strong>{n_confirmed} of {n_total}</strong> candidates are also "
         "found by the read-evidence screen. The two methods have opposite "
-        "blind spots, so agreement should be meaningful &mdash; but measured "
-        "across a cohort it has come out near its <strong>chance rate</strong>. "
-        "It carries no more weight than any other flag here; see "
-        "the <strong>Evidence structure</strong> sections below for your "
-        "own data.</li>"
+        "blind spots, so agreement should in principle be meaningful "
+        "&mdash; how much it actually adds has not been established (see "
+        "<strong>How to weigh this evidence</strong>'s Screens / Found by "
+        "row). It carries no more weight than any other flag here.</li>"
         if has_cross_evidence else
-        "<li>chimera.reads is currently disabled, so no cross-confirmation "
+        "<li>chimera.chimeric_reads is currently disabled, so no cross-confirmation "
         "is available &mdash; enabling it adds an independent evidence source "
         "for these same candidates.</li>"
     )
 
-    html = f"""
+    html = """
 <p><strong>What this screen sees.</strong> Gene-TE chimeras inferred from
 StringTie assembly structure: TE-initiated, exonized and TE-terminated
 transcripts spliced through an ordinary, canonical intron.</p>
 
 <p><strong>What it cannot see.</strong> Any structure an assembler would not
-build &mdash; the breakpoints that only show up as reads STAR cannot explain
-with one linear alignment. That gap is what the read-evidence screen covers,
-which is why the two are kept separate rather than merged.</p>
+build -- the breakpoints that only show up as reads STAR cannot explain with
+one linear alignment. That is the read-evidence screen's job instead. See
+Help for the counts that qualify this screen's own output.</p>
+"""
 
-<p><strong>Qualifying this screen's output:</strong></p>
+    help_body = f"""
 <ul>
 {confirmed_line}
 <li><strong>{n_strand_ok} of {n_total}</strong> candidates have
@@ -337,6 +362,7 @@ above.</p>
             "The transcript-evidence screen's blind spot, and the counts that "
             "qualify its output."
         ),
+        "helptext": help_body,
         "plot_type": "html",
         "data": html,
     }

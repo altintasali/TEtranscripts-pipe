@@ -26,10 +26,10 @@ properties:
   condition:
     type: [string, "null"]
     description: >-
-      Optional. Biological condition/group label. If this column is present
-      (and filled in for every sample), the workflow automatically runs a
-      TEtranscripts differential analysis for every pairwise combination of
-      distinct condition values. If absent, differential analysis is skipped.
+      Optional. Biological condition/group label, used only to color the
+      sample-QC PCA/clustering views (TEcount, TElocal, chimera screens) by
+      group. Samples without a value are grouped together as "all". The
+      pipeline does not run differential-expression analysis itself.
 
 required:
   - sample

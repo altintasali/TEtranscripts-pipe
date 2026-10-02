@@ -2,14 +2,14 @@ import os
 
 
 def _chim_star_args(wildcards):
-    """STAR chimeric-alignment parameters from config["chimera"]["reads"]["star"], or
+    """STAR chimeric-alignment parameters from config["chimera"]["chimeric_reads"]["star"], or
     nothing when the chimera screen is disabled (chimera.enabled: false).
     --chimOutType stays fixed (Junctions + WithinBAM SoftClip): the junction
     file feeds the chimera screen and the SA tags embedded in the BAM let the
     same alignment be re-inspected in IGV."""
-    if not CHIMERA_READS_ENABLED:
+    if not CHIMERA_CHIMERIC_READS_ENABLED:
         return ""
-    c = config["chimera"]["reads"]["star"]
+    c = config["chimera"]["chimeric_reads"]["star"]
     return " ".join(
         [
             f"--chimSegmentMin {c['segment_min']}",
@@ -26,7 +26,7 @@ rule star_align:
     # require either unsorted or queryname-sorted input, see
     # https://github.com/mhammell-laboratory/TEtranscripts#recommendations-for-tetranscripts-input-files
     # Runs the STAR version pinned in config["versions"]["star"].
-    # When the chimera stage is enabled (config["chimera"]["reads"]["enabled"]), the
+    # When the chimera stage is enabled (config["chimera"]["chimeric_reads"]["enabled"]), the
     # same run also detects chimeric junctions (--chimOutType Junctions
     # WithinBAM SoftClip) -- the {sample}_Chimeric.out.junction file that the
     # chimera screen consumes is a side output of this same alignment, no
@@ -60,7 +60,7 @@ rule star_align:
         # input) is only declared when the chimera stage is enabled;
         # otherwise it is not produced and not required.
         **({"chim": "results/star/{sample}_Chimeric.out.junction"}
-           if CHIMERA_READS_ENABLED else {}),
+           if CHIMERA_CHIMERIC_READS_ENABLED else {}),
     params:
         reads=star_reads_param,
         read_command=star_read_command_param,
@@ -68,7 +68,7 @@ rule star_align:
         tmpdir=lambda wc: os.path.join(STAR_TMPDIR, f"star_{wc.sample}"),
         chim=_chim_star_args,
         chim_out_type=(
-            "--chimOutType Junctions WithinBAM SoftClip " if CHIMERA_READS_ENABLED else ""
+            "--chimOutType Junctions WithinBAM SoftClip " if CHIMERA_CHIMERIC_READS_ENABLED else ""
         ),
         # STAR 2-pass mapping (config star.two_pass, see common.smk and the
         # README): "per_sample" is STAR's own --twopassMode Basic;
@@ -125,6 +125,57 @@ rule star_align:
         "grep -q 'ALL DONE!' {output.log_final}; then :; else "
         "echo '-- STAR failed for real; log tail --' >&2; "
         "tail -n 60 {log} >&2; exit 1; fi))"
+
+
+rule star_filter_primary:
+    # Only wired in when the chimera-reads screen is enabled. --chimOutType
+    # WithinBAM SoftClip (star_align, above) writes a chimeric read's second
+    # segment as a supplementary (SAM flag 0x800) record in the SAME BAM
+    # TEcount/TElocal read -- kept there on purpose, since its SA tag is what
+    # lets IGV re-inspect the chimeric alignment (see star_align's comment).
+    #
+    # TEToolkit's own BAM parser (verified against the version this repo
+    # pins: TEToolkit/ShortRead/ParseBEDFile.py) only discards unmapped/
+    # QC-fail/duplicate records, then groups ALL remaining records sharing a
+    # QNAME to decide unique-vs-multi. A uniquely mapped chimeric read's
+    # extra supplementary record makes it look like a 2-way multimapper --
+    # dropped entirely in "uniq" mode, or split 50/50 across two loci in
+    # "multi" mode -- silently undercounting exactly the gene-TE reads this
+    # pipeline exists to study.
+    #
+    # This rule gives TEcount/TElocal a private, supplementary-filtered copy
+    # instead; the main results/star/{sample}_Aligned.out.bam (used by
+    # samtools_sort/IGV/QC) is untouched. -F 0x800 preserves record order, so
+    # the output stays STAR's native unsorted order -- still valid TEcount/
+    # TElocal input (see star_align's comment on that requirement).
+    input:
+        "results/star/{sample}_Aligned.out.bam",
+    output:
+        temp("results/star/{sample}_Aligned.primary.bam"),
+    threads: get_resources("star_filter_primary")["threads"]
+    resources:
+        mem_mb=get_resources("star_filter_primary")["mem_mb"],
+        runtime=get_resources("star_filter_primary")["runtime"],
+    benchmark:
+        "results/pipeline_info/benchmarks/star_filter_primary/{sample}.txt",
+    log:
+        "results/pipeline_info/logs/star/filter_primary/{sample}.log",
+    conda:
+        SAMTOOLS_ENV
+    shell:
+        "samtools view -@ {threads} -F 0x800 -b -o {output} {input} > {log} 2>&1"
+
+
+def quant_bam_input(wildcards):
+    """BAM path TEcount/TElocal should read: the supplementary-filtered copy
+    (star_filter_primary) when the chimera-reads screen is enabled -- its
+    WithinBAM SoftClip supplementary records would otherwise be miscounted
+    as multimappers, see that rule's comment -- otherwise the raw STAR
+    output directly (nothing to filter when WithinBAM SoftClip was never
+    requested, so no supplementary records exist)."""
+    if CHIMERA_CHIMERIC_READS_ENABLED:
+        return f"results/star/{wildcards.sample}_Aligned.primary.bam"
+    return f"results/star/{wildcards.sample}_Aligned.out.bam"
 
 
 def _samtools_sort_mem(wildcards):

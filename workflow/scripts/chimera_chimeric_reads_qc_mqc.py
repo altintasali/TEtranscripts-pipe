@@ -1,17 +1,28 @@
 #!/usr/bin/env python3
-"""Merge the per-sample junction QC tables (chimera_reads_qc.py) into MultiQC
-custom-content bar plots:
-  chimera_reads_qc_mqc.json      per-sample chimeric-junction composition by
+"""Merge the per-sample junction QC tables (chimera_chimeric_reads_qc.py) into MultiQC
+custom-content bar plots, plus one plain TSV:
+  chimera_chimeric_reads_qc_mqc.json      per-sample chimeric-junction composition by
                             direction (counts and % of total junctions).
   te_gene_chimeras_mqc.json the gene<->TE subset by class (gene_to_te /
                             te_to_gene, counts and % of total junctions) --
                             the gene-TE chimeras view, written when
                             --out-te-gene-chimeras is given.
+  canonical_rate_mqc.json   splice-motif (canonical) rate per direction --
+                            the main signal-vs-artifact discriminator --
+                            plus a one-sentence pooled-Fisher summary in its
+                            description, written when --out-canonical is
+                            given.
+  canonical_enrichment.tsv.gz  NOT a report section (BUG FIXED 2026 -- see
+                            the --out-enrichment block below for why): the
+                            full per-sample+pooled Fisher table behind that
+                            summary sentence, written when --out-enrichment
+                            is given.
 
-Reads every results/chimera/reads/per_sample/{sample}_chimera_reads_qc.tsv (metric/value pairs)
-and writes the JSONs above. MultiQC renders them inside multiqc_report.html in
-the custom_content module (ordered by multiqc_config.yaml), with the two
-datasets switchable via each plot's cpswitch control.
+Reads every results/chimera/chimeric_reads/per_sample/{sample}_chimera_chimeric_reads_qc.tsv (metric/value pairs)
+and writes the outputs above. MultiQC renders the _mqc.json ones inside
+multiqc_report.html in the custom_content module (ordered by
+multiqc_config.yaml), with the two junction-composition datasets switchable
+via each plot's cpswitch control.
 """
 import argparse
 import json
@@ -111,8 +122,61 @@ def _finalise(doc, datasets, empty_html):
     return doc
 
 
+def compute_enrichment_entries(tables, samples):
+    """Fisher's exact test of each gene-TE direction's canonical rate
+    against its own donor group, per sample AND pooled. Pooled has the
+    power; per-sample shows whether the effect reproduces across libraries,
+    which is the more convincing evidence and the thing a single deep
+    library can fake. Factored out of main() so both the canonical-rate
+    section's summary sentence and the enrichment TSV (BUG FIXED 2026: this
+    used to be its own report section -- see main()) draw from the same
+    computation instead of two independent re-reads of the per-sample
+    tables."""
+    per_sample = {}
+    for path, sample in zip(tables, samples):
+        m = load_metrics(path)
+        row = {}
+        for d in DIRECTIONS:
+            try:
+                tot = int(float(m.get(f"direction_{d}", 0)))
+                hit = int(float(m.get(f"canonical_{d}", 0)))
+            except (TypeError, ValueError):
+                tot = hit = 0
+            row[d] = (hit, max(0, tot - hit))
+        per_sample[sample] = row
+
+    entries = []
+    for cls, comp in ENRICHMENT_COMPARISONS:
+        units = [(s_, per_sample[s_]) for s_ in samples]
+        pooled = {}
+        for d in (cls, comp):
+            pooled[d] = (sum(r[d][0] for _, r in units),
+                         sum(r[d][1] for _, r in units))
+        for label, row in [("pooled", pooled)] + units:
+            a, b = row[cls]
+            c, d_ = row[comp]
+            if (a + b) == 0 or (c + d_) == 0:
+                continue
+            # Sample odds ratio, NOT R's conditional MLE -- they differ,
+            # and claiming the latter without computing it would be wrong.
+            orat = ((a * d_) / (b * c)) if b and c else float("nan")
+            entries.append({
+                "comparison": f"{cls} vs {comp}",
+                "sample": label,
+                "canonical": a,
+                "junctions": a + b,
+                "rate": round(100.0 * a / (a + b), 2),
+                "comparator_rate": round(100.0 * c / (c + d_), 2),
+                "odds_ratio": None if orat != orat else round(orat, 3),
+                "p": fisher_exact_two_sided(a, b, c, d_),
+            })
+    for e, q in zip(entries, benjamini_hochberg([e["p"] for e in entries])):
+        e["q"] = q
+    return entries
+
+
 def load_metrics(path):
-    """metric/value pairs from a chimera_reads_qc.tsv."""
+    """metric/value pairs from a chimera_chimeric_reads_qc.tsv."""
     metrics = {}
     with open_read(path) as fh:
         fh.readline()  # header: metric \t value
@@ -138,7 +202,9 @@ def main():
     ap.add_argument(
         "--out-enrichment", required=False,
         help="Optional output: Fisher's exact test of each gene-TE "
-        "direction's canonical rate against its own donor group.",
+        "direction's canonical rate against its own donor group, as a "
+        "plain TSV (not a report section -- see BUG FIXED 2026 note in "
+        "main()). One row per (comparison, sample-or-pooled).",
     )
     ap.add_argument(
         "--out-te-gene-chimeras", required=False,
@@ -166,34 +232,39 @@ def main():
     # the counts itself, and supplying both put two identical toggles on the
     # plot.
 
+    # Computed unconditionally (cheap -- per-sample tables are already being
+    # read for the plots above): the canonical-rate section's summary
+    # sentence below needs the pooled Fisher result even when
+    # --out-enrichment is not requested.
+    entries = compute_enrichment_entries(args.tables, args.samples)
+
     doc = {
-        "id": "chimera_reads_qc",
+        "id": "chimera_chimeric_reads_qc",
         "parent_id": "chimera",
         "parent_name": "Chimera",
-        "section_name": "Reads - junction classes",
+        "section_name": "Chimeric reads - junction classes",
         "description": (
             "Per-sample composition of annotated chimeric junctions by "
-            "class, as counts and % of total junctions. "
-            "<br><br><em>What the class names mean:</em> a chimeric junction "
+            "class (counts / % of total). Only gene_to_te/te_to_gene are "
+            "gene-TE chimeras; nothing here is filtered -- see the "
+            "canonical-rate plot below before treating any class as real."
+        ),
+        "helptext": (
+            "<em>What the class names mean:</em> a chimeric junction "
             "joins two breakpoints, and the name reads "
             "<code>donor_to_acceptor</code> &mdash; what the read comes FROM, "
             "then what it goes TO. So <code>gene_to_te</code> is a transcript "
             "starting in a gene and continuing into a TE, and "
             "<code>te_to_gene</code> is the reverse; they are different "
-            "biology, not two labels for the same event. "
-            "<br><br><em>How to read this:</em> a junction is classified by "
-            "what its two breakpoints overlap. Only <code>gene_to_te</code> "
-            "and <code>te_to_gene</code> are gene\u2013TE chimeras. The other "
+            "biology, not two labels for the same event. The non-gene-TE "
             "classes are not merely leftovers - STAR calls a junction "
             "chimeric on alignment geometry alone, without reading any "
             "annotation, so they also collect circRNA back-splices, "
-            "read-through transcripts and PCR/ligation chimeras. Nothing is "
-            "filtered here; see the canonical-rate plot below before "
-            "treating any class as real."
+            "read-through transcripts and PCR/ligation chimeras."
         ),
         "plot_type": "bar",
         "pconfig": {
-            "id": "chimera_reads_qc_plot",
+            "id": "chimera_chimeric_reads_qc_plot",
             "title": "Chimeric junctions by class (donor to acceptor)",
             "ylab": "junctions",
             # cpswitch supplies the Counts/Percentages toggle itself, and
@@ -233,36 +304,71 @@ def main():
                 n_row[d] = hit
             canon_pct[sample], canon_n[sample] = pct_row, n_row
 
+        # BUG FIXED 2026: the pooled Fisher result used to live only in its
+        # own "splice-motif enrichment" section -- a 20-row table, 16 of
+        # them per-sample repeats of the pooled result, not per-run QC (it
+        # characterises the classification method, not this cohort). That
+        # section is gone; canonical_enrichment.tsv.gz carries the full
+        # per-sample+pooled table now (see --out-enrichment below), and the
+        # one number this section's own reader actually needs -- the pooled
+        # result for each direction's PRIMARY donor-group comparison -- is
+        # folded into this description instead, computed from entries
+        # (compute_enrichment_entries), never hardcoded.
+        pooled_by_primary = {
+            (e["comparison"], e["sample"]): e for e in entries
+        }.get
+        primary_clauses = []
+        primary_comparisons = [ENRICHMENT_COMPARISONS[0], ENRICHMENT_COMPARISONS[2]]
+        for cls, comp in primary_comparisons:
+            e = pooled_by_primary((f"{cls} vs {comp}", "pooled"))
+            if e is None or e["odds_ratio"] is None:
+                continue
+            primary_clauses.append(
+                f"{cls} junctions carry the motif about "
+                f"{e['odds_ratio']:.2g}x as often as {comp} "
+                f"(q={e['q']:.1e})"
+            )
+        enrichment_sentence = (
+            " Pooled across samples, " + "; and ".join(primary_clauses)
+            + " -- modest enrichment, not a filter; per-comparison "
+            "statistics in <code>results/chimera/chimeric_reads/"
+            "canonical_enrichment.tsv.gz</code>."
+            if primary_clauses else ""
+        )
+
         canon_doc = {
             "id": "chimera_canonical_rate",
             "parent_id": "chimera",
             "parent_name": "Chimera",
-            "section_name": "Reads - splice-motif rate by junction class",
+            "section_name": "Chimeric reads - splice-motif rate by junction class",
             "description": (
-                "Share of each direction's junctions for which STAR reported a "
-                "recognised splice motif (GT/AG, GC/AG, AT/AC and reverse "
-                "complements). "
-                "<br><br><em>Why this matters:</em> genuine spliced introns are "
-                "very nearly 100% canonical, so a junction with no motif is "
-                "most likely template switching, a ligation/PCR chimera or a "
-                "mismapping - not a transcript. Chimeric junctions are "
-                "overwhelmingly motif-less in practice, so <strong>read this "
-                "as enrichment, not as an absolute</strong>. "
-                "<br><br><strong>Compare within a donor group, not against "
-                "<code>other</code>.</strong> The donor side alone shifts the "
-                "rate a lot - on real data every <code>gene_to_*</code> "
-                "class sits near 8-10% while every <code>te_to_*</code> class "
-                "sits at 3-7% - so measuring <code>gene_to_te</code> "
-                "against <code>other</code> credits it for the donor being a "
-                "gene at all. The honest comparisons are "
-                "<code>gene_to_te</code> vs <code>gene_to_gene</code> / "
-                "<code>gene_to_other</code>, and <code>te_to_gene</code> vs "
-                "<code>te_to_te</code> / <code>te_to_other</code>. Both "
-                "gene\u2013TE directions beating their own donor group is "
-                "the evidence the classification captures something real; "
-                "the margin is modest (well under 2x), not several-fold. "
-                "The canonical subset of the gene\u2013TE classes is the "
-                "sensible working set."
+                "Share of each direction's junctions with a recognised "
+                "splice motif -- genuine introns are nearly 100% canonical, "
+                "so a low rate signals artifacts, not transcripts. Compare "
+                "gene_to_te/te_to_gene against their OWN donor group below, "
+                "not against <code>other</code> (see Help)."
+                + enrichment_sentence
+            ),
+            "helptext": (
+                "STAR-reported splice motifs are GT/AG, GC/AG, AT/AC and "
+                "reverse complements. Chimeric junctions are overwhelmingly "
+                "motif-less in practice, so read this as enrichment, not an "
+                "absolute. <strong>Compare within a donor group, not "
+                "against <code>other</code>.</strong> The donor side alone "
+                "shifts the rate a lot - on real data every "
+                "<code>gene_to_*</code> class sits near 8-10% while every "
+                "<code>te_to_*</code> class sits at 3-7% - so measuring "
+                "<code>gene_to_te</code> against <code>other</code> credits "
+                "it for the donor being a gene at all. The honest "
+                "comparisons are <code>gene_to_te</code> vs "
+                "<code>gene_to_gene</code> / <code>gene_to_other</code>, and "
+                "<code>te_to_gene</code> vs <code>te_to_te</code> / "
+                "<code>te_to_other</code>. Both gene\u2013TE directions "
+                "beating their own donor group is the evidence the "
+                "classification captures something real; the margin is "
+                "modest (well under 2x), not several-fold. The canonical "
+                "subset of the gene\u2013TE classes is the sensible working "
+                "set."
             ),
             "plot_type": "bar",
             "pconfig": {
@@ -282,15 +388,23 @@ def main():
                 # class, not a share of the sample's total, so MultiQC's own
                 # percentage would be a different (and wrong) number.
                 "cpswitch": False,
-                # Stacked (MultiQC's "relative" default), deliberately. The
-                # axis that once ran past 6000% was the SUFFIX bug above --
-                # stacked counts wearing a "%" sign -- not the stacking. With
-                # the suffix fixed the counts view stacks to a real quantity:
-                # the sample's total canonical junctions. The rate view's
-                # stack total is not meaningful (each class is a rate over its
-                # own denominator), which is why the description tells the
-                # reader to compare segments within a donor group rather than
-                # read the totals.
+                # Stacked (MultiQC's "relative" default), deliberately --
+                # REVERTED 2026 after user feedback preferred the stacked
+                # read over the grouped one tried in between. The 6000% axis
+                # that originally motivated the ysuffix fix above was a real
+                # bug (stacked COUNTS wearing a "%" sign) -- fixed by the
+                # explicit per-dataset ysuffix/tt_decimals below, which is
+                # independent of stacking mode and stays fixed either way.
+                # What stacking mode does NOT fix, and never did: the RATE
+                # view's stack total is not itself a meaningful number (each
+                # class is canonical/total within its own denominator, not a
+                # share of the sample's total) -- that is why the
+                # description tells the reader to compare segments within a
+                # donor group rather than read the totals, not a reason to
+                # change the chart type. chimera_assembly_strand_rate_plot
+                # hit the same shape and stays grouped -- that plot has no
+                # equivalent "read the totals" caveat text, and no matching
+                # user preference for stacked, so it is not reverted here.
                 "data_labels": [
                     {"name": "Canonical junctions",
                      "ylab": "canonical junctions",
@@ -314,115 +428,26 @@ def main():
         print(f"canonical-rate barplot ({len(samples)} samples) -> {args.out_canonical}")
 
     if args.out_enrichment:
-        # Per-sample AND pooled. Pooled has the power; per-sample shows
-        # whether the effect reproduces across libraries, which is the more
-        # convincing evidence and the thing a single deep library can fake.
-        per_sample = {}
-        for path, sample in zip(args.tables, args.samples):
-            m = load_metrics(path)
-            row = {}
-            for d in DIRECTIONS:
-                try:
-                    tot = int(float(m.get(f"direction_{d}", 0)))
-                    hit = int(float(m.get(f"canonical_{d}", 0)))
-                except (TypeError, ValueError):
-                    tot = hit = 0
-                row[d] = (hit, max(0, tot - hit))
-            per_sample[sample] = row
-
-        entries = []
-        for cls, comp in ENRICHMENT_COMPARISONS:
-            units = [(s_, per_sample[s_]) for s_ in args.samples]
-            pooled = {}
-            for d in (cls, comp):
-                pooled[d] = (sum(r[d][0] for _, r in units),
-                             sum(r[d][1] for _, r in units))
-            for label, row in [("pooled", pooled)] + units:
-                a, b = row[cls]
-                c, d_ = row[comp]
-                if (a + b) == 0 or (c + d_) == 0:
-                    continue
-                # Sample odds ratio, NOT R's conditional MLE -- they differ,
-                # and claiming the latter without computing it would be wrong.
-                orat = ((a * d_) / (b * c)) if b and c else float("nan")
-                entries.append({
-                    "key": f"{cls} vs {comp} | {label}",
-                    "Comparison": f"{cls} vs {comp}",
-                    "Sample": label,
-                    "Canonical": a,
-                    "Junctions": a + b,
-                    "Rate": round(100.0 * a / (a + b), 2),
-                    "Comparator rate": round(100.0 * c / (c + d_), 2),
-                    "Odds ratio": None if orat != orat else round(orat, 3),
-                    "p": fisher_exact_two_sided(a, b, c, d_),
-                })
-        for e, q in zip(entries, benjamini_hochberg([e["p"] for e in entries])):
-            e["q (BH)"] = q
-
-        enrich_doc = {
-            "id": "chimera_canonical_enrichment",
-            "parent_id": "chimera",
-            "parent_name": "Chimera",
-            "section_name": "Reads - splice-motif enrichment",
-            "description": (
-                "Fisher's exact test (two-sided) of each gene-TE direction's "
-                "splice-motif rate against its <em>own donor group</em>, the "
-                "comparison the plot above prescribes. Each row is one 2x2 of "
-                "canonical vs motif-less junctions in the class against the "
-                "same in the comparator."
-                "<br><br><em>How to read it:</em> the <strong>pooled</strong> "
-                "row has the power; the per-sample rows show whether the "
-                "effect reproduces, which one deep library cannot fake. "
-                "<code>q (BH)</code> corrects across every test in this table "
-                f"({len(entries)}). An odds ratio above 1 means the gene-TE "
-                "class carries the motif more often than its donor group."
-                "<br><br>This tests <em>enrichment only</em>. A motif-less "
-                "junction can still be real and a canonical one can still be "
-                "an artifact, so a small q is not a verdict on any individual "
-                "candidate."
-            ),
-            "plot_type": "table",
-            "pconfig": {
-                "id": "chimera_canonical_enrichment_table",
-                "title": "Splice-motif enrichment vs donor group",
-                "col1_header": "Comparison | sample",
-                "defaultsort": [{"column": "Comparison"}, {"column": "Sample"}],
-                "sort_rows": False,
-            },
-            "headers": {
-                "Comparison": {"title": "Comparison", "description":
-                               "gene-TE class vs the comparator from its own donor group"},
-                "Sample": {"title": "Sample",
-                           "description": "'pooled' sums every sample's counts"},
-                "Canonical": {"title": "Canonical", "format": "{:,.0f}", "min": 0,
-                              "description": "Junctions in the class carrying a splice motif"},
-                "Junctions": {"title": "Junctions", "format": "{:,.0f}", "min": 0,
-                              "description": "All junctions in the class"},
-                "Rate": {"title": "Rate", "suffix": "%", "format": "{:,.2f}", "min": 0},
-                "Comparator rate": {"title": "Comparator rate", "suffix": "%",
-                                    "format": "{:,.2f}", "min": 0},
-                "Odds ratio": {"title": "Odds ratio", "format": "{:,.3f}", "min": 0,
-                               "description": "Sample odds ratio (a*d)/(b*c), not the "
-                               "conditional MLE R reports"},
-                "p": {"title": "p", "format": "{:.2e}", "min": 0, "max": 1},
-                "q (BH)": {"title": "q (BH)", "format": "{:.2e}", "min": 0, "max": 1},
-            },
-            "data": {e.pop("key"): e for e in entries},
-        }
-        if not enrich_doc["data"]:
-            enrich_doc.pop("headers")
-            enrich_doc.pop("pconfig")
-            enrich_doc["plot_type"] = "html"
-            enrich_doc["data"] = (
-                "<p>No junctions in either a gene-TE class or its donor "
-                "group, so there is nothing to test. Expected on synthetic or "
-                "very shallow data.</p>")
+        # BUG FIXED 2026: this used to be its own report section
+        # ("Chimeric reads - splice-motif enrichment") -- a 20-row Fisher
+        # table (16 of them per-sample repeats of the pooled result), easy
+        # to misread as a per-candidate verdict (its own old description had
+        # to warn against exactly that), and not per-run QC: it
+        # characterises the classification method, not this cohort. The
+        # pooled result for each direction's primary comparison is now one
+        # sentence in the canonical-rate section's description instead
+        # (built from the same `entries`, see compute_enrichment_entries);
+        # the full per-sample+pooled table moves here, a plain TSV, for
+        # anyone who wants to check a specific sample or the secondary
+        # (_other) comparisons.
+        tsv_columns = ["comparison", "sample", "canonical", "junctions",
+                       "rate", "comparator_rate", "odds_ratio", "p", "q"]
         os.makedirs(os.path.dirname(args.out_enrichment) or ".", exist_ok=True)
         with open_write(args.out_enrichment) as fh:
-            json.dump(enrich_doc, fh, indent=2)
-            fh.write("\n")
-        print(f"canonical enrichment: {len(enrich_doc.get('data', {}))} tests "
-              f"-> {args.out_enrichment}")
+            fh.write("\t".join(tsv_columns) + "\n")
+            for e in entries:
+                fh.write("\t".join(str(e[c]) for c in tsv_columns) + "\n")
+        print(f"canonical enrichment: {len(entries)} tests -> {args.out_enrichment}")
 
     if args.out_te_gene_chimeras:
         te_dirs = ["gene_to_te", "te_to_gene"]
@@ -443,17 +468,13 @@ def main():
             "id": "chimera_te_gene_chimeras",
             "parent_id": "chimera",
             "parent_name": "Chimera",
-            "section_name": "Reads - gene-TE subset",
+            "section_name": "Chimeric reads - gene-TE subset",
             "description": (
                 "Per-sample gene\u2194TE chimeric junctions (direction "
-                "gene_to_te / te_to_gene), as counts and % of total junctions. "
-                "<br><br><em>How to read this:</em> these are candidate "
-                "gene\u2013TE chimeras, annotated but <strong>not</strong> "
-                "filtered - no read-count, replicate or splice-motif "
-                "cutoff has been applied. Apply your own before treating a "
-                "call as confident, and check the canonical-rate plot: in "
-                "practice only a minority of chimeric junctions carry a "
-                "splice motif at all."
+                "gene_to_te / te_to_gene). Candidates only -- "
+                "<strong>not</strong> filtered by read count, replicate or "
+                "splice motif; see the canonical-rate plot before treating "
+                "a call as confident."
             ),
             "plot_type": "bar",
             "pconfig": {

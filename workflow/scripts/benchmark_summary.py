@@ -67,7 +67,9 @@ def main():
             allocated = getattr(params, "allocated", {}) or {}
 
     rows_by_rule = defaultdict(list)
-    for path in snakemake.input:
+    # input.benchmarks, not input: the rule also declares its own script as
+    # an input (guard 65), which is not a benchmark file.
+    for path in snakemake.input.benchmarks:
         rule = os.path.basename(os.path.dirname(path))
         rows_by_rule[rule].extend(_parse_benchmark(path))
 
@@ -94,21 +96,21 @@ def main():
         cpu_alloc_cores = int(alloc.get("threads") or 0)
         ram_alloc_gb = float(alloc.get("mem_mb") or 0) / 1024.0
 
+        mean_s = statistics.mean(walltimes)
+        max_s = max(walltimes)
         row = {
             "n": len(rows),
-            # The same two measurements in three units. Hours is the default
-            # view (it is what matters when sizing an HPC job), but in hours
-            # anything under ~1.8s rounds to 0.000 at 3 decimals -- which on
-            # a normal run is most of the table. Minutes and seconds are
-            # emitted alongside and hidden; "Configure columns" in the report
-            # switches between them, so a short rule is still readable
-            # without making the default view useless for a long one.
-            "walltime_mean_h": round(statistics.mean(walltimes) / 3600.0, 3),
-            "walltime_max_h": round(max(walltimes) / 3600.0, 3),
-            "walltime_mean_min": round(statistics.mean(walltimes) / 60.0, 2),
-            "walltime_max_min": round(max(walltimes) / 60.0, 2),
-            "walltime_mean_s": round(statistics.mean(walltimes), 1),
-            "walltime_max_s": round(max(walltimes), 1),
+            # BUG FIXED 2026: this used to be one adaptive string column
+            # ("45.2s (max 3.20min)", unit picked per value) because a fixed
+            # unit rounded a fast rule to "0.000" hours -- but a string
+            # column sorts lexicographically, not by duration, so it could
+            # never answer "which rule is slowest" by clicking the header,
+            # and comparing two rules meant reading past mismatched units by
+            # eye. Plain seconds fixes both: always comparable, and never
+            # rounds away a fast rule (a multi-hour rule just prints a
+            # bigger number, which is still exact).
+            "walltime_mean_s": round(mean_s, 1),
+            "walltime_max_s": round(max_s, 1),
             "cpu_alloc_cores": cpu_alloc_cores,
             "cpu_used_mean_cores": round(statistics.mean(loads), 3),
             "cpu_used_max_cores": round(max(loads), 3),
@@ -126,15 +128,19 @@ def main():
         "id": "resource_usage",
         "section_name": "Resource Usage",
         "description": (
-            "Wall time is shown in <strong>hours</strong>; minutes and "
-            "seconds are available under <em>Configure columns</em> for the "
-            "many rules that finish in well under a minute. "
-            "Per-rule job count, wall time, and resource efficiency -- for "
-            "CPU and RAM: the allocated amount (resources.yaml), the mean/max "
-            "amount actually used (Snakemake benchmark files in "
-            "results/pipeline_info/benchmarks/), and the mean used/allocated "
-            "ratio. Useful for sizing resources on your cluster before a full "
-            "run."
+            "Per-rule job count, wall time, and CPU/RAM allocated vs. "
+            "actually used. A low efficiency % means resources.yaml is "
+            "over-provisioned for that rule."
+        ),
+        "helptext": (
+            "Wall time is always in seconds, so every rule sorts and "
+            "compares on one column regardless of how fast or slow it ran. "
+            "For CPU and RAM: the allocated amount is from "
+            "resources.yaml, the used amount is the mean/max actually "
+            "measured (Snakemake benchmark files in "
+            "results/pipeline_info/benchmarks/), and efficiency is mean "
+            "used / allocated. Useful for sizing resources on your cluster "
+            "before a full run."
         ),
         "plot_type": "table",
         "pconfig": {
@@ -150,47 +156,17 @@ def main():
                 "format": "{:,d}",
                 "min": 0,
             },
-            # Hours shown by default; minutes and seconds are one click away
-            # under "Configure columns".
-            "walltime_mean_h": {
-                "title": "Wall time mean (h)",
-                "description": "Mean wall-clock hours per job",
-                "format": "{:,.3f}",
-                "min": 0,
-            },
-            "walltime_max_h": {
-                "title": "Wall time max (h)",
-                "description": "Slowest single job, wall-clock hours",
-                "format": "{:,.3f}",
-                "min": 0,
-            },
-            "walltime_mean_min": {
-                "title": "Wall time mean (min)",
-                "description": "Mean wall-clock minutes per job",
-                "format": "{:,.2f}",
-                "min": 0,
-                "hidden": True,
-            },
-            "walltime_max_min": {
-                "title": "Wall time max (min)",
-                "description": "Slowest single job, wall-clock minutes",
-                "format": "{:,.2f}",
-                "min": 0,
-                "hidden": True,
-            },
             "walltime_mean_s": {
                 "title": "Wall time mean (s)",
-                "description": "Mean wall-clock seconds per job",
+                "description": "Mean wall-clock time per job, in seconds",
                 "format": "{:,.1f}",
                 "min": 0,
-                "hidden": True,
             },
             "walltime_max_s": {
                 "title": "Wall time max (s)",
-                "description": "Slowest single job, wall-clock seconds",
+                "description": "Slowest job's wall-clock time, in seconds",
                 "format": "{:,.1f}",
                 "min": 0,
-                "hidden": True,
             },
             "cpu_alloc_cores": {
                 "title": "CPU allocated (cores)",

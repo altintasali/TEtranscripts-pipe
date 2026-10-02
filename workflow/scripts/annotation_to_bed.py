@@ -2,11 +2,18 @@
 """Convert the reference GTF files into the BED tracks the chimera junction
 screen overlaps breakpoints against.
 
-Three outputs (all BED, sorted, in --outdir):
+Four outputs (all BED, sorted, in --outdir):
 
-  genes.bed   BED6 per gene:      chrom, start, end, gene_id, score, strand
-  exons.bed   BED6 per exon:      chrom, start, end, gene_id, score, strand
-  te.bed      BED9 per TE INSERTION:
+  genes.bed        BED6 per gene: chrom, start, end, gene_id, score, strand
+  exons.bed        BED6 per exon: chrom, start, end, gene_id, score, strand
+  first_exons.bed  BED6, one row per annotated TRANSCRIPT's first exon
+                                  (5'-most, strand-aware): chrom, start, end,
+                                  transcript_id, score, strand. Used by
+                                  classify_chimera_assembly.py to flag an
+                                  assembled first exon that matches a known
+                                  annotated promoter (--first-exons), as
+                                  opposed to a novel TE-initiated one.
+  te.bed           BED9 per TE INSERTION:
                                   chrom, start, end, te_id, score, strand,
                                   family, class, subfamily
               te_id is the individual copy (transcript_id, e.g. L1PA2_dup1);
@@ -28,6 +35,9 @@ Usage:
 import argparse
 import os
 import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from gz_io import open_read
 
 
 def parse_attrs(attr_text):
@@ -67,7 +77,11 @@ def main():
     # gene_id -> {strand, chrom, start, end, family, class}
     genes = {}
     exons = []
-    with open(args.gtf) as fh:
+    # transcript_id -> {chrom, strand, exons: [(s, e), ...]} -- only tracked
+    # for first_exons.bed; a real gene GTF has far fewer transcripts than a
+    # TE GTF has insertions, so this is a small structure by comparison.
+    transcripts = {}
+    with open_read(args.gtf) as fh:  # .gz or plain
         for line in fh:
             if line.startswith("#") or not line.strip():
                 continue
@@ -95,6 +109,11 @@ def main():
             g["end"] = max(g["end"], e)
             if feat == "exon":
                 exons.append((chrom, s, e, gid, strand))
+                tid = a.get("transcript_id") or gid
+                t = transcripts.setdefault(
+                    tid, {"chrom": chrom, "strand": strand, "exons": []}
+                )
+                t["exons"].append((s, e))
 
     # TE GTF: features are the insertion loci themselves (exon feature in the
     # TEtranscripts rmsk-derived GTFs); keep subfamily/family/class for the
@@ -111,7 +130,7 @@ def main():
     # rows sharing one transcript_id are still merged -- that is a
     # fragmented single insertion, where min/max IS correct.
     te_loci = {}
-    with open(args.te_gtf) as fh:
+    with open_read(args.te_gtf) as fh:  # .gz or plain
         for line in fh:
             if line.startswith("#") or not line.strip():
                 continue
@@ -159,6 +178,15 @@ def main():
     exon_rows = sorted(
         (chrom, s - 1, e, gid, ".", strand) for chrom, s, e, gid, strand in exons
     )
+    # Same strand-aware "first exon" derivation classify_chimera_assembly.py
+    # uses for StringTie transcripts: sort by (start, end), reverse on the
+    # minus strand so index 0 is always the 5'-most exon.
+    first_exon_rows = []
+    for tid, t in transcripts.items():
+        t["exons"].sort()
+        first_s, first_e = t["exons"][-1] if t["strand"] == "-" else t["exons"][0]
+        first_exon_rows.append((t["chrom"], first_s - 1, first_e, tid, ".", t["strand"]))
+    first_exon_rows.sort()
     # Sort the keys in place and write directly: building a second list of
     # 3.7M formatted tuples doubled peak RSS for no benefit.
     # key mirrors the old (chrom, start, end, name) ordering exactly, so
@@ -171,6 +199,7 @@ def main():
 
     emit(os.path.join(args.outdir, "genes.bed"), gene_rows)
     emit(os.path.join(args.outdir, "exons.bed"), exon_rows)
+    emit(os.path.join(args.outdir, "first_exons.bed"), first_exon_rows)
     with open(os.path.join(args.outdir, "te.bed"), "w") as fh:
         for k in te_order:
             chrom, tid = k
@@ -181,7 +210,7 @@ def main():
             )
     print(
         f"wrote {len(gene_rows)} genes, {len(exon_rows)} exons, "
-        f"{n_te} TE loci to {args.outdir}"
+        f"{len(first_exon_rows)} first exons, {n_te} TE loci to {args.outdir}"
     )
 
 

@@ -19,9 +19,8 @@ guard_init
 # screen's own contribution after that. Before this, every screen
 # opened with its own ranked table on its own key.
 #
-# Four things here are load-bearing and silent when broken: a
-# parent_id typo in ANY emitter re-splits a group; the heatmaps
-# belong to chimera_structure, not to either screen; the strandedness
+# Three things here are load-bearing and silent when broken: a
+# parent_id typo in ANY emitter re-splits a group; the strandedness
 # move relies on report_section_order's inverted module-level
 # semantics ("before: rseqc" renders AFTER it); and subsections sort
 # by name unless ordered.
@@ -31,23 +30,24 @@ import json, sys
 d = sys.argv[1]
 docs = [
  # ONE group now. Five separate Chimera [...] groups fragmented the TOC, and
- # MultiQC has no third heading level, so Reads / Assembly / Evidence
- # structure are carried by section NAMES plus report_section_order.
+ # MultiQC has no third heading level, so Reads / Assembly are carried by
+ # section NAMES plus report_section_order.
  ("chimera_candidates_table", "chimera", "Chimera", "Candidates"),
  ("chimera_signal_guide", "chimera", "Chimera", "How to weigh this evidence"),
  ("chimera_evidence_composition", "chimera", "Chimera", "Evidence composition"),
- ("chimera_reads_te_type", "chimera", "Chimera", "Reads - TE type"),
- ("chimera_reads_highlights", "chimera", "Chimera", "Reads - what this screen sees"),
- ("chimera_reads_qc", "chimera", "Chimera", "Reads - junction classes"),
- ("chimera_canonical_rate", "chimera", "Chimera", "Reads - splice-motif rate by junction class"),
- ("chimera_te_gene_chimeras", "chimera", "Chimera", "Reads - gene-TE subset"),
- ("chimera_reads_sample_qc_pca", "chimera", "Chimera", "Reads - PCA"),
+ ("chimera_chimeric_reads_te_type", "chimera", "Chimera", "Chimeric reads - TE type"),
+ ("chimera_chimeric_reads_highlights", "chimera", "Chimera", "Chimeric reads - what this screen sees"),
+ ("chimera_chimeric_reads_qc", "chimera", "Chimera", "Chimeric reads - junction classes"),
+ ("chimera_canonical_rate", "chimera", "Chimera", "Chimeric reads - splice-motif rate by junction class"),
+ ("chimera_te_gene_chimeras", "chimera", "Chimera", "Chimeric reads - gene-TE subset"),
+ ("chimera_chimeric_reads_sample_qc_pca", "chimera", "Chimera", "Chimeric reads - PCA"),
  ("chimera_assembly_highlights", "chimera", "Chimera", "Assembly - what this screen sees"),
  ("chimera_assembly_classes", "chimera", "Chimera", "Assembly - composition by class"),
  ("chimera_assembly_strand_rate", "chimera", "Chimera", "Assembly - strand-match rate by class"),
- ("chimera_assembly_chimera_reads_sample_qc_pca", "chimera", "Chimera", "Assembly - PCA"),
- ("chimera_evidence_correlation", "chimera", "Chimera", "Evidence structure - correlation"),
- ("chimera_evidence_candidates", "chimera", "Chimera", "Evidence structure - leaders by dimension"),
+ ("chimera_assembly_sample_qc_pca", "chimera", "Chimera", "Assembly - PCA"),
+ ("chimera_splice_junctions_highlights", "chimera", "Chimera", "Splice junctions - what this screen sees"),
+ ("chimera_splice_junctions_te_type", "chimera", "Chimera", "Splice junctions - TE type"),
+ ("chimera_splice_junctions_sample_qc_pca", "chimera", "Chimera", "Splice junctions - PCA"),
  ("strandedness_check", "strandedness_check", "Strandedness check", "Declared vs. inferred"),
  ("evidence_overview", "evidence_overview", "TE analysis", "What this run measured"),
 ]
@@ -101,13 +101,14 @@ for m in re.finditer(r'href="#([a-z0-9_\-]+)"', h):
         order.append(m.group(1))
 expected = ["chimera_candidates_table", "chimera_signal_guide",
             "chimera_evidence_composition",
-            "chimera_reads_highlights", "chimera_reads_te_type", "chimera_reads_qc",
-            "chimera_canonical_rate", "chimera_canonical_enrichment",
+            "chimera_chimeric_reads_highlights", "chimera_chimeric_reads_te_type", "chimera_chimeric_reads_qc",
+            "chimera_canonical_rate",
             "chimera_te_gene_chimeras",
-            "chimera_reads_sample_qc_pca", "chimera_assembly_highlights",
+            "chimera_chimeric_reads_sample_qc_pca", "chimera_assembly_highlights",
             "chimera_assembly_classes", "chimera_assembly_strand_rate",
-            "chimera_assembly_chimera_reads_sample_qc_pca", "chimera_evidence_correlation",
-            "chimera_evidence_candidates"]
+            "chimera_assembly_sample_qc_pca",
+            "chimera_splice_junctions_highlights", "chimera_splice_junctions_te_type",
+            "chimera_splice_junctions_sample_qc_pca"]
 present = [s for s in expected if s in order]
 check(present == sorted(present, key=order.index),
       f"chimera sections render out of order: {[s for s in order if s in expected]}")

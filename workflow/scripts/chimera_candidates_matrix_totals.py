@@ -2,7 +2,7 @@
 """Cross-sample row totals for a feature x sample matrix, restricted to a
 requested set of keys.
 
-Used by chimera_candidates_explorer.R's rule (chimera_reads.smk) to join a
+Used by chimera_candidates_explorer.R's rule (chimera_chimeric_reads.smk) to join a
 real cohort-total count onto each chimera candidate from
 results/telocal/counts_matrix.tsv.gz (row key: TElocal locus key) and
 results/chimera/assembly/counts_matrix.tsv.gz (row key: transcript_id),

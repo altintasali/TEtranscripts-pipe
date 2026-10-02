@@ -20,6 +20,7 @@ flowchart LR
         trim_galore_pe["Trim Galore! (paired)"]
         trim_galore_se["Trim Galore! (single-end)"]
         star_align["STAR align"]
+        star_filter_primary["filter supplementary alignments"]
         samtools_sort["samtools sort"]
         samtools_index["samtools index"]
         fastqc_raw["FastQC (raw)"]
@@ -33,7 +34,6 @@ flowchart LR
     end
     subgraph quantification_qc["Quantification + QC"]
         tecount["TEcount"]
-        tetranscripts_diffexp["TEtranscripts + DESeq2"]
         tecount_counts["tecount counts matrix"]
         tecount_qc_transform["sample-QC transform (vst/rlog/log2)"]
         tecount_qc["sample-QC plots (PCA + clustering)"]
@@ -53,19 +53,20 @@ flowchart LR
     end
     subgraph chimera_screen["Chimera screen"]
         annotation_to_bed["annotation -> BED tracks"]
-        chimera_reads_classify["classify chimeric junctions"]
+        annotation_splice_features["annotated introns / last exons"]
+        chimera_chimeric_reads_classify["classify chimeric junctions"]
         chimera_telocal_annotate["annotate junctions with TElocal counts"]
-        chimera_reads_qc["junction QC"]
-        chimera_reads_qc_barplot["junction QC barplot"]
-        chimera_reads_highlights["read-screen notes (blind spot + counts)"]
+        chimera_chimeric_reads_qc["junction QC"]
+        chimera_chimeric_reads_qc_barplot["junction QC barplot"]
+        chimera_chimeric_reads_highlights["read-screen notes (blind spot + counts)"]
         chimera_evidence["unified gene-TE evidence catalogue"]
-        chimera_evidence_heatmap["evidence correlation + candidate heatmaps"]
         chimera_evidence_guide["how to weigh the evidence + composition"]
         chimera_candidates_table["candidate list (sortable table)"]
         chimera_candidates_explorer["standalone candidate explorer (all rows, IGV loci)"]
-        chimera_reads_te_type["reads TE type (per sample)"]
+        chimera_chimeric_reads_te_type["reads TE type (per sample)"]
         chimera_telocal_index["build TElocal index"]
         star_align_for_assembly["2nd STAR pass (assembly)"]
+        chimera_assembly_bam_index["index assembly BAM"]
         stringtie_assemble["StringTie assemble"]
         stringtie_merge["StringTie merge"]
         stringtie_requantify["StringTie requantify"]
@@ -77,19 +78,31 @@ flowchart LR
         chimera_assembly_igv_bed["assembly IGV BED track"]
         chimera_assembly_qc_transform["assembly QC matrix (log2)"]
         chimera_assembly_qc["assembly PCA + sample clusters"]
-        chimera_reads_igv_bed["IGV BED track"]
-        chimera_reads_counts["chimera counts matrix"]
-        chimera_reads_sample_qc_transform["sample-QC transform"]
-        chimera_reads_sample_qc["sample-QC plots"]
+        chimera_chimeric_reads_igv_bed["IGV BED track"]
+        chimera_chimeric_reads_counts["chimera counts matrix"]
+        chimera_chimeric_reads_sample_qc_transform["sample-QC transform"]
+        chimera_chimeric_reads_sample_qc["sample-QC plots"]
+        chimera_splice_junctions_classify["classify SJ.out.tab junctions"]
+        chimera_splice_junctions_counts["SJ-junction counts matrix"]
+        chimera_splice_junctions_aggregate_counts["gene-TE-chimera-type SJ counts"]
+        chimera_splice_junctions_summary_mqc["SJ-junction screen notes + TE-type composition"]
+        chimera_splice_junctions_qc_transform["SJ-junction sample-QC transform"]
+        chimera_splice_junctions_qc["SJ-junction sample-QC plots"]
+        chimera_splice_junctions_igv_bed["SJ-junction IGV BED track"]
     end
     subgraph other["Other"]
         tecount_qc_counts["tecount_qc_counts"]
         telocal_qc_counts["telocal_qc_counts"]
     end
+    annotation_splice_features --> chimera_assembly_classify
+    annotation_splice_features --> chimera_splice_junctions_classify
     annotation_to_bed --> chimera_assembly_aggregate_counts
     annotation_to_bed --> chimera_assembly_classify
     annotation_to_bed --> chimera_candidates_explorer
-    annotation_to_bed --> chimera_reads_classify
+    annotation_to_bed --> chimera_chimeric_reads_classify
+    annotation_to_bed --> chimera_evidence
+    annotation_to_bed --> chimera_splice_junctions_aggregate_counts
+    annotation_to_bed --> chimera_splice_junctions_classify
     benchmark_summary --> multiqc
     cat_fastq --> fastqc_raw
     cat_fastq --> trim_galore_pe
@@ -104,33 +117,40 @@ flowchart LR
     chimera_assembly_quantify --> chimera_assembly_aggregate_counts
     chimera_assembly_quantify --> chimera_assembly_qc_transform
     chimera_assembly_quantify --> chimera_candidates_explorer
+    chimera_chimeric_reads_classify --> chimera_chimeric_reads_igv_bed
+    chimera_chimeric_reads_classify --> chimera_chimeric_reads_qc
+    chimera_chimeric_reads_classify --> chimera_telocal_annotate
+    chimera_chimeric_reads_counts --> chimera_assembly_cross_evidence
+    chimera_chimeric_reads_counts --> chimera_chimeric_reads_highlights
+    chimera_chimeric_reads_counts --> chimera_chimeric_reads_sample_qc_transform
+    chimera_chimeric_reads_counts --> chimera_evidence
+    chimera_chimeric_reads_qc --> chimera_chimeric_reads_qc_barplot
+    chimera_chimeric_reads_qc --> chimera_chimeric_reads_te_type
+    chimera_chimeric_reads_sample_qc_transform --> chimera_chimeric_reads_sample_qc
     chimera_evidence --> chimera_candidates_explorer
     chimera_evidence --> chimera_candidates_table
     chimera_evidence --> chimera_evidence_guide
-    chimera_evidence --> chimera_evidence_heatmap
-    chimera_reads_classify --> chimera_reads_igv_bed
-    chimera_reads_classify --> chimera_reads_qc
-    chimera_reads_classify --> chimera_telocal_annotate
-    chimera_reads_counts --> chimera_assembly_cross_evidence
-    chimera_reads_counts --> chimera_evidence
-    chimera_reads_counts --> chimera_reads_highlights
-    chimera_reads_counts --> chimera_reads_sample_qc_transform
-    chimera_reads_qc --> chimera_reads_qc_barplot
-    chimera_reads_qc --> chimera_reads_te_type
-    chimera_reads_sample_qc_transform --> chimera_reads_sample_qc
-    chimera_telocal_annotate --> chimera_reads_counts
+    chimera_splice_junctions_classify --> chimera_splice_junctions_counts
+    chimera_splice_junctions_classify --> chimera_splice_junctions_igv_bed
+    chimera_splice_junctions_classify --> chimera_splice_junctions_summary_mqc
+    chimera_splice_junctions_counts --> chimera_evidence
+    chimera_splice_junctions_counts --> chimera_splice_junctions_aggregate_counts
+    chimera_splice_junctions_counts --> chimera_splice_junctions_qc_transform
+    chimera_splice_junctions_counts --> chimera_splice_junctions_summary_mqc
+    chimera_splice_junctions_qc_transform --> chimera_splice_junctions_qc
+    chimera_telocal_annotate --> chimera_chimeric_reads_counts
     chimera_telocal_index --> chimera_telocal_annotate
-    determine_strandedness --> chimera_reads_classify
+    determine_strandedness --> chimera_chimeric_reads_classify
+    determine_strandedness --> chimera_splice_junctions_classify
     determine_strandedness --> strandedness_check
     determine_strandedness --> stringtie_assemble
     determine_strandedness --> stringtie_requantify
     determine_strandedness --> tecount
     determine_strandedness --> telocal
-    determine_strandedness --> tetranscripts_diffexp
     gene_name_lookup --> chimera_assembly_aggregate_counts
     gene_name_lookup --> chimera_candidates_explorer
     gene_name_lookup --> chimera_candidates_table
-    gene_name_lookup --> chimera_evidence_heatmap
+    gene_name_lookup --> chimera_splice_junctions_aggregate_counts
     genepred_to_bed12 --> rseqc_gene_body_coverage
     genepred_to_bed12 --> rseqc_infer_experiment
     genepred_to_bed12 --> rseqc_read_distribution
@@ -148,15 +168,17 @@ flowchart LR
     samtools_sort --> samtools_flagstat
     samtools_sort --> samtools_index
     software_versions --> multiqc
-    star_align --> chimera_reads_classify
+    star_align --> chimera_chimeric_reads_classify
+    star_align --> chimera_splice_junctions_classify
     star_align --> cleanup_star_index
     star_align --> samtools_sort
-    star_align --> tecount
-    star_align --> telocal
-    star_align --> tetranscripts_diffexp
+    star_align --> star_filter_primary
+    star_align_for_assembly --> chimera_assembly_bam_index
     star_align_for_assembly --> stringtie_assemble
     star_align_for_assembly --> stringtie_requantify
     star_align_pass1 --> star_merge_junctions
+    star_filter_primary --> tecount
+    star_filter_primary --> telocal
     star_index --> star_align
     star_index --> star_align_for_assembly
     star_index --> star_align_pass1

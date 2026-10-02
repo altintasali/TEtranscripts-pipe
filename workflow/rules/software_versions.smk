@@ -56,7 +56,7 @@ rule software_versions:
                 "DESeq2": V["deseq2"],
                 "R": V["r_base"],
             },
-            # Only runs when chimera.reads is enabled, but listed
+            # Only runs when chimera.chimeric_reads is enabled, but listed
             # unconditionally like every other entry here -- see the
             # StringTie comment above.
             "Reporting": {

@@ -3,7 +3,7 @@ rule tecount:
     # exists for TEtranscripts/TEcount, so this runs the tool directly in a
     # conda env generated from config["versions"] (see common.smk).
     input:
-        bam="results/star/{sample}_Aligned.out.bam",
+        bam=quant_bam_input,
         gtf=GTF,
         te_gtf=TE_GTF,
         strandedness=strandedness_input,
@@ -25,7 +25,10 @@ rule tecount:
     conda:
         TETRANSCRIPTS_ENV
     shell:
-        "mkdir -p {params.outdir} && "
+        # Whole chain wrapped in ( ... ) so the redirect captures TEcount's
+        # own stdout/stderr too, not just gzip's -- `cmd1 && cmd2 > log`
+        # only redirects cmd2, silently dropping TEcount's own messages.
+        "(mkdir -p {params.outdir} && "
         "TEcount --format BAM --mode {params.mode} "
         "-b {input.bam} "
         "--GTF {input.gtf} --TE {input.te_gtf} "
@@ -33,67 +36,5 @@ rule tecount:
         "--project {wildcards.sample} "
         "--outdir {params.outdir} "
         "{params.extra} "
-        "&& gzip -f {params.outdir}/{wildcards.sample}.cntTable "
-        "> {log} 2>&1"
-
-
-rule tetranscripts_diffexp:
-    # Differential gene/TE enrichment between treatment and control BAM
-    # groups. Contrasts are derived automatically (see CONTRASTS in
-    # common.smk) from every pairwise combination of distinct values in the
-    # sample sheet's "condition" column; if that column is absent, CONTRASTS
-    # is empty and this rule is simply never requested. Internally
-    # re-quantifies all samples together and runs DESeq2.
-    input:
-        treatment=lambda wc: expand(
-            "results/star/{sample}_Aligned.out.bam",
-            sample=CONTRASTS[wc.contrast]["treatment"],
-        ),
-        control=lambda wc: expand(
-            "results/star/{sample}_Aligned.out.bam",
-            sample=CONTRASTS[wc.contrast]["control"],
-        ),
-        strandedness=contrast_strandedness_input,
-        gtf=GTF,
-        te_gtf=TE_GTF,
-    output:
-        cnt_table="results/tetranscripts/{contrast}.cntTable.gz",
-        deseq_script="results/tetranscripts/{contrast}_DESeq2.R.gz",
-        full="results/tetranscripts/{contrast}_gene_TE_analysis.txt.gz",
-        sig="results/tetranscripts/{contrast}_sigdiff_gene_TE.txt.gz",
-    params:
-        stranded=get_contrast_strandedness_param,
-        mode=config["tetranscripts"]["mode"],
-        padj=config["tetranscripts"]["padj"],
-        foldchange=config["tetranscripts"]["foldchange"],
-        minread=config["tetranscripts"]["minread"],
-        extra=config["tetranscripts"]["extra"],
-        outdir="results/tetranscripts",
-    threads: get_resources("tetranscripts_diffexp")["threads"]
-    resources:
-        mem_mb=get_resources("tetranscripts_diffexp")["mem_mb"],
-        runtime=get_resources("tetranscripts_diffexp")["runtime"],
-    benchmark:
-        "results/pipeline_info/benchmarks/tetranscripts_diffexp/{contrast}.txt",
-    log:
-        "results/pipeline_info/logs/tetranscripts/{contrast}.log",
-    conda:
-        TETRANSCRIPTS_ENV
-    shell:
-        "mkdir -p {params.outdir} && "
-        "TEtranscripts --format BAM --mode {params.mode} "
-        "-t {input.treatment} "
-        "-c {input.control} "
-        "--GTF {input.gtf} --TE {input.te_gtf} "
-        "--stranded {params.stranded} "
-        "--project {wildcards.contrast} "
-        "--padj {params.padj} --foldchange {params.foldchange} "
-        "--minread {params.minread} "
-        "--outdir {params.outdir} "
-        "{params.extra} "
-        "&& gzip -f "
-        "{params.outdir}/{wildcards.contrast}.cntTable "
-        "{params.outdir}/{wildcards.contrast}_DESeq2.R "
-        "{params.outdir}/{wildcards.contrast}_gene_TE_analysis.txt "
-        "{params.outdir}/{wildcards.contrast}_sigdiff_gene_TE.txt "
+        "&& gzip -f {params.outdir}/{wildcards.sample}.cntTable) "
         "> {log} 2>&1"

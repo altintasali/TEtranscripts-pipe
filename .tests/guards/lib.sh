@@ -56,7 +56,7 @@ fixture_evidence() {
     printf 'j2\tGapdh\tL1PA2_dup1\tL1PA2\tL1\tLINE\tno\tte_exonized\t.\t2\t10\n'
     printf 'j3\tActb\tAluY_dup9\tAluY\tAlu\tSINE\tno\tte_initiated\tyes\t3\t80\n'
     printf 'j4\tMyc\tL1MdA_dup4\tL1MdA\tL1\tLINE\tyes\tte_initiated\tno\t1\t5\n'
-    printf 'j5\tTp53\tMIR_dup2\tMIR\tMIR\tSINE\tno\ttrans\tno\t1\t999\n'
+    printf 'j5\tTp53\tMIR_dup2\tMIR\tMIR\tSINE\tno\tte_initiated\tno\t1\t999\n'
   } | gzip -c > "$T/ev/j.tsv.gz"
   { printf 'transcript_id\tte_id\tte_subfamily\tte_family\tte_class\tmatched_gene_id\tstrand_match\tchimera_type\n'
     printf 'MSTRG.1.1\tL1PA2_dup1\tL1PA2\tL1\tLINE\tGapdh\tyes\tte_terminated\n'

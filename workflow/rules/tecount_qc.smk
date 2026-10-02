@@ -71,6 +71,8 @@ rule tecount_counts:
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/tecount_counts.py",
+        # local modules the script imports -- editing them must re-run this
+        gz_io=f"{SCRIPTS_DIR}/gz_io.py",
         tables=tecount_counts_input(),
     output:
         counts="results/tecount/counts_matrix.tsv.gz",
@@ -104,6 +106,8 @@ rule tecount_qc_counts:
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/tecount_counts.py",
+        # local modules the script imports -- editing them must re-run this
+        gz_io=f"{SCRIPTS_DIR}/gz_io.py",
         matrix="results/tecount/counts_matrix.tsv.gz",
         gtf=GTF,
         te_gtf=TE_GTF,
@@ -167,7 +171,7 @@ rule tecount_qc:
     # PCA scatter + sample-to-sample distance heatmap of the transformed
     # TEcounts counts, colored by condition (sample sheet's "condition"
     # column; absent -> one "all" group), emitted as MultiQC custom-content
-    # JSON (ids tecount_chimera_reads_sample_qc_pca / tecount_chimera_reads_sample_qc_heatmap, ordered
+    # JSON (ids tecount_sample_qc_pca / tecount_sample_qc_heatmap, ordered
     # inside the custom_content module by multiqc_config.yaml).
     input:
         # Declared so that EDITING the script re-runs the rule.
@@ -211,6 +215,9 @@ rule tecount_summary:
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/tecount_summary_mqc.py",
+        # local modules the script imports -- editing them must re-run this
+        gz_io=f"{SCRIPTS_DIR}/gz_io.py",
+        te_summary_common=f"{SCRIPTS_DIR}/te_summary_common.py",
         tables=tecount_counts_input(),
     output:
         assignment="results/tecount/qc/tecount_assignment_mqc.json",

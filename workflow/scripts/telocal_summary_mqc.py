@@ -40,14 +40,14 @@ FLAVOUR = Flavour(
     assignment_title="TElocal assignment (genes vs TEs)",
     class_title="TElocal TE class composition",
     assignment_desc=(
-        "Per-sample read counts assigned by TElocal to genes vs TE "
-        "loci (counts and % of total assigned reads). "
-        "<br><br><em>How to read this:</em> TElocal resolves each TE "
-        "insertion separately, where TEcount pools all copies of a "
-        "subfamily into a single row. A subfamily that looks uniformly "
-        "expressed in TEcount is often one or two highly-expressed "
-        "copies here, with the rest silent — which is the reason "
-        "to run both."
+        "Per-sample read counts assigned by TElocal to genes vs TE loci "
+        "(TElocal resolves each insertion separately, where TEcount pools "
+        "every copy of a subfamily into one row)."
+    ),
+    assignment_help=(
+        "A subfamily that looks uniformly expressed in TEcount is often "
+        "one or two highly-expressed copies here, with the rest silent "
+        "-- which is the reason to run both."
     ),
     class_desc=(
         "Per-sample TE-locus reads by repeat class (counts and % of "

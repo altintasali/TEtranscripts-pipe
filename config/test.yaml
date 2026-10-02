@@ -52,7 +52,7 @@ trimming:
 # self-sufficient on a fresh clone / in CI, where input/config.yaml has not
 # been created yet.
 strandedness:
-  min_fraction: 0.6
+  min_fraction: 0.8
 
 # Exercise the temp() fastq-removal path in CI: the merged + trimmed fastqs
 # are deleted once alignment is done (the FastQC reports persist, so MultiQC
@@ -69,7 +69,7 @@ outputs:
 # the synthetic test data; the single test TE is enough for junction parsing
 # + counts + sample-QC to run.
 chimera:
-  reads:
+  chimeric_reads:
     enabled: true
     star:
       segment_min: 12
@@ -77,8 +77,12 @@ chimera:
       score_drop_max: 20
       extra: ""
     breakpoint_tolerance: 0
-    require_canonical_junction: false
+    require_canonical: false
     qc:
+      # enabled: true (unlike the shipped default of false) so CI exercises
+      # the sample-QC views for chimeric_reads AND assembly (which borrows
+      # this same flag).
+      enabled: true
       min_samples_present: 2
       min_total_counts: 5
       # 4 test samples, one TE: keep the floor low so the QC plots draw.
@@ -93,15 +97,32 @@ chimera:
     enabled: true
     breakpoint_tolerance: 5
     min_transcript_tpm: 1
+    require_tss_in_te: true
     outputs:
       write_igv_bed: true
+      write_gene_te_chimera_counts: true
+  splice_junctions:
+    # enabled: true, the shipped default -- explicit here so CI keeps
+    # exercising this screen even if the default ever changes.
+    enabled: true
+    breakpoint_tolerance: 0
+    min_unique_reads: 1
+    require_canonical: true
+    qc:
+      # enabled: true (unlike the shipped default of false) so CI exercises
+      # this screen's sample-QC view too.
+      enabled: true
+      min_samples_present: 2
+      min_total_counts: 5
+      min_events: 2
+      pca_transform: vst
+    outputs:
+      write_igv_bed: true
+      write_counts_matrix: true
       write_gene_te_chimera_counts: true
 
 tetranscripts:
   mode: multi
-  padj: 0.05
-  foldchange: 1
-  minread: 1
   extra: ""
   # Sample-QC view: enabled so CI exercises the whole tecount sample-QC stage.
   # feature_class: all keeps the 100 test genes + the single TE (default TE
@@ -146,7 +167,6 @@ resources:
   rseqc_infer_experiment: {threads: 1, mem_mb: 1000, runtime: 5}
   determine_strandedness: {threads: 1, mem_mb: 1000, runtime: 5}
   tecount: {threads: 1, mem_mb: 1000, runtime: 10}
-  tetranscripts_diffexp: {threads: 1, mem_mb: 1000, runtime: 10}
   tecount_counts: {threads: 1, mem_mb: 500, runtime: 5}
   tecount_qc_counts: {threads: 1, mem_mb: 500, runtime: 5}
   tecount_qc_transform: {threads: 1, mem_mb: 1000, runtime: 5}
@@ -154,16 +174,16 @@ resources:
   tecount_summary: {threads: 1, mem_mb: 500, runtime: 5}
   annotation_to_bed: {threads: 1, mem_mb: 500, runtime: 5}
   parse_chimeric_junctions: {threads: 1, mem_mb: 500, runtime: 5}
-  chimera_reads_counts: {threads: 1, mem_mb: 500, runtime: 5}
-  chimera_reads_qc: {threads: 1, mem_mb: 500, runtime: 5}
-  chimera_reads_qc_barplot: {threads: 1, mem_mb: 500, runtime: 5}
-  chimera_reads_igv_bed: {threads: 1, mem_mb: 500, runtime: 5}
+  chimera_chimeric_reads_counts: {threads: 1, mem_mb: 500, runtime: 5}
+  chimera_chimeric_reads_qc: {threads: 1, mem_mb: 500, runtime: 5}
+  chimera_chimeric_reads_qc_barplot: {threads: 1, mem_mb: 500, runtime: 5}
+  chimera_chimeric_reads_igv_bed: {threads: 1, mem_mb: 500, runtime: 5}
   telocal_locind: {threads: 1, mem_mb: 500, runtime: 5}
   telocal_counts: {threads: 1, mem_mb: 500, runtime: 5}
   telocal_qc_counts: {threads: 1, mem_mb: 500, runtime: 5}
   telocal_qc_transform: {threads: 1, mem_mb: 1000, runtime: 5}
   telocal_qc: {threads: 1, mem_mb: 1000, runtime: 5}
-  chimera_reads_sample_qc_transform: {threads: 1, mem_mb: 1000, runtime: 5}
-  chimera_reads_sample_qc: {threads: 1, mem_mb: 1000, runtime: 5}
+  chimera_chimeric_reads_sample_qc_transform: {threads: 1, mem_mb: 1000, runtime: 5}
+  chimera_chimeric_reads_sample_qc: {threads: 1, mem_mb: 1000, runtime: 5}
   software_versions: {threads: 1, mem_mb: 500, runtime: 5}
   multiqc: {threads: 1, mem_mb: 500, runtime: 5}

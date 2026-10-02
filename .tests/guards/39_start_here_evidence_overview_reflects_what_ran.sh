@@ -8,8 +8,8 @@ set -uo pipefail
 guard_init
 
 # --- The report's reading guide is generated from the resolved
-# switches, so its central claim -- that the two chimera screens
-# are the only independent pair -- must track them.
+# switches, so its central claim -- how many independent chimera screens
+# are running, and which -- must track them.
 mkdir -p "$T/eo/qc"
 python3 - "$T/eo/qc/evidence_overview_mqc.json" <<'PY' || FAIL=1
 # run_name must be __main__: these scripts guard their main() call so
@@ -21,15 +21,18 @@ class NS(dict):
 out = sys.argv[1]
 ok = True
 cases = [
-    (dict(_telocal_enabled=True, _chimera_reads_enabled=True,
-          _chimera_assembly_enabled=True, _two_pass="cohort",
-          _has_condition=True), "Two independent"),
-    (dict(_telocal_enabled=False, _chimera_reads_enabled=True,
-          _chimera_assembly_enabled=False, _two_pass="none",
-          _has_condition=False), "One chimera screen"),
-    (dict(_telocal_enabled=False, _chimera_reads_enabled=False,
-          _chimera_assembly_enabled=False, _two_pass="per_sample",
-          _has_condition=False), "quantification only"),
+    (dict(_telocal_enabled=True, _chimera_chimeric_reads_enabled=True,
+          _chimera_assembly_enabled=True, _chimera_splice_junctions_enabled=True,
+          _two_pass="cohort"), "3 independent"),
+    (dict(_telocal_enabled=True, _chimera_chimeric_reads_enabled=True,
+          _chimera_assembly_enabled=True, _chimera_splice_junctions_enabled=False,
+          _two_pass="cohort"), "2 independent"),
+    (dict(_telocal_enabled=False, _chimera_chimeric_reads_enabled=True,
+          _chimera_assembly_enabled=False, _chimera_splice_junctions_enabled=False,
+          _two_pass="none"), "One chimera screen"),
+    (dict(_telocal_enabled=False, _chimera_chimeric_reads_enabled=False,
+          _chimera_assembly_enabled=False, _chimera_splice_junctions_enabled=False,
+          _two_pass="per_sample"), "quantification only"),
 ]
 for params, expected in cases:
     builtins.snakemake = types.SimpleNamespace(
@@ -40,6 +43,21 @@ for params, expected in cases:
         print("ERROR: custom_content needs a top-level data key"); ok = False
     if expected not in doc["data"]:
         print(f"ERROR: expected {expected!r} for {params}"); ok = False
+    # BUG FIXED 2026: used to point at "Chimera -> What to look at" (no
+    # longer exists -- see chimera_chimeric_reads_highlights_mqc.py's
+    # section_name) and call the candidates "ranked" (the pipeline never
+    # ranks, guard 50). Only check when at least one chimera screen ran,
+    # since the reading-order list only appears then.
+    if params["_chimera_chimeric_reads_enabled"] or params["_chimera_assembly_enabled"]:
+        if "What to look at" in doc["data"]:
+            print(f"ERROR: stale 'What to look at' section reference leaked back in for {params}")
+            ok = False
+        if "the ranked" in doc["data"]:
+            print(f"ERROR: 'the ranked ...' wording leaked back in (pipeline never ranks) for {params}")
+            ok = False
+        if "Candidates" not in doc["data"]:
+            print(f"ERROR: reading-order guide should point at the 'Candidates' section for {params}")
+            ok = False
 sys.exit(0 if ok else 1)
 PY
 if ! multiqc --force --no-ansi -c workflow/default-config/multiqc_config.yaml \

@@ -3,7 +3,7 @@
 ![CI](https://img.shields.io/github/actions/workflow/status/altintasali/TEtranscripts-pipe/ci.yml?label=CI)
 ![License](https://img.shields.io/github/license/altintasali/TEtranscripts-pipe?color=blue)
 ![Platform](https://img.shields.io/badge/platform-Python-blue)
-![Version](https://img.shields.io/badge/version-0.11.0-blue)
+![Version](https://img.shields.io/badge/version-0.15.0-blue)
 
 A Snakemake workflow that quantifies genes **and** transposable elements (TEs)
 from RNA-seq data with [TEtranscripts/TEcount](https://github.com/mhammell-laboratory/TEtranscripts),
@@ -16,8 +16,10 @@ flowchart LR
     align --> quant["Gene + TE quantification<br/>(TEcount / TElocal)"]
     align --> rdev["Chimeras: read evidence"]
     align --> asm["Chimeras: transcript evidence<br/>(2nd STAR pass)"]
+    align --> sjdev["Chimeras: SJ evidence"]
     rdev --> cand["Gene-TE candidates<br/>(evidence, not a score)"]
     asm --> cand
+    sjdev --> cand
     quant --> report["MultiQC report"]
     cand --> report
 ```
@@ -32,8 +34,9 @@ The workflow builds a STAR index and an RSeQC gene model (BED12) **once**, then
 for every sample concatenates split lanes, optionally trims with TrimGalore!,
 aligns with STAR, and auto-detects library strandedness from the sorted BAM.
 TEcount quantifies genes + TEs per sample (subfamily-level); TElocal provides
-locus-level TE quantification from the same alignment. If your sample sheet has
-a `condition` column, TEtranscripts + DESeq2 also runs every pairwise contrast.
+locus-level TE quantification from the same alignment. The pipeline does not
+run any differential-expression analysis itself -- take the per-sample TEcount
+tables into your own DESeq2/edgeR analysis downstream.
 The per-sample TEcount tables also drive a sample-QC view (PCA + sample
 clustering, on by default) and per-sample summary barplots (gene-vs-TE
 assignment and TE class composition), rendered inside the MultiQC report;
@@ -41,43 +44,80 @@ the TElocal tables drive the same section set for the locus-level counts.
 
 ### Gene-TE chimeras
 
-Two **independent** screens look for gene-TE chimeric transcripts, and both
-are **on by default**:
+Up to three **independent** screens look for gene-TE chimeric transcripts:
 
-- **Read evidence** (`chimera.reads`) annotates STAR's chimeric junction
+- **Chimeric-reads evidence** (`chimera.chimeric_reads`) annotates STAR's chimeric junction
   reads — reads that cannot be explained by one linear alignment. It is
   annotation-blind, so it catches breakpoints no assembler would predict, and
   reuses the same alignment as quantification (no extra STAR pass).
+  **On by default.**
 - **Transcript evidence** (`chimera.assembly`) infers chimeras from StringTie
   assembly structure, catching TE-initiated/exonized/terminated transcripts
-  spliced through an ordinary canonical intron — which the read screen
-  structurally cannot see. **This costs a second, dedicated STAR pass per
+  spliced through an ordinary canonical intron — which the chimeric-reads
+  screen structurally cannot see. **This costs a second, dedicated STAR pass per
   sample**; set `chimera.assembly.enabled: false` to skip it. It is newer and
-  less validated than the read screen.
+  less validated than the chimeric-reads screen. **On by default.**
+- **SJ evidence** (`chimera.splice_junctions`) catches the same
+  ordinary-canonical-intron blind spot as the assembly screen, but from
+  STAR's own splice junctions (SJ.out.tab, already produced by the main
+  alignment) at the individual read-junction level — no assembly, no extra
+  STAR pass. **On by default**; set `chimera.splice_junctions.enabled: false`
+  to skip it. Its agreement with the other two screens has not been measured
+  against a chance rate (see
+  [`docs/chimera-evidence.md`](docs/chimera-evidence.md)).
 
 **When to use the assembly screen.** It pays off most on genomes with
 well-annotated TEs (human, mouse), where it recovers chimeras spliced through
-an ordinary canonical intron that the read screen cannot see by construction.
-On novel or poorly annotated TEs the read screen is the better bet, since
+an ordinary canonical intron that the chimeric-reads screen cannot see by construction.
+On novel or poorly annotated TEs the chimeric-reads screen is the better bet, since
 assembly can only call a chimera whose TE is already in the annotation, while
 STAR's chimeric junctions need no annotation at all. The cost is dominated by
 the second STAR pass — roughly double the alignment time and peak disk;
 StringTie and the classification that follow are cheap by comparison.
 
-The two are merged into one catalogue at `results/chimera/candidates.tsv.gz`
-— one row per (gene, TE insertion) pair, carrying every line of evidence
-either screen produced. The report's **Chimera** section opens with that list
+All enabled screens are merged into one catalogue at
+`results/chimera/candidates.tsv.gz` — one row per (gene, TE insertion) pair,
+carrying every line of evidence any screen produced. The report's **Chimera**
+section opens with that list
 as a sortable table, followed by a guide to what each signal is worth, then
 each screen's own evidence.
 
+Every typed gene-TE chimera makes a screen count toward a pair, and the
+`chimera_status` column (Status) says which kinds support it, "+"-joined:
+**novel** (`te_initiated`, `te_terminated`, `te_exonized`, typed from the
+junction's direction and the gene's own exon structure), **annotated** (a
+TE-driven transcript the annotation already has: `annotated_promoter_embedded_te`,
+`annotated_terminal_exon_embedded_te`, `annotated_splice`) and **antisense**
+(`antisense_to_gene`: the TE joined to the gene's exon on the opposite strand).
+The chimeric-reads screen can only call antisense with a stranded library.
+Chimeric-read events on another
+chromosome or farther than `chimera.chimeric_reads.max_gene_te_distance`
+(default 200 kb) from the gene stay in that screen's own tables but do not
+make candidates. Each pair also carries where the TE sits relative to the
+gene (position, distance, sense/antisense orientation) and mapping-quality
+signals (SJ unique-read fraction and overhang, chimeric-read anchor length).
+
 **The pipeline does not rank or score chimera candidates.** No experiment here
-has established what each signal is worth, and the pipeline's own measurements
-contradict the obvious guesses — cross-screen agreement comes out near its
-chance rate, and TE-locus expression is anti-correlated with the splice motif.
-The table's default order is a *count* of how many evidence types a pair
-carries; sort it on whichever column your question needs, and expect to
-validate calls manually. Set `chimera.reads.enabled: false` to skip chimera
-detection entirely.
+has established what each signal is worth, and early project measurements
+have already contradicted an obvious guess or two — see
+[`docs/chimera-evidence.md`](docs/chimera-evidence.md) for what has (and
+hasn't) been measured so far, on what cohort, and under what restrictions.
+The table's default order is the number of independent screens that found a
+pair, most first, ties broken alphabetically by gene then TE; sort it on
+whichever column your question needs, and expect to validate calls manually.
+Set `chimera.chimeric_reads.enabled: false` to skip chimera detection
+entirely.
+
+**Counting chimeras for differential analysis.** Two matrices share one row
+key, `gene_id:te_id:chimera_type`:
+`results/chimera/assembly/gene_te_chimera_counts_matrix.tsv.gz` (StringTie
+read estimates per assembled chimeric transcript, summed) and
+`results/chimera/splice_junctions/gene_te_chimera_counts_matrix.tsv.gz`
+(STAR's unique reads across the pair's gene-TE junctions, summed; a read
+crossing two such junctions, as in `te_exonized`, counts twice). Test with
+the assembly matrix and confirm hits in the SJ matrix at the same key; do not
+sum the two, since they count overlapping reads. Each has a
+`…_annotation.tsv.gz` with gene symbol, loci and TE class.
 
 A single MultiQC report pulls together FastQC, TrimGalore!, STAR, RSeQC, the
 TEcounts, TElocal and chimera sections, tool versions, and a per-rule
@@ -87,13 +127,13 @@ resource-usage table.
 
 This README covers getting the pipeline installed and running. Everything
 else — every config key, the CLI, HPC/SLURM setup, and how each stage
-(strandedness, STAR 2-pass, TEcounts/TElocal sample-QC, the two chimera
+(strandedness, STAR 2-pass, TEcounts/TElocal sample-QC, the chimera
 screens) actually works — lives in the
 **[wiki](https://github.com/altintasali/TEtranscripts-pipe/wiki)**:
 
 - **Configuration & running**: [Configuration Reference](https://github.com/altintasali/TEtranscripts-pipe/wiki/Configuration-Reference) · [Command-Line Interface](https://github.com/altintasali/TEtranscripts-pipe/wiki/Command-Line-Interface) · [Running the Pipeline](https://github.com/altintasali/TEtranscripts-pipe/wiki/Running-the-Pipeline) · [HPC and SLURM](https://github.com/altintasali/TEtranscripts-pipe/wiki/HPC-and-SLURM) · [Resource Usage and Reports](https://github.com/altintasali/TEtranscripts-pipe/wiki/Resource-Usage-and-Reports) · [Tool Versions](https://github.com/altintasali/TEtranscripts-pipe/wiki/Tool-Versions)
-- **How each stage works**: [Strandedness and STAR 2-pass](https://github.com/altintasali/TEtranscripts-pipe/wiki/Strandedness-and-STAR-2-pass) · [Automatic Differential Analysis](https://github.com/altintasali/TEtranscripts-pipe/wiki/Automatic-Differential-Analysis) · [TEcounts Sample-QC](https://github.com/altintasali/TEtranscripts-pipe/wiki/TEcounts-Sample-QC) · [TElocal](https://github.com/altintasali/TEtranscripts-pipe/wiki/TElocal) · [Chimera Detection](https://github.com/altintasali/TEtranscripts-pipe/wiki/Chimera-Detection)
-- **Reference**: [Output Layout](https://github.com/altintasali/TEtranscripts-pipe/wiki/Output-Layout)
+- **How each stage works**: [Strandedness and STAR 2-pass](https://github.com/altintasali/TEtranscripts-pipe/wiki/Strandedness-and-STAR-2-pass) · [TEcounts Sample-QC](https://github.com/altintasali/TEtranscripts-pipe/wiki/TEcounts-Sample-QC) · [TElocal](https://github.com/altintasali/TEtranscripts-pipe/wiki/TElocal) · [Chimera Detection](https://github.com/altintasali/TEtranscripts-pipe/wiki/Chimera-Detection)
+- **Reference**: [Output Layout](https://github.com/altintasali/TEtranscripts-pipe/wiki/Output-Layout) · [Chimera Evidence Measurements](docs/chimera-evidence.md) — what has actually been measured about each evidence signal, on what cohort, and what hasn't been tested yet
 
 ## Quick start
 
@@ -194,7 +234,6 @@ reference for both files, see the wiki's
 - Gzipped fastqs are read natively by STAR, so merged/trimmed intermediates stay
   gzipped; gzipped references (`.fa.gz`/`.gtf.gz`) decompress once automatically.
   Mix and match freely.
-- TEtranscripts/DESeq2 needs at least 2 replicates per group in a contrast.
 - STAR indexing and TEtranscripts are memory-hungry (TEtranscripts: ~20-30 GB
   recommended for human data).
 

@@ -153,6 +153,19 @@ properties:
         type: number
         minimum: 0
         maximum: 1
+      balanced_max:
+        type: number
+        minimum: 0
+        maximum: 1
+        description: >-
+          Optional (default 0.55). Below min_fraction, the dominant
+          forward/reverse fraction is checked against this second, lower
+          threshold: under it, the library is called confidently
+          unstranded ("no"); between it and min_fraction, neither
+          confidently stranded nor confidently balanced, so it is reported
+          as "undetermined" (quantification still uses "no" -- the safe
+          choice, since it discards no reads -- but the report flags the
+          ambiguity separately from a genuinely unstranded library).
       check_provided:
         type: boolean
         default: true
@@ -171,9 +184,6 @@ properties:
       mode:
         type: string
         enum: ["multi", "uniq"]
-      padj: {type: number}
-      foldchange: {type: number}
-      minread: {type: integer}
       extra: {type: string}
       qc:
         type: object
@@ -221,7 +231,7 @@ properties:
       classification and QC-view behavior may still change between
       releases.
     properties:
-      reads:
+      chimeric_reads:
         type: object
         additionalProperties: false
         description: >-
@@ -261,12 +271,21 @@ properties:
               Slack (bp) allowed when matching a STAR chimeric breakpoint to an
               exon/TE feature edge (annotation coordinate conventions can shift
               breakpoints by a base or two).
-          require_canonical_junction:
+          require_canonical:
             type: boolean
             description: >-
               Whether to require STAR junction type 1 (GT/AG) for a junction to be
               classified as gene-TE. TE-involved splicing is often non-canonical,
               so the default (false) keeps everything and records the type.
+          max_gene_te_distance:
+            type: integer
+            minimum: 0
+            description: >-
+              Maximum genomic distance (bp) between gene and TE for a
+              chimeric-read event to count toward the gene-TE candidate
+              catalogue (candidates.tsv.gz); trans (different-chromosome)
+              events never count. Events beyond it stay in the screen's own
+              tables. Default 200000.
           qc:
             type: object
             additionalProperties: false
@@ -275,6 +294,19 @@ properties:
               view only* -- they never remove events from all_events.tsv or the
               counts matrix.
             properties:
+              enabled:
+                type: boolean
+                description: >-
+                  Whether to render the PCA + sample-distance-heatmap sample-QC
+                  view for this screen in multiqc_report.html. Default false
+                  (as of 2026 -- these views were previously always rendered
+                  whenever outputs.write_counts_matrix was true, which also
+                  controlled results/chimera/chimeric_reads/counts_matrix.tsv.gz
+                  itself; the two are now independent, so turning sample-QC off
+                  does not stop the counts matrix file from being written).
+                  This same flag also gates chimera.assembly's sample-QC view
+                  (see chimera.assembly's own description -- it has no qc block
+                  of its own and borrows this one, same as before this change).
               min_samples_present:
                 type: integer
                 minimum: 1
@@ -287,7 +319,7 @@ properties:
               pca_transform:
                 type: string
                 enum: ["vst", "rlog", "log2"]
-            required: [min_samples_present, min_total_counts, min_events, pca_transform]
+            required: [enabled, min_samples_present, min_total_counts, min_events, pca_transform]
           outputs:
             type: object
             additionalProperties: false
@@ -307,8 +339,8 @@ properties:
                   real cohort it can embed hundreds of thousands of rows.
                   Default true.
             required: [write_igv_bed, write_counts_matrix, write_candidates_explorer]
-        required: [enabled, star, breakpoint_tolerance, require_canonical_junction,
-                   qc, outputs]
+        required: [enabled, star, breakpoint_tolerance, require_canonical,
+                   max_gene_te_distance, qc, outputs]
       assembly:
         type: object
         additionalProperties: false
@@ -316,15 +348,17 @@ properties:
           Gene-TE chimera detection from StringTie assembly structure
           instead of read-level chimeric junctions -- catches TE-initiated/
           exonized/terminated transcripts spliced via an ordinary,
-          canonical intron, which chimera.reads structurally cannot see.
-          Complements chimera.reads (a candidate found by both is
+          canonical intron, which chimera.chimeric_reads structurally cannot see.
+          Complements chimera.chimeric_reads (a candidate found by both is
           cross-referenced, see results/chimera/assembly/). Uses a
           separate, dedicated STAR alignment pass (--outSAMstrandField
           intronMotif, for StringTie's strand inference on unstranded
           data) -- this suppresses non-canonical-junction reads from that
           one private BAM only; the main alignment used by everything else
           is untouched. Disabled by default: newer and less validated than
-          chimera.reads.
+          chimera.chimeric_reads. This screen's sample-QC view (PCA +
+          sample-distance heatmap) has no qc block of its own -- it is
+          gated by chimera.chimeric_reads.qc.enabled, see that key.
         properties:
           enabled:
             type: boolean
@@ -341,17 +375,24 @@ properties:
               StringTie's assembled exon boundaries (especially the first
               exon's 5' end, which has no upstream junction to anchor it)
               are coverage-inferred and can be imprecise at low depth --
-              worth setting more generous than chimera.reads's default
+              worth setting more generous than chimera.chimeric_reads's default
               for single-end data.
           min_transcript_tpm:
             type: number
             minimum: 0
             description: >-
               Not applied at detection time (candidates are always fully
-              reported, same annotate-first philosophy as chimera.reads)
+              reported, same annotate-first philosophy as chimera.chimeric_reads)
               -- this is the threshold the report/README examples use when
               reading results/chimera/assembly/tpm_matrix.tsv.gz. No rule
               currently filters on it automatically.
+          require_tss_in_te:
+            type: boolean
+            description: >-
+              Require the transcript's own TSS (not just any part of its
+              first exon) to fall inside the TE (+/- breakpoint_tolerance)
+              before calling te_initiated. Default true; set false to
+              restore the looser any-overlap behavior.
           outputs:
             type: object
             additionalProperties: false
@@ -363,7 +404,7 @@ properties:
                   Write a BED track (results/chimera/assembly/igv/
                   candidates.bed) spanning each candidate's TE-overlapping
                   exon, colored by chimera_type, for loading alongside
-                  chimera.reads's own IGV track. Default true.
+                  chimera.chimeric_reads's own IGV track. Default true.
               write_gene_te_chimera_counts:
                 type: boolean
                 description: >-
@@ -375,8 +416,102 @@ properties:
                   (gene_id, te_id) alone. See
                   aggregate_chimera_assembly_counts.py. Default true.
             required: [write_igv_bed, write_gene_te_chimera_counts]
-        required: [enabled, breakpoint_tolerance, min_transcript_tpm, outputs]
-    required: [reads, assembly]
+        required: [enabled, breakpoint_tolerance, min_transcript_tpm,
+                   require_tss_in_te, outputs]
+      splice_junctions:
+        type: object
+        additionalProperties: false
+        description: >-
+          Gene-TE chimera screen from STAR's own splice junctions
+          (SJ.out.tab), a third and independent evidence source alongside
+          reads and assembly: it catches the same blind spot as assembly (a
+          TE splicing into a gene through an ordinary, canonical intron
+          never reaches the reads screen) but at the individual
+          read-junction level, needing no StringTie assembly and no extra
+          STAR pass. ON by default -- it only reads the SJ.out.tab files
+          the main alignment already writes; its agreement with the other
+          screens has not been measured against a chance rate (see
+          docs/chimera-evidence.md).
+        properties:
+          enabled:
+            type: boolean
+            description: Default true.
+          breakpoint_tolerance:
+            type: integer
+            minimum: 0
+          min_unique_reads:
+            type: integer
+            minimum: 0
+            description: >-
+              Minimum STAR-reported unique-read support (SJ.out.tab column
+              7) for a junction to be classified at all. Default 1 (no
+              filtering).
+          require_canonical:
+            type: boolean
+            description: >-
+              Require a canonical splice motif (SJ.out.tab column 5 != 0).
+              Default true -- opposite of chimera.chimeric_reads.
+              require_canonical -- since this screen's strand call
+              on unstranded data depends on STAR's own motif-based
+              inference, which only exists for canonical junctions.
+          qc:
+            type: object
+            additionalProperties: false
+            description: >-
+              Filters applied to the SJ-junction count matrix *for the
+              PCA/clustering view only* -- they never remove events from
+              all_events.tsv or the counts matrix.
+            properties:
+              enabled:
+                type: boolean
+                description: >-
+                  Whether to render the PCA + sample-distance-heatmap
+                  sample-QC view for this screen in multiqc_report.html.
+                  Default false (as of 2026 -- see
+                  chimera.chimeric_reads.qc.enabled's description for why:
+                  same change, applied identically to this screen).
+              min_samples_present:
+                type: integer
+                minimum: 1
+              min_total_counts:
+                type: integer
+                minimum: 1
+              min_events:
+                type: integer
+                minimum: 1
+              pca_transform:
+                type: string
+                enum: ["vst", "rlog", "log2"]
+            required: [enabled, min_samples_present, min_total_counts, min_events, pca_transform]
+          outputs:
+            type: object
+            additionalProperties: false
+            description: Which SJ-junction-screen artifacts to write.
+            properties:
+              write_igv_bed:
+                type: boolean
+                description: >-
+                  Write a per-sample BED track (results/chimera/
+                  splice_junctions/igv/{sample}_junctions.bed), one row per
+                  gene-TE junction, mirroring chimera.chimeric_reads's own
+                  track so the two screens load side by side in IGV.
+                  Default true.
+              write_counts_matrix:
+                type: boolean
+              write_gene_te_chimera_counts:
+                type: boolean
+                description: >-
+                  Write results/chimera/splice_junctions/
+                  gene_te_chimera_counts_matrix.tsv.gz: counts_matrix.tsv.gz
+                  (junction x sample) summed to one row per (gene_id, te_id,
+                  chimera_type), keyed like the assembly screen's matrix.
+                  Needs write_counts_matrix. See
+                  aggregate_chimera_splice_junctions_counts.py. Default true.
+            required: [write_igv_bed, write_counts_matrix,
+                       write_gene_te_chimera_counts]
+        required: [enabled, breakpoint_tolerance, min_unique_reads,
+                   require_canonical, qc, outputs]
+    required: [chimeric_reads, assembly, splice_junctions]
 
   telocal:
     type: object
@@ -517,6 +652,22 @@ properties:
           false deletes it once quantification is done, saving disk at the
           cost of re-building on the next run. Never applies to a
           user-provided telocal.locind path.
+      keep_assembly_bam:
+        type: boolean
+        description: >-
+          Keep chimera.assembly's own dedicated per-sample STAR alignment
+          (results/chimera/assembly/per_sample/star/) after
+          stringtie_assemble/stringtie_requantify are done with it. This is
+          a SEPARATE alignment from the main results/star/ BAM everything
+          else uses (see chimera.assembly's own description for why one
+          screen needs its own STAR pass) -- effectively a second full
+          alignment per sample when chimera.assembly is enabled, so keeping
+          it is a real, deliberate disk cost. true (default) also indexes it
+          (.bam.bai) for IGV inspection; false marks both the BAM and its
+          index as Snakemake temp() outputs, deleted once nothing needs them
+          any more, at the cost of a full re-alignment if you need to
+          inspect it later. Only meaningful while chimera.assembly.enabled
+          is true.
 
 required:
   - samples

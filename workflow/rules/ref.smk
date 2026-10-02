@@ -102,6 +102,9 @@ rule gene_name_lookup:
     # Pure-python, so it runs in the base environment.
     input:
         gtf=GTF,
+        # Declared so that EDITING the script re-runs the rule (guard 65):
+        # Snakemake does not reliably treat a script's content as rule code.
+        script=f"{SCRIPTS_DIR}/gene_name_lookup.py",
     output:
         "results/reference/gene_id_to_name.tsv.gz",
     threads: get_resources("gene_name_lookup")["threads"]
@@ -185,14 +188,15 @@ rule genepred_to_bed12:
         "genePredToBed {input.genepred} {output.bed12} > {log} 2>&1"
 
 
-if CHIMERA_READS_ENABLED or CHIMERA_ASSEMBLY_ENABLED:
+if CHIMERA_CHIMERIC_READS_ENABLED or CHIMERA_ASSEMBLY_ENABLED or CHIMERA_SPLICE_JUNCTIONS_ENABLED:
 
     rule annotation_to_bed:
         # Converts the gene GTF + the curated TE GTF into the BED tracks
         # both chimera screens' breakpoint/exon-overlap tests run against
-        # (genes.bed, exons.bed, te.bed) -- shared by chimera_reads.smk
-        # and chimera_assembly.smk, so it lives here (built whenever either
-        # is enabled) rather than in either one specifically.
+        # (genes.bed, exons.bed, first_exons.bed, te.bed) -- shared by
+        # chimera_chimeric_reads.smk and chimera_assembly.smk, so it lives here
+        # (built whenever either is enabled) rather than in either one
+        # specifically.
         # Pure-python (annotation_to_bed.py), so it runs in the base
         # environment.
         input:
@@ -201,11 +205,16 @@ if CHIMERA_READS_ENABLED or CHIMERA_ASSEMBLY_ENABLED:
             # not the file it names, so without this an edit to the
             # script leaves stale outputs in place silently.
             script=f"{SCRIPTS_DIR}/annotation_to_bed.py",
-            gtf=GTF,
-            te_gtf=TE_GTF,
+            # local modules the script imports -- editing them must re-run this
+            gz_io=f"{SCRIPTS_DIR}/gz_io.py",
+            # the configured files (.gz or not), never the temp()-wrapped
+            # decompressed copies -- see GTF_SOURCE in common/refs.smk
+            gtf=GTF_SOURCE,
+            te_gtf=TE_GTF_SOURCE,
         output:
             genes="results/reference/genes.bed",
             exons="results/reference/exons.bed",
+            first_exons="results/reference/first_exons.bed",
             te="results/reference/te.bed",
         params:
             outdir="results/reference",
@@ -221,3 +230,34 @@ if CHIMERA_READS_ENABLED or CHIMERA_ASSEMBLY_ENABLED:
             "python3 {input.script} "
             "--gtf {input.gtf} --te-gtf {input.te_gtf} "
             "--outdir {params.outdir} > {log} 2>&1"
+
+    rule annotation_splice_features:
+        # Annotated introns + per-transcript last exons of the gene GTF, so
+        # the classifiers can tell KNOWN gene structure from new gene-TE
+        # chimeras: SJ junctions that are annotated introns become
+        # annotated_splice, assembly last exons that are annotated last
+        # exons become annotated_terminal_exon_embedded_te. A separate rule
+        # from annotation_to_bed on purpose -- changing that one would
+        # rewrite genes.bed/exons.bed/te.bed and re-run everything on them.
+        input:
+            script=f"{SCRIPTS_DIR}/annotation_splice_features.py",
+            # local modules the script imports -- editing them must re-run this
+            gz_io=f"{SCRIPTS_DIR}/gz_io.py",
+            # imports parse_attrs from it
+            helper=f"{SCRIPTS_DIR}/annotation_to_bed.py",
+            gtf=GTF_SOURCE,  # see GTF_SOURCE in common/refs.smk
+        output:
+            introns="results/reference/annotated_introns.tsv.gz",
+            last_exons="results/reference/last_exons.bed",
+        threads: get_resources("annotation_splice_features")["threads"]
+        resources:
+            mem_mb=get_resources("annotation_splice_features")["mem_mb"],
+            runtime=get_resources("annotation_splice_features")["runtime"],
+        benchmark:
+            "results/pipeline_info/benchmarks/annotation_splice_features/annotation_splice_features.txt",
+        log:
+            "results/pipeline_info/logs/reference/annotation_splice_features.log",
+        shell:
+            "python3 {input.script} --gtf {input.gtf} "
+            "--out-introns {output.introns} --out-last-exons {output.last_exons} "
+            "> {log} 2>&1"

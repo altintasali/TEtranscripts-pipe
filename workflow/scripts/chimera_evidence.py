@@ -20,52 +20,171 @@ This table reports evidence.  It does NOT score or rank candidates, and it
 does not decide which are real -- that is a manual call, made against these
 columns.  An earlier version carried a four-tier confidence ladder; it was
 removed because no experiment here established the relative weight of its
-rungs, and the pipeline's own measurements contradicted its top rung (see
-chimera_evidence_heatmap.py: cross-screen agreement sits near its chance
-rate).
+rungs, and an early project measurement contradicted its top rung (see
+chimera_evidence_guide_mqc.py's "Screens / Found by" row, and
+docs/chimera-evidence.md for the measurement itself, its cohort and its
+restrictions).
 
-Two columns summarise what was observed, both deliberately unweighted:
+Six columns summarise what was observed, all deliberately unweighted, in
+three pairs -- which screens found it / how many, what SCREEN-BOUND quality
+signal each of those screens gave it / how many, and what CROSS-CUTTING
+corroboration exists / how many:
 
-  evidence    the set of evidence types present, comma-joined ("." if none).
-              Unordered and unweighted -- the flags are names, not points:
+  found_by          which of the three independent screens (cr / assembly /
+                     sj) contributed a row for this pair, "+"-joined (e.g.
+                     "cr+sj"). Not itself weighted or ordered.
 
-                canonical              a recognised splice motif on at least
-                                       one junction
-                multi_sample           seen in more than one sample
-                both_screens           called by BOTH screens
-                assembly_strand_match  the assembled transcript's strand
-                                       agrees with the gene's
-                telocal_expressed      TElocal reports the TE locus as
-                                       expressed (unresolved signal -- see
-                                       below)
+  n_screens         how many of those three screens found the pair (1-3). A
+                     plain count derived from found_by -- NOT summed into
+                     either count below. It used to be (see git history):
+                     two flags, both_screens and all_three_screens,
+                     duplicated this same found-by-N-screens fact and were
+                     counted a second time, so a pair found by all 3 screens
+                     got +2 just from that overlap on top of everything
+                     else. n_screens replaces both, without double-counting.
 
-  n_evidence  how many of those flags are set.  A COUNT OF EVIDENCE TYPES,
-              NOT A CONFIDENCE SCORE.  It weights every flag equally for the
-              specific reason that no weighting has been validated here.  The
-              file is sorted by it only so the order is deterministic and the
-              densely-evidenced rows are easy to find; it is not a claim that
-              those rows are correct.
+  screen_evidence    quality signals tied to a SPECIFIC screen, comma-joined
+                     ("." if none) -- each one can only be set if that
+                     screen's own rows are present for this pair, so this
+                     set is always a subset of what found_by names:
 
-              Known bias, stated because the number invites over-reading:
-              n_evidence structurally favours pairs the assembly screen found,
-              since both_screens and assembly_strand_match are unreachable
-              without assembly support.  It is a tally of what was observed,
-              not a comparison of candidates.
+                       cr_canonical           a recognised splice motif on
+                                              at least one chimeric-junction
+                                              read (cr screen)
+                       sj_canonical           a recognised splice motif on
+                                              at least one SJ.out.tab
+                                              junction (sj screen) -- kept
+                                              separate from cr_canonical:
+                                              structurally independent
+                                              measurements
+                       assembly_strand_match  the assembled transcript's
+                                              strand agrees with the gene's
+                                              (assembly screen)
 
-Read depth (junction_reads / junction_events) is deliberately NOT an
-evidence flag, because it looks like support and is not: the metric most
-inflated by artifacts -- a hot PCR chimera is often the deepest event in a
-run. It is still reported as a column.
+  n_screen_evidence  how many of those three are set (0-3). Because each one
+                     requires its own screen to have found the pair,
+                     n_screen_evidence <= n_screens ALWAYS holds -- unlike
+                     corroboration below, this count really is bounded by
+                     how many screens fired.
+
+                     Residual bias, stated because the number invites
+                     over-reading: n_screen_evidence still favours pairs the
+                     assembly screen found, since assembly_strand_match is
+                     unreachable without assembly support. It is a tally of
+                     what was observed, not a comparison of candidates.
+
+  corroboration      signals that do NOT belong to any one screen,
+                     comma-joined ("." if none) -- unlike screen_evidence,
+                     these can be present even for a pair found by only one
+                     screen, which is exactly why they are kept in a
+                     separate column rather than folded into the same
+                     count as the screen-bound flags above:
+
+                       multi_sample        seen in more than one sample --
+                                           can fire from a SINGLE screen
+                                           alone, no second screen required
+                       telocal_expressed   TElocal reports the TE locus as
+                                           expressed (unresolved signal --
+                                           see below) -- from TElocal, a
+                                           FOURTH data source that is not
+                                           one of the three detection
+                                           screens at all
+
+  n_corroboration    how many of those two are set (0-2). Deliberately NOT
+                     comparable to n_screens or n_screen_evidence -- a pair
+                     found by exactly one screen can still reach
+                     n_corroboration == 2.
+
+Neither count is a confidence score. Both weight every flag inside them
+equally, for the specific reason that no weighting has been validated here.
+The file is sorted by (n_screens, n_screen_evidence, n_corroboration), all
+descending, only so the order is deterministic and the densely-evidenced
+rows are easy to find; it is not a claim that those rows are correct.
+
+Read depth (cr_reads / cr_events) is deliberately NOT a
+flag in either count, because it looks like support and is not: the metric
+most inflated by artifacts -- a hot PCR chimera is often the deepest event
+in a run. It is still reported as a column.
+
+Chimeric-read events count toward a pair only when LOCAL: same
+chromosome and gene_te_distance <= --cr-max-distance (config
+chimera.chimeric_reads.max_gene_te_distance, default 200 kb). On a real run
+97.5% of chimeric-read gene<->TE events were trans or farther -- the
+random-partner pattern of template switching / chimeric ligation, not a TE
+driving that gene -- and they turned tens of thousands of such pairs into
+"candidates". They are skipped here and stay in the chimeric-reads screen's
+own event tables.
+
+Where the TE sits relative to its gene, from the annotation alone (--genes /
+--exons / --te; all three columns are "." when those are not given or a
+pair's gene/TE is missing from them). Reported for every pair, never
+counted:
+
+  te_position          upstream / downstream (strand-aware: 5' / 3' of the
+                       gene span), intronic (inside the span, no exon of
+                       that gene overlapped) or exonic; "trans" only for a
+                       TE on another chromosome, which the chimeric-read
+                       distance filter above already keeps out.
+  te_gene_distance_bp  gap between the TE and the gene span, 0 when the TE
+                       overlaps it. Replaces the older cr_gene_te_distance,
+                       which was the same number set only for pairs the
+                       chimeric-reads screen found.
+  te_orientation       sense / antisense: the TE's annotated strand vs the
+                       gene's, so it needs no stranded library. Only
+                       readable together with te_position -- each position
+                       has its own background orientation mix.
+
+SJ mapping quality, from the pair's SJ chimera calls only ("." when the SJ
+screen did not call it). Reads from young TE families map to many copies, and
+spurious junctions arise there. Signals, never filters or scores:
+
+  sj_unique_fraction   STAR's unique reads / (unique + multi-mapping reads)
+                       across the calls' junctions and samples
+  sj_max_overhang      the longest anchor (bp) on either side of any of the
+                       calls' junctions, in any sample
+
+For a TE in an assembled transcript's LAST exon, from the pair's assembly
+calls:
+
+  assembly_te_acceptor_distance_bp
+                       how far the TE sits from that exon's splice acceptor
+                       (0 = the TE takes the splice), the smallest over the
+                       pair's last-exon calls; "." when no call has the TE
+                       in a last exon (te_acceptor_distance_bp in
+                       classify_chimera_assembly.py)
+
+The chimeric-reads counterpart, from the pair's CR chimera calls only:
+
+  cr_max_anchor        the best read's shorter segment (aligned bp), across
+                       the calls' events and samples (max_anchor in
+                       classify_chimera_chimeric_reads.py)
+
+Every typed gene-TE chimera counts: a screen counts toward found_by /
+n_screens when it called the pair any type in CHIMERA_CALL_TYPES
+(chimera_exon_context.py), in three kinds -- novel (te_initiated /
+te_terminated / te_exonized), annotated (a TE-driven transcript the
+reference annotation already has: annotated_promoter_embedded_te /
+annotated_terminal_exon_embedded_te / annotated_splice) and antisense
+(antisense_to_gene: the TE joined to the gene's exon on the opposite
+strand). A pair with no typed call at all (untyped chimeric-read events) is
+left out of this file (logged), like far chimeric-read pairs.
+
+  chimera_status   which kinds support the pair, "+"-joined in the fixed
+                   order novel, annotated, antisense (e.g. "novel",
+                   "annotated", "novel+annotated"). Known and antisense
+                   chimeras stay findable without being mistaken for new
+                   ones. The per-screen columns sum every kind, so for a
+                   mixed pair this says which kinds the reads came from.
+                   The chimeric-reads screen can only call antisense with a
+                   stranded library.
 
 TElocal expression of the TE locus (telocal_expressed) IS counted, but its
-standing is unresolved, not confirmed. Measured on a real 4-sample mouse
-run it looked like the opposite of support: 91% of junction-side pairs had
-an expressed locus, so it discriminated nothing, and the canonical rate was
-LOWER where the TE was expressed (6.7% at telocal_count > 10 vs 10.2% at
-<= 10, n = 19,503 events) -- mechanistically unsurprising (a highly
-expressed locus yields more reads and so more chances for template
-switching), but not evidence of a real chimera either. One small run isn't
-enough to demote a signal on, so it stays a flag until that correlation is
+standing is not validated, not confirmed. An early project measurement
+(see docs/chimera-evidence.md) looked like the opposite of support rather
+than for it -- mechanistically unsurprising either way (a highly expressed
+locus yields more reads and so more chances for template switching, but
+also more chances to actually observe a real chimera), and not enough on
+its own to demote a signal, so it stays a flag until that correlation is
 tested properly across more data; see chimera_evidence_guide_mqc.py for the
 report-facing version of this caveat. telocal_count/telocal_active are
 always reported regardless of the flag.
@@ -79,6 +198,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from chimera_exon_context import CALL_KINDS, CHIMERA_CALL_TYPES, call_kind
 from gz_io import open_read, open_write
 
 
@@ -99,43 +219,126 @@ def _int(value):
         return 0
 
 
+def load_bed_loci(path, ids):
+    """{name: (chrom, start, end, strand)} for the BED rows whose name
+    (column 4) is in ids -- streams the file, so a 3.7M-row te.bed costs
+    only the pairs' own rows in memory."""
+    loci = {}
+    with open_read(path) as fh:
+        for line in fh:
+            f = line.rstrip("\n").split("\t")
+            if len(f) >= 6 and f[3] in ids:
+                loci[f[3]] = (f[0], int(f[1]), int(f[2]), f[5])
+    return loci
+
+
+def load_gene_exons(path, gene_ids):
+    """{gene_id: [(start, end), ...]} from exons.bed, for gene_ids only."""
+    exons = {}
+    with open_read(path) as fh:
+        for line in fh:
+            f = line.rstrip("\n").split("\t")
+            if len(f) >= 4 and f[3] in gene_ids:
+                exons.setdefault(f[3], []).append((int(f[1]), int(f[2])))
+    return exons
+
+
+def te_vs_gene(gene, te, gene_exons):
+    """(te_position, te_gene_distance_bp, te_orientation) of a TE locus
+    relative to a gene locus, both (chrom, start, end, strand) with BED
+    half-open coordinates. See the module docstring."""
+    gchrom, gs, ge, gstrand = gene
+    tchrom, ts, te_end, tstrand = te
+    if gchrom != tchrom:
+        return "trans", ".", "."
+    orientation = "."
+    if gstrand in ("+", "-") and tstrand in ("+", "-"):
+        orientation = "sense" if gstrand == tstrand else "antisense"
+    if te_end <= gs or ts >= ge:
+        left = te_end <= gs
+        dist = gs - te_end if left else ts - ge
+        if gstrand not in ("+", "-"):
+            return ".", dist, orientation
+        upstream = left if gstrand == "+" else not left
+        return ("upstream" if upstream else "downstream"), dist, orientation
+    exonic = any(ts < e and te_end > s for s, e in gene_exons)
+    return ("exonic" if exonic else "intronic"), 0, orientation
+
+
 OUT_COLUMNS = [
     "gene_id", "te_id", "te_subfamily", "te_family", "te_class",
-    "found_by", "evidence", "n_evidence",
-    "junction_events", "junction_reads", "junction_max_samples",
-    "junction_canonical", "junction_chimera_types",
+    "te_position", "te_gene_distance_bp", "te_orientation",
+    "found_by", "n_screens", "chimera_status",
+    "screen_evidence", "n_screen_evidence",
+    "corroboration", "n_corroboration",
+    "cr_events", "cr_reads", "cr_max_samples",
+    "cr_canonical", "cr_chimera_types", "cr_max_anchor",
     "telocal_active", "telocal_count", "telocal_locus",
     "assembly_transcripts", "assembly_chimera_types",
-    "assembly_strand_match", "assembly_transcript_ids",
+    "assembly_strand_match", "assembly_te_acceptor_distance_bp",
+    "assembly_transcript_ids",
+    "sj_events", "sj_reads", "sj_max_samples",
+    "sj_canonical", "sj_chimera_types",
+    "sj_unique_fraction", "sj_max_overhang",
 ]
 
 
 def _blank():
     return {
         "te_subfamily": ".", "te_family": ".", "te_class": ".",
-        "junction_events": 0, "junction_reads": 0, "junction_max_samples": 0,
-        "junction_canonical": "no", "junction_types": set(),
+        "cr_events": 0, "cr_reads": 0, "cr_max_samples": 0,
+        "cr_canonical": "no", "junction_types": set(), "cr_max_anchor": None,
         "telocal_active": ".", "telocal_count": 0, "telocal_locus": ".",
         "assembly_transcripts": 0, "assembly_types": set(),
         "assembly_strand_match": ".", "assembly_tids": [],
+        "assembly_acceptor_distance": None,
+        "sj_events": 0, "sj_reads": 0, "sj_max_samples": 0,
+        "sj_canonical": "no", "sj_types": set(),
+        "kinds": set(),
+        "sj_multi_reads": 0, "sj_max_overhang": 0,
     }
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--junction", required=True,
-                    help="results/chimera/reads/te-gene-chimeras.tsv.gz")
+                    help="results/chimera/chimeric_reads/te-gene-chimeras.tsv.gz")
     ap.add_argument("--assembly", default=None,
                     help="results/chimera/assembly/transcripts.tsv.gz "
                          "(omit when the assembly screen is disabled)")
+    ap.add_argument("--sj", default=None,
+                    help="results/chimera/splice_junctions/te-gene-junctions.tsv.gz "
+                         "(omit when the SJ.out.tab screen is disabled)")
+    ap.add_argument(
+        "--cr-max-distance", type=int, default=200_000,
+        help="config chimera.chimeric_reads.max_gene_te_distance: a "
+        "chimeric-read event counts toward a pair only when its "
+        "gene_te_distance is <= this (bp); 'trans' never counts. Rows "
+        "without the column (older tables) are kept.",
+    )
+    ap.add_argument("--genes", default=None,
+                    help="results/reference/genes.bed (with --exons and --te: "
+                         "te_position / te_gene_distance_bp / te_orientation)")
+    ap.add_argument("--exons", default=None, help="results/reference/exons.bed")
+    ap.add_argument("--te", default=None, help="results/reference/te.bed")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
     pairs = {}
 
+    n_cr_far = 0
     for r in load(args.junction):
         gene, te = r.get("gene_id", "."), r.get("te_id", ".")
         if gene in (".", "") or te in (".", ""):
+            continue
+        # Local events only: a gene joined to a TE on another chromosome or
+        # far away is the random-partner pattern of template switching /
+        # chimeric ligation, not a TE driving that gene (97.5% of events on
+        # a real run). They stay in the chimeric-reads screen's own tables.
+        dist = r.get("gene_te_distance", ".")
+        if dist == "trans" or (dist not in (".", "")
+                               and _int(dist) > args.cr_max_distance):
+            n_cr_far += 1
             continue
         p = pairs.setdefault((gene, te), _blank())
         # Annotation is per-insertion, so every row for a pair agrees; take
@@ -143,15 +346,25 @@ def main():
         for col in ("te_subfamily", "te_family", "te_class"):
             if p[col] == "." and r.get(col, ".") != ".":
                 p[col] = r[col]
-        p["junction_events"] += 1
-        p["junction_reads"] += _int(r.get("total_reads"))
-        p["junction_max_samples"] = max(
-            p["junction_max_samples"], _int(r.get("n_samples"))
+        ctype = r.get("chimera_type", ".")
+        if ctype != ".":
+            p["junction_types"].add(ctype)
+        # Every typed chimera (novel, annotated, antisense) counts as this
+        # screen's evidence for the pair; an untyped event adds nothing.
+        if ctype not in CHIMERA_CALL_TYPES:
+            continue
+        p["kinds"].add(call_kind(ctype))
+        p["cr_events"] += 1
+        p["cr_reads"] += _int(r.get("total_reads"))
+        p["cr_max_samples"] = max(
+            p["cr_max_samples"], _int(r.get("n_samples"))
         )
         if r.get("canonical") == "yes":
-            p["junction_canonical"] = "yes"
-        if r.get("chimera_type", ".") != ".":
-            p["junction_types"].add(r["chimera_type"])
+            p["cr_canonical"] = "yes"
+        # best read anchor of any call event ("." for older tables)
+        if r.get("max_anchor", ".") not in (".", ""):
+            p["cr_max_anchor"] = max(p["cr_max_anchor"] or 0,
+                                     _int(r["max_anchor"]))
         # "yes" for the pair if ANY event's TE locus is called expressed;
         # stays "." (not "no") when telocal never ran, so an absent check is
         # distinguishable from a negative one.
@@ -191,55 +404,160 @@ def main():
             for col in ("te_subfamily", "te_family", "te_class"):
                 if p[col] == "." and r.get(col, ".") != ".":
                     p[col] = r[col]
+            ctype = r.get("chimera_type", ".")
+            if ctype != ".":
+                p["assembly_types"].add(ctype)
+            # untyped: listed, not counted (see CR above)
+            if ctype not in CHIMERA_CALL_TYPES:
+                continue
+            p["kinds"].add(call_kind(ctype))
             p["assembly_transcripts"] += 1
-            if r.get("chimera_type", ".") != ".":
-                p["assembly_types"].add(r["chimera_type"])
             if r.get("strand_match") == "yes":
                 p["assembly_strand_match"] = "yes"
             elif p["assembly_strand_match"] == ".":
                 p["assembly_strand_match"] = r.get("strand_match", ".")
             p["assembly_tids"].append(r.get("transcript_id", "."))
+            dist = r.get("te_acceptor_distance_bp", ".")
+            if dist not in (".", ""):
+                cur = p["assembly_acceptor_distance"]
+                p["assembly_acceptor_distance"] = (
+                    int(dist) if cur is None else min(cur, int(dist)))
+
+    if args.sj:
+        for r in load(args.sj):
+            gene, te = r.get("gene_id", "."), r.get("te_id", ".")
+            if gene in (".", "") or te in (".", ""):
+                continue
+            p = pairs.setdefault((gene, te), _blank())
+            for col in ("te_subfamily", "te_family", "te_class"):
+                if p[col] == "." and r.get(col, ".") != ".":
+                    p[col] = r[col]
+            ctype = r.get("chimera_type", ".")
+            if ctype != ".":
+                p["sj_types"].add(ctype)
+            # untyped: listed, not counted (see CR above). An annotated
+            # splice into a TE-derived exon counts, as kind "annotated"
+            if ctype not in CHIMERA_CALL_TYPES:
+                continue
+            p["kinds"].add(call_kind(ctype))
+            p["sj_events"] += 1
+            p["sj_reads"] += _int(r.get("total_reads"))
+            # mapping quality, from the calls only: multi-mapping reads
+            # (summed across samples by chimera_splice_junctions_counts.py)
+            # and the longest anchor any sample saw
+            p["sj_multi_reads"] += _int(r.get("multi_reads"))
+            p["sj_max_overhang"] = max(p["sj_max_overhang"],
+                                       _int(r.get("overhang")))
+            p["sj_max_samples"] = max(
+                p["sj_max_samples"], _int(r.get("n_samples"))
+            )
+            if r.get("canonical") == "yes":
+                p["sj_canonical"] = "yes"
+
+    # cr_events / assembly_transcripts / sj_events count chimera CALLS only
+    # (see above), so a screen whose only calls for a pair are known
+    # structure or antisense does not count as having found it -- and a pair
+    # no screen calls a chimera is not a candidate at all.
+    kept = {k: p for k, p in pairs.items()
+            if p["cr_events"] or p["assembly_transcripts"] or p["sj_events"]}
+    n_no_call = len(pairs) - len(kept)
+
+    gene_loci, te_loci, gene_exons = {}, {}, {}
+    if args.genes and args.exons and args.te:
+        gene_ids = {g for g, _ in kept}
+        gene_loci = load_bed_loci(args.genes, gene_ids)
+        gene_exons = load_gene_exons(args.exons, gene_ids)
+        te_loci = load_bed_loci(args.te, {t for _, t in kept})
 
     rows = []
-    for (gene, te), p in pairs.items():
-        in_junction = p["junction_events"] > 0
+    for (gene, te), p in kept.items():
+        if gene in gene_loci and te in te_loci:
+            te_position, te_dist, te_orientation = te_vs_gene(
+                gene_loci[gene], te_loci[te], gene_exons.get(gene, ()))
+        else:
+            te_position, te_dist, te_orientation = ".", ".", "."
+        in_junction = p["cr_events"] > 0
         in_assembly = p["assembly_transcripts"] > 0
-        found_by = (
-            "both" if in_junction and in_assembly
-            else "reads" if in_junction
-            else "assembly"
-        )
+        in_sj = p["sj_events"] > 0
+        sources = []
+        if in_junction:
+            sources.append("cr")
+        if in_assembly:
+            sources.append("assembly")
+        if in_sj:
+            sources.append("sj")
+        # "+"-joined screen tags, matching the same abbreviations used in
+        # the evidence flags (cr_canonical / sj_canonical). No special-cased
+        # word for any one combination: an earlier version wrote "both" for
+        # exactly {reads, assembly} (back when those were the only two
+        # screens), but keeping one particular combination as a word while
+        # every other combination is "+"-joined was its own inconsistency
+        # once a third screen (sj) existed -- and "both" doesn't even parse
+        # once the reads screen's tag is "cr" instead of "reads".
+        found_by = "+".join(sources)
+        # How many of the three screens found this pair -- NOT summed into
+        # n_evidence below (see the module docstring: this replaces the old
+        # both_screens/all_three_screens flags, which duplicated this same
+        # fact and got double-counted).
+        n_screens = int(in_junction) + int(in_assembly) + int(in_sj)
         # Names, not points. Order here is presentational only -- nothing
         # downstream may treat position in this list as a weight.
-        flags = []
-        if p["junction_canonical"] == "yes":
-            flags.append("canonical")
-        if p["junction_max_samples"] > 1:
-            flags.append("multi_sample")
-        if found_by == "both":
-            flags.append("both_screens")
+        #
+        # Split into two independent counts because they answer different
+        # questions and are NOT nested: screen_evidence flags can only fire
+        # if their own screen found the pair (so n_screen_evidence <=
+        # n_screens always), but corroboration flags can fire regardless of
+        # how many screens found it -- folding them into one count made
+        # n_evidence look like it should relate to n_screens when it
+        # structurally could not (a single-screen pair could still out-count
+        # a three-screen one).
+        screen_evidence = []
+        if p["cr_canonical"] == "yes":
+            screen_evidence.append("cr_canonical")
+        # Kept separate from "cr_canonical" (reads-screen junction type)
+        # rather than merged: they are two structurally independent
+        # measurements (STAR chimeric-junction typing vs. STAR SJ.out.tab
+        # motif), and folding them into one flag would hide which one
+        # actually fired -- against this file's own reason for having a
+        # "source" column at all.
+        if p["sj_canonical"] == "yes":
+            screen_evidence.append("sj_canonical")
         if p["assembly_strand_match"] == "yes":
-            flags.append("assembly_strand_match")
-        # TElocal expression COUNTS as evidence, deliberately. One 4-sample
-        # run suggested it discriminates nothing (see the evidence guide), but
-        # a single small experiment is not enough to demote a signal: the
-        # correlation between junction-side pairs and locus expression has not
-        # been tested properly yet. It stays a flag until it has been.
+            screen_evidence.append("assembly_strand_match")
+
+        corroboration = []
+        if max(p["cr_max_samples"], p["sj_max_samples"]) > 1:
+            corroboration.append("multi_sample")
+        # TElocal expression COUNTS as corroboration, deliberately. One
+        # 4-sample run suggested it discriminates nothing (see the evidence
+        # guide), but a single small experiment is not enough to demote a
+        # signal: the correlation between junction-side pairs and locus
+        # expression has not been tested properly yet. It stays a flag
+        # until it has been.
         if p["telocal_active"] == "yes":
-            flags.append("telocal_expressed")
+            corroboration.append("telocal_expressed")
 
         rows.append({
             "gene_id": gene, "te_id": te,
             "te_subfamily": p["te_subfamily"], "te_family": p["te_family"],
             "te_class": p["te_class"],
+            "te_position": te_position,
+            "te_gene_distance_bp": te_dist,
+            "te_orientation": te_orientation,
             "found_by": found_by,
-            "evidence": ",".join(flags) or ".",
-            "n_evidence": len(flags),
-            "junction_events": p["junction_events"],
-            "junction_reads": p["junction_reads"],
-            "junction_max_samples": p["junction_max_samples"],
-            "junction_canonical": p["junction_canonical"],
-            "junction_chimera_types": ",".join(sorted(p["junction_types"])) or ".",
+            "n_screens": n_screens,
+            "chimera_status": "+".join(k for k in CALL_KINDS if k in p["kinds"]),
+            "screen_evidence": ",".join(screen_evidence) or ".",
+            "n_screen_evidence": len(screen_evidence),
+            "corroboration": ",".join(corroboration) or ".",
+            "n_corroboration": len(corroboration),
+            "cr_events": p["cr_events"],
+            "cr_reads": p["cr_reads"],
+            "cr_max_samples": p["cr_max_samples"],
+            "cr_canonical": p["cr_canonical"],
+            "cr_chimera_types": ",".join(sorted(p["junction_types"])) or ".",
+            "cr_max_anchor": (p["cr_max_anchor"]
+                              if p["cr_max_anchor"] is not None else "."),
             "telocal_active": p["telocal_active"],
             # "." rather than 0 when TElocal never ran, so "not measured" stays
             # distinguishable from "measured, no reads" -- the same distinction
@@ -250,14 +568,30 @@ def main():
             "assembly_transcripts": p["assembly_transcripts"],
             "assembly_chimera_types": ",".join(sorted(p["assembly_types"])) or ".",
             "assembly_strand_match": p["assembly_strand_match"],
+            "assembly_te_acceptor_distance_bp": (
+                "." if p["assembly_acceptor_distance"] is None
+                else p["assembly_acceptor_distance"]),
             "assembly_transcript_ids": ",".join(p["assembly_tids"]) or ".",
+            "sj_events": p["sj_events"],
+            "sj_reads": p["sj_reads"],
+            "sj_max_samples": p["sj_max_samples"],
+            "sj_canonical": p["sj_canonical"],
+            "sj_chimera_types": ",".join(sorted(p["sj_types"])) or ".",
+            "sj_unique_fraction": (
+                f"{p['sj_reads'] / (p['sj_reads'] + p['sj_multi_reads']):.3f}"
+                if p["sj_reads"] + p["sj_multi_reads"] > 0 else "."),
+            "sj_max_overhang": p["sj_max_overhang"] if in_sj else ".",
         })
 
-    # Deterministic order: densest evidence first, then alphabetical. This is
-    # a sort, not a verdict -- n_evidence counts flags without weighting them,
-    # and gene/te break ties so two runs of the same data produce byte-identical
-    # files. Nothing here says a high-n_evidence pair is real.
-    rows.sort(key=lambda r: (-r["n_evidence"], r["gene_id"], r["te_id"]))
+    # Deterministic order: most screens first, then densest screen-bound
+    # evidence, then most corroboration, then alphabetical. This is a sort,
+    # not a verdict -- each count is flags without weighting them, and
+    # gene/te break ties so two runs of the same data produce byte-identical
+    # files. Nothing here says a row sorted first is real.
+    rows.sort(key=lambda r: (
+        -r["n_screens"], -r["n_screen_evidence"], -r["n_corroboration"],
+        r["gene_id"], r["te_id"],
+    ))
 
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
     with open_write(args.out) as fh:
@@ -267,7 +601,7 @@ def main():
 
     composition = {}
     for r in rows:
-        for flag in r["evidence"].split(","):
+        for flag in r["screen_evidence"].split(",") + r["corroboration"].split(","):
             if flag != ".":
                 composition[flag] = composition.get(flag, 0) + 1
     summary = ", ".join(
@@ -275,6 +609,11 @@ def main():
     )
     print(f"chimera evidence: {len(rows)} gene-TE pairs ({summary or 'no evidence flags'}) "
           f"-> {args.out}")
+    print(f"chimera evidence: {n_cr_far} chimeric-read event(s) skipped as "
+          f"trans or > {args.cr_max_distance:,} bp from their gene "
+          f"(chimera.chimeric_reads.max_gene_te_distance)")
+    print(f"chimera evidence: {n_no_call} gene-TE pair(s) left out -- no "
+          f"screen made a typed chimera call for them")
 
 
 if __name__ == "__main__":
