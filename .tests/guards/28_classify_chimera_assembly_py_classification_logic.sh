@@ -61,7 +61,8 @@ else
   declare -A want=( [T1]=te_initiated [T2]=te_terminated [T3]=te_exonized [T4]=unspliced_te_only
                      [T6]=te_initiated [T7]=annotated_promoter_embedded_te )
   for tid in "${!want[@]}"; do
-    got=$(awk -F'\t' -v id="$tid" '$1==id{print $NF}' "$T/candidates.tsv")
+    # chimera_type looked up by name: columns may be appended after it
+    got=$(awk -F'\t' -v id="$tid" 'NR==1{for(i=1;i<=NF;i++) if($i=="chimera_type") c=i; next} $1==id{print $c}' "$T/candidates.tsv")
     if [ "$got" != "${want[$tid]}" ]; then
       echo "ERROR: $tid classified as '$got', expected '${want[$tid]}'"
       cat "$T/candidates.tsv"; FAIL=1

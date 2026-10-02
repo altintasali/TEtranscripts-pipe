@@ -296,7 +296,7 @@ def main():
         "te_id", "te_subfamily", "te_family", "te_class", "te_strand",
         "te_overlap_exon_rank", "te_hits_all", "te_orientation_match",
         "matched_gene_id", "matched_gene_strand", "gene_hits_all", "strand_match",
-        "chimera_type",
+        "chimera_type", "te_acceptor_distance_bp",
     ]
     rows = []
 
@@ -319,7 +319,7 @@ def main():
                         transcript_start, transcript_end, s, e,
                         te_id, te_sub, te_fam, te_cls, te_strand, 1,
                         ",".join(te_all), orientation_match(strand, te_strand),
-                        ".", ".", "", "NA", "unspliced_te_only",
+                        ".", ".", "", "NA", "unspliced_te_only", ".",
                     ])
                     break
             continue
@@ -354,6 +354,7 @@ def main():
         matched_gene_id = matched_gene_strand = "."
         gene_hits_all = []
         te_exon_s = te_exon_e = None
+        te_bounds = None
 
         if te_first_hits_init:
             te_id, _, te_strand, te_fam, te_cls, te_sub = te_first_hits_init[0][2]
@@ -375,6 +376,7 @@ def main():
                 chimera_type = "te_initiated" if matched_gene_id != "." else "te_initiated_intergenic"
         elif te_last_hits:
             te_id, _, te_strand, te_fam, te_cls, te_sub = te_last_hits[0][2]
+            te_bounds = te_last_hits[0][:2]
             te_hits_all = sorted({h[2][0] for h in te_last_hits})
             te_rank = n_exons
             te_exon_s, te_exon_e = last_s, last_e
@@ -445,13 +447,25 @@ def main():
                 ANNOTATED_PROMOTER, ANNOTATED_TERMINAL_EXON):
             chimera_type = ANTISENSE_TO_GENE
 
+        # TE in the LAST exon: how far the named TE sits from that exon's
+        # splice acceptor (its 5' boundary). 0 = the TE takes the splice;
+        # "." for a TE in any other exon. A signal, not a filter: on a real
+        # 84-sample run, TEs 6-200 bp past the acceptor were 63-68% sense to
+        # the transcript (a TE supplying the 3' end), those beyond ~500 bp
+        # at background (a TE sitting in a long 3' UTR).
+        acceptor_distance = "."
+        if te_rank == n_exons and n_exons > 1 and te_bounds is not None:
+            acc = last_e if strand == "-" else last_s
+            b_s, b_e = te_bounds
+            acceptor_distance = (0 if b_s - tol <= acc <= b_e + tol
+                                 else min(abs(acc - b_s), abs(acc - b_e)))
         rows.append([
             tid, t["gene_id"], chrom, strand, n_exons,
             transcript_start, transcript_end, te_exon_s, te_exon_e,
             te_id, te_sub, te_fam, te_cls, te_strand, te_rank,
             ",".join(te_hits_all), orientation_match(strand, te_strand),
             matched_gene_id, matched_gene_strand, ",".join(gene_hits_all), strand_match,
-            chimera_type,
+            chimera_type, acceptor_distance,
         ])
 
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)

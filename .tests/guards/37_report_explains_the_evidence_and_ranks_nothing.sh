@@ -73,7 +73,8 @@ order_labels = ["TE orientation", "Screens / Found by",
                 "Status (novel / annotated / antisense)", "CR motif",
                 "CR max anchor", "SJ motif",
                 "SJ unique fraction / overhang",
-                "Assembly strand", "Replicated", "TElocal reads",
+                "Assembly strand", "Assembly last-exon TE distance",
+                "Replicated", "TElocal reads",
                 "Read depth"]
 positions = []
 for label in order_labels:

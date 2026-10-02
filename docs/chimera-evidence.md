@@ -278,6 +278,36 @@ confirmation of the renamed terminal calls fell to 7-15%. What makes a
 transcript TE-terminated is the splice into a TE-derived last exon, and
 StringTie's 3' ends are imprecise.
 
+### Assembly last-exon TE distance -- termination signal sits near the acceptor
+
+- **What was measured:** for assembly `te_terminated` and
+  `annotated_terminal_exon_embedded_te` calls, the distance from the last
+  exon's splice acceptor to the named TE, against the TE's orientation to
+  the transcript (a TE that ends a transcript must be sense to it to
+  supply its polyadenylation signal). Other-screen confirmation is not
+  used here: the junction screens only see a TE where a junction lands, so
+  it would favour distance 0 by construction.
+- **Cohort:** as above (84 samples, unstranded single-end).
+- **Restriction:** one cohort; StringTie 3' ends are imprecise, so whether
+  the TE also holds the transcript's 3' end was not informative (29-37% at
+  every distance).
+- **Finding:** `te_terminated` (n = 13,633): at 0-5 bp (the TE takes the
+  splice, 39% of calls) 43% sense overall but SINEs only 28% -- antisense
+  SINEs supplying an acceptor, the exonization pattern; at 6-50 bp 68%
+  sense and 51-200 bp 63% (SINEs ~70%) -- 16% of calls; at 201-500 bp 50%;
+  beyond 500 bp 42-46%, LTRs 27-38% -- at or below background (~43-51%),
+  46% of calls. `annotated_terminal_exon_embedded_te` (n = 19,565) has the
+  same shape: 69-76% sense at 6-200 bp, 51-59% beyond 200 bp.
+- **What it shows:** the TE-terminated signal is concentrated within ~200
+  bp of the last exon's acceptor; farther out the TE is mostly UTR content.
+  The 0 bp group is real but a different mechanism (TE-derived terminal
+  exons).
+- **What it doesn't show:** a validated cut-off.
+- **Why this matters here:** rather than a gate, the distance is reported
+  as `te_acceptor_distance_bp` (assembly transcripts) and
+  `assembly_te_acceptor_distance_bp` / "Assembly last-exon TE distance"
+  (candidates), to sort or filter on.
+
 ### "Other" TE classes -- mostly zinc-finger coding repeats, sense by construction
 
 - **What was measured:** the candidates whose TE is not LTR / LINE / SINE /
@@ -316,9 +346,6 @@ StringTie's 3' ends are imprecise.
 - **Condition-aware replication** -- whether `Replicated` (seen in more than
   one sample) means something different when the samples span different
   experimental conditions vs. technical replicates of the same one.
-- **Whether assembly `te_terminated` needs its own gate** -- the 3'
-  counterpart of the TSS gate, e.g. requiring the TE at or near the last
-  exon's splice acceptor rather than anywhere in a long last exon.
 
 ## Why the ladder and the per-screen top-N tables were removed
 

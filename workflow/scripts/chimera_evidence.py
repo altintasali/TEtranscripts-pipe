@@ -143,6 +143,16 @@ spurious junctions arise there. Signals, never filters or scores:
   sj_max_overhang      the longest anchor (bp) on either side of any of the
                        calls' junctions, in any sample
 
+For a TE in an assembled transcript's LAST exon, from the pair's assembly
+calls:
+
+  assembly_te_acceptor_distance_bp
+                       how far the TE sits from that exon's splice acceptor
+                       (0 = the TE takes the splice), the smallest over the
+                       pair's last-exon calls; "." when no call has the TE
+                       in a last exon (te_acceptor_distance_bp in
+                       classify_chimera_assembly.py)
+
 The chimeric-reads counterpart, from the pair's CR chimera calls only:
 
   cr_max_anchor        the best read's shorter segment (aligned bp), across
@@ -265,7 +275,8 @@ OUT_COLUMNS = [
     "cr_canonical", "cr_chimera_types", "cr_max_anchor",
     "telocal_active", "telocal_count", "telocal_locus",
     "assembly_transcripts", "assembly_chimera_types",
-    "assembly_strand_match", "assembly_transcript_ids",
+    "assembly_strand_match", "assembly_te_acceptor_distance_bp",
+    "assembly_transcript_ids",
     "sj_events", "sj_reads", "sj_max_samples",
     "sj_canonical", "sj_chimera_types",
     "sj_unique_fraction", "sj_max_overhang",
@@ -280,6 +291,7 @@ def _blank():
         "telocal_active": ".", "telocal_count": 0, "telocal_locus": ".",
         "assembly_transcripts": 0, "assembly_types": set(),
         "assembly_strand_match": ".", "assembly_tids": [],
+        "assembly_acceptor_distance": None,
         "sj_events": 0, "sj_reads": 0, "sj_max_samples": 0,
         "sj_canonical": "no", "sj_types": set(),
         "kinds": set(),
@@ -405,6 +417,11 @@ def main():
             elif p["assembly_strand_match"] == ".":
                 p["assembly_strand_match"] = r.get("strand_match", ".")
             p["assembly_tids"].append(r.get("transcript_id", "."))
+            dist = r.get("te_acceptor_distance_bp", ".")
+            if dist not in (".", ""):
+                cur = p["assembly_acceptor_distance"]
+                p["assembly_acceptor_distance"] = (
+                    int(dist) if cur is None else min(cur, int(dist)))
 
     if args.sj:
         for r in load(args.sj):
@@ -551,6 +568,9 @@ def main():
             "assembly_transcripts": p["assembly_transcripts"],
             "assembly_chimera_types": ",".join(sorted(p["assembly_types"])) or ".",
             "assembly_strand_match": p["assembly_strand_match"],
+            "assembly_te_acceptor_distance_bp": (
+                "." if p["assembly_acceptor_distance"] is None
+                else p["assembly_acceptor_distance"]),
             "assembly_transcript_ids": ",".join(p["assembly_tids"]) or ".",
             "sj_events": p["sj_events"],
             "sj_reads": p["sj_reads"],

@@ -159,6 +159,13 @@ COLUMNS = [
     ("assembly_transcripts", "Assembly transcripts",
      "Number of StringTie-assembled transcripts classified as this "
      "gene-TE chimera (StringTie, assembly screen).", "int"),
+    ("assembly_te_acceptor_distance_bp", "Assembly last-exon TE distance",
+     "For a TE in an assembled transcript's last exon: how far (bp) it sits "
+     "from that exon's splice acceptor, smallest over the pair's calls. 0 = "
+     "the TE takes the splice; small = the TE lies just past it, where it "
+     "can supply the transcript's 3' end; large = a TE inside a long 3' "
+     "UTR. Blank when no call has the TE in a last exon. See the guide.",
+     "intna"),
     # Cross-cutting corroboration -- can fire regardless of how many screens
     # found the pair, unlike the screen-bound flags above. Not a
     # candidates.tsv.gz column: derived here from the corroboration column,

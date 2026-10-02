@@ -261,6 +261,25 @@ def signals(sj_require_canonical, star_two_pass=None):
             "<code>te_exonized</code>.",
             "mixed",
         ),
+        (
+            "Assembly last-exon TE distance",
+            "StringTie (assembly)",
+            "For a TE in an assembled transcript's last exon, how far it "
+            "sits from that exon's splice acceptor "
+            "(<code>assembly_te_acceptor_distance_bp</code>; 0 = the TE "
+            "takes the splice).",
+            "The assembly screen calls a TE-terminated transcript when "
+            "any TE overlaps a new last exon, and a last exon can be a "
+            "long 3' UTR. At 0 the TE supplies the splice acceptor: a "
+            "TE-derived terminal exon. A short distance past the acceptor, "
+            "with the TE in the transcript's own orientation, is where a "
+            "TE can supply the polyadenylation signal that ends the "
+            "transcript. Far from the acceptor, the TE is UTR content and "
+            "the call says little about termination. Sort or filter on it; "
+            "where the line falls has been measured on one cohort only "
+            "(see the project's evidence notes).",
+            "mixed",
+        ),
         _replicated_row(star_two_pass),
         (
             "TElocal reads",
