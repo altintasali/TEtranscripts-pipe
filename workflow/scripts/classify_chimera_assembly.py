@@ -191,13 +191,15 @@ def orientation_match(transcript_strand, te_strand):
 
 
 def order_te_hits(hits, exon_s, exon_e, strand, anchor=None, tol=0,
-                  anchor_only=False):
-    """TE hits for one exon, the one to NAME first: a TE containing
-    `anchor` (+/- tol) -- the transcript's TSS for a first exon, its 3' end
-    for a last exon, None for an internal exon -- then the most bases
+                  by_distance=False):
+    """TE hits for one exon, the one to NAME first, by `anchor`: the
+    transcript's TSS for a first exon, the last exon's splice acceptor
+    (its 5' boundary) for a last exon, None for an internal exon.
+
+    First exon: a TE containing the TSS (+/- tol), then the most bases
     inside the exon, then on the transcript's own strand, then by
-    coordinate. With anchor_only, hits are returned in their original
-    (coordinate) order when no TE contains the anchor.
+    coordinate. Last exon (by_distance): the TE nearest the acceptor, then
+    the same tie-breaks. Internal exon: the most bases inside the exon.
 
     Hits are found with +/- breakpoint tolerance, so a transcript starting
     where two TEs meet hits both -- one running through the exon and one
@@ -207,19 +209,20 @@ def order_te_hits(hits, exon_s, exon_e, strand, anchor=None, tol=0,
     969 of them a TE with <= 5 bp in the first exon (e.g. an L1 ending at
     an MT2_Mm LTR promoter's TSS named instead of the MT2_Mm).
 
-    A last exon is often a long 3' UTR holding several TEs. The TE that
-    contains the transcript's 3' end is the one that would terminate it
-    (polyadenylation signal / cleavage site), so it is named first. With no
-    TE at the 3' end no single TE terminates the transcript -- the TEs are
-    just UTR content, all listed in te_hits_all -- so the caller passes
-    anchor_only and the old coordinate order is kept rather than swapping
-    one arbitrary pick for another."""
+    A last exon is often a long 3' UTR holding several TEs. What makes a
+    transcript TE-terminated is the gene splicing INTO a TE-derived last
+    exon, so the TE nearest the splice acceptor is named -- the one the
+    junction-based screens see. On the same run, renamed terminal calls
+    were found by the chimeric-reads or SJ screen 41-46% of the time with
+    this pick, 6-19% with the lowest coordinate, and 7-15% with the TE at
+    the transcript's 3' end."""
     def at_anchor(h):
         return anchor is not None and h[0] - tol <= anchor <= h[1] + tol
-    if anchor_only and not any(at_anchor(h) for h in hits):
-        return hits
     def key(h):
         inside = max(0, min(h[1], exon_e) - max(h[0], exon_s))
+        if by_distance:
+            dist = 0 if at_anchor(h) else min(abs(anchor - h[0]), abs(anchor - h[1]))
+            return (dist, -inside, h[2][2] != strand, h[0], h[1])
         return (not at_anchor(h), -inside, h[2][2] != strand, h[0], h[1])
     return sorted(hits, key=key)
 
@@ -342,8 +345,8 @@ def main():
             anchor=first_e if strand == "-" else first_s, tol=tol)
         te_last_hits = order_te_hits(
             te_last_hits, last_s, last_e, strand,
-            anchor=last_s if strand == "-" else last_e, tol=tol,
-            anchor_only=True)
+            anchor=last_e if strand == "-" else last_s, tol=tol,
+            by_distance=True)
 
         chimera_type = te_rank = None
         te_id = te_fam = te_cls = te_strand = "."

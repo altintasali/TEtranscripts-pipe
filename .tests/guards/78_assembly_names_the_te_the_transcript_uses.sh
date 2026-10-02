@@ -7,19 +7,23 @@
 # promoter's TSS instead of the MT2_Mm the first exon runs through. Now:
 #   - first exon: the TE containing the TSS, then most bases in the exon;
 #   - internal exon: the TE with most bases in the exon;
-#   - last exon: the TE containing the transcript's 3' end; with no TE
-#     there, no single TE terminates it, so the old (coordinate) pick stays.
+#   - last exon: the TE nearest the last exon's splice acceptor -- the gene
+#     splicing into a TE-derived last exon is what makes it TE-terminated,
+#     and it is the TE the junction-based screens see. (Naming the TE at
+#     the transcript's 3' end instead cut other-screen confirmation of the
+#     renamed terminal calls to 7-15%, vs 41-46% for this pick.)
 #
-# Run on its own:   .tests/guards/78_assembly_names_the_te_at_the_transcript_end.sh
+# Run on its own:   .tests/guards/78_assembly_names_the_te_the_transcript_uses.sh
 # Run all guards:   .tests/guards/run.sh
 set -uo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 guard_init
 
 # GENE1 (+): exons [1000,1200) [2000,2200) [3000,3500)
-printf 'chr1\t1000\t3500\tGENE1\t.\t+\n' > "$T/genes.bed"
-printf 'chr1\t1000\t1200\tGENE1\t.\t+\nchr1\t2000\t2200\tGENE1\t.\t+\nchr1\t3000\t3500\tGENE1\t.\t+\n' > "$T/exons.bed"
-printf 'chr1\t3000\t3500\tTX1\t.\t+\n' > "$T/last_exons.bed"
+# GENE2 (-): exons [8000,8200) [9000,9200)
+printf 'chr1\t1000\t3500\tGENE1\t.\t+\nchr1\t8000\t9200\tGENE2\t.\t-\n' > "$T/genes.bed"
+printf 'chr1\t1000\t1200\tGENE1\t.\t+\nchr1\t2000\t2200\tGENE1\t.\t+\nchr1\t3000\t3500\tGENE1\t.\t+\nchr1\t8000\t8200\tGENE2\t.\t-\nchr1\t9000\t9200\tGENE2\t.\t-\n' > "$T/exons.bed"
+printf 'chr1\t3000\t3500\tTX1\t.\t+\nchr1\t8000\t8200\tTX2\t.\t-\n' > "$T/last_exons.bed"
 : > "$T/first_exons.bed"
 {
   # A_init: first exon [500,700), TSS 500. TE_UPX ends at the TSS (0 bp in
@@ -30,14 +34,17 @@ printf 'chr1\t3000\t3500\tTX1\t.\t+\n' > "$T/last_exons.bed"
   # TE_EX lies inside it.
   printf 'chr1\t1400\t1503\tTE_EDGE\t.\t+\tAlu\tSINE\tB1\n'
   printf 'chr1\t1520\t1590\tTE_EX\t.\t+\tB2\tSINE\tB2_Mm1a\n'
-  # A_term: last exon [4000,4800), 3' end 4800. TE_MID mid-UTR, TE_END
-  # contains the 3' end.
-  printf 'chr1\t4100\t4300\tTE_MID\t.\t+\tAlu\tSINE\tB1\n'
-  printf 'chr1\t4700\t4900\tTE_END\t.\t+\tB2\tSINE\tB2_Mm2\n'
-  # A_utr: last exon [5000,5800), no TE at the 3' end: TE_SMALL (lower
-  # coordinate) keeps the name over the larger TE_BIG.
-  printf 'chr1\t5100\t5200\tTE_SMALL\t.\t+\tAlu\tSINE\tB1\n'
-  printf 'chr1\t5300\t5600\tTE_BIG\t.\t+\tL1\tLINE\tL1Md\n'
+  # A_term (+): last exon [4000,4800), acceptor 4000. TE_SPLIT ends 2 bp
+  # into the exon, TE_ACC starts at the acceptor and runs into it, TE_END
+  # holds the 3' end.
+  printf 'chr1\t3800\t4002\tTE_SPLIT\t.\t+\tL2\tLINE\tL2a\n'
+  printf 'chr1\t4000\t4200\tTE_ACC\t.\t+\tB2\tSINE\tB2_Mm2\n'
+  printf 'chr1\t4700\t4900\tTE_END\t.\t+\tAlu\tSINE\tB1\n'
+  # A_minus (-): last exon [7000,7800), acceptor 7800 (its 5' boundary on
+  # "-"). TE_LOW sits at the 3' end (lowest coordinate), TE_HIGH 50 bp
+  # from the acceptor.
+  printf 'chr1\t7000\t7100\tTE_LOW\t.\t-\tAlu\tSINE\tB1\n'
+  printf 'chr1\t7600\t7750\tTE_HIGH\t.\t-\tERVK\tLTR\tRLTR10\n'
 } > "$T/te.bed"
 
 {
@@ -51,9 +58,9 @@ printf 'chr1\t3000\t3500\tTX1\t.\t+\n' > "$T/last_exons.bed"
   printf 'chr1\tS\ttranscript\t1001\t4800\t.\t+\t.\ttranscript_id "A_term"; gene_id "M.3";\n'
   printf 'chr1\tS\texon\t1001\t1200\t.\t+\t.\ttranscript_id "A_term"; gene_id "M.3";\n'
   printf 'chr1\tS\texon\t4001\t4800\t.\t+\t.\ttranscript_id "A_term"; gene_id "M.3";\n'
-  printf 'chr1\tS\ttranscript\t1001\t5800\t.\t+\t.\ttranscript_id "A_utr"; gene_id "M.4";\n'
-  printf 'chr1\tS\texon\t1001\t1200\t.\t+\t.\ttranscript_id "A_utr"; gene_id "M.4";\n'
-  printf 'chr1\tS\texon\t5001\t5800\t.\t+\t.\ttranscript_id "A_utr"; gene_id "M.4";\n'
+  printf 'chr1\tS\ttranscript\t7001\t9200\t.\t-\t.\ttranscript_id "A_minus"; gene_id "M.4";\n'
+  printf 'chr1\tS\texon\t7001\t7800\t.\t-\t.\ttranscript_id "A_minus"; gene_id "M.4";\n'
+  printf 'chr1\tS\texon\t9001\t9200\t.\t-\t.\ttranscript_id "A_minus"; gene_id "M.4";\n'
 } > "$T/stringtie.gtf"
 
 if ! python3 workflow/scripts/classify_chimera_assembly.py \
@@ -79,10 +86,12 @@ want = {
                "first exon: the TE the exon runs through, not one ending at the TSS"),
     "A_exon": ("te_exonized", "TE_EX",
                "internal exon: the TE with most bases in the exon"),
-    "A_term": ("te_terminated", "TE_END",
-               "last exon: the TE containing the transcript's 3' end"),
-    "A_utr": ("te_terminated", "TE_SMALL",
-              "last exon with no TE at the 3' end keeps the coordinate pick"),
+    "A_term": ("te_terminated", "TE_ACC",
+               "last exon: the TE at the splice acceptor running into the exon, "
+               "not one ending there or the one at the 3' end"),
+    "A_minus": ("te_terminated", "TE_HIGH",
+                "last exon on '-': the TE nearest the acceptor, not the "
+                "lowest-coordinate one at the 3' end"),
 }
 for tid, (ctype, te_id, why) in want.items():
     r = asm.get(tid, {})

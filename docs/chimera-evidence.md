@@ -251,11 +251,18 @@ calls with several TEs at the TSS, 1,250 named a different TE than the one
 the first exon runs through, 969 of them a TE with <= 5 bp in that exon
 (e.g. an L1 ending at an MT2_Mm promoter's TSS). The classifier now names
 the TE at the TSS (first exon), with most bases in the exon (internal
-exon), or containing the 3' end (last exon; with no TE there it keeps the
-old pick, since no single TE terminates the transcript). No call changes
-type; 7,456 of 158,434 classified transcripts name a different TE (1-2% of
-initiation calls, 7% of exonized, 15% of terminal), 3,823 of them a
-different TE class.
+exon), or nearest the splice acceptor (last exon). No call changes type;
+9,599 of 158,434 classified transcripts name a different TE, 4,517 of them
+a different TE class. Of the renamed calls, the share whose gene-TE pair
+the chimeric-reads or SJ screen also found, old pick -> new pick:
+`te_initiated` 4.7% -> 50.4% (381 calls), `annotated_promoter_embedded_te`
+5.7% -> 46.6% (88), `te_exonized` 51.9% -> 55.0% (545), `te_terminated`
+6.4% -> 41.3% (2,267), `annotated_terminal_exon_embedded_te` 18.7% ->
+46.2% (4,585), `antisense_to_gene` 11.1% -> 33.8% (769). For last exons,
+naming the TE at the transcript's 3' end instead was tried and rejected:
+confirmation of the renamed terminal calls fell to 7-15%. What makes a
+transcript TE-terminated is the splice into a TE-derived last exon, and
+StringTie's 3' ends are imprecise.
 
 ### "Other" TE classes -- mostly zinc-finger coding repeats, sense by construction
 
@@ -296,9 +303,9 @@ different TE class.
 - **Condition-aware replication** -- whether `Replicated` (seen in more than
   one sample) means something different when the samples span different
   experimental conditions vs. technical replicates of the same one.
-- **A 3'-end gate for assembly `te_terminated`** -- the mirror of the TSS
-  gate: about half of the terminal calls whose TE choice was ambiguous had
-  no TE at the transcript's 3' end, so arguably no TE terminates them.
+- **Whether assembly `te_terminated` needs its own gate** -- the 3'
+  counterpart of the TSS gate, e.g. requiring the TE at or near the last
+  exon's splice acceptor rather than anywhere in a long last exon.
 
 ## Why the ladder and the per-screen top-N tables were removed
 
