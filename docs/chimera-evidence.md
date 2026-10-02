@@ -80,24 +80,38 @@ Assembly strand, Replicated, TElocal reads, Read depth.
   antisense), per screen x chimera type x TE class, against a background
   of TE copies of the same class at the same position relative to the
   same genes (upstream / downstream in distance rings, intronic, exonic),
-  combined across positions with a Mantel-Haenszel odds ratio.
-- **Cohort:** a 4-sample mouse oocyte/embryo run (unstranded, single-end).
-- **Finding:** LTR `te_initiated` was strongly sense-biased -- SJ 69.9% vs
-  43.7% expected (OR 3.0), assembly 66.8% vs 43.0% (OR 2.6) -- and the
-  bias rose with screen agreement (SJ 61% -> 80%, assembly 52% -> 79% for
-  1 vs >=2 screens) and with replication. SJ `te_exonized` SINE was
-  antisense-biased (28% vs 46% expected, OR 0.44), the mouse counterpart of
-  antisense Alu exonization. An apparent L1 antisense lean in
-  `te_initiated` was mostly a position effect (intronic L1s are sense-
-  depleted genome-wide: only ~36% of intronic L1 copies are sense to their
-  host gene).
-- **What it shows:** on this run, orientation separates real LTR-driven
-  initiation from background, and screen agreement / replication pick out
-  more of it -- the first measurement here where cross-screen agreement
-  looked like real support.
-- **What it doesn't show:** a validated weighting, or anything for the
-  chimeric-reads screen (too few local pairs to test; see below). One
-  cohort, pairs not independent -- p-values are descriptive.
+  combined across positions with a Mantel-Haenszel odds ratio. First on a
+  4-sample run, then repeated on the full 84-sample cohort with the
+  current labels (strand rule, `chimera_status`, assembly TE choice).
+- **Cohort:** a mouse oocyte/embryo series (unstranded, single-end): 4
+  samples, then all 84 (WT and mKO at GV, zygote, 2-cell, 8-cell,
+  blastocyst).
+- **Finding (84 samples):** LTR `te_initiated` is strongly sense-biased --
+  SJ 66.5% vs 43.5% expected (OR 2.6, n = 12,620), assembly 71.1% vs
+  44.2% (OR 3.2, n = 7,608) -- and the bias rises with screen agreement
+  (SJ 60% -> 79%, assembly 63% -> 79% for 1 vs >= 2 screens) and with
+  replication (SJ 57% -> 72%, assembly 63% -> 83%). On the 4-sample run
+  the same held (SJ 69.9% vs 43.7%, assembly 66.8% vs 43.0%). Chimeric-
+  reads LTR `te_initiated` sits near background (53.1% vs 49.1%, OR 1.17,
+  n = 565), but only for pairs that screen alone finds (46% vs 49%); the
+  ones another screen also finds are 61% vs 49% sense. LINE `te_initiated`
+  leans antisense after position matching (SJ 33.4% vs 40.3%, OR 0.74;
+  assembly 32.9% vs 42.4%, OR 0.66) -- on 4 samples this looked mostly
+  like a position effect. SINE `te_exonized` is antisense-biased (SJ 27.9%
+  vs 45.8%, OR 0.46, n = 11,055), the mouse counterpart of antisense Alu
+  exonization. LTR `te_exonized` is only weakly sense-biased (OR 1.1-1.2);
+  the intronic-LTR-promoter signal sits in `te_initiated` (internal) and
+  `annotated_promoter_embedded_te` (LTR OR 2.7) instead. LTRs in
+  `antisense_to_gene` calls are ~75% sense to the antisense transcript
+  itself (22-26% sense to the gene vs ~47% expected) -- the pattern of
+  LTR-driven antisense transcription, not of background.
+- **What it shows:** orientation separates real LTR-driven initiation from
+  background in the SJ and assembly screens, and screen agreement and
+  replication pick out more of it. A chimeric-reads call on its own looks
+  like background; confirmed by another screen, it does not.
+- **What it doesn't show:** a validated weighting, or which individual
+  calls are real. One cohort, pairs not independent -- p-values are
+  descriptive.
 
 ### Classification problems found on the same run (fixed)
 
@@ -298,8 +312,7 @@ StringTie's 3' ends are imprecise.
   agreement tracking real signal, but agreement was not measured against
   a chance rate the way the CR+assembly comparison was).
 - **Three-screen agreement** (`n_screens == 3`).
-- **Any of the above on a second cohort**, or with the classification fixes
-  in place.
+- **Any of the above on a second cohort.**
 - **Condition-aware replication** -- whether `Replicated` (seen in more than
   one sample) means something different when the samples span different
   experimental conditions vs. technical replicates of the same one.
