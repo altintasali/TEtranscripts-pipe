@@ -41,8 +41,8 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from gz_io import open_read, open_write
 from chimera_exon_context import CHIMERA_CALL_TYPES
+from gz_io import open_read, open_write
 
 PARENT_ID = "chimera"
 PARENT_NAME = "Chimera"

@@ -161,7 +161,6 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from gz_io import open_read, open_write
 from chimera_exon_context import (
     ANNOTATED_SPLICE,
     ANTISENSE_TO_GENE,
@@ -170,6 +169,7 @@ from chimera_exon_context import (
     exon_upstream_of,
     prefer_gene_on_strand,
 )
+from gz_io import open_read, open_write
 
 
 def load_bed(path, n_extra=0):
@@ -377,31 +377,31 @@ def main():
 
             if donor_gene_hit and acceptor_te_hit:
                 direction = "gene_to_te"
-                gene_id, te_id, gene_side_strand = donor_gene, acceptor_te_ids[0], strand
+                gene_id, te_id = donor_gene, acceptor_te_ids[0]
             elif donor_te_hit and acceptor_gene_hit:
                 direction = "te_to_gene"
-                gene_id, te_id, gene_side_strand = acceptor_gene, donor_te_ids[0], strand
+                gene_id, te_id = acceptor_gene, donor_te_ids[0]
             elif donor_gene_hit and acceptor_gene_hit:
                 direction = "gene_to_gene"
-                gene_id, te_id, gene_side_strand = donor_gene, None, strand
+                gene_id, te_id = donor_gene, None
             elif donor_te_hit and acceptor_te_hit:
                 direction = "te_to_te"
-                gene_id, te_id, gene_side_strand = None, donor_te_ids[0], strand
+                gene_id, te_id = None, donor_te_ids[0]
             elif donor_gene_hit:
                 direction = "gene_to_other"
-                gene_id, te_id, gene_side_strand = donor_gene, None, strand
+                gene_id, te_id = donor_gene, None
             elif acceptor_gene_hit:
                 direction = "other_to_gene"
-                gene_id, te_id, gene_side_strand = acceptor_gene, None, strand
+                gene_id, te_id = acceptor_gene, None
             elif donor_te_hit:
                 direction = "te_to_other"
-                gene_id, te_id, gene_side_strand = None, donor_te_ids[0], strand
+                gene_id, te_id = None, donor_te_ids[0]
             elif acceptor_te_hit:
                 direction = "other_to_te"
-                gene_id, te_id, gene_side_strand = None, acceptor_te_ids[0], strand
+                gene_id, te_id = None, acceptor_te_ids[0]
             else:
                 direction = "other"
-                gene_id, te_id, gene_side_strand = None, None, "."
+                gene_id, te_id = None, None
 
             ambiguous = (donor_gene_hit and donor_te_hit) or (
                 acceptor_gene_hit and acceptor_te_hit

@@ -95,12 +95,12 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from gz_io import open_write
 from chimera_exon_context import (
     ANNOTATED_PROMOTER,
     ANNOTATED_TERMINAL_EXON,
     ANTISENSE_TO_GENE,
 )
+from gz_io import open_write
 
 ATTR_RE = re.compile(r'(\w+) "([^"]*)"')
 

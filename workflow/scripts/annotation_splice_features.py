@@ -40,10 +40,11 @@ Usage:
 import argparse
 import os
 import sys
+from itertools import pairwise
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from gz_io import open_read, open_write
 from annotation_to_bed import parse_attrs
+from gz_io import open_read, open_write
 
 
 def main():
@@ -77,7 +78,7 @@ def main():
     last_rows = []
     for tid, t in transcripts.items():
         ex = sorted(t["exons"])
-        for (_s1, e1), (s2, _e2) in zip(ex, ex[1:]):
+        for (_s1, e1), (s2, _e2) in pairwise(ex):
             if s2 - 1 >= e1 + 1:
                 introns.add((t["chrom"], e1 + 1, s2 - 1, t["strand"]))
         last_s, last_e = ex[0] if t["strand"] == "-" else ex[-1]

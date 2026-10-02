@@ -177,7 +177,6 @@ fi
 # rows are shown is an alphabetical accident, and the only case where the
 # section may say "alphabetically first".
 mkdir -p "$T/sel"
-cols="gene_id\tte_id\tte_subfamily\tte_family\tte_class\tfound_by\tn_screens\tscreen_evidence\tn_screen_evidence\tcorroboration\tn_corroboration\tcr_events\tcr_reads\tcr_max_samples\tcr_canonical\tcr_chimera_types\ttelocal_active\ttelocal_count\ttelocal_locus\tassembly_transcripts\tassembly_chimera_types\tassembly_strand_match\tassembly_transcript_ids\tsj_events\tsj_reads\tsj_max_samples\tsj_canonical\tsj_chimera_types"
 
 python3 - "$T/sel" <<'PY' || FAIL=1
 import gzip, sys

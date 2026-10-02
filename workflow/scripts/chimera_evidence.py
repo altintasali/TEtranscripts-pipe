@@ -198,8 +198,8 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from gz_io import open_read, open_write
 from chimera_exon_context import CALL_KINDS, CHIMERA_CALL_TYPES, call_kind
+from gz_io import open_read, open_write
 
 
 def load(path):

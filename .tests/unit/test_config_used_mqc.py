@@ -190,6 +190,7 @@ def test_pipeline_commit_row_shows_the_rule_param():
     param (PIPELINE_GIT_STATE in rules/common/envs.smk) so a new commit
     re-runs config_used and MultiQC via the params trigger."""
     import json
+
     import config_used_mqc
 
     config = {"ref": {"gtf": "g.gtf", "te_gtf": "te.gtf"},

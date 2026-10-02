@@ -142,7 +142,6 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from gz_io import open_write
 from chimera_exon_context import (
     ANTISENSE_TO_GENE,
     build_gene_exon_positions,
@@ -150,6 +149,7 @@ from chimera_exon_context import (
     exon_upstream_of,
     prefer_gene_on_strand,
 )
+from gz_io import open_write
 
 
 def load_bed(path, n_extra=0):
