@@ -15,9 +15,15 @@ rule telocal_locind:
         gz_io=f"{SCRIPTS_DIR}/gz_io.py",
         te_gtf=TE_GTF,
     output:
-        # Must end in .locInd -- TElocal rejects any --TE file whose path
-        # does not have that suffix.
-        "results/telocal/telocal.locInd",
+        # Gzipped: ~70% smaller than the plain pickle (hundreds of MB to
+        # ~1GB for a real mouse/human TE annotation) for negligible cost
+        # against this rule's own multi-minute build time --
+        # build_telocal_index.py gzips whenever --out ends in .gz. TElocal
+        # itself needs a literal ".locInd"-suffixed path, so the workflow
+        # transparently decompresses this on the fly before use, the same
+        # way it already does for a gzipped ref.fasta/gtf/te_gtf (see
+        # _telocal_locind_path, rules/common/runtime.smk).
+        "results/telocal/telocal.locInd.gz",
     params:
         # "fast" (default): our reimplementation of TEfeatures.build(),
         # verified against the original -- see build_telocal_index.py's
@@ -167,7 +173,10 @@ rule cleanup_telocal_index:
         touch("results/pipeline_info/.telocal_index_cleaned"),
     params:
         keep=KEEP_TELOCAL_INDEX,
-        locind=_telocal_locind_path(),
+        # The stored (possibly gzipped) file itself, not
+        # _telocal_locind_path()'s decompressed runtime copy -- that one is
+        # a temp() output snakemake already cleans up on its own.
+        locind=_telocal_locind_storage_path(),
         auto_built=not _telocal_locind_cfg,
     shell:
         "if [ {params.keep} = False ] && [ {params.auto_built} = True ] && "

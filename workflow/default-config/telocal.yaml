@@ -17,8 +17,10 @@ telocal:
   # Path to a pre-built TElocal .locInd file. Required when enabled.
   # Build with: TElocal_indexer --afile TE.gtf --itype TE
   # Or download prebuilt indices from https://www.mghlab.org/software/telocal
+  # Plain or gzipped (.locInd.gz) both work -- gzipped is decompressed
+  # automatically.
   # When empty, the workflow auto-builds the index from the TE GTF into
-  # results/telocal/telocal.locInd (kept unless outputs.keep_telocal_index
+  # results/telocal/telocal.locInd.gz (kept unless outputs.keep_telocal_index
   # is false), using the method set by `indexer` below.
   locind: ""
   # Only used when locind is empty (auto-build). "fast" (default): our

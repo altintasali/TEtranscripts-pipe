@@ -6,6 +6,7 @@ Auto-generated from `snakemake --rulegraph` by `workflow/scripts/flowchart.py` -
 ```mermaid
 flowchart LR
     subgraph reference_once["Reference (once)"]
+        gunzip_reference["gunzip reference (if .gz refs)"]
         star_index["STAR index"]
         gtf_to_genepred["GTF -> genePred"]
         genepred_to_bed12["genePred -> BED12"]
@@ -154,6 +155,7 @@ flowchart LR
     genepred_to_bed12 --> rseqc_infer_experiment
     genepred_to_bed12 --> rseqc_read_distribution
     gtf_to_genepred --> genepred_to_bed12
+    gunzip_reference --> telocal
     rseqc_infer_experiment --> determine_strandedness
     rseqc_infer_experiment --> strandedness_check
     samtools_index --> rseqc_gene_body_coverage
@@ -199,7 +201,7 @@ flowchart LR
     telocal_counts --> chimera_candidates_explorer
     telocal_counts --> telocal_qc_counts
     telocal_locations --> chimera_telocal_index
-    telocal_locind --> telocal
+    telocal_locind --> gunzip_reference
     telocal_qc_counts --> telocal_qc_transform
     telocal_qc_transform --> telocal_qc
     trim_galore_pe --> star_align

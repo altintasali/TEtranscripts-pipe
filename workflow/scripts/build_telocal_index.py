@@ -49,6 +49,7 @@ version (config["versions"]["telocal"] / workflow/environment.yaml), but
 re-verify (rerun the correctness check above) before bumping that pin.
 """
 import argparse
+import gzip
 import os
 import pickle
 import re
@@ -175,9 +176,18 @@ def main():
     # in-place write leaves a truncated .locInd that TElocal only rejects
     # much later, with an unpickling error that names the reader rather than
     # the write that failed -- and rebuilding this index is not cheap.
+    #
+    # Gzipped when --out ends in .gz: a real mouse/human TE annotation's
+    # pickled index is hundreds of MB to ~1GB plain, and gzip cuts that by
+    # roughly 70% for negligible cost against this rule's multi-minute build
+    # time. TElocal itself needs a literal ".locInd"-suffixed path, so the
+    # workflow decompresses this on the fly before use (see
+    # _telocal_locind_path in rules/common/runtime.smk) -- this script only
+    # writes what --out asks for.
+    opener = gzip.open if str(args.out).endswith(".gz") else open
     tmp_out = f"{args.out}.tmp.{os.getpid()}"
     try:
-        with open(tmp_out, "wb") as fh:
+        with opener(tmp_out, "wb") as fh:
             pickle.dump(te_idx, fh)
         os.replace(tmp_out, args.out)
     except BaseException:

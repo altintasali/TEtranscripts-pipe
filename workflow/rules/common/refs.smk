@@ -39,6 +39,17 @@ _HAS_GZ_REFS = any(
     str(config["ref"].get(k, "")).endswith(".gz")
     for k in ("fasta", "gtf", "te_gtf")
 )
+# telocal.locind also flows through this same gunzip_reference machinery
+# (see _telocal_locind_path, rules/common/runtime.smk) -- either a
+# user-provided .gz index, or the auto-build path (locind empty), which
+# always gzips its own output now. TELOCAL_ENABLED/_telocal_locind_cfg
+# aren't defined yet at this point in the include order (runtime.smk
+# hasn't run), so read the raw config directly here.
+_telocal_cfg_raw = config.get("telocal", {})
+if bool(_telocal_cfg_raw.get("enabled", False)):
+    _locind_raw = str(_telocal_cfg_raw.get("locind", "")).strip()
+    if not _locind_raw or _locind_raw.endswith(".gz"):
+        _HAS_GZ_REFS = True
 if "decompressed_dir" in config.get("ref", {}) and _HAS_GZ_REFS:
     _local_tmp = tempfile.gettempdir().rstrip(os.sep)
     _node_local = (
