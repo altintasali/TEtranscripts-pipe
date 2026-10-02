@@ -215,6 +215,48 @@ Measured with a one-off check of every call's geometry and annotation:
   `novel`; for every TE-driven transcript, use all statuses. Screens alone
   no longer separates the two.
 
+### Assembly TSS-in-TE gate -- what it rejects looks like background
+
+- **What was measured:** on the full cohort, the assembly classifier was
+  re-run with `chimera.assembly.require_tss_in_te` off. For every
+  transcript the gate rejects (a TE in the first exon, but the TSS more
+  than `breakpoint_tolerance` = 5 bp outside it): the TSS-to-TE distance,
+  whether the TE is sense to the transcript, and whether the
+  chimeric-reads or SJ screen also found that gene-TE pair. Baselines:
+  calls that pass the gate, and annotated first exons overlapping a TE.
+- **Cohort:** as above (84 samples, unstranded single-end).
+- **Restriction:** one cohort; StringTie merged assembly only.
+- **Finding:** the gate rejects 17,378 transcripts (with it off they would
+  be 13,889 `te_initiated` / `te_initiated_intergenic` and 3,489
+  `annotated_promoter_embedded_te`). Calls passing the gate are 65% sense
+  and 51% (`te_initiated`) / 42% (annotated promoter) found by another
+  screen. Rejected transcripts are 54-60% sense at every distance (6-50,
+  51-100, 101-300, 301-1000 bp) -- close to the 48-54% of annotated first
+  exons with a TE -- and only 20-26% are found by another screen. The
+  nearest distances (6-50 bp) have the lowest confirmation (20%); a 300 bp
+  tolerance would add ~15,000 transcripts, ~80% unconfirmed.
+- **What it shows:** imprecise StringTie 5' ends are not hiding many TE
+  promoters behind the gate; what it rejects looks like ordinary 5' UTRs
+  that contain a TE. Individual real cases exist (an MTB LTR promoter
+  281 bp downstream of an assembled TSS, found by both other screens).
+- **What it doesn't show:** whether a TSS-aware assembler or 5' data would
+  recover more.
+- **Why this matters here:** `require_tss_in_te` stays on with the
+  ordinary tolerance; a TE promoter missed by the assembly is still found
+  by the junction-based screens and counted in their matrices.
+
+Measured on the same run: where several TEs hit one exon, the assembly
+classifier named the one with the lowest coordinate. Of 2,911 initiation
+calls with several TEs at the TSS, 1,250 named a different TE than the one
+the first exon runs through, 969 of them a TE with <= 5 bp in that exon
+(e.g. an L1 ending at an MT2_Mm promoter's TSS). The classifier now names
+the TE at the TSS (first exon), with most bases in the exon (internal
+exon), or containing the 3' end (last exon; with no TE there it keeps the
+old pick, since no single TE terminates the transcript). No call changes
+type; 7,456 of 158,434 classified transcripts name a different TE (1-2% of
+initiation calls, 7% of exonized, 15% of terminal), 3,823 of them a
+different TE class.
+
 ### "Other" TE classes -- mostly zinc-finger coding repeats, sense by construction
 
 - **What was measured:** the candidates whose TE is not LTR / LINE / SINE /
@@ -254,6 +296,9 @@ Measured with a one-off check of every call's geometry and annotation:
 - **Condition-aware replication** -- whether `Replicated` (seen in more than
   one sample) means something different when the samples span different
   experimental conditions vs. technical replicates of the same one.
+- **A 3'-end gate for assembly `te_terminated`** -- the mirror of the TSS
+  gate: about half of the terminal calls whose TE choice was ambiguous had
+  no TE at the transcript's 3' end, so arguably no TE terminates them.
 
 ## Why the ladder and the per-screen top-N tables were removed
 
