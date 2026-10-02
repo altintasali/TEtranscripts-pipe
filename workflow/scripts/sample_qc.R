@@ -359,9 +359,18 @@ do_plots <- function(argv) {
     pc1 <- round(100 * summary(pca)$importance[2, 1], 1)
     pc2 <- round(100 * summary(pca)$importance[2, 2], 1)
 
-    palette <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2",
-                 "#D55E00", "#CC79A7")
+    # Colourblind-safe Okabe-Ito colours up to 7 groups; beyond that an
+    # evenly spaced HCL palette with one colour per group. Indexing the fixed
+    # 7-colour vector past its end used to give groups 8+ a colour of "NA",
+    # so they all looked the same.
+    okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2",
+                   "#D55E00", "#CC79A7")
     ugroups <- unique(groups)
+    palette <- if (length(ugroups) <= length(okabe_ito)) {
+        okabe_ito
+    } else {
+        grDevices::hcl.colors(length(ugroups), "Dark 3")
+    }
     group_colors <- setNames(palette[seq_along(ugroups)], ugroups)
     point_colors <- unname(group_colors[groups])
 
