@@ -345,6 +345,7 @@ chimera:
     outputs:
       write_igv_bed: true
       write_counts_matrix: true
+      write_gene_te_chimera_counts: true
 
 # Locus-level TE quantification (TElocal) -- a complement to TEcount's
 # subfamily-level quantification. TElocal resolves TEs per genomic instance

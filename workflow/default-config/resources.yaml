@@ -738,6 +738,14 @@ resources:
     mem_mb: 2000
     runtime: 30
 
+  chimera_splice_junctions_aggregate_counts:
+    # Reads te-gene-junctions.tsv.gz + counts_matrix.tsv.gz (gene-TE
+    # junctions only, ~110k rows on an 84-sample cohort); one join, no
+    # per-sample scaling.
+    threads: 1
+    mem_mb: 2000
+    runtime: 30
+
   chimera_assembly_cross_evidence:
     # Single-threaded python; one table join, no per-sample scaling.
     threads: 1

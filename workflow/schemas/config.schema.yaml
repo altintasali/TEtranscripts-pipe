@@ -498,7 +498,17 @@ properties:
                   Default true.
               write_counts_matrix:
                 type: boolean
-            required: [write_igv_bed, write_counts_matrix]
+              write_gene_te_chimera_counts:
+                type: boolean
+                description: >-
+                  Write results/chimera/splice_junctions/
+                  gene_te_chimera_counts_matrix.tsv.gz: counts_matrix.tsv.gz
+                  (junction x sample) summed to one row per (gene_id, te_id,
+                  chimera_type), keyed like the assembly screen's matrix.
+                  Needs write_counts_matrix. See
+                  aggregate_chimera_splice_junctions_counts.py. Default true.
+            required: [write_igv_bed, write_counts_matrix,
+                       write_gene_te_chimera_counts]
         required: [enabled, breakpoint_tolerance, min_unique_reads,
                    require_canonical, qc, outputs]
     required: [chimeric_reads, assembly, splice_junctions]

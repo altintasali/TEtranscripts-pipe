@@ -52,6 +52,7 @@ flowchart LR
     end
     subgraph chimera_screen["Chimera screen"]
         annotation_to_bed["annotation -> BED tracks"]
+        annotation_splice_features["annotated introns / last exons"]
         chimera_chimeric_reads_classify["classify chimeric junctions"]
         chimera_telocal_annotate["annotate junctions with TElocal counts"]
         chimera_chimeric_reads_qc["junction QC"]
@@ -82,6 +83,7 @@ flowchart LR
         chimera_chimeric_reads_sample_qc["sample-QC plots"]
         chimera_splice_junctions_classify["classify SJ.out.tab junctions"]
         chimera_splice_junctions_counts["SJ-junction counts matrix"]
+        chimera_splice_junctions_aggregate_counts["gene-TE-chimera-type SJ counts"]
         chimera_splice_junctions_summary_mqc["SJ-junction screen notes + TE-type composition"]
         chimera_splice_junctions_qc_transform["SJ-junction sample-QC transform"]
         chimera_splice_junctions_qc["SJ-junction sample-QC plots"]
@@ -91,10 +93,14 @@ flowchart LR
         tecount_qc_counts["tecount_qc_counts"]
         telocal_qc_counts["telocal_qc_counts"]
     end
+    annotation_splice_features --> chimera_assembly_classify
+    annotation_splice_features --> chimera_splice_junctions_classify
     annotation_to_bed --> chimera_assembly_aggregate_counts
     annotation_to_bed --> chimera_assembly_classify
     annotation_to_bed --> chimera_candidates_explorer
     annotation_to_bed --> chimera_chimeric_reads_classify
+    annotation_to_bed --> chimera_evidence
+    annotation_to_bed --> chimera_splice_junctions_aggregate_counts
     annotation_to_bed --> chimera_splice_junctions_classify
     benchmark_summary --> multiqc
     cat_fastq --> fastqc_raw
@@ -127,6 +133,7 @@ flowchart LR
     chimera_splice_junctions_classify --> chimera_splice_junctions_igv_bed
     chimera_splice_junctions_classify --> chimera_splice_junctions_summary_mqc
     chimera_splice_junctions_counts --> chimera_evidence
+    chimera_splice_junctions_counts --> chimera_splice_junctions_aggregate_counts
     chimera_splice_junctions_counts --> chimera_splice_junctions_qc_transform
     chimera_splice_junctions_counts --> chimera_splice_junctions_summary_mqc
     chimera_splice_junctions_qc_transform --> chimera_splice_junctions_qc
@@ -142,6 +149,7 @@ flowchart LR
     gene_name_lookup --> chimera_assembly_aggregate_counts
     gene_name_lookup --> chimera_candidates_explorer
     gene_name_lookup --> chimera_candidates_table
+    gene_name_lookup --> chimera_splice_junctions_aggregate_counts
     genepred_to_bed12 --> rseqc_gene_body_coverage
     genepred_to_bed12 --> rseqc_infer_experiment
     genepred_to_bed12 --> rseqc_read_distribution

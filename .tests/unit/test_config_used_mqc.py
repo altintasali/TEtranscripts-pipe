@@ -59,6 +59,7 @@ ALLOWED_OMISSIONS = {
     "chimera.assembly.outputs.write_gene_te_chimera_counts",
     "chimera.splice_junctions.outputs.write_igv_bed",
     "chimera.splice_junctions.outputs.write_counts_matrix",
+    "chimera.splice_junctions.outputs.write_gene_te_chimera_counts",
     # min_transcript_tpm: explicitly documented in the schema as "not
     # applied at detection time... no rule currently filters on it
     # automatically" -- a README-example threshold, not a run setting.

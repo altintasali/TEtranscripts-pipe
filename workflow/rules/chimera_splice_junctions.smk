@@ -35,6 +35,8 @@
 import os
 
 WRITE_SPLICE_JUNCTIONS_COUNTS = bool(config["chimera"]["splice_junctions"]["outputs"]["write_counts_matrix"])
+WRITE_SPLICE_JUNCTIONS_GENE_TE_COUNTS = WRITE_SPLICE_JUNCTIONS_COUNTS and bool(
+    config["chimera"]["splice_junctions"]["outputs"]["write_gene_te_chimera_counts"])
 WRITE_IGV_BED_SPLICE_JUNCTIONS = bool(config["chimera"]["splice_junctions"]["outputs"]["write_igv_bed"])
 CHIMERA_SPLICE_JUNCTIONS_QC = config["chimera"]["splice_junctions"]["qc"]
 
@@ -66,6 +68,11 @@ def all_chimera_splice_junctions_outputs():
         files += [
             "results/chimera/splice_junctions/counts_matrix.tsv.gz",
             "results/chimera/splice_junctions/cpm_matrix.tsv.gz",
+        ]
+    if WRITE_SPLICE_JUNCTIONS_GENE_TE_COUNTS:
+        files += [
+            "results/chimera/splice_junctions/gene_te_chimera_counts_matrix.tsv.gz",
+            "results/chimera/splice_junctions/gene_te_chimera_counts_annotation.tsv.gz",
         ]
     if WRITE_IGV_BED_SPLICE_JUNCTIONS:
         files += [
@@ -236,6 +243,45 @@ rule chimera_splice_junctions_counts:
         "--out-events {output.events} "
         "--out-te-events {output.te_events} "
         "{params.counts_flag} > {log} 2>&1"
+
+
+if WRITE_SPLICE_JUNCTIONS_GENE_TE_COUNTS:
+
+    rule chimera_splice_junctions_aggregate_counts:
+        # Sums the junction x sample matrix to one row per (gene_id, te_id,
+        # chimera_type), keyed like the assembly screen's
+        # gene_te_chimera_counts_matrix.tsv.gz so a hit can be confirmed
+        # with exact junction reads (aggregate_chimera_splice_junctions_counts.py).
+        input:
+            # Declared so that EDITING the script re-runs the rule (guard 65).
+            script=f"{SCRIPTS_DIR}/aggregate_chimera_splice_junctions_counts.py",
+            # local modules the script imports -- editing them must re-run this
+            assembly_aggregate=f"{SCRIPTS_DIR}/aggregate_chimera_assembly_counts.py",
+            gz_io=f"{SCRIPTS_DIR}/gz_io.py",
+            junctions="results/chimera/splice_junctions/te-gene-junctions.tsv.gz",
+            counts="results/chimera/splice_junctions/counts_matrix.tsv.gz",
+            gene_names="results/reference/gene_id_to_name.tsv.gz",
+            genes="results/reference/genes.bed",
+            te="results/reference/te.bed",
+        output:
+            counts="results/chimera/splice_junctions/gene_te_chimera_counts_matrix.tsv.gz",
+            annotation="results/chimera/splice_junctions/gene_te_chimera_counts_annotation.tsv.gz",
+        threads: get_resources("chimera_splice_junctions_aggregate_counts")["threads"]
+        resources:
+            mem_mb=get_resources("chimera_splice_junctions_aggregate_counts")["mem_mb"],
+            runtime=get_resources("chimera_splice_junctions_aggregate_counts")["runtime"],
+        benchmark:
+            "results/pipeline_info/benchmarks/chimera_splice_junctions_aggregate_counts/"
+            "chimera_splice_junctions_aggregate_counts.txt",
+        log:
+            "results/pipeline_info/logs/chimera_splice_junctions/aggregate_counts.log",
+        shell:
+            "python3 {input.script} "
+            "--junctions {input.junctions} --counts {input.counts} "
+            "--gene-names {input.gene_names} "
+            "--genes-bed {input.genes} --te-bed {input.te} "
+            "--out-counts {output.counts} --out-annotation {output.annotation} "
+            "> {log} 2>&1"
 
 
 if WRITE_SPLICE_JUNCTIONS_COUNTS:

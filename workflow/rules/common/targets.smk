@@ -243,6 +243,12 @@ def all_benchmark_files():
                     f"results/pipeline_info/benchmarks/chimera_splice_junctions_igv_bed/{s}.txt"
                 )
         if (config["chimera"]["splice_junctions"]["outputs"]["write_counts_matrix"]
+                and config["chimera"]["splice_junctions"]["outputs"]["write_gene_te_chimera_counts"]):
+            files.append(
+                f"{B}/chimera_splice_junctions_aggregate_counts/"
+                "chimera_splice_junctions_aggregate_counts.txt"
+            )
+        if (config["chimera"]["splice_junctions"]["outputs"]["write_counts_matrix"]
                 and config["chimera"]["splice_junctions"]["qc"].get("enabled", False)):
             transform = config["chimera"]["splice_junctions"]["qc"]["pca_transform"]
             files += [

@@ -108,6 +108,17 @@ whichever column your question needs, and expect to validate calls manually.
 Set `chimera.chimeric_reads.enabled: false` to skip chimera detection
 entirely.
 
+**Counting chimeras for differential analysis.** Two matrices share one row
+key, `gene_id:te_id:chimera_type`:
+`results/chimera/assembly/gene_te_chimera_counts_matrix.tsv.gz` (StringTie
+read estimates per assembled chimeric transcript, summed) and
+`results/chimera/splice_junctions/gene_te_chimera_counts_matrix.tsv.gz`
+(STAR's unique reads across the pair's gene-TE junctions, summed; a read
+crossing two such junctions, as in `te_exonized`, counts twice). Test with
+the assembly matrix and confirm hits in the SJ matrix at the same key; do not
+sum the two, since they count overlapping reads. Each has a
+`…_annotation.tsv.gz` with gene symbol, loci and TE class.
+
 A single MultiQC report pulls together FastQC, TrimGalore!, STAR, RSeQC, the
 TEcounts, TElocal and chimera sections, tool versions, and a per-rule
 resource-usage table.
