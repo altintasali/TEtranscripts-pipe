@@ -181,6 +181,40 @@ Measured with a one-off check of every call's geometry and annotation:
 - **Why this matters here:** results from v0.14.0 or earlier are not
   comparable pair-for-pair with v0.15.0; rerun before comparing candidates.
 
+### Full cohort -- counting annotated and antisense chimeras
+
+- **What was measured:** the same 84-sample v0.15.0 run rebuilt after every
+  typed gene-TE chimera started counting toward Screens, with
+  `chimera_status` saying which kind (novel / annotated / antisense).
+  Compared: candidate pairs, the status breakdown, the top-Screens set, and
+  which screens make antisense calls.
+- **Cohort:** as above (84 samples, unstranded single-end).
+- **Restriction:** one cohort; unstranded, so the chimeric-reads screen
+  cannot call antisense here.
+- **Finding:** candidates rose from 79,915 to 101,611 pairs; none were
+  lost. The 21,696 new pairs are 11,189 antisense, 10,107 annotated and 400
+  both, found by the assembly (11,062), SJ (8,505) or both screens (2,129).
+  Of the old pairs, 7,702 gained an annotated or antisense kind and 3,847
+  gained a screen. Pairs found by all three screens rose from 310 to 803;
+  of these only 170 are `novel` alone (336 `novel+annotated`, 222
+  `novel+annotated+antisense`, 75 `novel+antisense`). Antisense calls came
+  from SJ (8,796 pairs) and assembly (6,260) only; the chimeric-reads
+  screen made none. Across all pairs: 72,213 `novel`, 11,189 `antisense`,
+  10,107 `annotated`, 5,821 `novel+annotated`, 1,363 `novel+antisense`,
+  518 `novel+annotated+antisense`, 400 `annotated+antisense`.
+- **What it shows:** many pairs that the three screens agree on are partly
+  known TE-driven transcripts or antisense transcription, and their
+  per-screen read counts include those reads. Known examples now back as
+  candidates: a TE-in-3'-UTR pair a DE analysis on the assembly matrix had
+  ranked first (`annotated`), and an annotated TE promoter also seen as
+  novel splicing (`novel+annotated`, all three screens).
+- **What it doesn't show:** whether the annotated or antisense kinds
+  differ in how often they are real, or how a stranded library would split
+  the chimeric-reads screen's novel calls.
+- **Why this matters here:** for new chimeras, filter on Status =
+  `novel`; for every TE-driven transcript, use all statuses. Screens alone
+  no longer separates the two.
+
 ### "Other" TE classes -- mostly zinc-finger coding repeats, sense by construction
 
 - **What was measured:** the candidates whose TE is not LTR / LINE / SINE /
