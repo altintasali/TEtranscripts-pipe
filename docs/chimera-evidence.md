@@ -162,12 +162,14 @@ Measured with a one-off check of every call's geometry and annotation:
   recurrence across independent libraries; under `star.two_pass: cohort`
   they are not fully independent.
 
-### Full cohort -- what the classification fixes changed (v0.14.0 vs v0.15.0)
+### Full cohort -- what the classification fixes changed (v0.14.0 vs pre-release 0.15.0, commit 80f1ac6)
 
 - **What was measured:** the same 84 samples run end to end with v0.14.0
   (before direction-based typing, the strand rule, the known-structure
   classes, the far/trans chimeric-read filter and the SJ screen) and with
-  v0.15.0 (SJ screen on, cohort 2-pass). Compared: candidate pairs, where
+  a pre-release 0.15.0 build, commit 80f1ac6 (SJ screen on, cohort
+  2-pass); the released 0.15.0 adds the changes recorded in the next
+  sections. Compared: candidate pairs, where
   the old pairs went, the top-Screens set, chimera types per screen, and
   the TEcount / TElocal count matrices.
 - **Cohort:** a mouse oocyte/embryo knockout series, 84 samples (WT
@@ -193,11 +195,11 @@ Measured with a one-off check of every call's geometry and annotation:
 - **What it doesn't show:** which of the remaining candidates are real, or
   how the numbers would change with per-sample 2-pass or on another cohort.
 - **Why this matters here:** results from v0.14.0 or earlier are not
-  comparable pair-for-pair with v0.15.0; rerun before comparing candidates.
+  comparable pair-for-pair with 0.15.0; rerun before comparing candidates.
 
 ### Full cohort -- counting annotated and antisense chimeras
 
-- **What was measured:** the same 84-sample v0.15.0 run rebuilt after every
+- **What was measured:** the same 84-sample run rebuilt after every
   typed gene-TE chimera started counting toward Screens, with
   `chimera_status` saying which kind (novel / annotated / antisense).
   Compared: candidate pairs, the status breakdown, the top-Screens set, and
