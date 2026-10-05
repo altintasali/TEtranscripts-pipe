@@ -65,7 +65,7 @@ jobs:
             gh release upload "$version" "${assets[@]}" --clobber
           else
             gh release create "$version" "${assets[@]}" \
-              --title "Release $version" \
+              --title "$version" \
               --notes "Release $version of tetranscripts-pipe, including the pre-built Linux x86_64 conda environment (\`...-env.tar.gz\`). Install it with \`./workflow/scripts/install-env.sh\` -- see the README \"Pre-built environment\" section." \
               --verify-tag \
               --target "${{ github.sha }}"
