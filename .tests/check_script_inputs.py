@@ -37,8 +37,12 @@ def main():
             if not invoked:
                 continue
             checked += 1
+            # declared = named as an input under any key: the script itself
+            # (script=...) and the local modules it imports (gz_io=...,
+            # helper=..., required by guard 65) all count
             declared = set(re.findall(
-                r'script\s*=\s*f?"\{SCRIPTS_DIR\}/([A-Za-z0-9_.-]+)"', body))
+                r'[A-Za-z_][A-Za-z0-9_]*\s*=\s*f?"\{SCRIPTS_DIR\}/([A-Za-z0-9_.-]+)"',
+                body))
             # a rule may legitimately name the script only in its declaration
             undeclared = invoked - declared
             if undeclared:

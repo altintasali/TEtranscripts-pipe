@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Per-sample junction QC summary from a {sample}_junctions.tsv.gz table
-(classify_chimera_reads.py).
+(classify_chimera_chimeric_reads.py).
 
 Writes a tiny two-column TSV (metric, value) with the event counts a user
 wants at a glance before any deeper QC: total events, how many are gene<->TE
 candidates, the direction/chimera-type composition, canonical vs
 non-canonical, antisense, and strand-match. Used by the MultiQC custom-content
-module (parse_chimera_reads_qc) so the report can show per-sample chimera QC.
+module (parse_chimera_chimeric_reads_qc) so the report can show per-sample chimera QC.
 """
 import argparse
 import collections
@@ -65,7 +65,8 @@ def main():
     # Deliberately NOT "direction_ambiguous": every direction_* row above is
     # a direction *category*, so that name would read as a ninth class.
     lines.append(("ambiguous_direction", str(ambiguous.get("yes", 0))))
-    for key in ("te_initiated", "te_terminated", "te_exonized", "trans", "."):
+    for key in ("te_initiated", "te_terminated", "te_exonized",
+                "antisense_to_gene", "trans", "."):
         lines.append((f"chimera_type_{key}", str(chimera_type.get(key, 0))))
     lines.append(("canonical_yes", str(canonical.get("yes", 0))))
     lines.append(("canonical_no", str(canonical.get("no", 0))))

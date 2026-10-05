@@ -30,7 +30,14 @@ import re
 # Sample sheet vocabulary is normalised to TEtranscripts' own before it
 # reaches here ("unstranded" -> "no"); display the pipeline's vocabulary so
 # this table matches the --stranded value actually passed to TEcount.
-DISPLAY = {"no": "unstranded", "forward": "forward", "reverse": "reverse"}
+# "undetermined" is a report-only call (determine_strandedness.py) -- never
+# a --stranded value -- for a sample whose dominant fraction cleared neither
+# min_fraction (confidently stranded) nor balanced_max (confidently
+# unstranded).
+DISPLAY = {
+    "no": "unstranded", "forward": "forward", "reverse": "reverse",
+    "undetermined": "undetermined",
+}
 
 
 def parse_fractions(path):
@@ -66,6 +73,7 @@ def main():
     declared = dict(p.declared)  # sample -> "auto"/"no"/"forward"/"reverse"
     reports = dict(zip(samples, snakemake.input.reports))
     calls = dict(zip(samples, snakemake.input.calls))
+    operative = dict(zip(samples, snakemake.input.operative))
 
     data = {}
     n_mismatch = 0
@@ -73,23 +81,29 @@ def main():
     for sample in samples:
         forward, reverse, failed = parse_fractions(reports[sample])
         with open(calls[sample]) as fh:
-            inferred = fh.read().strip() or "no"
+            inferred = fh.read().strip() or "no"  # may be "undetermined"
+        with open(operative[sample]) as fh:
+            # The actual --stranded value TEcount/TElocal run with for this
+            # sample when auto-detected -- "undetermined" collapses to "no"
+            # here (determine_strandedness.py), so this is never
+            # "undetermined" itself.
+            auto_value = fh.read().strip() or "no"
 
         want = declared.get(sample, "auto")
         if want == "auto":
-            status, used = "auto-detected", inferred
+            status, used = "auto-detected", auto_value
+        elif inferred == "undetermined":
+            # Not a confirmed disagreement -- RSeQC just couldn't confirm
+            # either way -- so don't count it as a MISMATCH.
+            status, used = "UNCERTAIN", want
         elif want == inferred:
             status, used = "OK", want
         else:
             status, used = "MISMATCH", want
             n_mismatch += 1
 
-        # An unstranded call can mean "genuinely unstranded" or "RSeQC could
-        # not tell" -- the distinction matters when reading a MISMATCH, so
-        # surface it rather than leaving both as "unstranded".
-        if inferred == "no" and forward is not None and reverse is not None:
-            if max(forward, reverse) < 0.6 and abs(forward - reverse) < 0.2:
-                n_undetermined += 1
+        if inferred == "undetermined":
+            n_undetermined += 1
 
         data[sample] = {
             "declared": DISPLAY.get(want, want),
@@ -119,10 +133,13 @@ def main():
         )
     if n_undetermined:
         verdict += (
-            f" {n_undetermined} sample(s) had no clear strand signal at all "
-            "(both fractions low and close) — those were called "
-            "unstranded because nothing else could be justified, which is "
-            "different from being confidently unstranded."
+            f" {n_undetermined} sample(s) were <strong>undetermined</strong> "
+            "— the dominant fraction cleared neither the confident-stranded "
+            "threshold (min_fraction) nor the confident-unstranded one "
+            "(balanced_max). Quantification ran with \"no\" for these "
+            "(the safe choice — it discards no reads), but that is different "
+            "from a genuinely balanced/unstranded library; worth a manual "
+            "look at the fractions below."
         )
 
     doc = {
@@ -135,9 +152,11 @@ def main():
             "RSeQC's infer_experiment.py says the reads actually look like, "
             "and which value was used for quantification. "
             f"<br><br>{verdict}"
-            "<br><br><em>Why this matters:</em> strandedness never fails a "
-            "job, it just changes the answer. Counting the wrong strand "
-            "roughly halves gene counts and inverts the antisense signal, and "
+        ),
+        "helptext": (
+            "<em>Why this matters:</em> strandedness never fails a job, it "
+            "just changes the answer. Counting the wrong strand roughly "
+            "halves gene counts and inverts the antisense signal, and "
             "everything downstream — TE quantification, the chimera "
             "screens' strand-match tests, differential results — "
             "inherits that silently."
@@ -166,10 +185,13 @@ def main():
             "status": {
                 "title": "Status",
                 "description": "MISMATCH = the sample sheet and the data "
-                               "disagree; the sample sheet was used",
+                               "disagree; UNCERTAIN = RSeQC's own signal was "
+                               "undetermined, so no disagreement could be "
+                               "confirmed either way; the sample sheet value "
+                               "was used in both cases",
                 "cond_formatting_rules": {
                     "pass": [{"s_eq": "OK"}],
-                    "warn": [{"s_eq": "auto-detected"}],
+                    "warn": [{"s_eq": "auto-detected"}, {"s_eq": "UNCERTAIN"}],
                     "fail": [{"s_eq": "MISMATCH"}],
                 },
                 "cond_formatting_colours": [

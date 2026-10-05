@@ -4,24 +4,33 @@
 # to edit this file; copy the `chimera:` section from config/config.example.yaml
 # into input/config.yaml and change what you need there instead.
 #
-# Two independent, complementary detection methods live under chimera.*:
-#   chimera.reads -- STAR chimeric-junction reads (on by default). Only
+# Three independent, complementary detection methods live under chimera.*:
+#   chimera.chimeric_reads -- STAR chimeric-junction reads (on by default). Only
 #     sees reads STAR can't explain as one linear alignment.
 #   chimera.assembly -- StringTie assembly structure (also on by default;
-#     newer and less validated than chimera.reads). Catches
-#     ordinary-canonical-intron TE-initiated splices that chimera.reads
+#     newer and less validated than chimera.chimeric_reads). Catches
+#     ordinary-canonical-intron TE-initiated splices that chimera.chimeric_reads
 #     structurally cannot see. Costs a second, dedicated STAR pass per
 #     sample -- set enabled: false if you don't need it.
-# A candidate found by both is cross-referenced -- see
+#   chimera.splice_junctions -- STAR's normal splice junctions (SJ.out.tab, OFF
+#     by default). Catches the SAME blind spot as chimera.assembly (a TE
+#     splicing into a gene through an ordinary, canonical intron never
+#     reaches chimera.chimeric_reads), but at the individual read-junction level
+#     rather than requiring StringTie to successfully assemble a multi-exon
+#     transcript -- needs no extra STAR pass, reuses the main alignment's
+#     already-produced SJ.out.tab.
+# A candidate found by both reads and assembly is cross-referenced -- see
 # results/chimera/assembly/transcripts_with_read_support.tsv.gz.
 #
-# EXPERIMENTAL: both stages are newer additions to the pipeline -- their
+# EXPERIMENTAL: all three stages are newer additions to the pipeline -- their
 # classification and QC-view behavior may still change between releases. Use
 # for exploration, and validate the output before relying on it for published
-# results.
+# results. chimera.splice_junctions in particular is newer than the other two
+# screens, and its agreement with them has not yet been measured (see
+# docs/chimera-evidence.md) -- hence off by default.
 # =============================================================================
 chimera:
-  reads:
+  chimeric_reads:
     enabled: true
     star:
       segment_min: 12
@@ -29,8 +38,24 @@ chimera:
       score_drop_max: 20
       extra: ""
     breakpoint_tolerance: 0
-    require_canonical_junction: false
+    require_canonical: false
+    # Chimeric-read gene-TE events count toward the candidate catalogue
+    # (candidates.tsv.gz, the report's Candidates table) only when the TE is
+    # on the same chromosome and at most this many bp from the gene; trans
+    # events never count. On a real run 97.5% of these events were trans or
+    # >200 kb apart -- the random-partner pattern of template switching /
+    # chimeric ligation, not a TE driving that gene. They stay in this
+    # screen's own event tables, with their distance in gene_te_distance.
+    max_gene_te_distance: 200000
     qc:
+      # Sample-QC (PCA + sample-distance heatmap) OFF by default -- these
+      # were the most report-bloating sections and most useful once a run
+      # already looks right, not on first read. Also gates chimera.assembly's
+      # sample-QC view (it borrows this block -- see its own comment above).
+      # write_counts_matrix (outputs, below) is untouched -- the matrix
+      # itself is always written when write_counts_matrix is true; this only
+      # controls whether it also gets turned into report plots.
+      enabled: false
       min_samples_present: 2
       min_total_counts: 5
       min_events: 10
@@ -43,6 +68,42 @@ chimera:
     enabled: true
     breakpoint_tolerance: 5
     min_transcript_tpm: 1
+    # Require the transcript's own TSS (not just any part of its first exon)
+    # to fall inside the TE (+/- breakpoint_tolerance) before calling
+    # te_initiated. LTR-driven promoters genuinely have their TSS inside the
+    # LTR; without this, an ordinary gene with a TE anywhere in its 5' UTR
+    # also gets called te_initiated. Set false to restore the looser
+    # any-overlap behavior (e.g. if annotation-boundary imprecision beyond
+    # breakpoint_tolerance is a bigger concern for your TE library than
+    # false positives).
+    require_tss_in_te: true
     outputs:
       write_igv_bed: true
+      write_gene_te_chimera_counts: true
+  splice_junctions:
+    # On by default since 0.15.0: it only reads the SJ.out.tab files the main
+    # alignment already writes, so it adds no STAR pass.
+    enabled: true
+    breakpoint_tolerance: 0
+    # STAR's own per-junction quality signal (SJ.out.tab column 7); a floor
+    # against single-read noise. 1 = no filtering (annotate-first, same
+    # philosophy as the other two screens).
+    min_unique_reads: 1
+    # Opposite default of chimera.chimeric_reads.require_canonical: this
+    # screen's whole value on unstranded data comes from STAR's own
+    # motif-based strand call, which only exists for canonical (motif != 0)
+    # junctions -- so keeping non-canonical rows here mostly adds noise
+    # without adding a usable strand signal.
+    require_canonical: true
+    qc:
+      # Sample-QC OFF by default -- same reasoning as chimera.chimeric_reads.qc
+      # above.
+      enabled: false
+      min_samples_present: 2
+      min_total_counts: 5
+      min_events: 10
+      pca_transform: vst
+    outputs:
+      write_igv_bed: true
+      write_counts_matrix: true
       write_gene_te_chimera_counts: true

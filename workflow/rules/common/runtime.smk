@@ -158,26 +158,39 @@ def _is_paired(sample):
 # -----------------------------------------------------------------------------
 TRIM_ENABLED = bool(config.get("trimming", {}).get("enabled", True))
 
-# Optional chimera-junction screen (rules/chimera_reads.smk +
-# chimera_reads_qc.smk). When enabled (the default), the STAR alignment emits
+# Optional chimera-junction screen (rules/chimera_chimeric_reads.smk +
+# chimera_chimeric_reads_qc.smk). When enabled (the default), the STAR alignment emits
 # chimeric junctions and the chimera rules annotate them; set
-# chimera.reads.enabled: false to opt out -- no chimera STAR flags are
+# chimera.chimeric_reads.enabled: false to opt out -- no chimera STAR flags are
 # passed, the chimera rules are not included, and the workflow behaves like
 # the plain quantification pipeline. See CHIMERA_ASSEMBLY_ENABLED below for
 # the complementary StringTie-assembly-based screen.
-CHIMERA_READS_ENABLED = bool(
-    config.get("chimera", {}).get("reads", {}).get("enabled", True)
+CHIMERA_CHIMERIC_READS_ENABLED = bool(
+    config.get("chimera", {}).get("chimeric_reads", {}).get("enabled", True)
 )
 
 # Optional chimera-assembly screen (rules/chimera_assembly.smk):
-# StringTie-assembly-based detection, complementing CHIMERA_READS_ENABLED
+# StringTie-assembly-based detection, complementing CHIMERA_CHIMERIC_READS_ENABLED
 # above. Off by default -- newer and less validated.
 CHIMERA_ASSEMBLY_ENABLED = bool(
     config.get("chimera", {}).get("assembly", {}).get("enabled", False)
 )
 
+# Optional chimera-SJ.out.tab-junction screen (rules/chimera_splice_junctions.smk): STAR's
+# own normal splice junctions, a third evidence source complementing
+# CHIMERA_CHIMERIC_READS_ENABLED and CHIMERA_ASSEMBLY_ENABLED above -- same blind spot
+# as the assembly screen (a TE splicing into a gene through an ordinary,
+# canonical intron never reaches the reads screen) but at the read-junction
+# level, needing no StringTie assembly. On by default since 0.15.0 (it reads
+# the SJ.out.tab files the main alignment already writes); its agreement with
+# the other screens has not been measured against a chance rate (see
+# docs/chimera-evidence.md).
+CHIMERA_SPLICE_JUNCTIONS_ENABLED = bool(
+    config.get("chimera", {}).get("splice_junctions", {}).get("enabled", True)
+)
+
 # Sample-QC thresholds for the chimera views (PCA / sample clustering). Lives
-# here, not in chimera_reads.smk, because BOTH screens' QC views use it and
+# here, not in chimera_chimeric_reads.smk, because BOTH screens' QC views use it and
 # that file is included only when the junction screen is on -- referencing it
 # from chimera_assembly.smk would NameError on an assembly-only run, which is
 # exactly the configuration guard 27 pins.
@@ -185,13 +198,18 @@ CHIMERA_ASSEMBLY_ENABLED = bool(
 # The assembly view borrows these rather than having a parallel config block:
 # the two views answer the same question and there is no evidence they want
 # different cut-offs. Split them if that stops being true.
-CHIMERA_QC = config["chimera"]["reads"]["qc"]
+CHIMERA_CHIMERIC_READS_QC = config["chimera"]["chimeric_reads"]["qc"]
 
-# How many candidate rows the report's table renders. MultiQC embeds table
-# data in the HTML and a real cohort produces tens of thousands of gene-TE
-# pairs, so the section shows a head and points at candidates.tsv.gz for the
-# rest. Not a config key: a rendering limit, not an analysis choice.
-CHIMERA_TABLE_TOP_N = 50
+# Hard safety cap on how many candidate rows the report's table can ever
+# render. MultiQC embeds table data in the HTML and a real cohort produces
+# tens of thousands of gene-TE pairs, so this exists purely so the report
+# can't blow up -- it is NOT the normal row count. The script itself shows
+# every pair tied at the top Screens value (a real run had 66 of them
+# against the old fixed cap of 50, silently dropping 16 alphabetically),
+# filling down to a sensible minimum when that group is small; this cap
+# only bites when a single Screens tier alone is bigger than it. Not a
+# config key: a rendering limit, not an analysis choice.
+CHIMERA_TABLE_TOP_N = 500
 
 # TEcounts sample-QC (PCA + sample clustering, rules/tecount_qc.smk), built
 # from the per-sample TEcount tables. Defaults come from the built-in
@@ -347,6 +365,10 @@ KEEP_STAR_INDEX = bool(config.get("outputs", {}).get("keep_star_index", True))
 KEEP_TELOCAL_INDEX = bool(
     config.get("outputs", {}).get("keep_telocal_index", True)
 )
+# chimera.assembly's own private STAR BAM (see chimera_assembly.smk's
+# star_align_for_assembly) -- a second full alignment per sample, kept by
+# default; false temp()s the BAM and its index together.
+KEEP_ASSEMBLY_BAM = bool(config.get("outputs", {}).get("keep_assembly_bam", True))
 
 
 def _maybe_temp(path, keep):

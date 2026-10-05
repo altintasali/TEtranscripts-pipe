@@ -15,13 +15,18 @@ guard_init
 # "241%" and "1,898%".
 #
 # The 6000% axis was that same suffix bug -- stacked COUNTS wearing a "%"
-# sign -- not the stacking, so the canonical plot stays stacked on purpose
-# (its counts view stacks to the sample's total canonical junctions).
-# chimera_assembly_strand_rate_plot is the one that must NOT stack: it draws
-# one bar per class, each a rate over its own denominator.
+# sign -- not the stacking itself, and the fix (explicit per-dataset
+# ysuffix/tt_decimals, checked below) is independent of stacking mode.
+# chimera_canonical_rate_plot was briefly switched to grouped bars too
+# (stacking nine independent per-class rates produces a stack height that
+# means nothing), then REVERTED 2026 after user feedback preferred the
+# stacked read -- the description's own "compare within a donor group"
+# caveat covers the meaningless-total point instead. It stays stacked.
+# chimera_assembly_strand_rate_plot hit the identical shape but has no
+# such caveat text or preference on record, so it stays grouped.
 #
 # This pins the suffix on every dataset of both plots, plus each plot's
-# deliberate stacking choice, so neither is silently flipped again.
+# own stacking choice, so neither silently flips again.
 mkdir -p "$T/p"
 
 # Junction metric tables -- totals large, canonical a modest fraction, so a
@@ -29,11 +34,11 @@ mkdir -p "$T/p"
 python3 - "$T" <<'PY'
 import sys, os
 sys.path.insert(0, os.path.join(os.getcwd(), "workflow", "scripts"))
-from chimera_reads_qc_mqc import DIRECTIONS
+from chimera_chimeric_reads_qc_mqc import DIRECTIONS
 T = sys.argv[1]
 for i, s in enumerate(["S1", "S2"]):
     with open(f"{T}/p/{s}.tsv", "w") as fh:
-        # chimera_reads_qc.py writes a "metric\tvalue" header and load_metrics
+        # chimera_chimeric_reads_qc.py writes a "metric\tvalue" header and load_metrics
         # skips it; without one here the FIRST metric is silently eaten.
         fh.write("metric\tvalue\n")
         for j, d in enumerate(DIRECTIONS):
@@ -55,7 +60,7 @@ with gzip.open(f"{T}/p/candidates.tsv.gz", "wt") as fh:
     w.writeheader(); w.writerows(rows)
 PY
 
-python3 workflow/scripts/chimera_reads_qc_mqc.py \
+python3 workflow/scripts/chimera_chimeric_reads_qc_mqc.py \
   --tables "$T/p/S1.tsv" "$T/p/S2.tsv" --samples S1 S2 \
   --out "$T/p/junction_mqc.json" \
   --out-canonical "$T/p/canonical_mqc.json" > "$T/p/emit.log" 2>&1
@@ -83,8 +88,9 @@ for pid in ("chimera_canonical_rate_plot", "chimera_assembly_strand_rate_plot"):
         bad.append(f"{pid}: barmode is {barmode!r}, not 'group' -- one bar per "
                    "class, each a rate over its own denominator, must not stack")
     if pid == "chimera_canonical_rate_plot" and barmode == "group":
-        bad.append(f"{pid}: barmode is 'group'; this plot is stacked on "
-                   "purpose (the 6000% axis was the suffix bug, not stacking)")
+        bad.append(f"{pid}: barmode is 'group'; this plot is stacked again on "
+                   "purpose (reverted after user feedback) -- the 6000% axis "
+                   "was the suffix bug, not the stacking")
     for ds in o.get("datasets", []):
         label = ds.get("label", "")
         lay = ds.get("layout") or {}

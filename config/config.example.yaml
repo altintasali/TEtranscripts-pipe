@@ -126,10 +126,20 @@ strandedness:
   # Whether/which samples get RSeQC auto-detection is controlled per-sample
   # by the "strandedness" column in samples.csv (auto/forward/reverse/
   # unstranded; blank = auto). The only workflow-wide knob left here is the
-  # confidence threshold used whenever auto-detection runs: if the fraction
-  # of reads supporting the called strand is below this value, the library
-  # is called "no" (unstranded) rather than guessing.
-  min_fraction: 0.6
+  # confidence threshold used whenever auto-detection runs: the fraction of
+  # reads supporting the called strand must clear this value before the
+  # library is called "forward"/"reverse" -- a partly-stranded library run
+  # with the wrong --stranded value silently discards a large fraction of
+  # its reads, so this is intentionally conservative (nf-core/rnaseq uses a
+  # similarly high bar for the same reason).
+  min_fraction: 0.8
+  # Below min_fraction, the dominant fraction is checked against this
+  # second, lower threshold: under it, the library is confidently
+  # unstranded ("no"); between the two, it's genuinely ambiguous, reported
+  # as "undetermined" in the strandedness-check table (quantification still
+  # uses "no" for these -- it discards no reads -- but the report flags
+  # them separately from a genuinely balanced/unstranded library).
+  balanced_max: 0.55
   # Also run RSeQC on samples whose strandedness you set explicitly, purely
   # so the MultiQC "Strandedness check" table can flag a sample sheet that
   # disagrees with the data. Your explicit value is still what gets used --
@@ -142,15 +152,6 @@ tetranscripts:
   # alignments (recommended, and the TEtranscripts default), "uniq" only uses
   # uniquely-mapping reads.
   mode: multi
-  # FDR cutoff for differential-expression significance (TEtranscripts --padj)
-  padj: 0.05
-  # Absolute log2 fold-change cutoff (TEtranscripts --foldchange). The value
-  # must be > 0; 1 is the effective "no filter" setting, because it maps to
-  # log2(1)=0 (TEtranscripts computes the cutoff as math.log(foldchange, 2),
-  # so 0 crashes the run).
-  foldchange: 1
-  # Minimum read count cutoff (TEtranscripts --minread)
-  minread: 1
   # Extra command-line arguments passed verbatim to TEtranscripts/TEcount
   extra: ""
   qc:
@@ -177,12 +178,9 @@ tetranscripts:
     # always holds every feature TEcount reports, unfiltered.
     feature_class: TE
 
-# Differential gene/TE enrichment (TEtranscripts + DESeq2) is fully automatic:
-# if input/samples.csv has a "condition" column, the workflow generates one
-# TEtranscripts run for every pairwise combination of distinct condition
-# values (e.g. control/treatment/knockout -> 3 contrasts). If the "condition"
-# column is absent, differential analysis is skipped and the workflow stops
-# after per-sample TEcount quantification. Nothing to configure here.
+# The pipeline does not run differential-expression analysis itself. Take the
+# per-sample TEcount tables (results/tecount/*.cntTable.gz) into your own
+# DESeq2/edgeR analysis downstream.
 
 chimera:
   # Gene-TE chimera detection via two independent, complementary methods.
@@ -193,12 +191,12 @@ chimera:
   # classification and QC-view behavior may still change between releases.
   # Use for exploration, and validate the output before relying on it for
   # published results.
-  reads:
+  chimeric_reads:
     # STAR chimeric-junction read screen, run on the SAME STAR alignment
     # that feeds TEcount (no separate alignment). On by default: the STAR
     # alignment always emits chimeric junctions and the workflow detects
     # and annotates chimeric gene-TE junction reads
-    # (results/chimera/reads/...). Set enabled: false to opt out -- the
+    # (results/chimera/chimeric_reads/...). Set enabled: false to opt out -- the
     # workflow then behaves like a plain quantification pipeline. Only
     # sees reads STAR can't explain as one linear alignment -- an
     # ordinary, canonical-intron TE-initiated splice will not appear here;
@@ -220,11 +218,23 @@ chimera:
     # Whether to require STAR junction type 1 (GT/AG) for a junction to be
     # classified as gene-TE. TE-involved splicing is often non-canonical, so
     # the default (false) keeps everything and records the type.
-    require_canonical_junction: false
+    require_canonical: false
+    # Chimeric-read events count toward the gene-TE candidates only when the
+    # TE is on the same chromosome and within this many bp of the gene
+    # (trans never counts). Far/trans events stay in this screen's own
+    # tables. Default 200000.
+    max_gene_te_distance: 200000
     qc:
+      # Whether to render the PCA + sample-distance-heatmap sample-QC view
+      # in multiqc_report.html. Default false -- turning this on does not
+      # affect whether results/chimera/chimeric_reads/counts_matrix.tsv.gz
+      # itself gets written (see outputs.write_counts_matrix below for
+      # that). Also gates chimera.assembly's own sample-QC view -- it has
+      # no qc block of its own and borrows this one.
+      enabled: false
       # Filters applied to the chimera count matrix *for the PCA/clustering
       # view only* -- they never remove events from all_events.tsv or
-      # results/chimera/reads/counts_matrix.tsv.gz. min_events is the floor
+      # results/chimera/chimeric_reads/counts_matrix.tsv.gz. min_events is the floor
       # for drawing the QC plots.
       min_samples_present: 2
       min_total_counts: 5
@@ -234,7 +244,7 @@ chimera:
       pca_transform: vst
     outputs:
       # Which chimera artifacts to write. The per-sample junction tables, the
-      # all-events catalog, results/chimera/reads/counts_matrix.tsv.gz and
+      # all-events catalog, results/chimera/chimeric_reads/counts_matrix.tsv.gz and
       # cpm_matrix.tsv.gz, and the junction-QC summaries are always written;
       # these toggles cover the optional extras.
       write_igv_bed: true
@@ -247,9 +257,9 @@ chimera:
   assembly:
     # StringTie-assembly chimera screen: catches TE-initiated/exonized/
     # terminated transcripts spliced via an ordinary, canonical intron --
-    # structurally invisible to chimera.reads above, since STAR only
+    # structurally invisible to chimera.chimeric_reads above, since STAR only
     # flags a junction as chimeric when a read can't be explained by one
-    # linear alignment. Complements chimera.reads; a candidate found by
+    # linear alignment. Complements chimera.chimeric_reads; a candidate found by
     # both is cross-referenced in
     # results/chimera/assembly/transcripts_with_read_support.tsv.gz.
     #
@@ -265,7 +275,7 @@ chimera:
     #   * Cost is dominated by the second STAR pass below, roughly doubling
     #     alignment time and peak disk for the run. Everything after it
     #     (StringTie, classification) is cheap by comparison.
-    # On by default, but newer and less validated than chimera.reads --
+    # On by default, but newer and less validated than chimera.chimeric_reads --
     # validate its output before relying on it. Set enabled: false to skip
     # it (and save the extra alignment below).
     # Uses its own dedicated STAR alignment pass (--outSAMstrandField
@@ -279,19 +289,24 @@ chimera:
     # TE/gene-exon feature edge. StringTie's exon boundaries (especially
     # the first exon's 5' end, which has no upstream junction to anchor
     # it) are coverage-inferred and can be imprecise at low depth -- a
-    # more generous default than chimera.reads's, since single-end data
+    # more generous default than chimera.chimeric_reads's, since single-end data
     # typically gives lower depth per read than paired-end.
     breakpoint_tolerance: 5
     # Not applied automatically -- candidates are always fully reported,
-    # same annotate-first philosophy as chimera.reads. This is just the
+    # same annotate-first philosophy as chimera.chimeric_reads. This is just the
     # threshold used when reading results/chimera/assembly/tpm_matrix.tsv.gz
     # yourself downstream (results/chimera/assembly/counts_matrix.tsv.gz and
     # cpm_matrix.tsv.gz are also always written, alongside tpm_matrix.tsv.gz).
     min_transcript_tpm: 1
+    # Require the transcript's own TSS (not just any part of its first
+    # exon) to fall inside the TE before calling te_initiated -- an
+    # ordinary gene with a TE anywhere in its 5' UTR is not te_initiated.
+    # Set false to restore the looser any-overlap behavior.
+    require_tss_in_te: true
     outputs:
       # Write a BED track (results/chimera/assembly/igv/candidates.bed)
       # spanning each candidate's TE-overlapping exon, colored by
-      # chimera_type, for loading alongside chimera.reads's own IGV
+      # chimera_type, for loading alongside chimera.chimeric_reads's own IGV
       # track.
       write_igv_bed: true
       # results/chimera/assembly/gene_te_chimera_counts_matrix.tsv.gz:
@@ -302,6 +317,34 @@ chimera:
       # (gene_id, te_id) alone (a pair can carry mechanistically distinct
       # te_initiated/te_terminated/te_exonized isoforms that summing would
       # cancel out or mask). See aggregate_chimera_assembly_counts.py.
+      write_gene_te_chimera_counts: true
+  splice_junctions:
+    # Third, independent chimera evidence source: STAR's own splice
+    # junctions (SJ.out.tab, already produced by the main alignment -- no
+    # extra STAR pass). Catches the same blind spot as chimera.assembly (a
+    # TE splicing into a gene through an ordinary, canonical intron never
+    # reaches chimera.chimeric_reads) at the read-junction level, without needing
+    # StringTie to successfully assemble anything. ON by default -- it only
+    # reads the SJ.out.tab files the main alignment already writes.
+    enabled: true
+    breakpoint_tolerance: 0
+    # STAR's own per-junction quality signal; 1 = no filtering.
+    min_unique_reads: 1
+    # Opposite default of chimera.chimeric_reads.require_canonical: this
+    # screen's strand call on unstranded data comes from STAR's own
+    # motif-based inference, which only exists for canonical junctions.
+    require_canonical: true
+    qc:
+      # Sample-QC OFF by default -- same reasoning as
+      # chimera.chimeric_reads.qc.enabled above.
+      enabled: false
+      min_samples_present: 2
+      min_total_counts: 5
+      min_events: 10
+      pca_transform: vst
+    outputs:
+      write_igv_bed: true
+      write_counts_matrix: true
       write_gene_te_chimera_counts: true
 
 # Locus-level TE quantification (TElocal) -- a complement to TEcount's
@@ -378,3 +421,13 @@ outputs:
   # user-provided telocal.locind path -- that file is only ever read, never
   # deleted.
   keep_telocal_index: true
+  # Whether to keep chimera.assembly's own dedicated per-sample STAR
+  # alignment (results/chimera/assembly/per_sample/star/) -- a SEPARATE
+  # alignment from the main results/star/ BAM everything else uses (see
+  # chimera.assembly's own description for why). Effectively a second full
+  # alignment per sample when chimera.assembly is enabled, so keeping it is
+  # a real disk cost. true (default) also indexes it (.bam.bai) for IGV
+  # inspection; false marks both as temp(), deleted once
+  # stringtie_assemble/stringtie_requantify are done with them, at the cost
+  # of a full re-alignment if you need to inspect it later.
+  keep_assembly_bam: true

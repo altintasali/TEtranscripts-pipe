@@ -27,11 +27,11 @@ def _row(cells, muted=False):
 def main():
     p = snakemake.params
     telocal = bool(p._telocal_enabled)
-    junction = bool(p._chimera_reads_enabled)
+    chimeric_reads = bool(p._chimera_chimeric_reads_enabled)
     assembly = bool(p._chimera_assembly_enabled)
+    sj = bool(p._chimera_splice_junctions_enabled)
     two_pass = str(p._two_pass)
     n_samples = int(p._sample_count)
-    has_condition = bool(p._has_condition)
 
     on = "&#10003;"
     off = "&#8212;"
@@ -52,11 +52,11 @@ def main():
             not telocal,
         ),
         (
-            "Chimera (junction)", on if junction else off,
+            "Chimera (chimeric reads)", on if chimeric_reads else off,
             "<strong>Evidence</strong>: reads STAR cannot align linearly",
             "Annotation-blind. Finds breakpoints; blind to chimeras spliced "
             "through an ordinary intron.",
-            not junction,
+            not chimeric_reads,
         ),
         (
             "Chimera (assembly)", on if assembly else off,
@@ -64,6 +64,14 @@ def main():
             "Annotation-guided. Finds canonically spliced chimeras; blind to "
             "structures no assembler would build.",
             not assembly,
+        ),
+        (
+            "Chimera (SJ)", on if sj else off,
+            "<strong>Evidence</strong>: STAR's own splice junctions (SJ.out.tab)",
+            "Same blind spot as assembly (ordinary-intron TE splices "
+            "invisible to the junction screen), caught at the read-junction "
+            "level instead -- no assembly needed. Brand new, unvalidated.",
+            not sj,
         ),
         (
             "STAR 2-pass", f"{on} ({two_pass})" if two_pass != "none" else off,
@@ -79,25 +87,34 @@ def main():
     )
 
     # --- the one line that actually resolves the confusion --------------
-    if junction and assembly:
-        independence = (
-            "<p><strong>Two independent screens are running.</strong> They "
-            "look for gene-TE chimeras in ways that fail differently, so a "
-            "candidate found by <em>both</em> is the strongest call this "
-            "pipeline makes -- see <code>candidates_with_junction_evidence."
-            "tsv.gz</code>. Everything else is single-method evidence.</p>"
+    n_screens = sum([chimeric_reads, assembly, sj])
+    if n_screens >= 2:
+        cross_ref = (
+            " Chimeric-reads+assembly agreement additionally has its own "
+            "cross-referenced file, <code>candidates_with_junction_evidence."
+            "tsv.gz</code>." if chimeric_reads and assembly else ""
         )
-    elif junction:
         independence = (
-            "<p><strong>One chimera screen is running</strong> (junction). "
-            "There is no second, independent method to cross-check its calls; "
-            "<code>chimera.assembly.enabled: true</code> adds one.</p>"
+            f"<p><strong>{n_screens} independent chimera screens are "
+            "running.</strong> They look for gene-TE chimeras in ways that "
+            "fail differently, so a candidate found by more than one is "
+            "stronger evidence than any single screen alone -- see "
+            "<code>results/chimera/candidates.tsv.gz</code>'s found_by/"
+            f"evidence columns.{cross_ref} Everything else is single-method "
+            "evidence.</p>"
         )
-    elif assembly:
+    elif n_screens == 1:
+        running = "chimeric reads" if chimeric_reads else "assembly" if assembly else "SJ"
+        others = ", ".join(
+            f"<code>chimera.{key}.enabled: true</code>"
+            for key, on_ in (("chimeric_reads", chimeric_reads), ("assembly", assembly),
+                              ("splice_junctions", sj))
+            if not on_
+        )
         independence = (
-            "<p><strong>One chimera screen is running</strong> (assembly). "
-            "There is no second, independent method to cross-check its calls; "
-            "<code>chimera.reads.enabled: true</code> adds one.</p>"
+            f"<p><strong>One chimera screen is running</strong> ({running}). "
+            f"There is no second, independent method to cross-check its "
+            f"calls; {others} adds one.</p>"
         )
     else:
         independence = (
@@ -113,27 +130,26 @@ def main():
              "<li>Read expression: <em>TEcount</em> for which subfamilies "
              "move" + (", then <em>TElocal</em> for which copy is "
                        "responsible" if telocal else "") + ".</li>"]
-    if junction:
+    # BUG FIXED 2026: this used to point at "Chimera -> What to look at" /
+    # "Chimera (assembly) -> What to look at", two sections that no longer
+    # exist (the report's per-screen sections are now "Chimeric reads - what
+    # this screen sees" / "Assembly - what this screen sees", describing each
+    # screen's blind spots, not a candidate list -- see guard 38) and called
+    # the result "ranked", which the pipeline never does (guard 50). The
+    # actual unified, cross-screen, sortable-not-ranked candidate table is
+    # the "Candidates" section (chimera_candidates_table_mqc.py); one bullet
+    # covers both screens since they share that one table.
+    if chimeric_reads or assembly:
         steps.append(
-            "<li>Open <em>Chimera &rarr; What to look at</em> for the ranked "
-            "gene-TE junctions, not the raw catalog.</li>"
+            "<li>Open <em>Candidates</em> for the unified gene-TE junction "
+            "table (sortable by evidence count, not ranked) instead of the "
+            "raw per-screen catalogs.</li>"
         )
-    if assembly:
-        steps.append(
-            "<li>Open <em>Chimera (assembly) &rarr; What to look at</em>; "
-            "prefer candidates marked as junction-confirmed.</li>"
-        )
-    if has_condition:
-        steps.append(
-            "<li>Differential results are in "
-            "<code>results/tetranscripts/</code> -- the report does not "
-            "render them.</li>"
-        )
-    else:
-        steps.append(
-            "<li>No <code>condition</code> column in the sample sheet, so no "
-            "differential comparison was run.</li>"
-        )
+    steps.append(
+        "<li>The pipeline does not run differential-expression analysis "
+        "itself -- take the per-sample TEcount tables into your own "
+        "DESeq2/edgeR analysis downstream.</li>"
+    )
 
     html = f"""
 <p>This run processed <strong>{n_samples}</strong> sample(s). It answers two

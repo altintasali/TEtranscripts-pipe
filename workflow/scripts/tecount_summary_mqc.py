@@ -40,14 +40,15 @@ FLAVOUR = Flavour(
     class_title="TE class composition",
     assignment_desc=(
         "Per-sample read counts assigned by TEcount to genes vs TE "
-        "subfamilies (counts and % of total assigned reads). "
-        "<br><br><em>How to read this:</em> the gene/TE split should be "
-        "broadly consistent across samples of the same type — an "
-        "outlier usually reflects library quality or rRNA/intronic "
-        "carry-over rather than TE biology, so check it before "
-        "interpreting a TE effect. TEcount pools every copy of a "
-        "subfamily into one row; see the TElocal sections for the "
-        "per-copy view."
+        "subfamilies. The gene/TE split should be broadly consistent "
+        "across samples of the same type -- an outlier usually reflects "
+        "library quality, not TE biology."
+    ),
+    assignment_help=(
+        "Check an outlier before interpreting a TE effect: it usually "
+        "reflects library quality or rRNA/intronic carry-over rather than "
+        "TE biology. TEcount pools every copy of a subfamily into one "
+        "row; see the TElocal sections for the per-copy view."
     ),
     class_desc=(
         "Per-sample TE-subfamily reads by repeat class (counts and % of "

@@ -12,7 +12,7 @@ longer ranks candidates at all (see chimera_evidence_guide_mqc.py), and this
 section keeps only what is genuinely specific to this screen: its blind spot,
 and the counts a reader needs to judge its output.
 
-Reads the merged gene<->TE table (chimera_reads_counts.py's --out-te-events) because
+Reads the merged gene<->TE table (chimera_chimeric_reads_counts.py's --out-te-events) because
 the qualifying counts are per-event annotation columns: canonical motif,
 replicate support, and (when telocal is enabled) whether the TE locus is
 expressed.
@@ -51,7 +51,7 @@ def main():
     rows = list(load(args.te_events))
     n_total = len(rows)
     # telocal columns only exist when the telocal-annotation step ran; "." is
-    # what chimera_reads_counts writes for an absent column, so this also stays
+    # what chimera_chimeric_reads_counts writes for an absent column, so this also stays
     # correct if telocal is on but a run produced no annotated events.
     has_telocal = any(r.get("telocal_active", ".") in ("yes", "no") for r in rows)
 
@@ -74,18 +74,20 @@ def main():
         "available for the TE side.</li>"
     )
 
-    body = f"""
+    # BUG FIXED 2026 (Task 3, report-bloat trim): the full qualifying-counts
+    # list moved to helptext (collapsed by default); "data" keeps only the
+    # blind-spot summary guard 38 requires to stay always-visible.
+    body = """
 <p><strong>What this screen sees.</strong> STAR's chimeric junctions: reads
-that cannot be explained by one linear alignment. It is annotation-blind by
-construction, so it catches breakpoints no assembler would predict.</p>
+that cannot be explained by one linear alignment.</p>
 
 <p><strong>What it cannot see.</strong> A gene-TE chimera spliced through an
-ordinary, canonical intron &mdash; that read aligns linearly, so it never
-reaches this screen at all. That gap is exactly what the transcript-evidence
-(assembly) screen covers, which is why the two are kept separate rather than
-merged.</p>
+ordinary, canonical intron never reaches this screen -- that is the
+transcript-evidence (assembly) screen's job instead. See Help for the counts
+that qualify this screen's own output.</p>
+"""
 
-<p><strong>Qualifying this screen's output:</strong></p>
+    help_body = f"""
 <ul>
 <li><strong>{n_canonical} of {n_total}</strong> gene-TE junctions
 ({pct:.1f}%) carry a recognised splice motif (<code>canonical: yes</code>).
@@ -111,17 +113,18 @@ the assembly screen's into the <strong>Candidates</strong> table above.</p>
 """
 
     doc = {
-        # parent_id must match chimera_reads_qc_mqc.py and sample_qc.R's chimera
+        # parent_id must match chimera_chimeric_reads_qc_mqc.py and sample_qc.R's chimera
         # view EXACTLY -- every view of this screen shares one group, and a
         # mismatch silently splits it into two report sections.
-        "id": "chimera_reads_highlights",
+        "id": "chimera_chimeric_reads_highlights",
         "parent_id": "chimera",
         "parent_name": "Chimera",
-        "section_name": "Reads - what this screen sees",
+        "section_name": "Chimeric reads - what this screen sees",
         "description": (
             "The read-evidence screen's blind spot, and the counts that "
             "qualify its output."
         ),
+        "helptext": help_body,
         "plot_type": "html",
         "data": body,
     }

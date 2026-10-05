@@ -59,6 +59,17 @@ rule rseqc_read_distribution:
 # to this same slowness, are only ~3.8k transcripts.
 GENE_BODY_COVERAGE_TRANSCRIPTS = 1000
 
+# BAM size (MB, on-disk) above which the BAM itself is subsampled before
+# geneBody_coverage.py runs -- same lever nf-core/rnaseq's BAM_RSEQC
+# subworkflow uses (its bam_stat_threshold, default 10GB), independent of
+# and complementary to the transcript-count thinning above: thinning
+# controls how many loci are pileup'd, this controls how much READ DEPTH
+# each one costs. Not a config key, same rationale as
+# GENE_BODY_COVERAGE_TRANSCRIPTS -- a QC-curve precision/runtime knob, not
+# an analysis parameter. 5 GB covers a typical bulk RNA-seq BAM untouched;
+# only unusually deep/large libraries get subsampled.
+GENE_BODY_COVERAGE_SUBSAMPLE_ABOVE_MB = 5000
+
 
 rule rseqc_gene_body_coverage:
     # 5'->3' gene body coverage -- flags RNA degradation (3' bias) or
@@ -89,6 +100,15 @@ rule rseqc_gene_body_coverage:
     # low. The other two RSeQC rules stream the BAM once and are not slow, so
     # they keep using the full annotation.bed12.
     #
+    # Above GENE_BODY_COVERAGE_SUBSAMPLE_ABOVE_MB, the BAM itself is
+    # subsampled first (samtools view -s), independent of and complementary
+    # to the transcript thinning above -- same lever nf-core/rnaseq's
+    # BAM_RSEQC subworkflow uses (bam_stat_threshold), just applied here
+    # inline rather than as a separate rule: whether subsampling is even
+    # needed depends on the ALREADY-ALIGNED BAM's on-disk size, which isn't
+    # known until STAR has run, so it can't be decided at DAG-build time --
+    # the branch has to live in the shell script, at execution time.
+    #
     # geneBody_coverage.py hardcodes open('log.txt', 'a') -- a RELATIVE path,
     # opened in APPEND mode, independent of this rule's own `> {log} 2>&1`
     # (that only captures the process's stdout/stderr; this file handle is
@@ -111,6 +131,7 @@ rule rseqc_gene_body_coverage:
     params:
         prefix="results/rseqc/{sample}",
         n_transcripts=GENE_BODY_COVERAGE_TRANSCRIPTS,
+        subsample_above_bytes=GENE_BODY_COVERAGE_SUBSAMPLE_ABOVE_MB * 1_000_000,
     threads: get_resources("rseqc_gene_body_coverage")["threads"]
     resources:
         mem_mb=get_resources("rseqc_gene_body_coverage")["mem_mb"],
@@ -129,5 +150,15 @@ rule rseqc_gene_body_coverage:
         "awk -v k=\"$k\" 'NR % k == 0' {input.refgene} > \"$bed\" && "
         "workdir={resources.tmpdir}/genebody_{wildcards.sample} && "
         "mkdir -p \"$workdir\" && cd \"$workdir\" && "
-        "geneBody_coverage.py -i \"$root/{input.aln}\" -r \"$bed\" "
+        "size=$(stat -c%s \"$root/{input.aln}\") && "
+        "aln=\"$root/{input.aln}\" && "
+        "if [ \"$size\" -gt {params.subsample_above_bytes} ]; then "
+        "  frac=$(awk -v t={params.subsample_above_bytes} -v s=\"$size\" "
+        "         'BEGIN{{printf \"%.4f\", t/s}}'); "
+        "  aln=subsampled.bam; "
+        "  samtools view -@ {threads} -b -s \"$frac\" "
+        "    -o \"$aln\" \"$root/{input.aln}\" && "
+        "  samtools index -@ {threads} \"$aln\"; "
+        "fi && "
+        "geneBody_coverage.py -i \"$aln\" -r \"$bed\" "
         "-o \"$root/{params.prefix}\" > \"$root/{log}\" 2>&1"

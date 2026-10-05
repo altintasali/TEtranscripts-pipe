@@ -4,7 +4,7 @@ into a BED track for IGV: one row per candidate, spanning the SPECIFIC exon
 that overlaps the TE (te_exon_start/te_exon_end -- not the whole transcript,
 and not always the first exon; see classify_chimera_assembly.py's docstring),
 colored by chimera_type so the different classes are visually distinguishable
-when loaded alongside the chimera_reads screen's own IGV track.
+when loaded alongside the chimera_chimeric_reads screen's own IGV track.
 
 candidates.tsv.gz coordinates are already GTF-derived 0-based-start/
 exclusive-end (see classify_chimera_assembly.py's load_transcripts), i.e.
@@ -23,8 +23,11 @@ from gz_io import open_read
 CLASS_COLOR = {
     "te_initiated": "31,119,180",
     "te_initiated_intergenic": "150,190,220",
+    "annotated_promoter_embedded_te": "148,103,189",
     "te_exonized": "255,127,14",
     "te_terminated": "44,160,44",
+    "annotated_terminal_exon_embedded_te": "188,189,34",
+    "antisense_to_gene": "214,39,40",
     "unspliced_te_only": "150,150,150",
 }
 

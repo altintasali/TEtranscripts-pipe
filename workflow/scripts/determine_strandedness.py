@@ -8,9 +8,23 @@ and for paired-end data:
     Fraction of reads explained by "1+-,1-+,2++,2--": <reverse-type fraction>
 
 Mapping to TEtranscripts/TEcount's --stranded {no,forward,reverse}:
-  forward-type fraction dominates -> "forward" (e.g. QIAseq stranded / "second-strand")
-  reverse-type fraction dominates -> "reverse" (e.g. Illumina TruSeq stranded / "first-strand")
-  neither dominates                -> "no" (unstranded)
+  forward-type fraction >= min_fraction -> "forward" (e.g. QIAseq stranded / "second-strand")
+  reverse-type fraction >= min_fraction -> "reverse" (e.g. Illumina TruSeq stranded / "first-strand")
+  neither clears min_fraction          -> "no" (the operative --stranded value; see below)
+
+Writes TWO files:
+  output.txt   the operative --stranded value (no/forward/reverse) -- what
+               TEcount/TElocal actually run with for this sample (when its
+               effective mode is "auto").
+  output.call  a richer, report-only label (forward/reverse/no/undetermined):
+               below min_fraction, the dominant fraction is checked against
+               a second, lower threshold (balanced_max) -- under it, the
+               library is confidently unstranded ("no"); between the two,
+               neither confidently stranded nor confidently balanced, so
+               it's reported as "undetermined" rather than silently folded
+               into "no". Quantification still uses "no" for undetermined
+               samples (the safe choice -- it discards no reads), but
+               strandedness_check_mqc.py surfaces the distinction.
 """
 
 import re
@@ -40,6 +54,8 @@ if not fractions:
     )
     with open(snakemake.output.txt, "w") as fh:
         fh.write("no\n")
+    with open(snakemake.output.call, "w") as fh:
+        fh.write("no\n")
     sys.exit(0)
 
 forward_value = 0.0
@@ -52,23 +68,36 @@ for pattern, value in fractions.items():
         reverse_value = value
 
 min_fraction = float(snakemake.params.min_fraction)
+balanced_max = float(snakemake.params.balanced_max)
 
 print(f"Parsed fractions: {fractions}", file=sys.stderr)
 print(
     f"forward-type fraction: {forward_value:.4f}, "
     f"reverse-type fraction: {reverse_value:.4f}, "
-    f"min_fraction threshold: {min_fraction}",
+    f"min_fraction threshold: {min_fraction}, balanced_max threshold: {balanced_max}",
     file=sys.stderr,
 )
 
 if forward_value >= min_fraction:
-    stranded = "forward"
+    call = "forward"
 elif reverse_value >= min_fraction:
-    stranded = "reverse"
+    call = "reverse"
+elif max(forward_value, reverse_value) < balanced_max:
+    call = "no"  # confidently unstranded
 else:
-    stranded = "no"
+    call = "undetermined"  # skewed, but not enough to call confidently
 
-print(f"--> calling library strandedness: {stranded}", file=sys.stderr)
+# The operative --stranded value TEcount/TElocal run with: undetermined
+# collapses to "no", the safe choice (it discards no reads, only loses
+# directionality signal).
+stranded = "no" if call == "undetermined" else call
+
+print(
+    f"--> report call: {call}; operative --stranded value: {stranded}",
+    file=sys.stderr,
+)
 
 with open(snakemake.output.txt, "w") as fh:
     fh.write(stranded + "\n")
+with open(snakemake.output.call, "w") as fh:
+    fh.write(call + "\n")

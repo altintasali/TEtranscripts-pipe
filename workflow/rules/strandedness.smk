@@ -36,13 +36,20 @@ rule rseqc_infer_experiment:
 
 rule determine_strandedness:
     # Converts the RSeQC infer_experiment.py report into the TEtranscripts/
-    # TEcount --stranded value (no/forward/reverse) for this sample.
+    # TEcount --stranded value (no/forward/reverse) for this sample, plus a
+    # richer report-only call (adds "undetermined") for the strandedness
+    # check table -- see determine_strandedness.py's docstring.
     input:
         txt="results/rseqc/{sample}_infer_experiment.txt",
+        # Declared so that EDITING the script re-runs the rule (guard 65):
+        # Snakemake does not reliably treat a script's content as rule code.
+        script=f"{SCRIPTS_DIR}/determine_strandedness.py",
     output:
         txt="results/rseqc/{sample}_strandedness.txt",
+        call="results/rseqc/{sample}_strandedness_call.txt",
     params:
         min_fraction=config["strandedness"]["min_fraction"],
+        balanced_max=config.get("strandedness", {}).get("balanced_max", 0.55),
     threads: get_resources("determine_strandedness")["threads"]
     resources:
         mem_mb=get_resources("determine_strandedness")["mem_mb"],
@@ -71,9 +78,16 @@ rule strandedness_check:
             sample=STRAND_CHECK_SAMPLES,
         ),
         calls=expand(
+            "results/rseqc/{sample}_strandedness_call.txt",
+            sample=STRAND_CHECK_SAMPLES,
+        ),
+        operative=expand(
             "results/rseqc/{sample}_strandedness.txt",
             sample=STRAND_CHECK_SAMPLES,
         ),
+        # Declared so that EDITING the script re-runs the rule (guard 65):
+        # Snakemake does not reliably treat a script's content as rule code.
+        script=f"{SCRIPTS_DIR}/strandedness_check_mqc.py",
     output:
         "results/rseqc/strandedness_check_mqc.json",
     params:

@@ -20,13 +20,14 @@ junction is enabled -- see the config schema; the default keeps everything).
 Filtering / evidence decisions are left to the user downstream -- the pipeline
 ships the full event table and the counts matrix instead.
 
-Output columns (results/chimera/reads/per_sample/{sample}_junctions.tsv.gz):
+Output columns (results/chimera/chimeric_reads/per_sample/{sample}_junctions.tsv.gz):
     event_id, sample, donor_chrom, donor_breakpoint, donor_strand,
     acceptor_chrom, acceptor_breakpoint, acceptor_strand, junction_type,
     canonical, repeat_flag, reads, donor_hits, acceptor_hits, direction,
     direction_ambiguous, gene_id, gene_strand, te_id, te_subfamily,
-    te_family, te_class, chimera_type, antisense_flag, library_strand,
-    transcript_strand, gene_strand_match
+    te_family, te_class, chimera_type, te_initiated_detail, antisense_flag,
+    library_strand, transcript_strand, gene_strand_match, gene_te_distance,
+    max_anchor
 
 When --te-out is given, the gene<->TE events (direction gene_to_te /
 te_to_gene) are additionally written to that path with the same columns,
@@ -34,7 +35,7 @@ so the gene-TE chimeras are available as their own table.
 
 junction_type/canonical: STAR's column-6 value (0 non-canonical .. 6) and a
 derived GT/AG-ish yes/no. TE-involved splicing is often non-canonical, so
-this is reported but never filtered (see require_canonical_junction config
+this is reported but never filtered (see require_canonical config
 for the opt-in).
 
 direction: gene_to_te / te_to_gene (the two primary classes -- the gene-TE
@@ -52,11 +53,57 @@ The reported direction (and the chimera_type derived from it) is then one
 defensible reading, not the only one; donor_hits/acceptor_hits carry the
 full gene+TE sets for those rows.
 
-chimera_type (only for gene<->TE events where donor and acceptor are on the
-same chromosome): te_initiated (TE upstream of the gene's TSS on the gene
-strand), te_terminated (TE downstream of the gene), te_exonized (TE within the
-gene body). For trans events (donor and acceptor on different chromosomes),
-chimera_type is ".".
+chimera_type (gene<->TE events only): BUG FIXED 2026 -- this used to be
+decided from where the TE's span sits relative to the GENE's overall
+genomic span (TE entirely upstream of the gene -> te_initiated; entirely
+downstream -> te_terminated; anywhere else, including squarely inside an
+intron -> te_exonized). That is wrong whenever the TE's genomic position
+doesn't match the junction's own DIRECTION: a gene_to_te junction into a
+TE that happens to sit upstream of the gene's span was scored
+te_initiated even though the read shows the gene transcribing INTO the
+TE, not the TE initiating anything; a te_to_gene junction from a TE
+sitting inside an intron, acting as an alternative promoter that splices
+directly into a downstream exon, was scored te_exonized just because the
+TE's coordinates fall within the gene's genomic span, even though the
+read IS a TE-initiated transcript. This is exactly the bug already fixed
+in classify_chimera_splice_junctions.py; see that module's own docstring
+for the full reasoning -- both fixes moved to a shared implementation
+(chimera_exon_context.py) so the two screens can't drift apart again.
+
+Fixed: chimera_type is now decided from the junction's DIRECTION plus the
+gene's own EXON STRUCTURE (from exons.bed, already loaded for donor/
+acceptor overlap), matching classify_chimera_assembly.py's vocabulary
+exactly (te_initiated / te_terminated / te_exonized -- names unchanged, so
+existing consumers of this column keep working), for events where donor
+and acceptor are on the SAME chromosome:
+  te_to_gene (donor in TE, acceptor in a gene exon) -> te_initiated. The TE
+    is transcript-upstream of the exon it splices into, whatever its
+    genomic coordinate relative to the gene's overall span.
+  gene_to_te (donor in a gene exon, acceptor in TE) -> te_terminated if no
+    OTHER annotated exon of the same gene lies transcript-downstream of the
+    donor exon (nothing known follows -- the TE plausibly ends the
+    transcript); te_exonized if one does (the TE sits inside a region the
+    annotation says the gene's transcript continues past -- an internal
+    exon, not a true terminus).
+For trans events (donor and acceptor on different chromosomes), chimera_type
+stays "." -- te_initiated/terminated/exonized would require comparing
+coordinates across two different chromosomes.
+
+Rows with direction_ambiguous = "yes" are typed the same way as any other
+gene<->TE event above -- direction_ambiguous only flags that the reported
+direction was one defensible reading among several (see above), it does not
+change how chimera_type is derived from whatever direction was recorded.
+
+te_initiated_detail (te_to_gene events only, "." otherwise): a finer split
+that classify_chimera_assembly.py's own te_initiated does NOT distinguish
+(so it is reported as its own column, not folded into chimera_type):
+  upstream  the acceptor exon is the gene's own most-5' annotated exon (per
+            exons.bed) -- the TE splices directly into where the gene
+            already starts.
+  internal  the gene has an annotated exon further upstream that this
+            junction's transcript skips -- the TE is acting as an
+            alternative, INTERNAL promoter (e.g. an intronic MT2/MERVL
+            case in mouse oocytes/early embryos).
 
 antisense_flag: "yes" when an annotated gene overlaps the TE insertion on the
 opposite strand of the assigned gene -- the embedded-TE / sense-antisense
@@ -67,13 +114,41 @@ for stranded libraries the read's aligned strand plus the library type
 (forward = read same strand as transcript; reverse = read opposite strand)
 gives the transcription strand, which is compared to the annotated gene
 strand. For unstranded libraries these columns are NA.
+
+Strand rule (stranded libraries): when a breakpoint overlaps exons of
+several genes, a gene on the transcript's own strand is preferred
+(prefer_gene_on_strand); a gene<->TE event still on the strand OPPOSITE its
+gene is typed antisense_to_gene instead of te_initiated/te_terminated/
+te_exonized -- it is antisense transcription through the gene's exon. With
+an unstranded library the strand is unknown here (STAR's chimeric strands
+are read strands), so no event is re-typed.
+
+gene_te_distance: "trans" (different chromosomes), 0 (TE overlaps the
+gene's span) or the gap in bp; "." for events without both a gene and a TE.
+
+max_anchor: for each read, the aligned length of its SHORTER segment (M
+bases in the CIGARs, columns 12 and 14); the event reports the best read.
+The chimeric-read counterpart of SJ.out.tab's overhang: a breakpoint no read
+anchors well on both sides is easier to produce by mis-mapping. On a real
+run, local gene-TE events had a median of ~26 bp vs ~18 bp for trans / far
+ones. STAR's repeat-length columns (8-9) were checked and are not used: they
+measure how far the breakpoint can slide, which tracks the splice motif
+rather than artifacts.
 """
 import argparse
 import bisect
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from chimera_exon_context import (
+    ANTISENSE_TO_GENE,
+    build_gene_exon_positions,
+    exon_downstream_of,
+    exon_upstream_of,
+    prefer_gene_on_strand,
+)
 from gz_io import open_write
 
 
@@ -133,6 +208,14 @@ def overlapping(track, chrom, start0, end0):
 
 CANONICAL_TYPES = {1, 2, 3, 4, 5, 6}  # anything but 0 (non-canonical)
 
+_CIGAR_M = re.compile(r"(\d+)M")
+
+
+def _matched_bases(cigar):
+    """Aligned (M) bases in one chimeric segment's CIGAR. STAR writes "-1"
+    for an unmapped mate segment, which counts as 0."""
+    return sum(int(n) for n in _CIGAR_M.findall(cigar))
+
 
 def opp(strand):
     return {"+": "-", "-": "+", ".": "."}.get(strand, ".")
@@ -172,6 +255,14 @@ def main():
     exons = load_bed(args.exons)
     te = load_bed(args.te, n_extra=3)
 
+    # Per-gene exon positions, keyed by gene_id -- used below to decide
+    # chimera_type from the gene's own exon structure instead of the TE's
+    # raw position relative to the gene's overall span. Shared with
+    # classify_chimera_splice_junctions.py via chimera_exon_context.py so
+    # the two screens' typing logic can't drift apart -- see the module
+    # docstring for why the old span-containment test was wrong.
+    gene_exon_positions = build_gene_exon_positions(exons)
+
     tol = max(args.breakpoint_tolerance, 0)
     lib = args.library_strandedness
     if lib == "auto":
@@ -208,6 +299,19 @@ def main():
         genomic coordinates on a '-' segment).
         """
         return _window(bp - 1 if strand == "-" else bp + 1)
+
+    def read_to_transcript(read_strand):
+        """Transcript strand implied by a segment's aligned strand, or "NA"
+        when the library is unstranded (STAR's chimeric strands are READ
+        strands, unlike SJ.out.tab's motif-derived one)."""
+        if lib == "forward":
+            return read_strand if read_strand in ("+", "-") else "NA"
+        if lib == "reverse":
+            return opp(read_strand) if read_strand in ("+", "-") else "NA"
+        return "NA"
+
+    def _gene_strand(gene_id):
+        return gene_meta.get(gene_id, (None, None, None, "."))[3]
 
     events = {}
 
@@ -246,19 +350,27 @@ def main():
             acceptor_gene_hit = bool(acceptor_genes)
             acceptor_te_hit = bool(acceptor_te_ids)
 
+            # With a stranded library, a gene on the transcript's own strand
+            # wins over an overlapping opposite-strand gene (see
+            # prefer_gene_on_strand); unstranded keeps the first-sorted gene.
+            donor_gene = prefer_gene_on_strand(
+                donor_genes, read_to_transcript(donor_strand), _gene_strand)
+            acceptor_gene = prefer_gene_on_strand(
+                acceptor_genes, read_to_transcript(acceptor_strand), _gene_strand)
+
             if donor_gene_hit and acceptor_te_hit:
                 direction = "gene_to_te"
-                gene_id = donor_genes[0]
+                gene_id = donor_gene
                 te_id = acceptor_te_ids[0]
                 gene_side_strand = donor_strand
             elif donor_te_hit and acceptor_gene_hit:
                 direction = "te_to_gene"
-                gene_id = acceptor_genes[0]
+                gene_id = acceptor_gene
                 te_id = donor_te_ids[0]
                 gene_side_strand = acceptor_strand
             elif donor_gene_hit and acceptor_gene_hit:
                 direction = "gene_to_gene"
-                gene_id = donor_genes[0]
+                gene_id = donor_gene
                 te_id = None
                 gene_side_strand = donor_strand
             elif donor_te_hit and acceptor_te_hit:
@@ -268,12 +380,12 @@ def main():
                 gene_side_strand = donor_strand
             elif donor_gene_hit:
                 direction = "gene_to_other"
-                gene_id = donor_genes[0]
+                gene_id = donor_gene
                 te_id = None
                 gene_side_strand = donor_strand
             elif acceptor_gene_hit:
                 direction = "other_to_gene"
-                gene_id = acceptor_genes[0]
+                gene_id = acceptor_gene
                 te_id = None
                 gene_side_strand = acceptor_strand
             elif donor_te_hit:
@@ -306,8 +418,14 @@ def main():
             key = (donor_chrom, donor_bp, donor_strand, acceptor_chrom,
                    acceptor_bp, acceptor_strand, direction)
             ev = events.setdefault(key, {"reads": 0, "gene_id": gene_id,
-                                          "te_id": te_id})
+                                          "te_id": te_id, "max_anchor": 0})
             ev["reads"] += 1
+            # the read's shorter segment, in aligned bases (CIGAR columns
+            # 12 / 14); max over the event's reads -- see max_anchor in the
+            # module docstring
+            if len(cols) >= 14:
+                ev["max_anchor"] = max(ev["max_anchor"], min(
+                    _matched_bases(cols[11]), _matched_bases(cols[13])))
             if ev["reads"] == 1:
                 ev.update(
                     {
@@ -355,30 +473,44 @@ def main():
             te_span = (ts, tee)
 
         chimera_type = "."
+        te_initiated_detail = "."
         antisense = "."
         same_chrom = donor_chrom == acceptor_chrom
-        if direction in ("gene_to_te", "te_to_gene") and gene_span and te_span:
-            if same_chrom:
-                gs, ge, gst = gene_span[0], gene_span[1], gene_strand
-                ts, te = te_span[0], te_span[1]
-                if gst == "+":
-                    if te < gs:
-                        chimera_type = "te_initiated"
-                    elif ts > ge:
-                        chimera_type = "te_terminated"
-                    else:
-                        chimera_type = "te_exonized"
-                elif gst == "-":
-                    if ts > ge:
-                        chimera_type = "te_initiated"
-                    elif te < gs:
-                        chimera_type = "te_terminated"
-                    else:
-                        chimera_type = "te_exonized"
-            # else: trans event (different chromosomes) -- chimera_type
-            # stays "." since te_initiated/terminated/exonized would require
-            # comparing coordinates across two different chromosomes.
+        # Trans events (different chromosomes) leave chimera_type as "." --
+        # te_initiated/terminated/exonized would require comparing
+        # coordinates across two different chromosomes.
+        if direction in ("gene_to_te", "te_to_gene") and gene_span and te_span and same_chrom:
+            gst = gene_strand
 
+            if direction == "te_to_gene":
+                # Donor in TE, acceptor in a gene exon: the TE is
+                # transcript-upstream of the exon it splices into, whatever
+                # its genomic coordinate relative to the gene's overall
+                # span -- see the module docstring for why span-containment
+                # was wrong here.
+                chimera_type = "te_initiated"
+                a0, a1 = acceptor_locus(acceptor_bp, acceptor_strand)
+                accept_pos = (a0 + a1) // 2
+                te_initiated_detail = (
+                    "internal"
+                    if exon_upstream_of(gene_exon_positions, gene_id, accept_pos, gst)
+                    else "upstream"
+                )
+            else:  # gene_to_te
+                # Donor in a gene exon, acceptor in TE: terminated only if
+                # no OTHER annotated exon of this gene lies further
+                # downstream than the donor exon (nothing known follows the
+                # TE); exonized if one does (the annotation says the gene's
+                # transcript continues past this point).
+                d0, d1 = donor_locus(donor_bp, donor_strand)
+                donor_pos = (d0 + d1) // 2
+                chimera_type = (
+                    "te_exonized"
+                    if exon_downstream_of(gene_exon_positions, gene_id, donor_pos, gst)
+                    else "te_terminated"
+                )
+
+        if direction in ("gene_to_te", "te_to_gene") and gene_span and te_span:
             # antisense: annotated gene overlapping the TE insertion on the
             # strand opposite the assigned gene.  TE is on the acceptor side
             # for gene_to_te, donor side for te_to_gene -- te_chrom is
@@ -391,14 +523,35 @@ def main():
                     break
 
         # strand evidence
-        transcript_strand = "NA"
+        transcript_strand = read_to_transcript(ev["gene_side_strand"])
         match = "NA"
-        if lib == "forward":
-            transcript_strand = ev["gene_side_strand"]
-        elif lib == "reverse":
-            transcript_strand = opp(ev["gene_side_strand"])
-        if transcript_strand != "NA" and gene_strand != ".":
+        if transcript_strand != "NA" and gene_strand in ("+", "-"):
             match = "yes" if transcript_strand == gene_strand else "no"
+
+        # Strand rule (stranded libraries only -- unstranded leaves match
+        # NA and the type unchanged): a transcript on the strand opposite
+        # the assigned gene is antisense transcription through that gene's
+        # exon, not initiation/termination/exonization of the gene.
+        if match == "no" and chimera_type in (
+                "te_initiated", "te_terminated", "te_exonized"):
+            chimera_type = ANTISENSE_TO_GENE
+            te_initiated_detail = "."
+
+        # Genomic distance between the gene and the TE: "trans" on
+        # different chromosomes, 0 when the TE overlaps the gene's span,
+        # otherwise the gap in bp. Most chimeric-read gene<->TE events on a
+        # real run joined a gene to a TE on another chromosome or >200 kb
+        # away -- the partner pattern of template switching / chimeric
+        # ligation -- so this lets them be separated from local events.
+        gene_te_distance = "."
+        if gene_span and te_span:
+            gene_chrom = gene_meta[gene_id][0]
+            te_chrom_ = te_meta[te_id][0]
+            if gene_chrom != te_chrom_:
+                gene_te_distance = "trans"
+            else:
+                gene_te_distance = max(0, te_span[0] - gene_span[1],
+                                       gene_span[0] - te_span[1])
 
         try:
             canonical = "yes" if int(ev["junction_type"]) in CANONICAL_TYPES else "no"
@@ -419,8 +572,10 @@ def main():
                 gene_id if gene_id is not None else ".",
                 gene_strand,
                 te_id if te_id is not None else ".",
-                te_subfamily, te_family, te_class, chimera_type, antisense,
-                lib, transcript_strand, match,
+                te_subfamily, te_family, te_class, chimera_type,
+                te_initiated_detail, antisense,
+                lib, transcript_strand, match, gene_te_distance,
+                ev["max_anchor"],
             ]
         )
 
@@ -432,8 +587,9 @@ def main():
         "direction_ambiguous",
         "gene_id", "gene_strand", "te_id", "te_subfamily", "te_family",
         "te_class",
-        "chimera_type", "antisense_flag", "library_strand", "transcript_strand",
-        "gene_strand_match",
+        "chimera_type", "te_initiated_detail", "antisense_flag",
+        "library_strand", "transcript_strand",
+        "gene_strand_match", "gene_te_distance", "max_anchor",
     ]
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
     with open_write(args.out) as fh:

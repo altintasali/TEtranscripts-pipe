@@ -4,87 +4,6 @@
 # Included by rules/common.smk in a fixed order -- these files are NOT
 # independent: each builds on names the previous ones defined.
 
-# -----------------------------------------------------------------------------
-# Pairwise contrasts, derived automatically from the "condition" column.
-# If the sample sheet has no "condition" column, CONTRASTS is empty and the
-# TEtranscripts differential-analysis step is skipped entirely.
-# -----------------------------------------------------------------------------
-def _build_contrasts():
-    if not HAS_CONDITION:
-        return {}
-    conditions = sorted(samples["condition"].dropna().unique())
-    contrasts = {}
-    for control, treatment in itertools.combinations(conditions, 2):
-        name = f"{treatment}_vs_{control}"
-        contrasts[name] = {
-            "treatment": list(samples.loc[samples["condition"] == treatment, "sample"]),
-            "control": list(samples.loc[samples["condition"] == control, "sample"]),
-        }
-    return contrasts
-
-
-CONTRASTS = _build_contrasts()
-
-# Warn at parse time when any contrast has fewer than 2 replicates in a
-# group -- DESeq2 (called internally by TEtranscripts) needs >= 2
-# replicates per condition to estimate dispersion.  This is a warning,
-# not an error, because the user may be doing exploratory analysis.
-import warnings as _warnings
-
-for _cname, _cval in CONTRASTS.items():
-    for _group in ("treatment", "control"):
-        if len(_cval[_group]) < 2:
-            _warnings.warn(
-                f"contrast '{_cname}': {_group} group has only "
-                f"{len(_cval[_group])} sample(s); DESeq2 needs >= 2 "
-                f"replicates per condition for dispersion estimation.",
-                stacklevel=2,
-            )
-
-
-def _contrast_samples(wildcards):
-    c = CONTRASTS[wildcards.contrast]
-    return list(c["treatment"]) + list(c["control"])
-
-
-def contrast_strandedness_input(wildcards):
-    """Dependency on the auto-detection call of every sample in a contrast
-    whose effective strandedness mode is "auto" (others are fixed and need
-    no RSeQC run)."""
-    auto_samples = [s for s in _contrast_samples(wildcards) if SAMPLE_STRANDED_MODE[s] == "auto"]
-    return expand("results/rseqc/{sample}_strandedness.txt", sample=auto_samples)
-
-
-def get_contrast_strandedness_param(wildcards, input):
-    """Resolve a single --stranded value shared by every sample in a contrast.
-
-    TEtranscripts runs one DESeq2 analysis across all treatment/control BAMs
-    at once, so it needs one strandedness value. Each sample's own effective
-    mode (sample-sheet override, auto-detected, or config default) is
-    resolved and, if they disagree, this fails loudly rather than silently
-    picking one -- that mismatch usually means samples were prepared with
-    different library kits and shouldn't be pooled blindly.
-    """
-    all_samples = _contrast_samples(wildcards)
-    auto_samples = [s for s in all_samples if SAMPLE_STRANDED_MODE[s] == "auto"]
-    file_map = dict(zip(auto_samples, input.strandedness))
-    values = set()
-    for s in all_samples:
-        mode = SAMPLE_STRANDED_MODE[s]
-        if mode == "auto":
-            with open(file_map[s]) as fh:
-                values.add(fh.read().strip())
-        else:
-            values.add(mode)
-    if len(values) > 1:
-        raise ValueError(
-            f"Samples in contrast '{wildcards.contrast}' have inconsistent "
-            f"strandedness ({values}). Check the 'strandedness' column in "
-            f"{config['samples']}, or verify auto-detected values agree."
-        )
-    return values.pop()
-
-
 def all_tecount_tables():
     return expand("results/tecount/{sample}.cntTable.gz", sample=SAMPLES)
 
@@ -156,20 +75,13 @@ def all_raw_fastqc_reports():
     ]
 
 
-def all_diffexp_outputs():
-    return expand(
-        "results/tetranscripts/{contrast}_sigdiff_gene_TE.txt.gz",
-        contrast=list(CONTRASTS.keys()),
-    )
-
-
 def all_benchmark_files():
     """Every benchmark file this configuration will produce, so the
     benchmark_summary rule (qc.smk) aggregates exactly the rules that ran
     into the MultiQC resource-usage section. Kept in lockstep with the
     `benchmark:` declarations in the rules -- only the conditional ones
     (merging, trimming, gunzip, RSeQC bed12 conversion, strandedness
-    auto-detection, contrasts) need to be gated here. The multiqc and
+    auto-detection) need to be gated here. The multiqc and
     benchmark_summary rules' own benchmarks are deliberately excluded to
     avoid a cyclic dependency (their resource use is negligible)."""
     B = "results/pipeline_info/benchmarks"
@@ -231,51 +143,47 @@ def all_benchmark_files():
             f"results/pipeline_info/benchmarks/rseqc_infer_experiment/{s}.txt",
             f"results/pipeline_info/benchmarks/determine_strandedness/{s}.txt",
         ]
-    for contrast in CONTRASTS:
-        files.append(
-            f"results/pipeline_info/benchmarks/tetranscripts_diffexp/{contrast}.txt"
-        )
     # Chimera-screen rules only run when the chimera stage is enabled.
-    if CHIMERA_READS_ENABLED:
+    if CHIMERA_CHIMERIC_READS_ENABLED:
         files += [
             "results/pipeline_info/benchmarks/annotation_to_bed/annotation_to_bed.txt",
-            "results/pipeline_info/benchmarks/chimera_reads_counts/chimera_reads_counts.txt",
-            "results/pipeline_info/benchmarks/chimera_reads_highlights/"
-            "chimera_reads_highlights.txt",
+            "results/pipeline_info/benchmarks/chimera_chimeric_reads_counts/chimera_chimeric_reads_counts.txt",
+            "results/pipeline_info/benchmarks/chimera_chimeric_reads_highlights/"
+            "chimera_chimeric_reads_highlights.txt",
             "results/pipeline_info/benchmarks/chimera_evidence/"
             "chimera_evidence.txt",
             "results/pipeline_info/benchmarks/chimera_evidence_guide/"
             "chimera_evidence_guide.txt",
             "results/pipeline_info/benchmarks/chimera_candidates_table/"
             "chimera_candidates_table.txt",
-            "results/pipeline_info/benchmarks/chimera_reads_te_type/"
-            "chimera_reads_te_type.txt",
-            "results/pipeline_info/benchmarks/chimera_evidence_heatmap/"
-            "chimera_evidence_heatmap.txt",
+            "results/pipeline_info/benchmarks/chimera_chimeric_reads_te_type/"
+            "chimera_chimeric_reads_te_type.txt",
         ]
         files.append(
-            f"{B}/chimera_reads_qc_barplot/chimera_reads_qc_barplot.txt"
+            f"{B}/chimera_chimeric_reads_qc_barplot/chimera_chimeric_reads_qc_barplot.txt"
         )
         if TELOCAL_ENABLED:
             # The reads screen cross-references TElocal only when it ran.
             files.append(f"{B}/chimera_telocal_index/chimera_telocal_index.txt")
         for s in SAMPLES:
             files += [
-                f"{B}/chimera_reads_classify/{s}.txt",
-                f"{B}/chimera_reads_qc/{s}.txt",
+                f"{B}/star_filter_primary/{s}.txt",
+                f"{B}/chimera_chimeric_reads_classify/{s}.txt",
+                f"{B}/chimera_chimeric_reads_qc/{s}.txt",
             ]
             if TELOCAL_ENABLED:
                 files.append(f"{B}/chimera_telocal_annotate/{s}.txt")
-            if config["chimera"]["reads"]["outputs"]["write_igv_bed"]:
+            if config["chimera"]["chimeric_reads"]["outputs"]["write_igv_bed"]:
                 files.append(
-                    f"results/pipeline_info/benchmarks/chimera_reads_igv_bed/{s}.txt"
+                    f"results/pipeline_info/benchmarks/chimera_chimeric_reads_igv_bed/{s}.txt"
                 )
-        if config["chimera"]["reads"]["outputs"]["write_counts_matrix"]:
-            transform = config["chimera"]["reads"]["qc"]["pca_transform"]
+        if (config["chimera"]["chimeric_reads"]["outputs"]["write_counts_matrix"]
+                and config["chimera"]["chimeric_reads"]["qc"].get("enabled", False)):
+            transform = config["chimera"]["chimeric_reads"]["qc"]["pca_transform"]
             files += [
                 f"results/pipeline_info/benchmarks/"
-                f"chimera_reads_sample_qc_transform/{transform}.txt",
-                f"results/pipeline_info/benchmarks/chimera_reads_sample_qc/{transform}.txt",
+                f"chimera_chimeric_reads_sample_qc_transform/{transform}.txt",
+                f"results/pipeline_info/benchmarks/chimera_chimeric_reads_sample_qc/{transform}.txt",
             ]
     # Assembly screen: its own STAR pass, StringTie, and everything after.
     # None of this was listed, so the second-heaviest stage in the workflow
@@ -293,7 +201,9 @@ def all_benchmark_files():
                 f"{B}/stringtie_assemble/{s}.txt",
                 f"{B}/stringtie_requantify/{s}.txt",
             ]
-        if CHIMERA_READS_ENABLED:
+            if KEEP_ASSEMBLY_BAM:
+                files.append(f"{B}/chimera_assembly_bam_index/{s}.txt")
+        if CHIMERA_CHIMERIC_READS_ENABLED:
             files.append(
                 f"{B}/chimera_assembly_cross_evidence/chimera_assembly_cross_evidence.txt"
             )
@@ -304,17 +214,47 @@ def all_benchmark_files():
                 f"{B}/chimera_assembly_aggregate_counts/chimera_assembly_aggregate_counts.txt"
             )
         # The assembly QC view is log2-fixed (its outputs carry no
-        # {transform} wildcard), unlike the reads screen's.
-        files += [
-            f"{B}/chimera_assembly_qc_transform/chimera_assembly_qc_transform.txt",
-            f"{B}/chimera_assembly_qc/chimera_assembly_qc.txt",
-        ]
+        # {transform} wildcard), unlike the reads screen's. Borrows
+        # chimera.chimeric_reads.qc.enabled (no qc block of its own).
+        if config["chimera"]["chimeric_reads"]["qc"].get("enabled", False):
+            files += [
+                f"{B}/chimera_assembly_qc_transform/chimera_assembly_qc_transform.txt",
+                f"{B}/chimera_assembly_qc/chimera_assembly_qc.txt",
+            ]
 
     # Cohort-wide STAR 2-pass: a pass-1 alignment per sample plus one merge.
     if STAR_TWO_PASS == "cohort":
         files.append(f"{B}/star_merge_junctions/merge.txt")
         for s in SAMPLES:
             files.append(f"{B}/star_align_pass1/{s}.txt")
+
+    # SJ.out.tab junction screen: no extra STAR pass (reuses star_align's
+    # own SJ.out.tab), so only its own classify/counts/QC rules are new.
+    if CHIMERA_SPLICE_JUNCTIONS_ENABLED:
+        files.append(f"{B}/chimera_splice_junctions_counts/chimera_splice_junctions_counts.txt")
+        files.append(
+            f"{B}/chimera_splice_junctions_summary_mqc/"
+            "chimera_splice_junctions_summary_mqc.txt"
+        )
+        for s in SAMPLES:
+            files.append(f"{B}/chimera_splice_junctions_classify/{s}.txt")
+            if config["chimera"]["splice_junctions"]["outputs"]["write_igv_bed"]:
+                files.append(
+                    f"results/pipeline_info/benchmarks/chimera_splice_junctions_igv_bed/{s}.txt"
+                )
+        if (config["chimera"]["splice_junctions"]["outputs"]["write_counts_matrix"]
+                and config["chimera"]["splice_junctions"]["outputs"]["write_gene_te_chimera_counts"]):
+            files.append(
+                f"{B}/chimera_splice_junctions_aggregate_counts/"
+                "chimera_splice_junctions_aggregate_counts.txt"
+            )
+        if (config["chimera"]["splice_junctions"]["outputs"]["write_counts_matrix"]
+                and config["chimera"]["splice_junctions"]["qc"].get("enabled", False)):
+            transform = config["chimera"]["splice_junctions"]["qc"]["pca_transform"]
+            files += [
+                f"{B}/chimera_splice_junctions_qc_transform/{transform}.txt",
+                f"{B}/chimera_splice_junctions_qc/{transform}.txt",
+            ]
 
     # Report-assembly rules that are siblings of benchmark_summary (they do
     # not depend on it, so listing them just orders them earlier).

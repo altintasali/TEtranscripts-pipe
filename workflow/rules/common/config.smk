@@ -5,7 +5,6 @@
 # independent: each builds on names the previous ones defined.
 
 import gzip
-import itertools
 import os
 import re
 import tempfile
@@ -19,19 +18,17 @@ from snakemake.utils import validate
 # -----------------------------------------------------------------------------
 # Load & validate config
 # -----------------------------------------------------------------------------
-# Renamed in 0.12.0: chimera.junction -> chimera.reads. This runs BEFORE
-# validate(), because the schema is additionalProperties: false and would
-# otherwise reject the old key with a bare jsonschema error naming "junction"
-# and nothing else -- which every existing user would hit, with no hint that
-# the key moved. Fail fast, and say what to do about it.
+# Renamed in 0.12.0: chimera.junction -> chimera.reads (itself since renamed
+# again, see the next block). This runs BEFORE validate(), because the schema
+# is additionalProperties: false and would otherwise reject the old key with
+# a bare jsonschema error naming "junction" and nothing else -- which every
+# existing user would hit, with no hint that the key moved. Fail fast, and
+# say what to do about it.
 if isinstance(config.get("chimera"), dict) and "junction" in config["chimera"]:
     raise WorkflowError(
         "config key 'chimera.junction' was renamed to 'chimera.reads' in "
-        "0.12.0.\n"
-        "The report has always called this screen \"Reads\" (it is the "
-        "read-level evidence screen, as opposed to the StringTie assembly "
-        "one), and the config, rule names and output paths now agree with "
-        "it.\n\n"
+        "0.12.0, and that key has itself since been renamed again -- see "
+        "the 'chimera.reads' error below once you've made this rename.\n\n"
         "In your config file, rename:\n"
         "    chimera:\n"
         "      junction:      ->      reads:\n\n"
@@ -41,6 +38,47 @@ if isinstance(config.get("chimera"), dict) and "junction" in config["chimera"]:
         "assembly screen's from transcript_evidence/ to assembly/), so that "
         "stage re-runs once. Delete the old directories when you are happy "
         "with the new run."
+    )
+
+# Renamed: chimera.reads -> chimera.chimeric_reads. "Reads" was ambiguous --
+# the SJ.out.tab screen is also read-derived -- and this screen's own report
+# label ("Chimera (junction)"), config key ("reads") and data columns
+# ("junction_*") were three different words for the same thing. Same
+# fail-fast-before-validate() reasoning as the chimera.junction check above.
+if isinstance(config.get("chimera"), dict) and "reads" in config["chimera"]:
+    raise WorkflowError(
+        "config key 'chimera.reads' was renamed to 'chimera.chimeric_reads'.\n"
+        "In your config file, rename:\n"
+        "    chimera:\n"
+        "      reads:      ->      chimeric_reads:\n\n"
+        "Everything nested under it is unchanged, except "
+        "require_canonical_junction -> require_canonical (now matching "
+        "chimera.splice_junctions.require_canonical's name).\n\n"
+        "The screen's outputs also moved, from results/chimera/reads/ to "
+        "results/chimera/chimeric_reads/, so that stage re-runs once. Delete "
+        "the old directory when you are happy with the new run."
+    )
+
+# Renamed: chimera.sj_junctions -> chimera.splice_junctions. "sj_junctions"
+# repeated itself ("SJ" already means splice junction), and the abbreviated
+# "sj" was hard to read as an identifier elsewhere in the config/code: the
+# spelled-out form is now used consistently everywhere, including report
+# section titles ("Splice junctions - ..."); the short "(SJ)" form only
+# survives in a few compact column/status labels (e.g. evidence_overview's
+# "Chimera (SJ)" run-status row, candidates table's "SJ motif" column,
+# whose "SJ" prefix matches found_by's own "sj" token) where the full name
+# would not fit.
+if isinstance(config.get("chimera"), dict) and "sj_junctions" in config["chimera"]:
+    raise WorkflowError(
+        "config key 'chimera.sj_junctions' was renamed to "
+        "'chimera.splice_junctions'.\n"
+        "In your config file, rename:\n"
+        "    chimera:\n"
+        "      sj_junctions:      ->      splice_junctions:\n\n"
+        "Everything nested under it is unchanged.\n\n"
+        "The screen's outputs also moved, from results/chimera/sj/ to "
+        "results/chimera/splice_junctions/, so that stage re-runs once. "
+        "Delete the old directory when you are happy with the new run."
     )
 
 validate(config, schema="../../schemas/config.schema.yaml")
@@ -68,8 +106,8 @@ def get_resources(rule_name):
 def get_scaled_mem_mb(rule_name):
     """Return *mem_mb* for *rule_name*, scaled by sample count.
 
-    Rules that accumulate per-sample data in memory (chimera_reads_counts,
-    chimera_reads_sample_qc_transform, tecount_counts, …) declare a ``mem_per_sample``
+    Rules that accumulate per-sample data in memory (chimera_chimeric_reads_counts,
+    chimera_chimeric_reads_sample_qc_transform, tecount_counts, …) declare a ``mem_per_sample``
     key in ``resources.yaml`` on top of the base ``mem_mb``.  This helper
     computes ``base + per_sample × len(SAMPLES)`` so the SLURM allocation
     grows automatically with the experiment size.  Rules without

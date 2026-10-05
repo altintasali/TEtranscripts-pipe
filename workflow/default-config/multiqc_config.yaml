@@ -114,17 +114,25 @@ module_order:
 #                        view ids exactly (a mismatch silently splits a group).
 #   chimera              "Chimera": ONE group for every chimera view. It was
 #                        five (Candidates / Evidence structure / Reads /
-#                        Assembly / Per-sample), which fragmented the TOC.
-#                        MultiQC has only two heading levels, so the
-#                        Reads / Assembly / Evidence-structure grouping is
-#                        carried by section names and by report_section_order
-#                        below. Emitted by chimera_candidates_table_mqc,
-#                        chimera_evidence_guide_mqc, chimera_reads_te_type_mqc,
-#                        chimera_reads_qc_mqc,
-#                        chimera_reads_highlights_mqc, chimera_assembly_summary_mqc,
-#                        chimera_evidence_heatmap and sample_qc.R -- ALL of
-#                        which must use parent_id
-#                        "chimera" exactly, or the group silently splits.
+#                        Assembly / Per-sample) before Evidence structure's
+#                        correlation/leaders heatmaps were removed (they
+#                        characterised the method on a biased subset of
+#                        pairs, not the cohort -- see chimera_evidence_guide_mqc's
+#                        "Screens" and "TElocal expressed" rows for the
+#                        measured findings that came out of them). MultiQC
+#                        has only two heading levels, so the remaining
+#                        Chimeric reads / Assembly / Splice junctions grouping
+#                        is carried by section names (matching the config
+#                        keys chimera.chimeric_reads / .assembly /
+#                        .splice_junctions exactly) and by report_section_order
+#                        below. Emitted by
+#                        chimera_candidates_table_mqc,
+#                        chimera_evidence_guide_mqc, chimera_chimeric_reads_te_type_mqc,
+#                        chimera_chimeric_reads_qc_mqc,
+#                        chimera_chimeric_reads_highlights_mqc, chimera_assembly_summary_mqc,
+#                        chimera_splice_junctions_summary_mqc, and sample_qc.R
+#                        -- ALL of which must use parent_id "chimera" exactly,
+#                        or the group silently splits.
 #   config_used          resolved run configuration.
 #   resource_usage       per-rule benchmark summary.
 #
@@ -150,13 +158,13 @@ custom_content:
 # to the default so they trail as supporting material.
 report_section_order:
   # One "Chimera" group holds every chimera view -- MultiQC custom content has
-  # exactly two heading levels (group, section), so "Reads"/"Assembly"/
-  # "Evidence structure" are carried by section NAMES, not by nesting.
+  # exactly two heading levels (group, section), so "Chimeric reads" /
+  # "Assembly" / "Splice junctions" are carried by section NAMES, not by
+  # nesting.
   # Sections sort alphabetically unless listed here, so all of them are.
   #
   # Reading order: the candidate list, then how to weigh it, then what this
-  # cohort produced, then per-sample, then each screen, then the structure of
-  # the evidence behind it all.
+  # cohort produced, then per-sample, then each screen.
   #
   # No id here may be "chimera": report_section_order's first pass matches
   # module anchors, a custom-content group's anchor is its parent_id, and that
@@ -167,39 +175,58 @@ report_section_order:
     order: -29
   chimera_evidence_composition:
     order: -28
-  chimera_reads_highlights:
-    order: -28
-  chimera_reads_te_type:
+  # BUG FIXED 2026: chimera_evidence_composition and chimera_chimeric_reads_
+  # highlights used to tie at order -28. A tie's actual render order falls
+  # back to filesystem directory-listing order for the two fixture files,
+  # which is not guaranteed stable across filesystems -- found while adding
+  # the splice_junctions entries below, verified against real output. Every
+  # entry from here down shifted one step (more entries, not renumbering
+  # logic) to give this one its own slot.
+  chimera_chimeric_reads_highlights:
     order: -27
-  chimera_reads_qc:
+  chimera_chimeric_reads_te_type:
     order: -26
-  chimera_canonical_rate:
+  chimera_chimeric_reads_qc:
     order: -25
-  # The Fisher test belongs immediately after the plot whose claim it tests;
-  # the four entries above were shifted one earlier to open this slot rather
-  # than renumbering everything below it.
-  chimera_canonical_enrichment:
+  chimera_canonical_rate:
     order: -24
+  # BUG FIXED 2026: chimera_canonical_enrichment used to render right after
+  # this (order -23) -- a 20-row Fisher table, 16 of them per-sample
+  # repeats of the pooled result, not per-run QC. It is now one sentence in
+  # chimera_canonical_rate's own description instead (pooled result only),
+  # with the full per-sample+pooled table moved to a plain data file,
+  # results/chimera/chimeric_reads/canonical_enrichment.tsv.gz (see
+  # chimera_chimeric_reads_qc_mqc.py). -23 is intentionally left unused
+  # rather than renumbering everything below it.
   chimera_te_gene_chimeras:
-    order: -23
-  chimera_reads_sample_qc_pca:
     order: -22
-  chimera_reads_sample_qc_heatmap:
+  chimera_chimeric_reads_sample_qc_pca:
     order: -21
-  chimera_assembly_highlights:
+  chimera_chimeric_reads_sample_qc_heatmap:
     order: -20
-  chimera_assembly_classes:
+  chimera_assembly_highlights:
     order: -19
-  chimera_assembly_strand_rate:
+  chimera_assembly_classes:
     order: -18
-  chimera_assembly_chimera_reads_sample_qc_pca:
+  chimera_assembly_strand_rate:
     order: -17
-  chimera_assembly_chimera_reads_sample_qc_heatmap:
+  chimera_assembly_sample_qc_pca:
     order: -16
-  chimera_evidence_correlation:
+  chimera_assembly_sample_qc_heatmap:
     order: -15
-  chimera_evidence_candidates:
+  # sample_qc.R's "sj" view id is "chimera_splice_junctions" (see VIEWS in that script),
+  # and write_pca_mqc/write_heatmap_mqc always append the literal
+  # "_sample_qc_pca"/"_heatmap" suffix regardless of view --
+  # an established (if oddly-named) convention every other view already
+  # follows (e.g. chimera_assembly_sample_qc_pca above).
+  chimera_splice_junctions_highlights:
     order: -14
+  chimera_splice_junctions_te_type:
+    order: -13
+  chimera_splice_junctions_sample_qc_pca:
+    order: -12
+  chimera_splice_junctions_sample_qc_heatmap:
+    order: -11
   # Module-level move: report_section_order's FIRST pass reorders whole
   # modules by anchor, and a custom-content group's anchor is its parent_id.
   # module_order alone does not do this -- a group absent from

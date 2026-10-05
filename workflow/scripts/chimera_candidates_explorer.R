@@ -1,8 +1,8 @@
 #!/usr/bin/env Rscript
 # Standalone, self-contained interactive HTML explorer over the FULL gene-TE
 # chimera candidate catalogue (results/chimera/candidates.tsv.gz). MultiQC's
-# own "Candidates" table (chimera_candidates_table_mqc.py) caps at top_n rows
-# because embedding the full catalogue there runs multiqc_report.html from a
+# own "Candidates" table (chimera_candidates_table_mqc.py) caps at
+# --max-rows because embedding the full catalogue there runs multiqc_report.html from a
 # few MB to tens of MB and slows MultiQC's own build by an order of
 # magnitude (measured directly: 2.3 MB -> 83 MB, 1.4s -> 15s build, at
 # real-cohort scale of ~31k rows; a real 84-sample cohort produced 454,593
@@ -23,14 +23,17 @@
 # Same non-ranking stance as the MultiQC table (chimera_candidates_table_mqc.py,
 # guards 36/50): every evidence column is shown exactly as chimera_evidence.py
 # wrote it, and NO combined/weighted "confidence" column is computed here --
-# ever. The table opens sorted by Evidence count only because DT needs some
-# initial order to open with; it is a COUNT of flags, not a score, and any
-# column header re-sorts on click.
+# ever. The table opens sorted by Screens desc, then Gene asc, then TE
+# insertion asc -- the same tie-break the MultiQC table's own defaultsort
+# uses, and (unlike the Screen evidence count / Corroboration count columns
+# it used to open sorted on) all three are visible by default, so what the
+# table opens sorted by matches what a reader can actually see. Screens is
+# a COUNT, not a score, and any column header re-sorts on click.
 #
 # Two columns are new here and don't exist in candidates.tsv.gz: "Gene locus"
 # and "TE locus", a ready-to-paste IGV coordinate ("chr:start-end") for every
 # row. The existing per-sample/per-transcript IGV BED tracks
-# (chimera_reads_igv_bed / chimera_assembly_igv_bed) are keyed on a
+# (chimera_chimeric_reads_igv_bed / chimera_assembly_igv_bed) are keyed on a
 # breakpoint-coordinate string or a StringTie transcript_id -- neither
 # matches a candidate's gene_id/te_id, so a biologist could not search IGV by
 # candidate name even with those tracks turned on (they default to off).
@@ -40,20 +43,21 @@
 # extra config toggle.
 #
 # Two more columns join in a real cohort-total read count, when the
-# corresponding screen ran: "TElocal reads (cohort total)" and "Assembly
-# reads (cohort total)", from pre-summed lookup tables built by
+# corresponding screen ran: "TElocal reads" and "Assembly reads", from
+# pre-summed lookup tables built by
 # chimera_candidates_matrix_totals.py (see that script and the rule in
-# chimera_reads.smk for why results/telocal/counts_matrix.tsv.gz and
+# chimera_chimeric_reads.smk for why results/telocal/counts_matrix.tsv.gz and
 # results/chimera/assembly/counts_matrix.tsv.gz are never loaded directly
 # here -- both can be genome/cohort-scale).
 #
 # Column headers reuse chimera_candidates_table_mqc.py's wording exactly
 # where that table shows the same column (kept in sync by eye -- if you
 # rename a header here that also appears there, rename it there too), so a
-# reader moving between the two sees the same names. Two of those names
-# ("Chimeric junction samples", "Chimeric reads") are themselves taken
-# verbatim from that table's own pre-existing column DESCRIPTIONS, not
-# invented here.
+# reader moving between the two sees the same names: CR/SJ/Assembly block
+# prefixes match found_by's own cr/sj/assembly tokens, and Screen evidence
+# count / Corroboration count are hidden by default here for the same
+# reason that table dropped them -- every flag behind them is its own
+# column now, so the counts are redundant, not deleted.
 #
 # Usage:
 #   Rscript chimera_candidates_explorer.R \
@@ -157,6 +161,42 @@ telocal_cohort_total <- unname(telocal_totals[candidates$telocal_locus])
 assembly_cohort_total <- sum_assembly_totals(candidates$assembly_transcript_ids,
                                               assembly_totals)
 
+# multi_sample mirrored exactly from chimera_evidence.py's own rule
+# (max(cr_max_samples, sj_max_samples) > 1) via the corroboration column it
+# already wrote, not recomputed from the raw sample counts here -- same
+# derivation chimera_candidates_table_mqc.py uses for its own Replicated
+# column.
+replicated <- factor(ifelse(
+    grepl("(^|,)multi_sample(,|$)", candidates$corroboration), "yes", "no"
+))
+
+# "." for a column an older candidates.tsv.gz does not carry yet.
+col_or_dot <- function(name) {
+    if (name %in% names(candidates)) candidates[[name]]
+    else rep(".", nrow(candidates))
+}
+
+# Types: the union of the chimera CALLS any screen made for the pair --
+# same derivation as chimera_candidates_table_mqc.py's own Types column
+# (CHIMERA_CALL_TYPES in chimera_exon_context.py).
+chimera_calls <- c("te_initiated", "te_terminated", "te_exonized",
+                   "annotated_promoter_embedded_te",
+                   "annotated_terminal_exon_embedded_te", "annotated_splice",
+                   "antisense_to_gene")
+types <- vapply(seq_len(nrow(candidates)), function(i) {
+    all_types <- unlist(strsplit(c(candidates$cr_chimera_types[i],
+                                   candidates$sj_chimera_types[i],
+                                   candidates$assembly_chimera_types[i]),
+                                 ",", fixed = TRUE))
+    calls <- sort(unique(all_types[all_types %in% chimera_calls]))
+    if (length(calls)) paste(calls, collapse = ",") else "."
+}, character(1))
+
+# Columns are grouped by block, in the same order and vocabulary as
+# chimera_candidates_table_mqc.py: Pair, Overview, CR, SJ, Assembly,
+# Support -- with this table's own explorer-only extras (loci, event
+# counts, per-screen TE type, transcript IDs, flag strings) folded into
+# whichever block they belong to.
 df <- data.frame(
     "Gene" = gene_label,
     "gene_id" = candidates$gene_id,
@@ -166,28 +206,51 @@ df <- data.frame(
     "TE subfamily" = candidates$te_subfamily,
     "TE family" = candidates$te_family,
     "TE class" = factor(candidates$te_class),
+    "TE position" = factor(col_or_dot("te_position")),
+    "TE orientation" = factor(col_or_dot("te_orientation")),
+    "Distance" = int_or_na(col_or_dot("te_gene_distance_bp")),
+    "Screens" = int_or_na(candidates$n_screens),
     "Found by" = factor(candidates$found_by),
-    "Evidence flags" = candidates$evidence,
-    "Evidence count" = int_or_na(candidates$n_evidence),
-    "Splice motif" = factor(candidates$junction_canonical),
-    "Chimeric junction samples" = int_or_na(candidates$junction_max_samples),
-    "Junction events" = int_or_na(candidates$junction_events),
-    "Junction reads (cohort total)" = int_or_na(candidates$junction_reads),
-    "TE type (reads)" = candidates$junction_chimera_types,
-    "TElocal active" = factor(candidates$telocal_active),
-    "TElocal reads (cohort total)" = telocal_cohort_total,
-    "Assembly transcript count" = int_or_na(candidates$assembly_transcripts),
-    "Assembly reads (cohort total)" = assembly_cohort_total,
-    "TE type (assembly)" = candidates$assembly_chimera_types,
-    "Strand match" = factor(candidates$assembly_strand_match),
+    "Types" = factor(types),
+    "Status" = factor(col_or_dot("chimera_status")),
+    "Screen evidence flags" = candidates$screen_evidence,
+    "Screen evidence count" = int_or_na(candidates$n_screen_evidence),
+    "Corroboration flags" = candidates$corroboration,
+    "Corroboration count" = int_or_na(candidates$n_corroboration),
+    "CR motif" = factor(candidates$cr_canonical),
+    "CR max anchor" = int_or_na(col_or_dot("cr_max_anchor")),
+    "CR samples" = int_or_na(candidates$cr_max_samples),
+    "CR reads" = int_or_na(candidates$cr_reads),
+    "CR events" = int_or_na(candidates$cr_events),
+    "CR TE type" = candidates$cr_chimera_types,
+    "SJ motif" = factor(candidates$sj_canonical),
+    "SJ unique fraction" = suppressWarnings(as.numeric(
+        replace(col_or_dot("sj_unique_fraction"),
+                col_or_dot("sj_unique_fraction") %in% c(".", ""), NA))),
+    "SJ max overhang" = int_or_na(col_or_dot("sj_max_overhang")),
+    "SJ samples" = int_or_na(candidates$sj_max_samples),
+    "SJ reads" = int_or_na(candidates$sj_reads),
+    "SJ events" = int_or_na(candidates$sj_events),
+    "SJ TE type" = candidates$sj_chimera_types,
+    "Assembly strand" = factor(candidates$assembly_strand_match),
+    "Assembly transcripts" = int_or_na(candidates$assembly_transcripts),
+    "Assembly last-exon TE distance" = int_or_na(col_or_dot("assembly_te_acceptor_distance_bp")),
+    "Assembly reads" = assembly_cohort_total,
+    "Assembly TE type" = candidates$assembly_chimera_types,
     "Assembly transcript IDs" = candidates$assembly_transcript_ids,
+    "Replicated" = replicated,
+    "TElocal active" = factor(candidates$telocal_active),
+    "TElocal reads" = telocal_cohort_total,
     check.names = FALSE,
     stringsAsFactors = FALSE
 )
 # Row order is left exactly as chimera_evidence.py wrote it
-# (-n_evidence, gene_id, te_id) -- not re-sorted here, so this table and
-# candidates.tsv.gz always agree on order, same rationale as
-# chimera_candidates_table_mqc.py's "take the head rather than re-sort".
+# (-n_screens, -n_screen_evidence, -n_corroboration, gene_id, te_id) -- not
+# re-sorted here, so this table and candidates.tsv.gz always agree on
+# order. chimera_candidates_table_mqc.py's own top-N selection now sorts on
+# Screens only (see that script), because it shows a capped subset and
+# needs to disclose how that cap chooses rows; this table shows every row,
+# so there is no such choice to make or disclose.
 
 # One description per column, IN THE SAME ORDER as data.frame() above --
 # rendered as a hover tooltip on the header (see `sketch` below). Reused
@@ -204,49 +267,147 @@ descriptions <- c(
     "TE annotation field from the curated TE GTF.",
     "TE annotation field from the curated TE GTF.",
     "TE annotation field from the curated TE GTF.",
-    paste("Which screens called it: reads (STAR), assembly (StringTie),",
-          "or both. Agreement measured near its chance rate."),
-    "Named evidence signals this pair carries -- see Evidence count.",
-    paste("How many of the five evidence flags this pair carries.",
-          "A count, not a score -- the flags are unweighted."),
-    paste("A recognised splice motif on at least one junction (STAR).",
-          "The best artifact discriminator available."),
-    "Most samples any one chimeric junction for this pair was seen in (STAR).",
-    "Distinct chimeric junction events backing this pair (STAR).",
-    paste("Chimeric reads supporting this pair (STAR), summed across every",
-          "sample that saw any of this pair's junction events -- a real",
-          "cohort total, not a per-sample figure. The metric most inflated",
-          "by artifacts -- shown last on purpose."),
+    paste("Where the TE sits relative to the gene, strand-aware: upstream",
+          "(5' of the gene), intronic, exonic or downstream (3'). From the",
+          "annotation, not from the reads."),
+    paste("sense / antisense: the TE's annotated strand vs the gene's.",
+          "Needs no stranded library. Read it only together with TE",
+          "position -- each position has its own background mix; see the",
+          "report's guide."),
+    paste("Gap in bp between the TE and the gene's annotated span; 0 when",
+          "the TE overlaps the gene (intronic / exonic)."),
+    paste("How many of the 3 independent detection screens found this pair",
+          "(1-3). Informational, derived from Found by."),
+    paste("Which screens called it, \"+\"-joined: cr (chimeric-reads",
+          "screen, STAR), assembly (StringTie), sj (SJ.out.tab screen,",
+          "STAR) -- e.g. \"cr+sj\". How much weight agreement between",
+          "screens deserves has not been established -- see the report's",
+          "guide. The CR / SJ / Assembly column-block headers below match",
+          "these same three tokens."),
+    paste("Chimera types any screen called for this pair, comma-joined.",
+          "The per-screen types are in the TE type columns."),
+    paste("Which kinds of chimera support this pair, \"+\"-joined: novel",
+          "(a new TE-initiated / terminated / exonized transcript),",
+          "annotated (a TE-driven transcript the reference annotation",
+          "already has) and antisense (the TE joined to the gene's exon on",
+          "the opposite strand). See the report's guide."),
+    paste("Screen-bound quality signals this pair carries -- see Screen",
+          "evidence count. Each one can only be set if its own screen",
+          "found the pair. Hidden by default: every flag here is now its",
+          "own column below."),
+    paste("How many screen-bound quality flags this pair carries (0-3).",
+          "Can never exceed Screens (each flag needs its own screen to",
+          "have found the pair). A count, not a score -- the flags are",
+          "unweighted. Hidden by default, same reason as the flags column."),
+    paste("Cross-cutting corroboration signals this pair carries -- see",
+          "Corroboration count. Unlike Screen evidence flags, these do NOT",
+          "require any particular screen. Hidden by default: every flag",
+          "here is now its own column below."),
+    paste("How many cross-cutting corroboration flags this pair carries",
+          "(0-2: replicate support, TElocal expression). Deliberately NOT",
+          "bounded by Screens -- a pair found by only one screen can",
+          "still carry both. Hidden by default, same reason as the flags",
+          "column."),
+    paste("A recognised splice motif on at least one chimeric-junction",
+          "read (STAR, chimeric-reads screen). The best artifact",
+          "discriminator available."),
+    paste("The best chimeric read's shorter segment, in aligned bp (STAR,",
+          "chimeric-reads screen), across this pair's calls and samples. A",
+          "short anchor on every read means the breakpoint is easy to",
+          "produce by mis-mapping -- a signal, not a filter. Blank when the",
+          "screen did not call the pair."),
+    "Most samples any one chimeric junction for this pair was seen in (STAR, chimeric-reads screen).",
+    paste("Chimeric reads supporting this pair (STAR, chimeric-reads",
+          "screen), summed across every sample that saw any of this",
+          "pair's junction events -- a real cohort total, not a",
+          "per-sample figure. The metric most inflated by artifacts --",
+          "shown last in this block on purpose."),
+    "Distinct chimeric junction events backing this pair (STAR, chimeric-reads screen).",
     paste("TE-chimera class(es) seen across this pair's junction events",
-          "(STAR): te_initiated, te_terminated, te_exonized (see",
-          "classify_chimera_reads.py); \".\" when not classifiable",
-          "(e.g. trans events on different chromosomes)."),
-    "Whether TElocal called this TE locus expressed in at least one sample.",
-    paste("Sum of this TE locus's TElocal read count across every sample",
-          "(results/telocal/counts_matrix.tsv.gz). Blank means TElocal",
-          "did not run."),
-    "Number of StringTie-assembled transcripts classified as this gene-TE chimera (StringTie).",
+          "(STAR, chimeric-reads screen): te_initiated, te_terminated,",
+          "te_exonized, or antisense_to_gene when a stranded library shows",
+          "the transcript on the gene's opposite strand",
+          "(see classify_chimera_chimeric_reads.py); \".\"",
+          "when not classifiable (e.g. trans events on different",
+          "chromosomes)."),
+    paste("A recognised splice motif on at least one SJ.out.tab junction",
+          "(chimera.splice_junctions screen) -- kept separate from CR",
+          "motif above: a structurally independent measurement (STAR's",
+          "normal-splice motif call, not the chimeric-junction one).",
+          "\".\" when that screen is disabled."),
+    paste("Uniquely mapping reads / all reads (unique + multi-mapping)",
+          "across this pair's SJ.out.tab junction calls, from STAR. Low",
+          "values mean the junction may come from mis-mapping among TE",
+          "copies -- a signal, not a filter. Blank when the SJ screen did",
+          "not call the pair."),
+    paste("Longest anchor (bp) on either side of any of this pair's",
+          "SJ.out.tab junction calls, in any sample, from STAR. A short",
+          "maximum means no read anchored confidently -- a signal, not a",
+          "filter. Blank when the SJ screen did not call the pair."),
+    paste("Most samples any one SJ.out.tab junction for this pair was seen",
+          "in (chimera.splice_junctions screen)."),
+    paste("STAR-reported unique reads across this pair's SJ.out.tab",
+          "junctions (chimera.splice_junctions screen), summed across",
+          "every sample that saw any of them -- a real cohort total, same",
+          "caveat as CR reads above."),
+    "Distinct SJ.out.tab junction events backing this pair (chimera.splice_junctions screen).",
+    paste("TE-chimera class(es) seen across this pair's SJ.out.tab junction",
+          "events (chimera.splice_junctions screen): te_initiated,",
+          "te_terminated, te_exonized, antisense_to_gene when the",
+          "junction runs on the gene's opposite strand, or annotated_splice",
+          "when it is an annotated GTF intron (see",
+          "classify_chimera_splice_junctions.py); \".\" when not",
+          "classifiable or that screen is disabled."),
+    "The assembled transcript's strand agrees with the gene's (StringTie, assembly screen).",
+    "Number of StringTie-assembled transcripts classified as this gene-TE chimera (StringTie, assembly screen).",
+    paste("For a TE in an assembled transcript's last exon: how far (bp) it",
+          "sits from that exon's splice acceptor, smallest over the pair's",
+          "calls. 0 = the TE takes the splice; small = just past it, where it",
+          "can supply the 3' end; large = inside a long 3' UTR. Empty when no",
+          "call has the TE in a last exon. See the report's guide."),
     paste("Sum of this pair's assembled transcript(s) estimated read count",
-          "across every sample",
+          "across every sample -- a real cohort total, same caveat as CR",
+          "reads / SJ reads above",
           "(results/chimera/assembly/counts_matrix.tsv.gz; StringTie)."),
     paste("TE-chimera class(es) seen across this pair's assembled",
-          "transcripts (StringTie): te_initiated, te_terminated,",
-          "te_exonized (see classify_chimera_assembly.py); \".\" when not",
-          "classifiable (e.g. trans events on different chromosomes)."),
-    "The assembled transcript's strand agrees with the gene's (StringTie).",
-    "StringTie transcript_id(s) backing this pair."
+          "transcripts (StringTie, assembly screen): te_initiated,",
+          "te_terminated, te_exonized, antisense_to_gene when the",
+          "transcript runs on the gene's opposite strand, or",
+          "annotated_terminal_exon_embedded_te when its TE-bearing last exon",
+          "is an annotated last exon (see classify_chimera_assembly.py);",
+          "\".\" when not classifiable (e.g. trans events on different",
+          "chromosomes)."),
+    "StringTie transcript_id(s) backing this pair.",
+    paste("Seen in more than one sample by either the CR or SJ screen (the",
+          "greater of CR samples / SJ samples is above 1). Corroboration,",
+          "not screen-bound evidence -- can fire from a single screen",
+          "alone. Mirrors the multi_sample flag in Corroboration flags",
+          "above."),
+    "Whether TElocal called this TE locus expressed in at least one sample.",
+    paste("Sum of this TE locus's TElocal read count across every sample",
+          "(results/telocal/counts_matrix.tsv.gz). Counted as",
+          "corroboration when nonzero. Blank means TElocal did not run.")
 )
 stopifnot(length(descriptions) == ncol(df))
 
-evidence_col <- which(colnames(df) == "Evidence count") - 1L
+screens_col <- which(colnames(df) == "Screens") - 1L
+gene_col <- which(colnames(df) == "Gene") - 1L
+te_col <- which(colnames(df) == "TE insertion") - 1L
 # Hidden by default (still present, searchable, exportable) -- reduces
 # initial layout/render cost at high row/column counts without dropping any
 # data. Computed from column NAME, not a hardcoded position, so this can't
-# silently drift if a column is added/reordered above. "TE type (reads)" /
-# "TE type (assembly)" (te_initiated/te_terminated/te_exonized) stay visible
-# -- these are the TE-chimera classes readers come here looking for, unlike
-# gene_id which is redundant with the "Gene" column right next to it.
-hidden_cols <- which(colnames(df) %in% c("gene_id")) - 1L
+# silently drift if a column is added/reordered above. "CR TE type" /
+# "SJ TE type" / "Assembly TE type" (te_initiated/te_terminated/te_exonized)
+# stay visible -- these are the TE-chimera classes readers come here looking
+# for, unlike gene_id (redundant with "Gene" next to it) and the four
+# Screen evidence/Corroboration flag/count columns (redundant with the CR
+# motif / SJ motif / Assembly strand / Replicated / TElocal reads columns
+# now shown individually -- same reason chimera_candidates_table_mqc.py
+# dropped them from its own table entirely rather than hiding them).
+hidden_cols <- which(colnames(df) %in% c(
+    "gene_id", "Screen evidence flags", "Screen evidence count",
+    "Corroboration flags", "Corroboration count"
+)) - 1L
 
 header_titles <- descriptions
 sketch <- htmltools::withTags(table(
@@ -273,13 +434,20 @@ widget <- DT::datatable(
         htmltools::strong("No combined score or ranking is computed here."),
         " Click a header to sort (hover a header for what it means); use the",
         " boxes/sliders under the headers to filter. Gene locus / TE locus",
-        " are ready to paste into IGV's locus box."
+        " are ready to paste into IGV's locus box.",
+        htmltools::tags$br(), htmltools::tags$br(),
+        htmltools::em(
+            "Acronyms: TE = transposable element. In Found by / Evidence",
+            "flags, cr = chimeric-reads screen (STAR), sj = SJ.out.tab",
+            "screen (STAR), assembly = StringTie screen."
+        )
     ),
     options = list(
         pageLength = 25,
         lengthMenu = list(c(25, 50, 100, 500, -1), c("25", "50", "100", "500", "All")),
         scrollX = TRUE,
-        order = list(list(evidence_col, "desc")),
+        order = list(list(screens_col, "desc"), list(gene_col, "asc"),
+                     list(te_col, "asc")),
         # Large-table performance: deferRender skips per-row work until a
         # row is actually displayed; autoWidth off skips DataTables'
         # automatic column-width measurement pass across every row/column.

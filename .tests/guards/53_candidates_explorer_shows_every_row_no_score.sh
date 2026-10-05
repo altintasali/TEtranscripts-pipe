@@ -22,16 +22,19 @@ guard_init
 # Same non-ranking stance as guards 36/50: every evidence column is shown
 # as-is and no combined/weighted score is ever computed here.
 mkdir -p "$T/exp"
-cols="gene_id\tte_id\tte_subfamily\tte_family\tte_class\tfound_by\tevidence\tn_evidence\tjunction_events\tjunction_reads\tjunction_max_samples\tjunction_canonical\tjunction_chimera_types\ttelocal_active\ttelocal_count\ttelocal_locus\tassembly_transcripts\tassembly_chimera_types\tassembly_strand_match\tassembly_transcript_ids"
+cols="gene_id\tte_id\tte_subfamily\tte_family\tte_class\tfound_by\tn_screens\tscreen_evidence\tn_screen_evidence\tcorroboration\tn_corroboration\tcr_events\tcr_reads\tcr_max_samples\tcr_canonical\tcr_chimera_types\ttelocal_active\ttelocal_count\ttelocal_locus\tassembly_transcripts\tassembly_chimera_types\tassembly_strand_match\tassembly_transcript_ids\tsj_events\tsj_reads\tsj_max_samples\tsj_canonical\tsj_chimera_types"
 {
   printf "%b\n" "$cols"
   # resolved-symbol row (Gapdh), telocal ran and found reads, both cohort
   # totals available (telocal_locus / assembly_transcript_ids match the
-  # totals fixtures below)
-  printf 'ENSMUSG00000057666\tL1PA2_dup1\tL1PA2\tL1\tLINE\tboth\tcanonical,multi_sample,both_screens,assembly_strand_match,telocal_expressed\t5\t2\t60\t3\tyes\tte_terminated\tyes\t42\tL1PA2_dup1:L1PA2:L1PA2fam:LINE\t2\tte_terminated\tyes\tMSTRG.1.1\n'
+  # totals fixtures below). found_by "cr+assembly" -> n_screens 2; SJ
+  # columns carry _blank()'s own defaults (SJ screen found nothing for
+  # this pair). screen_evidence/corroboration split per chimera_evidence.py.
+  printf 'ENSMUSG00000057666\tL1PA2_dup1\tL1PA2\tL1\tLINE\tcr+assembly\t2\tcr_canonical,assembly_strand_match\t2\tmulti_sample,telocal_expressed\t2\t2\t60\t3\tyes\tte_terminated\tyes\t42\tL1PA2_dup1:L1PA2:L1PA2fam:LINE\t2\tte_terminated\tyes\tMSTRG.1.1\t0\t0\t0\tno\t.\n'
   # gene_id-fallback row (no symbol), telocal NEVER RAN ("." must stay blank,
-  # not 0) and its assembly transcript has no matching totals row (blank too)
-  printf 'ENSMUSG99999999999\tAluY_dup9\tAluY\tAlu\tSINE\tassembly\t.\t0\t0\t0\t0\tno\t.\t.\t.\t.\t1\tte_exonized\t.\tMSTRG.2.1\n'
+  # not 0) and its assembly transcript has no matching totals row (blank
+  # too). found_by "assembly" -> n_screens 1.
+  printf 'ENSMUSG99999999999\tAluY_dup9\tAluY\tAlu\tSINE\tassembly\t1\t.\t0\t.\t0\t0\t0\t0\tno\t.\t.\t.\t.\t1\tte_exonized\t.\tMSTRG.2.1\t0\t0\t0\tno\t.\n'
 } | gzip -c > "$T/exp/candidates.tsv.gz"
 
 { printf 'gene_id\tgene_name\n'; printf 'ENSMUSG00000057666\tGapdh\n'; } \
@@ -59,7 +62,7 @@ printf 'key\ttotal\nMSTRG.1.1\t77.000\n' \
 # TE annotation. Loading the unfiltered file OOM-killed a real run (2.3 GB
 # against a 2.4 GB request) even though a candidate-count-sized dev fixture
 # never caught it. This exercises the EXACT awk command from
-# workflow/rules/chimera_reads.smk (kept in sync by eye -- if that command
+# workflow/rules/chimera_chimeric_reads.smk (kept in sync by eye -- if that command
 # changes, update this copy too) against a small stand-in for a genome-wide
 # BED that mixes candidate and non-candidate ids, and pins that only the
 # candidate rows survive. Needs no R, so it runs even where Rscript/DT are
@@ -124,7 +127,7 @@ fi
 # candidates.tsv.gz where every assembly_transcript_ids was "." (no
 # assembly-screen candidates at all) killed chimera_candidates_explorer
 # outright. Pins that the rule's own key-extraction lines (kept in sync by
-# eye with chimera_reads.smk's _candidates_explorer_shell(), same caveat as
+# eye with chimera_chimeric_reads.smk's _candidates_explorer_shell(), same caveat as
 # the awk commands above) tolerate an all-"." column.
 printf '.\n.\n.\n' | gzip -c > "$T/exp/all_dot_candidates.tsv.gz"
 if ! bash -c '
@@ -164,17 +167,108 @@ else
     echo "ERROR: no recognizable DataTables markup in the output"; FAIL=1
   fi
   for h in "Gene" "TE insertion" "Gene locus" "TE locus" "TE subfamily" \
-           "TE family" "TE class" "Found by" "Evidence flags" \
-           "Evidence count" "Splice motif" "Chimeric junction samples" \
-           "Junction events" "Junction reads (cohort total)" "TE type (reads)" \
-           "TElocal active" \
-           "TElocal reads (cohort total)" "Assembly transcript count" \
-           "Assembly reads (cohort total)" "TE type (assembly)" \
-           "Strand match" "Assembly transcript IDs"; do
+           "TE family" "TE class" "TE position" "TE orientation" "Distance" \
+           "Screens" "Found by" "Types" "Status" "Screen evidence flags" \
+           "Screen evidence count" "Corroboration flags" "Corroboration count" \
+           "CR motif" "CR max anchor" "CR samples" "CR reads" "CR events" "CR TE type" \
+           "SJ motif" "SJ unique fraction" "SJ max overhang" \
+           "SJ samples" "SJ reads" "SJ events" "SJ TE type" \
+           "Assembly strand" "Assembly transcripts" \
+           "Assembly reads" "Assembly TE type" \
+           "Assembly transcript IDs" "Replicated" "TElocal active" \
+           "TElocal reads"; do
     if ! grep -qF "\"$h\"" "$T/exp/out.html"; then
       echo "ERROR: expected column header missing: $h"; FAIL=1
     fi
   done
+  # Run-specific findings stay in docs/chimera-evidence.md, not in tooltips
+  # (guard 37 checks the same for the guide and the Candidates table).
+  if grep -qi "chance rate" "$T/exp/out.html"; then
+    echo "ERROR: explorer tooltips must not carry the run-specific 'chance rate' finding"; FAIL=1
+  fi
+  # ANTI-REGRESSION: the old interleaved/duplicated names must not leak back.
+  for gone in "Splice motif\"" "Chimeric junction samples" "Junction events" \
+              "Junction reads (cohort total)" "TE type (reads)" \
+              "Splice motif (SJ)" "SJ reads (cohort total)" "TE type (SJ)" \
+              "Assembly transcript count" "TE type (assembly)" \
+              "\"Strand match\"" "TElocal reads (cohort total)" \
+              "Assembly reads (cohort total)"; do
+    if grep -qF "$gone" "$T/exp/out.html"; then
+      echo "ERROR: old column name leaked back into the explorer: $gone"; FAIL=1
+    fi
+  done
+  # The table used to open sorted on Screens, then two columns hidden by
+  # default (Screen evidence count / Corroboration count) -- an invisible
+  # tie-break the reader could never see or act on. It must now open sorted
+  # on Screens plus two VISIBLE columns (Gene, TE insertion) only -- checked
+  # generically (by cross-referencing DT's own "order"/hidden-columnDefs
+  # JSON) so this survives a future column reorder rather than hardcoding
+  # indices.
+  if ! python3 - "$T/exp/out.html" <<'PY3'
+import re, sys
+h = open(sys.argv[1]).read()
+m_order = re.search(r'"order":(\[\[.*?\]\])', h)
+m_hidden = re.search(r'"columnDefs":\[\{"visible":false,"targets":(\[[0-9,]*\])', h)
+ok = True
+def check(c, msg):
+    global ok
+    if not c:
+        print("ERROR:", msg); ok = False
+if not m_order:
+    print("ERROR: could not find DT's initial 'order' config"); sys.exit(1)
+if not m_hidden:
+    print("ERROR: could not find DT's hidden-columns columnDefs"); sys.exit(1)
+import json
+order_cols = [pair[0] for pair in json.loads(m_order.group(1))]
+hidden_cols = set(json.loads(m_hidden.group(1)))
+leaked = [c for c in order_cols if c in hidden_cols]
+check(not leaked,
+      f"explorer opens sorted on a HIDDEN column index {leaked} -- "
+      f"order={order_cols}, hidden={sorted(hidden_cols)}")
+check(len(order_cols) == 3,
+      f"expected exactly 3 sort keys (Screens, Gene, TE insertion); got {order_cols}")
+sys.exit(0 if ok else 1)
+PY3
+  then
+    FAIL=1
+  fi
+  # Replicated must agree with the multi_sample flag in Corroboration flags
+  # for every row: row 1's corroboration is "multi_sample,telocal_expressed"
+  # (Replicated=yes), row 2's is "." (Replicated=no). DT's htmlwidgets
+  # payload stores the table column-major as "data":[[col0...],[col1...],
+  # ...],"container":"<table>...</table>" -- header order (and so which
+  # column index is which) is read from the container's own <th> sequence
+  # rather than hardcoded, so this survives a future column reorder.
+  if ! python3 - "$T/exp/out.html" <<'PY'
+import json, re, sys
+h = open(sys.argv[1]).read()
+m = re.search(r'"data":(\[\[.*?\]\]),"container":"(.*?)"(?=,")', h, re.DOTALL)
+if not m:
+    print("ERROR: could not find the DT widget's data payload"); sys.exit(1)
+cols = json.loads(m.group(1))
+container = m.group(2)
+headers = re.findall(r'<th[^>]*>([^<]+)<\\/th>', container)
+ok = True
+def check(c, msg):
+    global ok
+    if not c:
+        print("ERROR:", msg); ok = False
+check(len(headers) == len(cols),
+      f"header count ({len(headers)}) != data column count ({len(cols)})")
+name_to_idx = {name: i for i, name in enumerate(headers)}
+for want in ("Corroboration flags", "Replicated"):
+    check(want in name_to_idx, f"column {want!r} not found in rendered headers: {headers}")
+if "Corroboration flags" in name_to_idx and "Replicated" in name_to_idx:
+    corrob = cols[name_to_idx["Corroboration flags"]]
+    replicated = cols[name_to_idx["Replicated"]]
+    want = ["yes" if "multi_sample" in (c or "").split(",") else "no" for c in corrob]
+    check(replicated == want,
+          f"Replicated does not agree with the multi_sample flag: corroboration={corrob}, Replicated={replicated}, want={want}")
+sys.exit(0 if ok else 1)
+PY
+  then
+    FAIL=1
+  fi
   # BED "chr1 999 2000" -> IGV locus "chr1:1000-2000": pins the +1 exactly.
   if ! grep -qF "chr1:1000-2000" "$T/exp/out.html"; then
     echo "ERROR: gene locus off-by-one wrong -- expected chr1:1000-2000 (BED start 999 + 1)"

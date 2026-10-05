@@ -141,6 +141,14 @@ resources:
     mem_per_sample: 50
     runtime: 30
 
+  star_filter_primary:
+    # samtools view -F 0x800 streaming filter over the STAR BAM; only runs
+    # when chimera.chimeric_reads.enabled (see align.smk's quant_bam_input). I/O-bound
+    # like samtools_sort/samtools_index, same ballpark resource footprint.
+    threads: 2
+    mem_mb: 4000
+    runtime: 60
+
   samtools_sort:
     # Coordinate sorting is I/O-bound in practice; measured runs used <=3
     # cores regardless of allocation, so 2 threads suffice. -m per-thread
@@ -298,13 +306,6 @@ resources:
     mem_mb: 8000
     runtime: 30
 
-  tetranscripts_diffexp:
-    # Pools every treatment/control BAM in a contrast at once, so scales
-    # with both annotation size and total mapped reads across all samples.
-    threads: 4
-    mem_mb: 32000
-    runtime: 360
-
   # ---- TEcounts sample-QC (only when tetranscripts.qc.enabled) ----------
   # These rules only run when tetranscripts.qc.enabled is true (the default,
   # see common.smk); the entries are inert otherwise.
@@ -365,12 +366,97 @@ resources:
     mem_mb: 6000
     runtime: 30
 
-  chimera_reads_classify:
+  annotation_splice_features:
+    # Gene GTF only (no TE GTF): per-transcript exon lists -> annotated
+    # introns + last exons. A GENCODE mouse GTF is ~150k transcripts, far
+    # lighter than annotation_to_bed's per-TE-insertion parse.
+    threads: 1
+    mem_mb: 4000
+    runtime: 30
+
+  chimera_chimeric_reads_classify:
     # Annotating a junction file against the gene/TE tracks; single-threaded
     # python.
     threads: 1
     mem_mb: 8000
     runtime: 120
+
+  # ---- Chimera SJ.out.tab junction screen (only when enabled) -------------
+  # These rules only run when chimera.splice_junctions.enabled (see common.smk);
+  # the entries are inert otherwise.
+
+  chimera_splice_junctions_classify:
+    # Annotating one sample's SJ.out.tab against the gene/TE tracks;
+    # single-threaded python. SJ.out.tab is already deduplicated per
+    # junction (unlike Chimeric.out.junction's one-row-per-read), so this is
+    # lighter than chimera_chimeric_reads_classify despite the same gene/TE tracks.
+    threads: 1
+    mem_mb: 4000
+    runtime: 60
+
+  chimera_splice_junctions_summary_mqc:
+    # Single-threaded python; reads the cohort-level te-gene-junctions table
+    # once plus one small per-sample table per sample, writes two small JSON
+    # files. Same shape as chimera_assembly_summary_mqc.
+    threads: 1
+    mem_mb: 2000
+    runtime: 30
+
+  chimera_splice_junctions_counts:
+    # Merging per-sample junction tables; single-threaded python (2nd
+    # thread reserved as scheduler headroom), same shape as
+    # chimera_chimeric_reads_counts. This rule builds the FULL all_events
+    # catalog (every direction class, not just gene<->TE) in memory even
+    # though the matrix it also writes is now TE-restricted (see
+    # chimera_splice_junctions_counts.py's docstring) -- so its budget is
+    # sized off the unrestricted catalog. Measured 2026 under
+    # /usr/bin/time -v: 12 real mouse samples (full genome annotation,
+    # ~324k unique junctions) peaked at 963 MB; a synthetic cohort built to
+    # match this screen's own worst-case estimate (~1M unique junctions
+    # across 80 samples) peaked at 3.5 GB / 11m46s. 2 GB + 100 MB/sample
+    # gives 10 GB at 80 samples, ~2.9x that measured worst case.
+    threads: 2
+    mem_mb: 2000
+    mem_per_sample: 100
+    runtime: 45
+
+  chimera_splice_junctions_qc_transform:
+    # DESeq2 vst/rlog on the SJ-junction counts matrix; R is single-threaded.
+    # Since chimera_splice_junctions_counts.py restricts counts_matrix to
+    # gene<->TE events (measured 2026: ~13x fewer rows than the old
+    # unrestricted matrix -- 23,910 vs 323,919 unique events at 12 real
+    # samples), this budget only needs to cover the TE-restricted matrix,
+    # not the full catalog. Measured under /usr/bin/time -v: real data (12
+    # samples, 6,399 features after the existing min_samples_present/
+    # min_total_counts floor) ran a genuine vst() at 710 MB / 11s; a
+    # synthetic worst-case cohort (80 samples, ~200k TE-restricted features)
+    # peaked at 1.18 GB / 39s (vst() itself failed on that synthetic
+    # scatter -- "every gene contains at least one zero" -- and fell back to
+    # log2, which is the code's existing behaviour for sparse matrices, not
+    # a new failure mode). 1.2 GB + 35 MB/sample gives 4 GB at 80 samples,
+    # ~3.4x that measured worst case.
+    threads: 1
+    mem_mb: 1200
+    mem_per_sample: 35
+    runtime: 60
+
+  chimera_splice_junctions_qc:
+    # PCA + sample-distance heatmap in R; single-threaded. Reads the same
+    # TE-restricted transformed matrix as the transform step above. Measured
+    # under /usr/bin/time -v on the synthetic worst-case cohort (80 samples,
+    # ~200k TE-restricted features): 1.73 GB / 1m12s. 1.5 GB + 30 MB/sample
+    # gives 3.9 GB at 80 samples, ~2.3x that measured worst case.
+    threads: 1
+    mem_mb: 1500
+    mem_per_sample: 30
+    runtime: 30
+
+  chimera_splice_junctions_igv_bed:
+    # Same shape as chimera_chimeric_reads_igv_bed: one pass over a single
+    # sample's per-sample junction table.
+    threads: 1
+    mem_mb: 2000
+    runtime: 30
 
   chimera_telocal_index:
     # Builds the merged all-samples TElocal interval index ONCE (previously
@@ -403,7 +489,7 @@ resources:
     mem_mb: 8000
     runtime: 60
 
-  chimera_reads_counts:
+  chimera_chimeric_reads_counts:
     # Merging per-sample junction tables; single-threaded python (2 threads
     # reserved as scheduler headroom).  Loads all unique events into a
     # single Python dict -- peak RSS scales linearly with sample count.
@@ -415,12 +501,12 @@ resources:
     mem_per_sample: 125
     runtime: 30
 
-  chimera_reads_qc:
+  chimera_chimeric_reads_qc:
     threads: 1
     mem_mb: 2000
     runtime: 30
 
-  chimera_reads_qc_barplot:
+  chimera_chimeric_reads_qc_barplot:
     # Merging the per-sample junction QC tables into one MultiQC bar-plot
     # JSON; single-threaded, small (2nd core reserved as scheduler headroom).
     threads: 2
@@ -436,7 +522,7 @@ resources:
     runtime: 30
 
 
-  chimera_reads_te_type:
+  chimera_chimeric_reads_te_type:
     # Sums three metrics per sample and counts classes in one table.
     threads: 1
     mem_mb: 1000
@@ -515,15 +601,7 @@ resources:
     mem_per_sample: 100
     runtime: 30
 
-  chimera_evidence_heatmap:
-    # Ranks every evidence column of chimera_evidence.tsv.gz; holds the table
-    # plus one rank vector per dimension, so it scales with cohort size.
-    threads: 2
-    mem_mb: 1000
-    mem_per_sample: 60
-    runtime: 30
-
-  chimera_reads_highlights:
+  chimera_chimeric_reads_highlights:
     # Ranks the merged gene<->TE table for the report's "what to look at"
     # section.  Holds that table in memory, so it scales with the number of
     # events -- which scales with cohort size, hence mem_per_sample.
@@ -532,12 +610,12 @@ resources:
     mem_per_sample: 60
     runtime: 30
 
-  chimera_reads_igv_bed:
+  chimera_chimeric_reads_igv_bed:
     threads: 2
     mem_mb: 2000
     runtime: 30
 
-  chimera_reads_sample_qc_transform:
+  chimera_chimeric_reads_sample_qc_transform:
     # DESeq2 vst/rlog on the chimera counts matrix; R is single-threaded.
     # Memory scales with sample count.  Re-measured on an 84-sample run at
     # the prior "base 2 GB + 125 MB/sample" setting: 442% RAM efficiency
@@ -549,7 +627,7 @@ resources:
     mem_per_sample: 700
     runtime: 60
 
-  chimera_reads_sample_qc:
+  chimera_chimeric_reads_sample_qc:
     # DESeq2 transform + PCA in R; single-threaded.  Memory scales with
     # sample count.
     # Base 4 GB + 150 MB per sample.
@@ -608,6 +686,12 @@ resources:
     mem_mb: 45000
     runtime: 600
 
+  chimera_assembly_bam_index:
+    # Same shape as samtools_index (align.smk); this screen's own private BAM.
+    threads: 2
+    mem_mb: 4000
+    runtime: 30
+
   stringtie_assemble:
     # Single-sample de novo assembly; scales with read depth and splice
     # complexity, not genome size the way STAR does.
@@ -650,6 +734,14 @@ resources:
     # restricted to the small candidate-transcript set (not genome/cohort
     # scale) -- same shape as chimera_assembly_cross_evidence's single
     # table join, no per-sample scaling needed.
+    threads: 1
+    mem_mb: 2000
+    runtime: 30
+
+  chimera_splice_junctions_aggregate_counts:
+    # Reads te-gene-junctions.tsv.gz + counts_matrix.tsv.gz (gene-TE
+    # junctions only, ~110k rows on an 84-sample cohort); one join, no
+    # per-sample scaling.
     threads: 1
     mem_mb: 2000
     runtime: 30

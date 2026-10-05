@@ -24,10 +24,10 @@ done
   printf 'T3\tTE_C\t.\tyes\tte_initiated_intergenic\n'
 } | gzip -c > "$T/tt/cands.tsv.gz"
 
-if ! python3 workflow/scripts/chimera_reads_te_type_mqc.py \
+if ! python3 workflow/scripts/chimera_chimeric_reads_te_type_mqc.py \
       --qc-tables "$T/tt/s1_qc.tsv.gz" "$T/tt/s2_qc.tsv.gz" --samples s1 s2 \
-      --out "$T/tt/qc/chimera_reads_te_type_mqc.json" > "$T/tt/log" 2>&1; then
-  echo "ERROR: chimera_reads_te_type_mqc.py failed"; cat "$T/tt/log"; FAIL=1
+      --out "$T/tt/qc/chimera_chimeric_reads_te_type_mqc.json" > "$T/tt/log" 2>&1; then
+  echo "ERROR: chimera_chimeric_reads_te_type_mqc.py failed"; cat "$T/tt/log"; FAIL=1
 elif ! python3 workflow/scripts/chimera_assembly_summary_mqc.py \
       --candidates "$T/tt/cands.tsv.gz" \
       --out-classes "$T/tt/qc/chimera_assembly_classes_mqc.json" \
@@ -45,11 +45,11 @@ def check(c, m):
     if not c:
         print("ERROR:", m); ok = False
 
-reads = json.load(open(f"{d}/chimera_reads_te_type_mqc.json"))
+reads = json.load(open(f"{d}/chimera_chimeric_reads_te_type_mqc.json"))
 asm = json.load(open(f"{d}/chimera_assembly_classes_mqc.json"))
 
 # one section per screen, both inside the single Chimera group
-check(reads["section_name"] == "Reads - TE type",
+check(reads["section_name"] == "Chimeric reads - TE type",
       f"read section misnamed: {reads['section_name']!r}")
 check(asm["section_name"] == "Assembly - TE type",
       f"assembly section misnamed: {asm['section_name']!r}")
@@ -65,8 +65,8 @@ check(reads["data"]["s1"]["te_initiated"] == 10,
 
 # THE POINT: each section must say the other screen means something else by
 # the same words, or a reader reads agreement as corroboration
-for doc, name, other in ((reads, "Reads", "transcript structure"),
-                         (asm, "Assembly", "genomic position")):
+for doc, name, other in ((reads, "Chimeric reads", "transcript structure"),
+                         (asm, "Assembly", "junction direction")):
     desc = doc["description"]
     check("same words for a different measurement" in desc,
           f"{name} section must warn the labels are not comparable")
@@ -83,17 +83,17 @@ if ! multiqc --force --no-ansi -c workflow/default-config/multiqc_config.yaml \
   echo "ERROR: multiqc failed on the TE type sections"
   tail -30 "$T/tt/render.log"; FAIL=1
 else
-  for want in "Reads - TE type" "Assembly - TE type"; do
+  for want in "Chimeric reads - TE type" "Assembly - TE type"; do
     grep -q "$want" "$T/tt/out/r.html" || { echo "ERROR: '$want' not rendered"; FAIL=1; }
   done
 fi
 
 # an empty run must not take the whole report down
 printf 'metric\tvalue\nchimera_type_te_initiated\t0\n' | gzip -c > "$T/tt/empty_qc.tsv.gz"
-if ! python3 workflow/scripts/chimera_reads_te_type_mqc.py \
+if ! python3 workflow/scripts/chimera_chimeric_reads_te_type_mqc.py \
       --qc-tables "$T/tt/empty_qc.tsv.gz" --samples s1 --out "$T/tt/empty_mqc.json" \
       > "$T/tt/empty.log" 2>&1; then
-  echo "ERROR: chimera_reads_te_type_mqc.py died on an empty run"; cat "$T/tt/empty.log"; FAIL=1
+  echo "ERROR: chimera_chimeric_reads_te_type_mqc.py died on an empty run"; cat "$T/tt/empty.log"; FAIL=1
 elif ! python3 -c "
 import json,sys
 sys.exit(0 if json.load(open('$T/tt/empty_mqc.json'))['plot_type']=='html' else 1)"; then

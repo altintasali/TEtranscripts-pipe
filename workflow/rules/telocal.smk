@@ -11,6 +11,8 @@ rule telocal_locind:
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/build_telocal_index.py",
+        # local modules the script imports -- editing them must re-run this
+        gz_io=f"{SCRIPTS_DIR}/gz_io.py",
         te_gtf=TE_GTF,
     output:
         # Gzipped: ~70% smaller than the plain pickle (hundreds of MB to
@@ -49,10 +51,11 @@ rule telocal:
     # Per-sample locus-level TE quantification (TElocal). Complements TEcount's
     # subfamily-level quantification by resolving TEs per genomic instance.
     # Uses the same unsorted BAM as TEcount; no re-alignment needed.
-    # TElocal has no --outdir flag, so we cd into the output directory before
-    # running it; {input.bam} resolves to an absolute path so the cd is safe.
+    # TElocal has no --outdir flag, so it writes {wildcards.sample}.cntTable
+    # into the current (repo-root) directory and this rule mv's it into
+    # results/telocal/ afterward.
     input:
-        bam="results/star/{sample}_Aligned.out.bam",
+        bam=quant_bam_input,
         gtf=GTF,
         locind=_telocal_locind_path(),
         strandedness=strandedness_input,
@@ -95,6 +98,9 @@ rule telocal_locations:
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/telocal_locations.py",
+        # local modules the script imports -- editing them must re-run this
+        build_telocal_index=f"{SCRIPTS_DIR}/build_telocal_index.py",
+        gz_io=f"{SCRIPTS_DIR}/gz_io.py",
         te_gtf=TE_GTF,
     output:
         "results/telocal/telocal_locations.bed",
@@ -129,6 +135,9 @@ rule telocal_summary:
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/telocal_summary_mqc.py",
+        # local modules the script imports -- editing them must re-run this
+        gz_io=f"{SCRIPTS_DIR}/gz_io.py",
+        te_summary_common=f"{SCRIPTS_DIR}/te_summary_common.py",
         tables=telocal_counts_input(),
     output:
         assignment="results/telocal/qc/telocal_assignment_mqc.json",
@@ -190,6 +199,8 @@ rule telocal_counts:
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/tecount_counts.py",
+        # local modules the script imports -- editing them must re-run this
+        gz_io=f"{SCRIPTS_DIR}/gz_io.py",
         tables=telocal_counts_input(),
     output:
         counts="results/telocal/counts_matrix.tsv.gz",
@@ -224,6 +235,8 @@ rule telocal_qc_counts:
         # not the file it names, so without this an edit to the
         # script leaves stale outputs in place silently.
         script=f"{SCRIPTS_DIR}/tecount_counts.py",
+        # local modules the script imports -- editing them must re-run this
+        gz_io=f"{SCRIPTS_DIR}/gz_io.py",
         matrix="results/telocal/counts_matrix.tsv.gz",
     output:
         "results/telocal/qc/counts_matrix.tsv.gz",
@@ -284,7 +297,7 @@ rule telocal_qc:
     # PCA scatter + sample-to-sample distance heatmap of the transformed
     # TElocal counts, colored by condition (sample sheet's "condition"
     # column; absent -> one "all" group), emitted as MultiQC custom-content
-    # JSON (ids telocal_chimera_reads_sample_qc_pca / telocal_chimera_reads_sample_qc_heatmap, ordered
+    # JSON (ids telocal_sample_qc_pca / telocal_sample_qc_heatmap, ordered
     # inside the custom_content module by multiqc_config.yaml).
     input:
         # Declared so that EDITING the script re-runs the rule.
