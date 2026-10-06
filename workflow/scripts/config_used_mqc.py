@@ -56,6 +56,21 @@ def _read_version():
         return "unknown"
 
 
+def _full_path(value):
+    """A configured file path, resolved to an absolute path for display.
+
+    The workflow records rule inputs relative to the run directory (so a run
+    can be renamed or moved without snakemake rerunning it), but a reader of
+    the report wants to see exactly which files were used. This script runs
+    from the run directory, so a relative path resolves the same way here as
+    in every rule. Placeholders like "(not provided)" and empty values are
+    left as they are."""
+    text = str(value or "")
+    if not text or text.startswith("("):
+        return text
+    return os.path.abspath(text)
+
+
 def main(smk):
     config = smk.config
     params = smk.params
@@ -94,11 +109,11 @@ def main(smk):
         # between commits (see PIPELINE_GIT_STATE in rules/common/envs.smk)
         "pipeline_commit": str(params.get("_pipeline_commit", "unknown")),
         "samples": f"{sample_count} ({sample_names})",
-        "ref.fasta": str(config.get("ref", {}).get("fasta", "(not provided)")),
-        "ref.gtf": str(config["ref"]["gtf"]),
-        "ref.te_gtf": str(config["ref"]["te_gtf"]),
+        "ref.fasta": _full_path(config.get("ref", {}).get("fasta") or "(not provided)"),
+        "ref.gtf": _full_path(config["ref"]["gtf"]),
+        "ref.te_gtf": _full_path(config["ref"]["te_gtf"]),
         "ref.sjdb_overhang": str(sjdb_overhang),
-        "star.index": star_index,
+        "star.index": _full_path(star_index),
         "star.extra": star_extra,
         "trimming.enabled": str(trim_enabled),
         "trimming.trim_nextseq": str(config.get("trimming", {}).get("trim_nextseq", 0)),
@@ -128,7 +143,7 @@ def main(smk):
         "telocal.enabled": str(telocal_enabled),
         "telocal.locind": (
             "(auto-build from TE GTF)" if telocal_locind_auto in (True, "True", "")
-            else str(config.get("telocal", {}).get("locind", ""))
+            else _full_path(config.get("telocal", {}).get("locind", ""))
         ),
         "telocal.qc.enabled": str(telocal_qc_enabled),
         "telocal.qc.feature_class": telocal_qc.get("feature_class", ""),

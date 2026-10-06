@@ -32,7 +32,11 @@ if STAR_TWO_PASS in ("per_sample", "cohort"):
 
 if STAR_BUILD_INDEX:
     # We build it, so the workflow owns the directory: it is a rule OUTPUT.
-    STAR_INDEX_DIR = os.path.abspath(_STAR_INDEX_RAW or "results/star_index")
+    # normpath, not abspath: a relative path (the default results/star_index)
+    # stays relative so moving the run directory does not change this rule
+    # output's recorded path (see SCRIPTS_DIR in envs.smk). An absolute
+    # star.index stays absolute.
+    STAR_INDEX_DIR = os.path.normpath(_STAR_INDEX_RAW or "results/star_index")
 else:
     # External, pre-built index: used directly, as a rule INPUT.
     #
@@ -49,7 +53,7 @@ else:
     # ref.smk), so no rule produces this path and Snakemake treats it as a
     # required pre-existing input. Inputs are never deleted, so the original
     # cannot be touched by any code path -- and there is no copy.
-    STAR_INDEX_DIR = os.path.abspath(_STAR_INDEX_RAW) if _STAR_INDEX_RAW else ""
+    STAR_INDEX_DIR = os.path.normpath(_STAR_INDEX_RAW) if _STAR_INDEX_RAW else ""
 
     if not STAR_INDEX_DIR:
         raise WorkflowError(

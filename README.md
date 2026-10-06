@@ -236,6 +236,11 @@ reference for both files, see the wiki's
   Mix and match freely.
 - STAR indexing and TEtranscripts are memory-hungry (TEtranscripts: ~20-30 GB
   recommended for human data).
+- A finished run directory can be renamed or moved: rules record their inputs
+  relative to it, so snakemake does not rerun anything afterwards (the report
+  still shows full paths). Results built before this release recorded absolute
+  paths; the first run after upgrading, run once with
+  `--rerun-triggers mtime` so they are not rebuilt for that reason alone.
 
 See the [wiki](https://github.com/altintasali/TEtranscripts-pipe/wiki) for
 everything else, including troubleshooting startup errors and resuming a

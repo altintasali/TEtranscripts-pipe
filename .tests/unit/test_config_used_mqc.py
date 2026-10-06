@@ -206,3 +206,36 @@ def test_pipeline_commit_row_shows_the_rule_param():
         data = json.load(fh)["data"]
     label = config_used_mqc.row_label("pipeline_commit")
     assert data[label]["value"] == "0123456789ab + uncommitted changes in workflow/"
+
+
+def test_file_paths_are_shown_in_full(tmp_path, monkeypatch):
+    """Rule inputs are recorded relative to the run directory (so a run can be
+    renamed or moved without snakemake rerunning it), but the report must
+    still show exactly which files were used: the config table resolves
+    references and indexes to absolute paths. An absolute path is shown as
+    given; placeholders stay as they are."""
+    import json
+
+    import config_used_mqc
+
+    monkeypatch.chdir(tmp_path)  # stands in for the run directory
+    config = {"ref": {"fasta": "", "gtf": "refs/genes.gtf", "te_gtf": "/abs/te.gtf"},
+              "strandedness": {"min_fraction": 0.8},
+              "tetranscripts": {"mode": "multi"},
+              "telocal": {"locind": "refs/te.locInd.gz"}}
+    out = tmp_path / "config_used.json"
+    smk = types.SimpleNamespace(
+        config=config,
+        params={"_star_index": "results/star_index", "_telocal_locind_auto": False},
+        log=str(tmp_path / "config_used.log"), output=str(out))
+    config_used_mqc.main(smk)
+    data = json.loads(out.read_text())["data"]
+
+    def value(key):
+        return data[config_used_mqc.row_label(key)]["value"]
+
+    assert value("ref.gtf") == str(tmp_path / "refs" / "genes.gtf")
+    assert value("ref.te_gtf") == "/abs/te.gtf"
+    assert value("ref.fasta") == "(not provided)"
+    assert value("star.index") == str(tmp_path / "results" / "star_index")
+    assert value("telocal.locind") == str(tmp_path / "refs" / "te.locInd.gz")

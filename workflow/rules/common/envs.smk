@@ -66,17 +66,22 @@ RSEQC_ENV = _write_env(
 )
 MULTIQC_ENV = _write_env("multiqc", [f"multiqc={V['multiqc']}", "python>=3.9"])
 
-# Absolute path to workflow/scripts: shell directives that run the workflow's
-# own python/R scripts need a path that resolves the same way from the run
-# directory (the repo root) as the included rules file is parsed from.
-SCRIPTS_DIR = os.path.abspath("workflow/scripts")
+# workflow/scripts, RELATIVE to the run directory (snakemake always runs from
+# there, and no rule changes directory before calling a script). Rules declare
+# their scripts as inputs through this, and snakemake records each job's input
+# paths for its provenance check: an absolute path here embedded the run
+# directory's own name, so renaming or moving a finished run made almost every
+# job look changed ("set of input files has changed") and snakemake wanted to
+# rerun the whole workflow. Measured on a real 84-sample run renamed after it
+# finished: 1,811 of 2,064 jobs. Relative paths survive a move.
+SCRIPTS_DIR = "workflow/scripts"
 
 # The MultiQC custom config, resolved the same way. Declared as a rule INPUT
 # (not just interpolated into the shell command) so editing it re-runs the
 # report: it controls section order, module naming and version detection, so
 # a change to it changes the output, and an untracked change silently did
 # not. Excluded from the rule's search directories -- see the multiqc rule.
-MULTIQC_CONFIG = os.path.abspath("workflow/default-config/multiqc_config.yaml")
+MULTIQC_CONFIG = "workflow/default-config/multiqc_config.yaml"  # relative: see SCRIPTS_DIR
 
 # Chimera sample-QC (PCA / sample clustering) runs in R with DESeq2
 # TEtranscripts is installed from PyPI rather than bioconda: the bioconda
